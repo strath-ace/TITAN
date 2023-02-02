@@ -1,0 +1,3 @@
+# Example
+
+Examples of configuration files can be found in the folder TITAN/Examples

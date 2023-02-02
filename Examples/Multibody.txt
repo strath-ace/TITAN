@@ -1,0 +1,33 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 2000
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+#High, Low or Hybrid
+Output_folder = Multibody
+FENICS = False
+
+[Trajectory]
+Altitude = 120000
+Velocity = 7000
+Flight_path_angle = -16.0
+Heading_angle = 45.0
+Latitude = 20
+Longitude = -32
+
+[Time]
+Time_step = 0.3
+
+[Assembly]
+# Path for the geometry files
+Path = Geometry/Multibody/
+Connectivity = [[1,2,3]]
+
+[Objects]
+Cube_A = [NAME = Cube_A.stl,         TYPE = Primitive,   MATERIAL = Unittest]]
+Cube_B = [NAME = Cube_B.stl,         TYPE = Primitive,   MATERIAL = Unittest]]
+Joint  = [NAME = Joint.stl,          TYPE = Joint,       MATERIAL = Unittest, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 100000]]
+

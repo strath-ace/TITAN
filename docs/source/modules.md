@@ -1,0 +1,150 @@
+# Modules
+
+## TITAN
+```{eval-rst}
+.. autofunction:: TITAN.main
+.. autofunction:: TITAN.loop
+```
+
+## Configuration
+```{eval-rst}
+.. autoclass:: configuration.Trajectory
+	:members:
+.. autoclass:: configuration.Fenics
+	:members:
+.. autoclass:: configuration.Dynamics
+	:members:
+.. autoclass:: configuration.Aerothermo
+	:members:
+.. autoclass:: configuration.Freestream
+	:members:
+.. autoclass:: configuration.Options
+	:members:
+.. autofunction:: configuration.read_trajectory
+.. autofunction:: configuration.read_geometry
+.. autofunction:: configuration.read_config_file
+```
+
+
+## Aerothermo
+```{eval-rst}
+.. autofunction:: aerothermo.compute_aerothermo
+.. autofunction:: aerothermo.compute_low_fidelity_aerothermo
+.. autofunction:: aerothermo.backfaceculling
+.. autofunction:: aerothermo.bridging
+.. autofunction:: aerothermo.compute_aerodynamics
+.. autofunction:: aerothermo.compute_aerothermodynamics
+.. autofunction:: aerothermodynamics_module_ice_giants
+.. autofunction:: aerothermo.aerodynamics_module_continuum
+.. autofunction:: aerothermo.aerodynamics_module_bridging
+.. autofunction:: aerothermo.aerodynamics_module_freemolecular
+.. autofunction:: aerothermo.aerothermodynamics_module_continuum
+.. autofunction:: aerothermo.aerothermodynamics_module_bridging
+.. autofunction:: aerothermo.aerothermodynamics_module_freemolecular
+```
+
+## Dynamics
+```{eval-rst}
+.. autoclass:: dynamics.DerivativesAngle
+	:members:
+.. autoclass:: dynamics.DerivativesCartesian
+	:members:
+
+.. autofunction:: dynamics.integrate
+.. autofunction:: dynamics.compute_angular_derivatives
+.. autofunction:: dynamics.compute_cartesian_derivatives
+.. autofunction:: dynamics.compute_cartesian
+.. autofunction:: dynamics.compute_quaternion
+.. autofunction:: euler.compute_Euler
+.. autofunction:: euler.update_position_cartesian
+```
+
+## Forces
+```{eval-rst}
+.. autofunction:: forces.compute_aerodynamic_forces
+.. autofunction:: forces.compute_aerodynamic_moments
+.. autofunction:: forces.compute_inertial_forces
+```
+
+## Fragmentation
+```{eval-rst}
+.. autofunction:: fragmentation.fragmentation
+.. autofunction:: fragmentation.demise_components
+```
+
+## Freestream
+```{eval-rst}
+.. autofunction:: atmosphere.load_atmosphere
+.. autofunction:: mix_mpp.mixture_mpp
+.. autofunction:: mix_properties.compute_freestream
+.. autofunction:: mix_properties.compute_stagnation
+```
+
+## Geometry
+
+### Assembly
+```{eval-rst}
+.. autoclass:: assembly.Assembly_list
+	:members:
+.. autoclass:: assembly.Dynamics
+	:members:
+.. autoclass:: assembly.Body_force
+	:members:
+.. autoclass:: assembly.Wind_force
+	:members:
+.. autoclass:: assembly.Freestream
+	:members:
+.. autoclass:: assembly.Aerothermo
+	:members:
+.. autoclass:: assembly.Assembly
+	:members:
+.. autofunction:: assembly.create_assembly_flag
+```
+### Component
+```{eval-rst}
+.. autoclass:: component.Component
+	:members:
+```
+
+## Material
+```{eval-rst}
+.. autoclass:: material.Material
+	:members:
+```
+
+## SU2
+```{eval-rst}
+.. autoclass:: su2.Solver
+	:members:
+.. autoclass:: su2.Solver_Freestream_Conditions
+	:members:
+.. autoclass:: su2.Solver_Reference_Value
+	:members:
+.. autoclass:: su2.Solver_BC
+	:members:
+.. autoclass:: su2.Solver_Numerical_Method
+	:members:
+.. autoclass:: su2.Flow_Numerical_Method
+	:members:
+.. autoclass:: su2.Solver_Convergence
+	:members:
+.. autoclass:: su2.Solver_Input_Output
+	:members:
+.. autoclass:: su2.SU2_Config
+	:members:
+
+.. autofunction:: su2.write_SU2_config
+.. autofunction:: su2.retrieve_index
+.. autofunction:: su2.read_vtk_from_su2_v2
+.. autofunction:: su2.split_aerothermo
+.. autofunction:: su2.run_SU2
+.. autofunction:: su2.generate_BL
+.. autofunction:: su2.adapt_mesh
+.. autofunction:: su2.compute_cfd_aerothermo
+```
+
+## Multi-fidelity switch
+```{eval-rst}
+.. autofunction:: switch.compute_aerothermo
+.. autofunction:: switch.compute_billig
+```

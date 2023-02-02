@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage &mdash; TITAN 0.1 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" href="_static/sphinx_collapse.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/sphinx_highlight.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Modules" href="modules.html" />
+    <link rel="prev" title="TITAN" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> TITAN
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#optional">Optional</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#mutation">Mutation++</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#amgio">AMGio</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#gram-model">GRAM model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#setting-up-the-configuration-file">Setting up the Configuration file</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#options">Options</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#trajectory">Trajectory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#assembly">Assembly</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#objects">Objects</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#running-a-simulation">Running a simulation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#geometry-modelling">Geometry modelling</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="modules.html">Modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="example.html">Example</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">TITAN</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a></li>
+      <li class="breadcrumb-item active">Usage</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/usage.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Permalink to this heading"></a></h1>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<p>To install TITAN, it is required to use an Anaconda environment. The required libraries are listed in the requirements.txt file.
+In order to install the required packages, the Anaconda environment can be created using</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>conda create --name myenv --file requirements.txt
+</pre></div>
+</div>
+<p>If the packages are not found, the user can append a conda channel to retrieve the packages, by running</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>conda config --append channels conda-forge
+</pre></div>
+</div>
+<p>To activate the Conda environment:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>conda activate myenv
+</pre></div>
+</div>
+<p>After activation, the user needs to install other packages that were not possible (as GMSH) using the conda requirements. To do so,
+the user can use the pip manager to install the packages listed in the pip_requirements.txt</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>pip install -r pip_requirements.txt
+</pre></div>
+</div>
+<p>To install pymap3D, you can clone the following github page <a class="reference external" href="https://github.com/geospace-code/pymap3d/">https://github.com/geospace-code/pymap3d/</a> into the Executables foldar and install using</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>pip install -e pymap3d
+</pre></div>
+</div>
+<section id="optional">
+<h3>Optional<a class="headerlink" href="#optional" title="Permalink to this heading"></a></h3>
+<section id="mutation">
+<h4>Mutation++<a class="headerlink" href="#mutation" title="Permalink to this heading"></a></h4>
+<p>The mutation++ package is an optional method to compute the freestream conditions. It can be installed by following the instructions in <a class="reference external" href="https://github.com/mutationpp/Mutationpp">https://github.com/mutationpp/Mutationpp</a>
+Once the mutation++ has been compiled, you can install by:</p>
+<ol class="arabic simple">
+<li><p>Clone the Pybind repository into the Thirdparty folder (Check MutationPP link)</p></li>
+<li></li>
+</ol>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>python setup.py build
+<span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>python setup.py install
+</pre></div>
+</div>
+</section>
+<section id="amgio">
+<h4>AMGio<a class="headerlink" href="#amgio" title="Permalink to this heading"></a></h4>
+<p>AMGio is a library that is required to perform mesh adaptation when running high-fidelity simulations. To install the AMGio library, one must clone the following github page to the TITAN/Executables folder: <a class="reference external" href="https://github.com/bmunguia/amgio">https://github.com/bmunguia/amgio</a>. THe user can the proceed to the installation using</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>pip install -e amgio/su2gmf/
+</pre></div>
+</div>
+</section>
+</section>
+<section id="gram-model">
+<h3>GRAM model<a class="headerlink" href="#gram-model" title="Permalink to this heading"></a></h3>
+<p>TITAN has the capability to use the NASA-GRAM <a class="reference external" href="https://software.nasa.gov/software/MFS-33888-1">https://software.nasa.gov/software/MFS-33888-1</a> to retrieve the atmospheric properties of Earth, Neptune and Uranus. The user needs to request NASA to use the atmospheric model.</p>
+<p>Once the GRAM tool is compiled, the user needs to link the binaries, and place them in the Executables folder</p>
+</section>
+<section id="troubleshooting">
+<h3>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this heading"></a></h3>
+<p>If mpirun is not working, the user may require to reinstall openmpi and/or mpi4py using pip, by following the steps:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>mamba uninstall mpi4py
+<span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>mamba uninstall openmpi
+<span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>pip install openmpi
+<span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>pip install mpi4py
+</pre></div>
+</div>
+</section>
+</section>
+<section id="setting-up-the-configuration-file">
+<h2>Setting up the Configuration file<a class="headerlink" href="#setting-up-the-configuration-file" title="Permalink to this heading"></a></h2>
+<p>An explanation of the Configuration file can be found in the Config_temmplate.cfg file, in the root folder.</p>
+<p>TITAN will read the configuration file using the config parser package. The file is divided into several subsections:</p>
+<section id="options">
+<h3>Options<a class="headerlink" href="#options" title="Permalink to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Num_iters</strong> - Maximum number of iterations</p></li>
+<li><p><strong>Load_State</strong> - Load the last simulation state</p></li>
+<li><p><strong>Fidelity</strong> - Select the level of the aerothermodynamics in the simulation (Low/High/Hybrid)</p></li>
+<li><p><strong>Output_folder</strong> - Folder where the simulation solution is stored</p></li>
+</ul>
+</section>
+<section id="trajectory">
+<h3>Trajectory<a class="headerlink" href="#trajectory" title="Permalink to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Altitude</strong> - Initial altitude [meters]</p></li>
+<li><p><strong>Velocity</strong> - Initial Velocity [meters/second]</p></li>
+<li><p><strong>Flight_path_angle</strong> - Initial FLight Path Angle [degree]</p></li>
+</ul>
+</section>
+<section id="assembly">
+<h3>Assembly<a class="headerlink" href="#assembly" title="Permalink to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Path</strong> - Path for the geometry files</p></li>
+<li><p><strong>Connectivity</strong> - Linkage information for the specified components in the Objects section</p></li>
+</ul>
+</section>
+<section id="objects">
+<h3>Objects<a class="headerlink" href="#objects" title="Permalink to this heading"></a></h3>
+<ul class="simple">
+<li><p><strong>Primitive used in the Assembly</strong> - name_Marker = (NAME, TYPE, MATERIAL)</p></li>
+<li><p><strong>Joints used in the Assembly</strong> - name_Marker = (NAME, TYPE, MATERIAL, TRIGGER_TYPE, TRIGGER_VALUE)</p>
+<ul>
+<li><p>NAME -&gt; Name of the geometry file in stl format</p></li>
+<li><p>TYPE -&gt; Type of the object (Primitive/Joint)</p></li>
+<li><p>MATERIAL -&gt; Material of the object, needs to one specified in the material database</p></li>
+<li><p>TRIGGER_TYPE  -&gt; The criteria for the joint fragmentation (Altitude, time, iteration, Temperature)</p></li>
+<li><p>TRIGGER_VALUE -&gt; The value to trigger the fragmentation</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="running-a-simulation">
+<h2>Running a simulation<a class="headerlink" href="#running-a-simulation" title="Permalink to this heading"></a></h2>
+<p>TITAN is called in the conda environment using</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>python TITAN.py -c config.cfg
+</pre></div>
+</div>
+<p>The solution is stored in the specifed output folder. The structure in the output folder is as <strong>SPECIFY HERE</strong></p>
+<p>After obtaining the solution of the simulation, the data can be postprocessed by introducing a new flag to the instruction, refering to the Postprocess method that can be <strong>WIND</strong> or <strong>ECEF</strong>. The following command does not run a new simulation, but it postprocess the already obtained solutions in the <strong>Output_folder</strong> specified field.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp gp-VirtualEnv">(.venv)</span> <span class="gp">$ </span>python TITAN.py -c config.cfg -pp WIND
+</pre></div>
+</div>
+</section>
+<section id="geometry-modelling">
+<h2>Geometry modelling<a class="headerlink" href="#geometry-modelling" title="Permalink to this heading"></a></h2>
+<p>The frame convention in the geometry modelling are such that the X axis is the longitudinal axis pointing ahead, Z axis is the vertical axis pointing downwards, and the Y axis is the lateral one, pointing in such a way that the frame is right-handed.</p>
+<p>In case of multiple components, if the components are in contact with each other, the respective meshes need to be identical in the interface (i.e. same node positioning and same facets).</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="TITAN" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="modules.html" class="btn btn-neutral float-right" title="Modules" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Fabio Morgado.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,6 +1,3 @@
-# TITAN
-TransatmospherIc flighT simulAtioN - A python code for multi-fidelity and multi-physics simulations of access-to-space and re-entry
-
 # Usage
 
 ## Installation
@@ -36,15 +33,16 @@ To install pymap3D, you can clone the following github page <https://github.com/
 (.venv) $ pip install -e pymap3d
 ```
 
+
 ### Optional
 
 #### Mutation++
 The mutation++ package is an optional method to compute the freestream conditions. It can be installed by following the instructions in <https://github.com/mutationpp/Mutationpp>
 Once the mutation++ has been compiled, you can install by:
 
-1. In the github link, go to the thirdpary folder and clone the Pybind repository into your thirdparty folder in mutationpp
+1. Clone the Pybind repository into the Thirdparty folder (Check MutationPP link)
 
-2. In the Mutationpp root folder, run
+2.
 ```console
 (.venv) $ python setup.py build
 (.venv) $ python setup.py install
@@ -59,6 +57,8 @@ AMGio is a library that is required to perform mesh adaptation when running high
 
 ### GRAM model
 TITAN has the capability to use the NASA-GRAM <https://software.nasa.gov/software/MFS-33888-1> to retrieve the atmospheric properties of Earth, Neptune and Uranus. The user needs to request NASA to use the atmospheric model.
+
+
 
 Once the GRAM tool is compiled, the user needs to link the binaries, and place them in the Executables folder
 
@@ -82,69 +82,17 @@ TITAN will read the configuration file using the config parser package. The file
 ### Options
 * **Num_iters** - Maximum number of iterations
 * **Load_State** - Load the last simulation state
-* **Fidelity** - Select the level of the aerothermodynamics in the simulation (Low/High/Multi)
+* **Fidelity** - Select the level of the aerothermodynamics in the simulation (Low/High/Hybrid)
 * **Output_folder** - Folder where the simulation solution is stored
-* **Load_mesh** - Flag to indicate if the mesh should be loaded (if already pre-processed in previous simulation)
-* **Load_state** - Flag to resume the simulation (overrules the flag Load_mesh)
 
 ### Trajectory
 * **Altitude** - Initial altitude [meters]
 * **Velocity** - Initial Velocity [meters/second]
 * **Flight_path_angle** - Initial FLight Path Angle [degree]
-* **Heading_angle** - Initial Heading Angle [degree]
-* **Latitude** - Initial Latitude [degree]
-* **Longitude** - Initial Longitude [degree]
-
-### Model
-* **Planet** - Name of the planel (Earth, Neptune, Uranus)
-* **Vehicle** - Flag for use of custom vehicle parameters (Mass, Nose radius, Area of reference)
-* **Drag** - Flag for use of drag model (if Vehicle = True)
-
-### Vehicle
-* **Mass** - Mass of the vehicle [kg]
-* **Nose_radius** - Nose radius of the vehicle [meters]
-* **Area_reference** - Area of reference for coefficient computation  [meters^2]
-* **Drag_file** - Name of the Drag model containing the Mach vs drag coefficient information in TITAN/Model/Drag
-
-### Freestream
-* **method** - Method used for the computation of the freestream (Standard, Mutationpp, GRAM)
-* **model** - Atmospheric model (Earth - NRLMSISE00,GRAM ; Neptune - GRAM; Uranus - GRAM)
-
-### GRAM
-* **MinMaxFactor** - Value of the MinMaxFactor for the NeptuneGRAM
-* **ComputeMinMaxFactor** - Automatic computation of the MinMaxFactor for the NeptuneGRAM (see NeptuneGRAM manual. 0 = False, 1 = True)
-* **SPICE_Path** - Path for the SPICE database
-* **GRAM_Path** - Path for GRAM software (required for Earth GRAM)
-
-### Time
-* **Time_step** - Value of the time step [second]
-
-### SU2
-* **Solver** - Solver to be used in CFD simulation (EULER/NAVIER_STOKES or NEMO_EULER/NEMO_NAVIER_STOKES)
-* **Num_iters** - Number of CFD iterations
-* **Conv_method** - Convective scheme (Default = AUSM)
-* **Adapt_iter** - Number of mesh adaptations
-* **Num_cores** - Number of cores to run CFD simulation
-* **Muscl** - Flag for MUSCL reconstruction (Yes/No)
-* **Cfl** - CFL number
-
-### Bloom
-* **Flag** - Flag to activate Bloom (True/False)
-* **Layers** - Number of layers in the boundary layer
-* **Spacing** - Spacing of the initial layer
-* **Growth_Rate** - Growth rate between layers
-
-### AMG
-* **Flag** - Flag to activate AMG
-* **P** - Norm of the error estimate for the Hessian computation
-* **C** - Correction for metric complexity
-* **Sensor** - Name of the computational field used to compute the metric tensor for mesh adaptation
 
 ### Assembly
 * **Path** - Path for the geometry files
 * **Connectivity** - Linkage information for the specified components in the Objects section
-* **Angle_of_attack** - Angle of attack of the assembly [degree]
-* **Sideslip** - Angle of sideslip of the assembly [degree]
 
 ### Objects
 * **Primitive used in the Assembly** - name_Marker = (NAME, TYPE, MATERIAL)

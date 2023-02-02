@@ -1,0 +1,133 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 1000
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+#High, Low or Multi (now adding razor as option)
+Output_folder = ATV
+SPARTA = False
+FENICS = False
+
+[Model]
+Planet = Earth
+
+[Time]
+Time_step = 0.75
+Propagator = Euler
+#Euler, RK45
+Adapt_Propagator = False
+
+[Trajectory]
+Altitude = 100000
+Termination_Altitude = 92000
+Velocity = 7570
+Flight_path_angle = -2.0
+Heading_angle = 90
+#Latitude = -40
+#Longitude = 207
+ 
+[Freestream]
+Model = NRLMSISE00
+Method = Standard
+
+[Aerothermo]
+Heat_model = vd
+
+[FENICS]
+E = 68e9
+SIGMA_Y = 8e6
+FENICS_MPI = True
+FENICS_cores = 4
+FENICS_verbose = True
+
+[Bloom]
+Flag =  False
+Layers = 40
+Spacing = 0.00001
+Growth_Rate = 1.15
+
+[SU2]
+Solver = NEMO_NAVIER_STOKES
+Conv_method = AUSM
+Adapt_iter = 2
+Num_cores = 40
+Num_iters = 10000
+Muscl = YES
+Cfl = 0.25
+
+[AMG]
+P = 4
+C = 100000
+Sensor = Mach
+
+[Assembly]
+# Path for the geometry files
+#Path = ../Run_files/ATV_PAPER_COMPLEX/Geometry/
+#Path = ../Geometry_library/Geometry/ATV/POC_ATV/
+Path = Geometry/ATV_ROM/
+
+Angle_of_attack = 12
+Sideslip = 0
+Roll = 0
+Connectivity = [[1,2,4],[2,3,0],[3,5,6], [5,7,8], [7,9,10],[9,11,12], 
+                [3,13,14], [13,15,16], [15,17,18],[16,19,20],
+                [3,21,22], [21,23,24], [23,25,26],[25,27,28],
+                [3,29,30], [29,31,32], [31,33,34],[33,35,36]]
+            
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+# Format for objects [NAME = Primary.stl, TYPE = Primitive, FENICS_ID = -1, MATERIAL = Unittest]
+# NAME - of stl related to this object
+# TYPE - Primitive or Joint
+# FENICS_IS - -1 or 1 (check this in notes and the meanings)
+# MATERIAL - keep as Unittest for now and query material implementation
+#ATV = [NAME = ATV.stl, TYPE = Primitive, MATERIAL = Unittest]
+
+Cap = [NAME = Cap.stl, TYPE = Primitive, MATERIAL = Unittest]
+Cargo = [NAME = Cargo.stl, TYPE = Primitive, MATERIAL = Unittest]
+Propulsion = [NAME = Propulsion.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_body = [NAME = Joint_body.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 75200, MATERIAL = Unittest]
+
+Panel_a1_1 = [NAME = Panel_a1_1.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a1_1 = [NAME = Rod_a1.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 92000, MATERIAL = Unittest]
+Panel_a1_2 = [NAME = Panel_a1_2.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a1_2 = [NAME = Joint_a1_1.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90800, MATERIAL = Unittest]
+Panel_a1_3 = [NAME = Panel_a1_3.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a1_3 = [NAME = Joint_a1_2.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90800, MATERIAL = Unittest]
+Panel_a1_4 = [NAME = Panel_a1_4.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a1_4 = [NAME = Joint_a1_3.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 0, MATERIAL = Unittest]
+
+Panel_a2_1 = [NAME = Panel_a2_1.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a2_1 = [NAME = Rod_a2.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 92000, MATERIAL = Unittest]
+Panel_a2_2 = [NAME = Panel_a2_2.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a2_2 = [NAME = Joint_a2_1.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90800, MATERIAL = Unittest]
+Panel_a2_3 = [NAME = Panel_a2_3.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a2_3 = [NAME = Joint_a2_2.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90800,  MATERIAL = Unittest]
+Panel_a2_4 = [NAME = Panel_a2_4.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a2_4 = [NAME = Joint_a2_3.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 0, MATERIAL = Unittest]
+
+Panel_a3_1 = [NAME = Panel_a3_1.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a3_1 = [NAME = Rod_a3.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 92000, MATERIAL = Unittest]
+Panel_a3_2 = [NAME = Panel_a3_2.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a3_2 = [NAME = Joint_a3_1.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90800,  MATERIAL = Unittest]
+Panel_a3_3 = [NAME = Panel_a3_3.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a3_3 = [NAME = Joint_a3_2.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90800, MATERIAL = Unittest]
+Panel_a3_4 = [NAME = Panel_a3_4.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a3_4 = [NAME = Joint_a3_3.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 0,  MATERIAL = Unittest]
+
+Panel_a4_1 = [NAME = Panel_a4_1.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a4_1 = [NAME = Rod_a4.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 92000,  MATERIAL = Unittest]
+Panel_a4_2 = [NAME = Panel_a4_2.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a4_2 = [NAME = Joint_a4_1.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90800, MATERIAL = Unittest]
+Panel_a4_3 = [NAME = Panel_a4_3.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a4_3 = [NAME = Joint_a4_2.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90800, MATERIAL = Unittest]
+Panel_a4_4 = [NAME = Panel_a4_4.stl, TYPE = Primitive, MATERIAL = Unittest]
+Joint_a4_4 = [NAME = Joint_a4_3.stl, TYPE = Joint, INNER_STL = None, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 0, MATERIAL = Unittest]
+
+[Initial Conditions]
+Angular Velocity = (1 : [0,10,0])
