@@ -36,6 +36,4 @@ jobs:
       - name: Conda install
         shell: pwsh
         run:
-          conda install numpy
-          conda install scipy
-          conda install meshio
+          conda install numpy scipy meshio
