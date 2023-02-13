@@ -24,6 +24,7 @@ jobs:
     steps:
       - uses: conda-incubator/setup-miniconda@v2
         with:
+          channels: conda-forge,spyder-ide
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
       - name: Conda info
