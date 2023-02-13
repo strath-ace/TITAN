@@ -27,7 +27,7 @@ jobs:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
       - name: Conda info
-        shell: bash -el {0}
+        shell: pwsh
         run: conda info
       - name: Conda list
         shell: pwsh
@@ -35,4 +35,6 @@ jobs:
       - name: Conda install
         shell: pwsh
         run:
-          conda install --file /home/runner/work/TITAN/TITAN/requirements.txt
+          conda install numpy
+          conda install scipy
+          conda install meshio
