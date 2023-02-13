@@ -26,7 +26,6 @@ jobs:
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
-          environment-file: requirements.txt
       - name: Conda info
         shell: bash -el {0}
         run: conda info
@@ -36,4 +35,4 @@ jobs:
       - name: Conda install
         shell: pwsh
         run:
-          conda install --file requirements.txt
+          conda install --file /home/runner/work/TITAN/TITAN/requirements.txt
