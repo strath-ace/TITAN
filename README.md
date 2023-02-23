@@ -1,4 +1,5 @@
 # TITAN
+https://github.com/strath-ace/TITAN/blob/main/TITAN-logo.png
 TransatmospherIc flighT simulAtioN - A python code for multi-fidelity and multi-physics simulations of access-to-space and re-entry
 
 # Usage
