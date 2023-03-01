@@ -41,4 +41,4 @@ jobs:
       - name: Run dynamics regression
         shell: pwsh
         run: |
-          pytest
+          pytest /home/runner/work/TITAN/TITAN/Tests/Regression/test_reference_frames.py
