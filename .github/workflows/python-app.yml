@@ -42,4 +42,4 @@ jobs:
       - name: Run dynamics regression
         shell: pwsh
         run: |
-          pytest Tests/Regression/test_reference_frames.py
+          python -m pytest Tests/Regression/test_reference_frames.py
