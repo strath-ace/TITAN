@@ -38,3 +38,7 @@ jobs:
         run: |
           conda install numpy scipy meshio
           conda install pytest
+      - name: Run dynamics regression
+        shell: pwsh
+        run: |
+          ls -a
