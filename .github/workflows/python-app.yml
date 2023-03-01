@@ -37,3 +37,4 @@ jobs:
         shell: pwsh
         run:
           conda install numpy scipy meshio
+          conda install pytest
