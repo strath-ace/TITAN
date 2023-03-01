@@ -20,7 +20,7 @@
 import pytest
 import sys
 import numpy as np
-sys.path.append('../../Dynamics')
+sys.path.append('Dynamics')
 from frames import *
 
 x_vector = np.array([1,0,0])
