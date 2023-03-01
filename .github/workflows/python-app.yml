@@ -41,4 +41,4 @@ jobs:
       - name: Run dynamics regression
         shell: pwsh
         run: |
-          ls -a
+          pytest
