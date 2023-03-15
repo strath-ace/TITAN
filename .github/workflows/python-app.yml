@@ -44,5 +44,5 @@ jobs:
         shell: pwsh
         run: |
           python -m pytest Tests/Regression/test_reference_frames.py
-          python -m pytest Tests/Regression/test_sphere_mass.py
+          python -m pytest Tests/Regression/test_sphere_single.py
 
