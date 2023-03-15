@@ -38,9 +38,10 @@ jobs:
         shell: pwsh
         run: |
           conda install numpy scipy meshio
-          conda install pandas gmsh
+          conda install pandas
           conda install bs4 lxml
           conda install pytest
+          python -m pip install gmsh
       - name: Run dynamics regression
         shell: pwsh
         run: |
