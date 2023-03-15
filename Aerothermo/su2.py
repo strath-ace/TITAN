@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from Geometry import gmsh as GMSH
+from Geometry import gmsh_api as GMSH
 from Geometry import assembly
 from Geometry import mesh
 from Dynamics import frames
