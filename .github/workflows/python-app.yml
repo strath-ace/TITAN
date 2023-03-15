@@ -37,6 +37,7 @@ jobs:
       - name: Conda install
         shell: pwsh
         run: |
+          sudo apt-get install -y libgl1-mesa-glx
           conda install numpy scipy meshio
           conda install pandas
           conda install bs4 lxml
