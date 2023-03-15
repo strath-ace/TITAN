@@ -42,7 +42,7 @@ jobs:
           conda install pandas
           conda install bs4 lxml
           conda install pytest
-          python -m pip install gmsh
+          conda install gmsh
       - name: Run dynamics regression
         shell: pwsh
         run: |
