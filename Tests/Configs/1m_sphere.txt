@@ -17,7 +17,7 @@ Flight_path_angle = 0
 
 [Assembly]
 # Path for the geometry files
-Path = Tests/Mesh/
+Path = Tests/Mesh/Sphere/
 
 [Objects]
 Primary = [NAME = 1m_sphere.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]
