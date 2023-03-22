@@ -521,13 +521,21 @@ def aerodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, body_
     Pressure = pfm[:,None]*(0.5*free.density*free.velocity**2 )
     Pressure[np.isnan(Pressure)] = 0
 
-    tfm = -(ST*np.cos(Theta)/SR/np.sqrt(np.pi)) * (np.exp(-(SR*np.sin(Theta))**2.0) + np.sqrt(np.pi) * SR * np.sin(Theta) * (1 + special.erf(SR*np.sin(Theta))))
+    tfm = (ST*np.cos(Theta)/SR/np.sqrt(np.pi)) * (np.exp(-(SR*np.sin(Theta))**2.0) + np.sqrt(np.pi) * SR * np.sin(Theta) * (1 + special.erf(SR*np.sin(Theta))))
     Shear = tfm[:,None]*(0.5*free.density*free.velocity**2 )
     Shear[np.isnan(Shear)] = 0
 
-    Pressure.shape = (-1)
-    #Shear.shape = (-1,3)
+    direction = np.copy(flow_direction)
+    direction.shape = (-1)
+    direction=np.tile(direction,(len(nodes_normal[p]),1))
 
+    tangent_vector = direction - ((direction*nodes_normal[p]).sum(axis = 1))[:,None]*nodes_normal[p]/(nodes_normal[p]*nodes_normal[p]).sum(axis=1)[:,None]
+    tangent_vector = tangent_vector/np.sqrt((tangent_vector*tangent_vector).sum(axis=1)[:,None])
+    
+    Pressure.shape = (-1)
+    Shear.shape = (-1)
+
+    Shear = Shear[:,None]*tangent_vector
     return Pressure, Shear
 
 def bridging(free, Kn_cont, Kn_free):

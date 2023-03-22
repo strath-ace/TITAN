@@ -50,7 +50,7 @@ def compute_aerodynamic_forces(titan, options):
         for assembly in titan.assembly:
 
             #TODO missing skin friction
-            force_nodes = -assembly.aerothermo.pressure[:,None]*assembly.mesh.nodes_normal
+            force_nodes = -assembly.aerothermo.pressure[:,None]*assembly.mesh.nodes_normal+assembly.aerothermo.shear*np.linalg.norm(assembly.mesh.nodes_normal, axis=1)[:,None]
             force = np.sum(force_nodes, axis = 0)
             assembly.body_force.force = force
             assembly.body_force.force_nodes = force_nodes
