@@ -39,8 +39,8 @@ def write_output_data(titan, options):
         df['Velocity']       = [assembly.trajectory.velocity]
         df['FlighPathAngle'] = [assembly.trajectory.gamma*180/np.pi]
         df['HeadingAngle']   = [assembly.trajectory.chi*180/np.pi]
-        df['Latitude']       = [assembly.trajectory.latitude]
-        df['Longitude']      = [assembly.trajectory.longitude]
+        df['Latitude']       = [assembly.trajectory.latitude*180/np.pi]
+        df['Longitude']      = [assembly.trajectory.longitude*180/np.pi]
         df['AngleAttack']   =  [assembly.aoa*180/np.pi]
         df['AngleSideslip'] =  [assembly.slip*180/np.pi]
 
