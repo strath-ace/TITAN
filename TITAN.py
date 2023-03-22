@@ -58,8 +58,9 @@ def loop(options = [], titan = []):
     while titan.iter < options.iters:
         
         fragmentation.fragmentation(titan = titan, options = options)
+        if not titan.assembly: return
+
         dynamics.integrate(titan = titan, options = options)
-        
         if options.ablation:
             thermal.compute_thermal(titan = titan, options = options)
 
