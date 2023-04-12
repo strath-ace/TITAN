@@ -1,0 +1,40 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 7
+Load_mesh = False
+Load_state = False
+Fidelity = Multi
+#High, Low or Multi
+Output_folder = Tests/Simulation
+
+[Trajectory]
+Altitude = 70000
+Velocity = 7000
+Flight_path_angle = 0
+
+[SU2]
+Num_iters = 10
+
+[Assembly]
+# Path for the geometry files
+Path = Tests/Mesh/Billig/
+#Connectivity = [[1,2,3]]
+Sideslip = 0.0
+Angle_of_attack = 0.0
+Roll = 0.0
+
+[Time]
+Time_step = 0.5
+
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+# Sphere A and B form a cluster
+# Sphere C and D form a cluster
+sphere_A = [NAME = A.stl,         TYPE = Primitive,   MATERIAL = Unittest,   FENICS_ID = 1]]
+#sphere_B = [NAME = B.stl,         TYPE = Primitive,   MATERIAL = Unittest,   FENICS_ID = 1]]
+sphere_C = [NAME = C.stl,         TYPE = Primitive,   MATERIAL = Unittest_light,   FENICS_ID = 1]]
+#sphere_D = [NAME = D.stl,         TYPE = Primitive,   MATERIAL = Unittest,   FENICS_ID = 1]]
