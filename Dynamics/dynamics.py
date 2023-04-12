@@ -129,7 +129,7 @@ def compute_quaternion(assembly):
 
     #Fix pitch and yaw values according to flight path angle, heading angle, slip and angle of attack
     assembly.pitch= assembly.trajectory.gamma+assembly.aoa
-    assembly.yaw  = assembly.trajectory.chi + assembly.slip
+    assembly.yaw  = assembly.trajectory.chi - assembly.slip
 
     R_B_NED =   frames.R_B_NED(roll = assembly.roll, pitch = assembly.pitch, yaw = assembly.yaw) 
     R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)

@@ -39,8 +39,8 @@ def write_output_data(titan, options):
         df['Velocity']       = [assembly.trajectory.velocity]
         df['FlighPathAngle'] = [assembly.trajectory.gamma*180/np.pi]
         df['HeadingAngle']   = [assembly.trajectory.chi*180/np.pi]
-        df['Latitude']       = [assembly.trajectory.latitude]
-        df['Longitude']      = [assembly.trajectory.longitude]
+        df['Latitude']       = [assembly.trajectory.latitude*180/np.pi]
+        df['Longitude']      = [assembly.trajectory.longitude*180/np.pi]
         df['AngleAttack']   =  [assembly.aoa*180/np.pi]
         df['AngleSideslip'] =  [assembly.slip*180/np.pi]
 
@@ -133,6 +133,7 @@ def generate_surface_solution(titan, options):
     points = np.array([])
     facets = np.array([])
     pressure = np.array([])
+    shear = np.array([])
     heatflux = np.array([])
     radius = np.array([])
     ellipse = np.array([])
@@ -143,6 +144,7 @@ def generate_surface_solution(titan, options):
         facets = assembly.mesh.facets
         pressure = assembly.aerothermo.pressure
         heatflux = assembly.aerothermo.heatflux
+        shear = assembly.aerothermo.shear
         displacement = assembly.mesh.surface_displacement
         radius = assembly.mesh.nodes_radius
         ellipse = assembly.inside_shock
@@ -156,6 +158,7 @@ def generate_surface_solution(titan, options):
                       "Heatflux": heatflux,
                       "Displacement": displacement,
                       "Temperature": temperature,
+                      "Shear": shear,
                       "Radius": radius,
                       "Ellipse": ellipse}
 

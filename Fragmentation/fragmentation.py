@@ -214,6 +214,12 @@ def fragmentation(titan, options):
                     if (assembly_id == it).any() == False: assembly_id = np.append(assembly_id, it)
                     joints_id = np.append(joints_id, _id)
                 
+                elif obj.trigger_type.lower() == 'temperature' and obj.temperature >= obj.trigger_value:
+
+                    print ('Demisable joint: Thermal fragmentation activated! ')
+                    if (assembly_id == it).any() == False: assembly_id = np.append(assembly_id, it)
+                    joints_id = np.append(joints_id, _id)
+
                 elif obj.trigger_type.lower() == 'iteration' and titan.iter >= obj.trigger_value:
 
                     print ('Iteration Fragmentation occured ')
@@ -237,7 +243,7 @@ def fragmentation(titan, options):
                         # trajectory[it].stress_ratio = -1
                 """
             else:
-                if obj.mass <= 0:
+                if obj.mass <= 0 or assembly.trajectory.altitude <= 0:
                     if (assembly_id == it).any() == False: assembly_id = np.append(assembly_id, it)
                     joints_id = np.append(joints_id, _id)
             _id+=1

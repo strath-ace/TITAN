@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from Geometry import gmsh as GMSH
+from Geometry import gmsh_api as GMSH
 from Geometry import assembly
 from Geometry import mesh
 from Dynamics import frames
@@ -250,7 +250,7 @@ class Solver_Input_Output():
         self.tabular_format = "TABULAR_FORMAT= CSV"
         
         #: [str] Generated output files
-        self.output_files = "OUTPUT_FILES= (RESTART_ASCII, PARAVIEW, SURFACE_PARAVIEW)"
+        self.output_files = "OUTPUT_FILES= (RESTART_ASCII, PARAVIEW, SURFACE_PARAVIEW,SURFACE_PARAVIEW_ASCII )"
 
         #: [str] Solution filename to read
         self.solution_input = "RESTART_FILENAME = "+output_folder+"/CFD_sol/restart_flow_"+ str(it) + ".csv"
@@ -407,7 +407,7 @@ def retrieve_index(SU2_type):
 
     return index
 
-def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options):
+def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestream):
     """
     Read the VTK file solution
 
@@ -457,7 +457,9 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options):
     if ('Temperature' in index.dtype.names): aerothermo.temperature = vtk_to_numpy(data.GetPointData().GetArray(index['Temperature'][0]))[idx_sim][idx_inv]
     #if ('Momentum' in index.dtype.names): aerothermo.momentum = vtk_to_numpy(data.GetPointData().GetArray(index['Momentum'][0]))[idx_sim][idx_inv][:,None]
     if ('Pressure' in index.dtype.names): aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray(index['Pressure'][0]))[idx_sim][idx_inv]
-    if ('Skin_Friction_Coefficient' in index.dtype.names): aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray(index['Skin_Friction_Coefficient'][0]))[idx_sim][idx_inv]
+    if ('Skin_Friction_Coefficient' in index.dtype.names): 
+        aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray(index['Skin_Friction_Coefficient'][0]))[idx_sim][idx_inv]
+        aerothermo.shear *= 0.5*freestream.density*freestream.velocity**2
     if ('Heat_Flux' in index.dtype.names): aerothermo.heatflux = vtk_to_numpy(data.GetPointData().GetArray(index['Heat_Flux'][0]))[idx_sim][idx_inv]
 
     return aerothermo
@@ -497,7 +499,7 @@ def split_aerothermo(total_aerothermo, assembly):
             if field == 'temperature':  assembly[it].aerothermo.temperature[node_index]  = total_aerothermo.temperature [first_node:last_node]; assembly[it].aerothermo.temperature = assembly[it].aerothermo.temperature[idx_inv]
            #if field == 'momentum':     assembly[it].aerothermo.momentum[node_index]     = total_aerothermo.momentum    [first_node:last_node]
             if field == 'pressure':     assembly[it].aerothermo.pressure[node_index]     = total_aerothermo.pressure    [first_node:last_node]; assembly[it].aerothermo.pressure = assembly[it].aerothermo.pressure[idx_inv]
-            if field == 'skinfriction': assembly[it].aerothermo.skinfriction[node_index] = total_aerothermo.shear[first_node:last_node]; assembly[it].aerothermo.shear = assembly[it].aerothermo.shear[idx_inv]
+            if field == 'shear':        assembly[it].aerothermo.shear[node_index]        = total_aerothermo.shear[first_node:last_node]; assembly[it].aerothermo.shear = assembly[it].aerothermo.shear[idx_inv]
             if field == 'heatflux':     assembly[it].aerothermo.heatflux[node_index]     = total_aerothermo.heatflux    [first_node:last_node]; assembly[it].aerothermo.heatflux = assembly[it].aerothermo.heatflux[idx_inv]
 
         first_node = last_node
@@ -515,7 +517,7 @@ def run_SU2(n, options):
     """
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run(['mpirun','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    subprocess.run([path+'/Executables/mpirun_SU2','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
 
 def generate_BL(assembly, options, it, cluster_tag):
     """
@@ -661,5 +663,5 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
     assembly_nodes,idx_inv = np.unique(assembly_nodes, axis = 0, return_inverse = True)
     
     #Reads the solution file and stores into the different assemblies
-    total_aerothermo = read_vtk_from_su2_v2(options.output_folder+'/CFD_sol/surface_flow_'+str(iteration)+'_'+str(adapt_iter)+'_cluster_'+str(cluster_tag)+'.vtu', assembly_nodes, idx_inv, options)
+    total_aerothermo = read_vtk_from_su2_v2(options.output_folder+'/CFD_sol/surface_flow_'+str(iteration)+'_'+str(adapt_iter)+'_cluster_'+str(cluster_tag)+'.vtu', assembly_nodes, idx_inv, options, free)
     split_aerothermo(total_aerothermo, assembly_list)
