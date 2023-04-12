@@ -25,7 +25,10 @@ from copy import copy
 from Aerothermo import su2, switch
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
+import trimesh
 
+
+#Not using it anymore -> switched to use Rays
 def backfaceculling(body, nodes, nodes_normal, free_vector, npix):
     """
     Backface culling function
@@ -191,11 +194,11 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
             assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly.mesh.nodes_normal, assembly.freestream, index, flow_direction)
     
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly.mesh.nodes_normal, assembly.freestream , index, flow_direction, obj.temperature)
+            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly.mesh.nodes_normal, assembly.freestream , index, flow_direction, assembly.aerothermo.temperature)
     
         else: 
             aerobridge = bridging(assembly.freestream, Kn_cont_pressure, Kn_free )
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_bridging(assembly.mesh.nodes_normal, assembly.freestream, index, aerobridge, flow_direction, obj.temperature)
+            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_bridging(assembly.mesh.nodes_normal, assembly.freestream, index, aerobridge, flow_direction, assembly.aerothermo.temperature)
 
 def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     """
@@ -225,16 +228,16 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     # Heatflux calculation for Earth
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.nodes_normal, assembly.mesh.nodes_radius, assembly.freestream, index, obj.temperature, flow_direction, options.aerothermo.heat_model)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.nodes_normal, assembly.mesh.nodes_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options.aerothermo.heat_model)*StConst
         
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly.mesh.nodes_normal, assembly.freestream, index, flow_direction, obj.temperature)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly.mesh.nodes_normal, assembly.freestream, index, flow_direction, assembly.aerothermo.temperature)*StConst
         
         else: 
             #atmospheric model for the aerothermodynamics bridging needs to be the NRLSMSISE00
             atmo_model = "NRLMSISE00"
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly.mesh.nodes_normal, assembly.mesh.nodes_radius, assembly.freestream, index, obj.temperature, flow_direction, atmo_model, options.aerothermo.heat_model, Kn_cont_heatflux, Kn_free, assembly.Lref, assembly, options)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly.mesh.nodes_normal, assembly.mesh.nodes_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, atmo_model, options.aerothermo.heat_model, Kn_cont_heatflux, Kn_free, assembly.Lref, assembly, options)*StConst
 
     elif options.planet.name == "neptune" or options.planet.name == "uranus":
         #https://sci.esa.int/documents/34923/36148/1567260384517-Ice_Giants_CDF_study_report.pdf        
@@ -266,16 +269,24 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
 
-        #TODO change to facets
-        #Check the wet facets/vertex
-        p = backfaceculling(_assembly, _assembly.mesh.nodes, _assembly.mesh.nodes_normal, flow_direction , 2000)
-        
-        #Loop the components of each assembly
-        for obj in _assembly.objects:
-            p2 = np.intersect1d(p, obj.node_index)
+        mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
+        ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
 
-            compute_aerothermodynamics(_assembly, obj, p2, flow_direction, options)
-            compute_aerodynamics(_assembly, obj, p2, flow_direction, options)
+        ray_list = _assembly.mesh.facet_COG - flow_direction*3*_assembly.Lref
+
+        ray_directions = np.tile(flow_direction,len(ray_list))
+        ray_directions.shape = (-1,3)
+
+        index = np.unique(ray.intersects_first(ray_origins = ray_list, ray_directions = ray_directions))
+
+        index = index[index != -1] 
+        node_points = _assembly.mesh.facets[index]
+        node_points=np.sort(np.unique(node_points))
+
+        p = node_points
+
+        compute_aerothermodynamics(_assembly, [], p, flow_direction, options)
+        compute_aerodynamics(_assembly, [], p, flow_direction, options)
 
 def aerodynamics_module_continuum(nodes_normal,free, p, flow_direction):
     """
@@ -396,8 +407,6 @@ def aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p,body_t
         Vector with Stanton number
     """
 
-
-    #hf_model = 'sc'
     length_normal = np.linalg.norm(nodes_normal, ord = 2, axis = 1)
     p = p*(length_normal[p] != 0)
 
@@ -422,7 +431,7 @@ def aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p,body_t
         Stc = 2.1/np.sqrt(Re0)
     
     if hf_model == 'vd': #Van Driest
-        Stc = 0.763*(Pr**(-0.6))*(rhos*mu_T0s)**0.5*np.sqrt(dudx[p])*(h0s-free.cp*body_temperature)/StConst 
+        Stc = 0.763*(Pr**(-0.6))*(rhos*mu_T0s)**0.5*np.sqrt(dudx[p])*(h0s-free.cp*body_temperature[p])/StConst 
 
     K = 0.1
 
@@ -472,7 +481,7 @@ def aerothermodynamics_module_freemolecular(nodes_normal, free, p, flow_directio
     SR = np.sqrt(0.5*free.gamma)*free.mach
     
     Q_fm = AccCoeff * free.pressure*np.sqrt(0.5*free.R*free.temperature/np.pi) * \
-           ((SR**2 + free.gamma/(free.gamma - 1.0) - (free.gamma + 1.0)/(2 * (free.gamma - 1)) * Wall_Temperature / free.temperature ) * \
+           ((SR**2 + free.gamma/(free.gamma - 1.0) - (free.gamma + 1.0)/(2 * (free.gamma - 1)) * Wall_Temperature[p] / free.temperature ) * \
            (np.exp(-(SR*np.sin(Theta))**2) + np.sqrt(np.pi) * (SR * np.sin(Theta)) * (1 + special.erf(SR*np.sin(Theta)))) - 0.5 * np.exp(-(SR*np.sin(Theta))**2))
 
 
@@ -514,8 +523,8 @@ def aerodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, body_
     SN = 1.0 #TODO 0.93
     ST = 1.0 #TODO
 
-    pfm1 = ((2 - SN)/np.sqrt(np.pi)*(SR*np.sin(Theta)) + 0.5*SN*np.sqrt(body_temperature/free.temperature))*np.exp(-(SR*np.sin(Theta))**2.0)
-    pfm2 = ((2 - SN)*(SR**2*np.sin(Theta)**2 + 0.5) + 0.5 * SN * np.sqrt(np.pi) * np.sqrt(body_temperature/free.temperature) * (SR*np.sin(Theta)))*(1 + special.erf(SR*np.sin(Theta)))
+    pfm1 = ((2 - SN)/np.sqrt(np.pi)*(SR*np.sin(Theta)) + 0.5*SN*np.sqrt(body_temperature[p]/free.temperature))*np.exp(-(SR*np.sin(Theta))**2.0)
+    pfm2 = ((2 - SN)*(SR**2*np.sin(Theta)**2 + 0.5) + 0.5 * SN * np.sqrt(np.pi) * np.sqrt(body_temperature[p]/free.temperature) * (SR*np.sin(Theta)))*(1 + special.erf(SR*np.sin(Theta)))
     pfm = (1/SR**2)*(pfm1+pfm2)
     
     Pressure = pfm[:,None]*(0.5*free.density*free.velocity**2 )

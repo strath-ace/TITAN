@@ -420,6 +420,10 @@ class Assembly():
 
         self.aerothermo = Aerothermo(len(self.mesh.nodes))
 
+        #Initialize surface temperature of the assembly
+        for obj in self.objects:
+            self.aerothermo.temperature[obj.node_index] = obj.temperature
+
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
         """
         Generates the 3D structural mesh
