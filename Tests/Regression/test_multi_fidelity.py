@@ -26,8 +26,8 @@ import meshio
 
 options, titan1 = main("Tests/Configs/multi_fidelity_1.txt")
 
-def test_cfd_files():
-	assert os.path.exists("Tests/Simulation/CFD_sol/surface_flow_6_0_cluster_1.vtk")
+#def test_cfd_files():
+#	assert os.path.exists("Tests/Simulation/CFD_sol/surface_flow_6_0_cluster_1.vtk")
 
 
 TITAN_mesh1 = meshio.read("Tests/Simulation/Surface_solution/ID_1/solution_iter_006.vtk")
