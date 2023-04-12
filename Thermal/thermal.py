@@ -68,6 +68,7 @@ def compute_thermal(titan, options):
                 obj.mass = 0
             
             assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
+            assembly.aerothermo.temperature[obj.node_index] = obj.temperature
 
         #assembly.compute_mass_properties()
         #Need to update Lat Lon of the body with the moving COM due to mass diferences
