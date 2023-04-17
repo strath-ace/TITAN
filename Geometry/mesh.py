@@ -101,7 +101,7 @@ def compute_mesh(mesh, compute_radius = True):
     mesh.edges, mesh.facet_edges = map_edges_connectivity(mesh.facets)
     
     if compute_radius: 
-        mesh.nodes_radius, mesh.facet_radius = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
+        mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
     else: 
         mesh.node_radius  = np.ones((len(mesh.nodes)))
         mesh.facet_radius = np.ones((len(mesh.facets)))
@@ -248,6 +248,9 @@ def compute_min_max(nodes):
 
 def compute_curvature(nodes, facets,nodes_normal, facet_normals, facets_area, v0, v1, v2):
 
+    #Avertex - [NvX1] voronoi area at each vertex
+    #Acorner - [NfX3] slice of the voronoi area at each face corner
+
     #Normalize facet_normals using a copy of the array to not change values by reference
     facet_normals = np.copy(facet_normals)/facets_area[:,None]
 
@@ -304,7 +307,7 @@ def compute_curvature(nodes, facets,nodes_normal, facet_normals, facets_area, v0
 
     radiiOnFaces[radiiOnFaces <= 0] = Rmin
 
-    return radiiOnVerts, radiiOnFaces
+    return radiiOnVerts, radiiOnFaces, Avertex, Acorner
 
 
 def sphVolSmoothing(InnerPointsInd, propOnVerts, avType, Nsmooth, MaxRefRadius, flatEdge, flatWeightFlag):
@@ -774,3 +777,54 @@ def compute_new_volume(assembly, old_nodes):
         start += len(obj.mesh.vol_elements)
 
     return index,old_elements,index_old
+
+def vertex_to_facet_voronoi(mesh, vertex_value):
+    """
+    Using Voronoi area for interpolation Using Laplace weights 
+    https://en.wikipedia.org/wiki/Natural_neighbor_interpolation
+    """
+
+    #Avertex - [NvX1] voronoi area at each vertex
+    #Acorner - [NfX3] slice of the voronoi area at each face corner
+
+    wfp = mesh.Acorner/mesh.Avertex[mesh.facets]
+
+    if len(vertex_value[mesh.facets].shape)==3:
+        facet_value = np.sum(vertex_value[mesh.facets]*wfp[:,:,None], axis = 1)/np.sum(wfp[:,:,None], axis = 1)
+    else:
+        facet_value = np.sum(vertex_value[mesh.facets]*wfp, axis = 1)/np.sum(wfp, axis = 1)
+
+    return facet_value
+
+def facet_to_vertex_voronoi(mesh, facet_value):
+    """
+    Using Voronoi area for interpolation
+    Gives approximate result with a small error, need to check why
+    """
+
+    #Avertex - [NvX1] voronoi area at each vertex
+    #Acorner - [NfX3] slice of the voronoi area at each face corner
+
+    node_value = np.zeros(len(mesh.nodes))
+    total_value = np.zeros(len(mesh.nodes))
+    np.add.at(node_value, mesh.facets, np.ones(mesh.facets.shape)*mesh.Acorner*facet_value[:,None]/np.sum(mesh.Acorner,axis = 1)[:,None])#facet_value[:,None]*mesh.Acorner/np.sum(mesh.Acorner,axis = 1)[:,None])
+    np.add.at(total_value, mesh.facets, np.ones(mesh.facets.shape)*mesh.Acorner/np.sum(mesh.Acorner,axis = 1)[:,None])#facet_value[:,None]*mesh.Acorner/np.sum(mesh.Acorner,axis = 1)[:,None])
+
+    return node_value/total_value
+
+def vertex_to_facet_linear(mesh, vertex_value):
+    """
+    Using Voronoi area of vertex
+    """
+
+    #Avertex - [NvX1] voronoi area at each vertex
+    #Acorner - [NfX3] slice of the voronoi area at each face corner
+
+    wfp = mesh.Acorner
+
+    if len(vertex_value[mesh.facets].shape)==3:
+        facet_value = np.sum(vertex_value[mesh.facets]*wfp[:,:,None], axis = 1)/np.sum(wfp[:,:,None], axis = 1)
+    else:
+        facet_value = np.sum(vertex_value[mesh.facets]*wfp, axis = 1)/np.sum(wfp, axis = 1)
+
+    return facet_value

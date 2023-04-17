@@ -398,6 +398,9 @@ class Assembly():
             self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
             self.mesh.nodes_radius = np.zeros(len(self.mesh.nodes))
             self.mesh.facet_radius = np.zeros(len(self.mesh.facets))
+            self.mesh.Avertex = np.zeros(len(self.mesh.nodes))
+            self.mesh.Acorner = np.zeros((len(self.mesh.facets),3))
+
             self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes),3))
 
             self.cfd_mesh.nodes = self.mesh.nodes
@@ -411,8 +414,11 @@ class Assembly():
                 obj.facet_index, obj.facet_mask = Mesh.create_index(self.mesh.facet_COG, obj.mesh.facet_COG)
 
                 #print("IMPORTANT TEST: ", (self.mesh.nodes[obj.node_index] == obj.mesh.nodes).all())
-                self.mesh.nodes_radius[obj.node_index] = obj.mesh.nodes_radius
+                self.mesh.nodes_radius[obj.node_index]  = obj.mesh.nodes_radius
                 self.mesh.facet_radius[obj.facet_index] = obj.mesh.facet_radius
+                self.mesh.Avertex[obj.node_index]  = obj.mesh.Avertex
+                self.mesh.Acorner[obj.facet_index] = obj.mesh.Acorner
+
 
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
             self.inside_shock = np.zeros(len(self.mesh.nodes))
@@ -420,6 +426,7 @@ class Assembly():
         self.Lref = np.max(self.mesh.xmax-self.mesh.xmin)
 
         self.aerothermo = Aerothermo(len(self.mesh.facets))
+        self.aerothermo_cfd = Aerothermo(len(self.mesh.nodes))
 
         #Initialize surface temperature of the assembly
         for obj in self.objects:

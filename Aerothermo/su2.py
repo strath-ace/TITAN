@@ -464,7 +464,7 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
 
     return aerothermo
 
-def split_aerothermo(total_aerothermo, assembly):
+def split_aerothermo(total_aerothermo, assembly_list):
     """
     Split the solution into the different assemblies used in the CFD simulation
 
@@ -476,33 +476,45 @@ def split_aerothermo(total_aerothermo, assembly):
         Object of class List_Assembly
     """
 
-    aerothermo_list = []
+    #Initializes the Aerothermo Object
 
     last_node = 0
     first_node = 0
 
     #Loop through all the assembly objects
-    for it in range(len(assembly)):
+    for it in range(len(assembly_list)):
 
-        nodes = np.copy(assembly[it].cfd_mesh.nodes[assembly[it].cfd_mesh.edges])
+        nodes = np.copy(assembly_list[it].cfd_mesh.nodes[assembly_list[it].cfd_mesh.edges])
 
         nodes.shape = (-1,3)
         nodes = np.unique(nodes, axis = 0)
 
         last_node += len(nodes)    
-        cfd_nodes_sorted, idx_inv = np.unique(assembly[it].cfd_mesh.nodes, axis = 0, return_inverse = True)
+        cfd_nodes_sorted, idx_inv = np.unique(assembly_list[it].cfd_mesh.nodes, axis = 0, return_inverse = True)
         node_index, node_mask = mesh.create_index(cfd_nodes_sorted, nodes)
 
+        aerothermo = assembly.Aerothermo(len(assembly_list[it].mesh.nodes))
+
         #Store the solution into the correspondent assembly
-        for field in [field for field in dir(assembly[it].aerothermo) if not field.startswith('__')]:
-            if field == 'density':      assembly[it].aerothermo.density[node_index]      = total_aerothermo.density     [first_node:last_node]; assembly[it].aerothermo.density = assembly[it].aerothermo.density[idx_inv]
-            if field == 'temperature':  assembly[it].aerothermo.temperature[node_index]  = total_aerothermo.temperature [first_node:last_node]; assembly[it].aerothermo.temperature = assembly[it].aerothermo.temperature[idx_inv]
-           #if field == 'momentum':     assembly[it].aerothermo.momentum[node_index]     = total_aerothermo.momentum    [first_node:last_node]
-            if field == 'pressure':     assembly[it].aerothermo.pressure[node_index]     = total_aerothermo.pressure    [first_node:last_node]; assembly[it].aerothermo.pressure = assembly[it].aerothermo.pressure[idx_inv]
-            if field == 'shear':        assembly[it].aerothermo.shear[node_index]        = total_aerothermo.shear[first_node:last_node]; assembly[it].aerothermo.shear = assembly[it].aerothermo.shear[idx_inv]
-            if field == 'heatflux':     assembly[it].aerothermo.heatflux[node_index]     = total_aerothermo.heatflux    [first_node:last_node]; assembly[it].aerothermo.heatflux = assembly[it].aerothermo.heatflux[idx_inv]
+        for field in [field for field in dir(assembly_list[it].aerothermo) if not field.startswith('__')]:
+            if field == 'density':      aerothermo.density[node_index]      = total_aerothermo.density     [first_node:last_node]; aerothermo.density = aerothermo.density[idx_inv]
+            if field == 'temperature':  aerothermo.temperature[node_index]  = total_aerothermo.temperature [first_node:last_node]; aerothermo.temperature = aerothermo.temperature[idx_inv]
+           #if field == 'momentum':     aerothermo.momentum[node_index]     = total_aerothermo.momentum    [first_node:last_node]
+            if field == 'pressure':     aerothermo.pressure[node_index]     = total_aerothermo.pressure    [first_node:last_node]; aerothermo.pressure = aerothermo.pressure[idx_inv]
+            if field == 'shear':        aerothermo.shear[node_index]        = total_aerothermo.shear[first_node:last_node];        aerothermo.shear = aerothermo.shear[idx_inv]
+            if field == 'heatflux':     aerothermo.heatflux[node_index]     = total_aerothermo.heatflux    [first_node:last_node]; aerothermo.heatflux = aerothermo.heatflux[idx_inv]
 
         first_node = last_node
+
+        #Interpolate to Facet based on the Veronai weights computed during the mesh preprocessing phase
+        for field in [field for field in dir(assembly_list[it].aerothermo) if not field.startswith('__')]:
+            if field == 'density':      assembly_list[it].aerothermo.density     = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.density)
+            if field == 'temperature':  assembly_list[it].aerothermo.temperature = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.temperature)
+            if field == 'pressure':     assembly_list[it].aerothermo.pressure    = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.pressure)
+            if field == 'shear':        assembly_list[it].aerothermo.shear       = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.shear)
+            if field == 'heatflux':     assembly_list[it].aerothermo.heatflux    = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.heatflux)
+
+        assembly_list[it].aerothermo_cfd = aerothermo
 
 def run_SU2(n, options):
     """

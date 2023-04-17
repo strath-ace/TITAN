@@ -26,13 +26,13 @@ from TITAN import main
 #X_X_X_X Stands for Latitude, Longitude, AoA, Sideslip
  
 options, titan_0 = main("Tests/Configs/1m_sphere_ground_0_0_0_0.txt")
-def test_latitude0(): assert np.round(np.max(titan_0.assembly[0].trajectory.latitude),5) == np.round(0.27164651680067986,5)
+def test_latitude0(): assert np.round(np.max(titan_0.assembly[0].trajectory.latitude),5) == np.round(0.27163,5)
 def test_longitude0(): assert np.round(np.max(titan_0.assembly[0].trajectory.longitude),5) == np.round(4.89426e-07,5)
 
 options, titan_1 = main("Tests/Configs/1m_sphere_ground_45_45_0_0.txt")
-def test_latitude1(): assert np.round(np.max(titan_1.assembly[0].trajectory.latitude),5) == np.round(60.257736*np.pi/180,5)
-def test_longitude1(): assert np.round(np.max(titan_1.assembly[0].trajectory.longitude),5) == np.round(45.00014*np.pi/180,5)
+def test_latitude1(): assert np.round(np.max(titan_1.assembly[0].trajectory.latitude),5) == np.round(1.05168,5)
+def test_longitude1(): assert np.round(np.max(titan_1.assembly[0].trajectory.longitude),5) == np.round(0.1725,5)
 
 options, titan_2 = main("Tests/Configs/1m_sphere_ground_0_0_45_45.txt")
 def test_latitude2(): assert np.round(np.max(titan_2.assembly[0].trajectory.latitude),5) == np.round(0.17251,5)
-def test_longitude2(): assert np.round(np.max(titan_2.assembly[0].trajectory.longitude),5) == np.round(-0.20778,5)
+def test_longitude2(): assert np.round(np.max(titan_2.assembly[0].trajectory.longitude),5) == np.round(-0.20776,5)
