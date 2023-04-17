@@ -325,4 +325,5 @@ def integrate(titan, options):
         Object of class Options
 
     """
+
     euler.compute_Euler(titan, options)

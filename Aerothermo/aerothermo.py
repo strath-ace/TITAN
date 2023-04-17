@@ -66,7 +66,7 @@ def backfaceculling(body, nodes, nodes_normal, free_vector, npix):
     p_y = npix
     p_z = npix
 
-    normals = np.copy(body.mesh.facet_normals)
+    normals = np.copy(body.mesh.facet_normal)
 
     #vector of facets with chance to be wet
     p1 = np.dot(normals, free_vector)

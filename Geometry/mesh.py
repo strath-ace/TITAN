@@ -47,7 +47,7 @@ class Mesh():
         self.v1 = self.v1.astype(np.double)
         self.v2 = self.v2.astype(np.double)
 
-        self.facet_normals = np.array([])
+        self.facet_normal = np.array([])
         self.facet_area = np.array([])
         
         self.min = np.zeros(3)
@@ -74,7 +74,7 @@ def append(mesh_assembly, mesh_obj):
         mesh_assembly.v0 = np.copy(mesh_obj.v0)
         mesh_assembly.v1 = np.copy(mesh_obj.v1)
         mesh_assembly.v2 = np.copy(mesh_obj.v2)
-        mesh_assembly.facet_normals = np.copy(mesh_obj.facet_normals)
+        mesh_assembly.facet_normal = np.copy(mesh_obj.facet_normal)
         mesh_assembly.facet_area = np.copy(mesh_obj.facet_area)
         mesh_assembly.facet_COG = np.copy(mesh_obj.facet_COG)
 
@@ -82,7 +82,7 @@ def append(mesh_assembly, mesh_obj):
         mesh_assembly.v0 = np.append(mesh_assembly.v0, mesh_obj.v0, axis=0)
         mesh_assembly.v1 = np.append(mesh_assembly.v1, mesh_obj.v1, axis=0)
         mesh_assembly.v2 = np.append(mesh_assembly.v2, mesh_obj.v2, axis=0)
-        mesh_assembly.facet_normals = np.append(mesh_assembly.facet_normals, mesh_obj.facet_normals, axis=0)
+        mesh_assembly.facet_normal = np.append(mesh_assembly.facet_normal, mesh_obj.facet_normal, axis=0)
         mesh_assembly.facet_area = np.append(mesh_assembly.facet_area, mesh_obj.facet_area, axis=0)
         mesh_assembly.facet_COG = np.append(mesh_assembly.facet_COG, mesh_obj.facet_COG, axis=0)
 
@@ -93,13 +93,13 @@ def compute_mesh(mesh, compute_radius = True):
     mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
     mesh.facet_COG = compute_facet_COG(mesh.v0, mesh.v1, mesh.v2)
     mesh.COG = compute_geometrical_COG(mesh.facet_COG, mesh.facet_area)
-    mesh.facet_normals = compute_facet_normals(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2)
+    mesh.facet_normal = compute_facet_normal(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2, mesh.facet_area)
     mesh.nodes, mesh.facets = map_facets_connectivity(mesh.v0, mesh.v1, mesh.v2)
     mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0,mesh.v1,mesh.v2)
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
     mesh.edges, mesh.facet_edges = map_edges_connectivity(mesh.facets)
     
-    if compute_radius: mesh.nodes_radius = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normals, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
+    if compute_radius: mesh.nodes_radius = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
     else: mesh.node_radius = np.ones((len(mesh.nodes)))
 
     mesh.surface_displacement = np.zeros((len(mesh.nodes),3))
@@ -115,8 +115,8 @@ def update_surface_displacement(mesh, surface_displacement_vector):
     mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
     mesh.facet_COG = compute_facet_COG(mesh.v0, mesh.v1, mesh.v2)
     mesh.COG = compute_geometrical_COG(mesh.facet_COG, mesh.facet_area)
-    mesh.facet_normals = compute_facet_normals(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2)
-    mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0,mesh.v1,mesh.v2)
+    mesh.facet_normal = compute_facet_normal(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2)
+    mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2, mesh.facet_area)
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
 
 
@@ -151,14 +151,15 @@ def compute_geometrical_COG(facet_COG, facet_area):
     COG = np.sum(facet_COG*facet_area[:,None], axis = 0)/np.sum(facet_area)
     return COG
 
-def compute_facet_normals(COG, facet_COG, v0,v1,v2):
+def compute_facet_normal(COG, facet_COG, v0,v1,v2, area):
     #Compute Facet Normals
 
-    facet_normals = np.cross(v1 - v0, v2 - v0)
-    norms = np.linalg.norm(facet_normals, axis = 1, ord=2)
-    facet_normals /= norms[:,None]
+    facet_normal = np.cross(v1 - v0, v2 - v0)
+    norms = np.linalg.norm(facet_normal, axis = 1, ord=2)
+    facet_normal /= norms[:,None]
+    facet_normal *= area[:,None]
 
-    return facet_normals
+    return facet_normal
 
 def map_facets_connectivity(v0,v1,v2):
     #Map the Facets with respect to the Mesh Nodes
@@ -241,7 +242,7 @@ def compute_min_max(nodes):
     return _min, _max
 
 
-def compute_curvature(nodes, facets,nodes_normal, facets_normals, facets_area, v0, v1, v2):
+def compute_curvature(nodes, facets,nodes_normal, facet_normals, facets_area, v0, v1, v2):
 
     avType = 'e'
     Nsmooth = int(np.round(len(facets)/100, decimals = 0))
@@ -250,10 +251,10 @@ def compute_curvature(nodes, facets,nodes_normal, facets_normals, facets_area, v
     flatWeightFlag = 2
 
     free_vector = np.array([1,0,0])
-    p1 = np.dot(facets_normals, free_vector)
+    p1 = np.dot(facet_normals, free_vector)
     p1 = p1<0    
 
-    Theta = np.pi/2 - np.arccos(np.clip(np.sum(- free_vector * facets_normals[p1] , axis = 1), -1.0, 1.0))
+    Theta = np.pi/2 - np.arccos(np.clip(np.sum(- free_vector * facet_normals[p1] , axis = 1), -1.0, 1.0))
     
     area = np.sum(facets_area[p1]*np.sin(Theta))
 
@@ -262,8 +263,8 @@ def compute_curvature(nodes, facets,nodes_normal, facets_normals, facets_area, v
     
     # Based on Fostrad module -> based on the work of Itzik Ben Shabat
 
-    VertexNormals,Avertex,Acorner,up,vp, avEdge = calculate_vertex_normals(nodes, facets, facets_normals, facets_area, v0,v1,v2)
-    VertexSFM=calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facets_normals,v0,v1,v2)
+    VertexNormals,Avertex,Acorner,up,vp, avEdge = calculate_vertex_normals(nodes, facets, facet_normals, facets_area, v0,v1,v2)
+    VertexSFM=calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facet_normals,v0,v1,v2)
     CurvUxVy,PrincipalDir1,PrincipalDir2=getPrincipalCurvatures(nodes,VertexSFM,up,vp)
 
     CurvUxVy = np.abs(CurvUxVy)
@@ -350,7 +351,7 @@ def searchableRadius(center, nodes, SearchRadius, Nsmooth):
 
     return SearchPosInd
 
-def calculate_vertex_normals(nodes, facets, facets_normals, facets_area, v0,v1,v2):
+def calculate_vertex_normals(nodes, facets, facet_normals, facets_area, v0,v1,v2):
     VertexNormals = np.zeros((len(nodes),3))
     up = np.zeros((len(nodes),3))
     vp = np.zeros((len(nodes),3))
@@ -388,9 +389,9 @@ def calculate_vertex_normals(nodes, facets, facets_normals, facets_area, v0,v1,v
     wfv2 = facets_area/(l1_2*l0_2)
 
     #Has to be like this to not find simultaneous acess to the same memory
-    np.add.at(VertexNormals,facets[:,0], (wfv0[:,None]*facets_normals))
-    np.add.at(VertexNormals,facets[:,1], (wfv1[:,None]*facets_normals))
-    np.add.at(VertexNormals,facets[:,2], (wfv2[:,None]*facets_normals))
+    np.add.at(VertexNormals,facets[:,0], (wfv0[:,None]*facet_normals))
+    np.add.at(VertexNormals,facets[:,1], (wfv1[:,None]*facet_normals))
+    np.add.at(VertexNormals,facets[:,2], (wfv2[:,None]*facet_normals))
 
     ew_0 = (ew[:,0]<=0)
     ew_1 = (ew[:,1]<=0)
@@ -427,7 +428,7 @@ def calculate_vertex_normals(nodes, facets, facets_normals, facets_area, v0,v1,v
     
     return VertexNormals,Avertex,Acorner,up,vp, avEdge
 
-def calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facets_normals,v0,v1,v2):
+def calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facet_normals,v0,v1,v2):
     
     e0=v2-v1
     e1=v0-v2
@@ -437,11 +438,11 @@ def calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facets_
     #e1_norm=e1/numpy.linalg.norm(e1 , ord = 2, axis = 1)[:,None]
     #e2_norm=e2/numpy.linalg.norm(e2 , ord = 2, axis = 1)[:,None]
 
-    B = np.cross(facets_normals,e0_norm,axis=1)
+    B = np.cross(facet_normals,e0_norm,axis=1)
     B/= np.linalg.norm(B, axis = 1)[:,None]
     
-    A = np.zeros((len(facets_normals),6,3))
-    b = np.zeros((len(facets_normals),6))
+    A = np.zeros((len(facet_normals),6,3))
+    b = np.zeros((len(facet_normals),6))
 
     A[:,0,0] = np.sum(e0*e0_norm, axis = 1);         A[:,0,1] = np.sum(e0*B, axis = 1) ;              A[:,0,2] = 0; 
     A[:,1,0] = 0;                                    A[:,1,1] = np.sum(e0*e0_norm, axis = 1);         A[:,1,2] = np.sum(e0*B, axis = 1) ; 
@@ -471,7 +472,7 @@ def calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facets_
 
     VertexSFM = np.zeros((len(nodes),4))
 
-    new_ku,new_kuv,new_kv = ProjectCurvatureTensor(e0_norm,B,facets_normals,x[:,0],x[:,1],x[:,2],up[facets],vp[facets])
+    new_ku,new_kuv,new_kv = ProjectCurvatureTensor(e0_norm,B,facet_normals,x[:,0],x[:,1],x[:,2],up[facets],vp[facets])
 
     horizontal_stack_0 = np.stack((new_ku[:,0],new_kuv[:,0],new_kuv[:,0],new_kv[:,0]), axis = -1)
     horizontal_stack_1 = np.stack((new_ku[:,1],new_kuv[:,1],new_kuv[:,1],new_kv[:,1]), axis = -1)
@@ -675,7 +676,7 @@ def remove_repeated_facets(assembly_mesh):
     assembly_mesh.v0 =       assembly_mesh.v0[idx]
     assembly_mesh.v1 =       assembly_mesh.v1[idx]
     assembly_mesh.v2 =       assembly_mesh.v2[idx]
-    assembly_mesh.facet_normals =  assembly_mesh.facet_normals[idx]
+    assembly_mesh.facet_normal =  assembly_mesh.facet_normal[idx]
     assembly_mesh.facet_area =     assembly_mesh.facet_area[idx]
 
     

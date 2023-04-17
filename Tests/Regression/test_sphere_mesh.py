@@ -30,7 +30,7 @@ def test_assembly_mesh_v1(): assert (titan.assembly[0].mesh.v1 == titan.assembly
 def test_assembly_mesh_v2(): assert (titan.assembly[0].mesh.v2 == titan.assembly[0].objects[0].mesh.v2).all(), "  Mesh v2 is not the same"
 
 def test_assembly_mesh_facet(): assert (titan.assembly[0].mesh.facets == titan.assembly[0].objects[0].mesh.facets).all(), " Facets are not the same"
-def test_assembly_mesh_facet_normal(): assert (titan.assembly[0].mesh.facet_normals == titan.assembly[0].objects[0].mesh.facet_normals).all(), " Facet normals are not the same"
+def test_assembly_mesh_facet_normal(): assert (titan.assembly[0].mesh.facet_normal == titan.assembly[0].objects[0].mesh.facet_normal).all(), " Facet normals are not the same"
 def test_assembly_mesh_facet_edges(): assert (titan.assembly[0].mesh.facet_edges== titan.assembly[0].objects[0].mesh.facet_edges).all(), " Facet edges are not the same"
 def test_assembly_mesh_facet_area(): assert (titan.assembly[0].mesh.facet_area == titan.assembly[0].objects[0].mesh.facet_area).all(), " Facet areas are not the same"
 def test_assembly_mesh_facet_COG(): assert (titan.assembly[0].mesh.facet_COG == titan.assembly[0].objects[0].mesh.facet_COG).all(), " Facet COG are not the same"
@@ -59,9 +59,9 @@ def test_assembly_mesh_facets_0(): assert (titan.assembly[0].mesh.facets[0] == [
 def test_assembly_mesh_facets_1(): assert (titan.assembly[0].mesh.facets[1] == [1199, 1133, 1195]).all(), " Mesh facets are wrong"
 def test_assembly_mesh_facets_2(): assert (titan.assembly[0].mesh.facets[2] == [ 970,  901,  903]).all(), " Mesh facets are wrong"
 
-def test_assembly_mesh_facet_normals_0(): assert (np.round(titan.assembly[0].mesh.facet_normals[0],5) ==  np.round(np.array([-1.82404047e-02, -6.70415554e-02,  9.97583439e-01]),5)).all(), " Mesh facet normals are wrong"
-def test_assembly_mesh_facet_normals_1(): assert (np.round(titan.assembly[0].mesh.facet_normals[1],5) ==  np.round(np.array([ 4.88511432e-01,  1.58220786e-01, -8.58092515e-01]),5)).all(), " Mesh facet normals are wrong"
-def test_assembly_mesh_facet_normals_2(): assert (np.round(titan.assembly[0].mesh.facet_normals[2],5) ==  np.round(np.array([ 1.60327372e-01,  9.87063893e-01,  6.35085564e-05]),5)).all(), " Mesh facet normals are wrong"
+def test_assembly_mesh_facet_normal_0(): assert (np.round(titan.assembly[0].mesh.facet_normal[0],5) ==  np.round(np.array([-1.82404047e-02, -6.70415554e-02,  9.97583439e-01]),5)).all(), " Mesh facet normals are wrong"
+def test_assembly_mesh_facet_normal_1(): assert (np.round(titan.assembly[0].mesh.facet_normal[1],5) ==  np.round(np.array([ 4.88511432e-01,  1.58220786e-01, -8.58092515e-01]),5)).all(), " Mesh facet normals are wrong"
+def test_assembly_mesh_facet_normal_2(): assert (np.round(titan.assembly[0].mesh.facet_normal[2],5) ==  np.round(np.array([ 1.60327372e-01,  9.87063893e-01,  6.35085564e-05]),5)).all(), " Mesh facet normals are wrong"
 
 def test_assembly_mesh_facet_edges_0(): assert (titan.assembly[0].mesh.facet_edges[0] ==  [-2250,  2252, -2451]).all(), " Mesh facet edges are wrong"
 def test_assembly_mesh_facet_edges_1(): assert (titan.assembly[0].mesh.facet_edges[1] ==  [-3462,  3461,  3643]).all(), " Mesh facet edges are wrong"
