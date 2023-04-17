@@ -352,9 +352,9 @@ def aerothermodynamics_module_ice_giants(assembly, index, flow_direction, option
     """
 
 
-    length_normal = np.linalg.norm(assembly.mesh.nodes_normal, axis = 1, ord = 2)
+    length_normal = np.linalg.norm(assembly.mesh.facet_normal, axis = 1, ord = 2)
     index = index*(length_normal[index] != 0)
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * assembly.mesh.nodes_normal[index]/length_normal[index,None] , axis = 1), -1.0, 1.0))
+    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * assembly.mesh.facet_normal[index]/length_normal[index,None] , axis = 1), -1.0, 1.0))
 
     if options.vehicle:
         nose_radius = options.vehicle.noseRadius
@@ -362,9 +362,9 @@ def aerothermodynamics_module_ice_giants(assembly, index, flow_direction, option
         assembly.aerothermo.qradstag = 10000*0.091 * nose_radius * assembly.freestream.density ** (1.3344555) * (assembly.freestream.velocity/1000) ** (6.75706138)
         assembly.aerothermo.qstag = assembly.aerothermo.qconvstag+assembly.aerothermo.qradstag
 
-    nodes_radius = assembly.mesh.nodes_radius[index]
-    Qstag = 10000*9.08 * np.sqrt(1/(2*nodes_radius)) * assembly.freestream.density ** (0.419778) * (assembly.freestream.velocity/1000) ** (2.67892)
-    Qradstag = 10000*0.091 * nodes_radius * assembly.freestream.density ** (1.3344555) * (assembly.freestream.velocity/1000) ** (6.75706138)
+    facet_radius = assembly.mesh.facet_radius[index]
+    Qstag = 10000*9.08 * np.sqrt(1/(2*facet_radius)) * assembly.freestream.density ** (0.419778) * (assembly.freestream.velocity/1000) ** (2.67892)
+    Qradstag = 10000*0.091 * facet_radius * assembly.freestream.density ** (1.3344555) * (assembly.freestream.velocity/1000) ** (6.75706138)
 
     K = 0.1
     Q = Qstag + Qradstag
