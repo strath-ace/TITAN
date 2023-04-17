@@ -33,14 +33,14 @@ def compute_thermal(titan, options):
     for assembly in titan.assembly:
         for obj in assembly.objects:
 
-            node_area = np.linalg.norm(obj.mesh.nodes_normal, ord = 2, axis = 1)
-            heatflux = assembly.aerothermo.heatflux[obj.node_index]
-            Qin = np.sum(heatflux*node_area)
-
+            facet_area = np.linalg.norm(obj.mesh.facet_normal, ord = 2, axis = 1)
+            heatflux = assembly.aerothermo.heatflux[obj.facet_index]
+            Qin = np.sum(heatflux*facet_area)
+            
             cp  = obj.material.specificHeatCapacity(obj.temperature)
             emissivity = obj.material.emissivity(obj.temperature)
 
-            Atot = np.sum(node_area)
+            Atot = np.sum(facet_area)
 
             # Estimating the radiation heat-flux
             Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
@@ -68,7 +68,7 @@ def compute_thermal(titan, options):
                 obj.mass = 0
             
             assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
-            assembly.aerothermo.temperature[obj.node_index] = obj.temperature
+            assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
         #assembly.compute_mass_properties()
         #Need to update Lat Lon of the body with the moving COM due to mass diferences

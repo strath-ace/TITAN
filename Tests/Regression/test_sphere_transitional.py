@@ -25,5 +25,5 @@ from TITAN import main
 
 options, titan = main("Tests/Configs/1m_sphere_transitional.txt")
 
-def test_pressure(): assert np.round(np.max(titan.assembly[0].aerothermo.pressure),5) == np.round(10.71748,5)
-def test_heatflux(): assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(17232.42698,5)
+def test_pressure(): assert np.round(np.max(titan.assembly[0].aerothermo.pressure),5) == np.round(10.71574,5)
+def test_heatflux(): assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(17231.01351,5)

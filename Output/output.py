@@ -153,7 +153,7 @@ def generate_surface_solution(titan, options):
             temperature[obj.facet_index] = obj.temperature
 
         cells = {"triangle": facets}
-        print(len(pressure), len(heatflux), len(displacement), len(temperature), len(shear), len(radius), len(ellipse))
+
         cell_data = { "Pressure": [pressure],
                       "Heatflux": [heatflux],
                       "Temperature": [temperature],

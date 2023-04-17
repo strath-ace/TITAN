@@ -180,7 +180,9 @@ def fragmentation(titan, options):
         for _id, obj in enumerate(titan.assembly[it].objects):
 
             if obj.type == "Joint":
+
                 if obj.trigger_type.lower() == 'altitude' and titan.assembly[it].trajectory.altitude <= obj.trigger_value:
+
                     print ('Altitude Fragmentation occured ')
                     objs_id = np.append(objs_id, _id)
                 

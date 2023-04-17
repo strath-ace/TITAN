@@ -411,7 +411,7 @@ class Assembly():
                 obj.facet_index, obj.facet_mask = Mesh.create_index(self.mesh.facet_COG, obj.mesh.facet_COG)
 
                 #print("IMPORTANT TEST: ", (self.mesh.nodes[obj.node_index] == obj.mesh.nodes).all())
-                #self.mesh.nodes_radius[obj.node_index] = obj.mesh.nodes_radius
+                self.mesh.nodes_radius[obj.node_index] = obj.mesh.nodes_radius
                 self.mesh.facet_radius[obj.facet_index] = obj.mesh.facet_radius
 
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
