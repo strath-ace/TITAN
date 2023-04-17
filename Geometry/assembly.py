@@ -397,6 +397,7 @@ class Assembly():
             self.mesh.nodes_normal = Mesh.compute_nodes_normals(len(self.mesh.nodes), self.mesh.facets ,self.mesh.facet_COG, self.mesh.v0,self.mesh.v1,self.mesh.v2)
             self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
             self.mesh.nodes_radius = np.zeros(len(self.mesh.nodes))
+            self.mesh.facet_radius = np.zeros(len(self.mesh.facets))
             self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes),3))
 
             self.cfd_mesh.nodes = self.mesh.nodes
@@ -410,7 +411,8 @@ class Assembly():
                 obj.facet_index, obj.facet_mask = Mesh.create_index(self.mesh.facet_COG, obj.mesh.facet_COG)
 
                 #print("IMPORTANT TEST: ", (self.mesh.nodes[obj.node_index] == obj.mesh.nodes).all())
-                self.mesh.nodes_radius[obj.node_index] = obj.mesh.nodes_radius
+                #self.mesh.nodes_radius[obj.node_index] = obj.mesh.nodes_radius
+                self.mesh.facet_radius[obj.facet_index] = obj.mesh.facet_radius
 
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
             self.inside_shock = np.zeros(len(self.mesh.nodes))

@@ -179,3 +179,16 @@ After obtaining the solution of the simulation, the data can be postprocessed by
 The frame convention in the geometry modelling are such that the X axis is the longitudinal axis pointing ahead, Z axis is the vertical axis pointing downwards, and the Y axis is the lateral one, pointing in such a way that the frame is right-handed. 
 
 In case of multiple components, if the components are in contact with each other, the respective meshes need to be identical in the interface (i.e. same node positioning and same facets).
+
+
+# Patch Notes
+
+\[2023/04/17\]
+
+* Change Varible facets_normal to facet_normal in mesh class
+* Compute facet_normal to be proportional to the facet area
+* Object of class aerothermo creates array based of number of facets instead of number of nodes
+* Aerodynamic computation now takes facets normals as input
+* Output files now have cell_data in addition to point_data
+* Computation of facet radius in addition to nodes radius
+* Aerothermodynamics computation now takes facet normals and facet radius as input

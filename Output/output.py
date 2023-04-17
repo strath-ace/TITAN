@@ -146,25 +146,29 @@ def generate_surface_solution(titan, options):
         heatflux = assembly.aerothermo.heatflux
         shear = assembly.aerothermo.shear
         displacement = assembly.mesh.surface_displacement
-        radius = assembly.mesh.nodes_radius
+        radius = assembly.mesh.facet_radius
         ellipse = assembly.inside_shock
-        temperature  = np.ones(len(points))
+        temperature  = np.ones(len(facets))
         for obj in assembly.objects:
-            temperature[obj.node_index] = obj.temperature
+            temperature[obj.facet_index] = obj.temperature
 
         cells = {"triangle": facets}
+        print(len(pressure), len(heatflux), len(displacement), len(temperature), len(shear), len(radius), len(ellipse))
+        cell_data = { "Pressure": [pressure],
+                      "Heatflux": [heatflux],
+                      "Temperature": [temperature],
+                      "Shear": [shear],
+                      "Radius": [radius],
+                    }
 
-        point_data = {"Pressure": pressure,
-                      "Heatflux": heatflux,
-                      "Displacement": displacement,
-                      "Temperature": temperature,
-                      "Shear": shear,
-                      "Radius": radius,
-                      "Ellipse": ellipse}
+        point_data = { "Displacement": displacement,
+                       "Ellipse": ellipse,
+                     }
 
         trimesh = meshio.Mesh(points,
                               cells=cells,
-                              point_data = point_data)
+                              point_data = point_data,
+                              cell_data = cell_data)
 
         folder_path = options.output_folder+'/Surface_solution/ID_'+str(assembly.id)
         Path(folder_path).mkdir(parents=True, exist_ok=True)

@@ -228,16 +228,16 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     # Heatflux calculation for Earth
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.nodes_normal, assembly.mesh.nodes_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options.aerothermo.heat_model)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options.aerothermo.heat_model)*StConst
         
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly.mesh.nodes_normal, assembly.freestream, index, flow_direction, assembly.aerothermo.temperature)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction, assembly.aerothermo.temperature)*StConst
         
         else: 
             #atmospheric model for the aerothermodynamics bridging needs to be the NRLSMSISE00
             atmo_model = "NRLMSISE00"
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly.mesh.nodes_normal, assembly.mesh.nodes_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, atmo_model, options.aerothermo.heat_model, Kn_cont_heatflux, Kn_free, assembly.Lref, assembly, options)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, atmo_model, options.aerothermo.heat_model, Kn_cont_heatflux, Kn_free, assembly.Lref, assembly, options)*StConst
 
     elif options.planet.name == "neptune" or options.planet.name == "uranus":
         #https://sci.esa.int/documents/34923/36148/1567260384517-Ice_Giants_CDF_study_report.pdf        
@@ -280,7 +280,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         index = np.unique(ray.intersects_first(ray_origins = ray_list, ray_directions = ray_directions))
         index = index[index != -1] 
 
-        #compute_aerothermodynamics(_assembly, [], p, flow_direction, options)
+        compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
 
 def aerodynamics_module_continuum(facet_normal,free, p, flow_direction):
@@ -373,7 +373,7 @@ def aerothermodynamics_module_ice_giants(assembly, index, flow_direction, option
 
     return Q
 
-def aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p,body_temperature, flow_direction, hf_model):
+def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_temperature, flow_direction, hf_model):
     """
     Heatflux computation for continuum regime
 
@@ -402,10 +402,10 @@ def aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p,body_t
         Vector with Stanton number
     """
 
-    length_normal = np.linalg.norm(nodes_normal, ord = 2, axis = 1)
+    length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
     p = p*(length_normal[p] != 0)
 
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * nodes_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
 
     T0s  = free.T1_s
     P02  = free.P1_s
@@ -415,14 +415,14 @@ def aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p,body_t
     Pr = free.prandtl
     mu_T0s = free.mu_s
 
-    dudx = 1.0/nodes_radius* np.sqrt(2*(P02-free.pressure)/rhos)
+    dudx = 1.0/facet_radius* np.sqrt(2*(P02-free.pressure)/rhos)
 
     StConst = free.density*free.velocity**3 / 2.0
     if StConst<0.05: StConst = 0.05 # Neglect Cooling effect (as in Fostrad)
 
     if hf_model == 'sc': #Scarab formulation and Lees distribution
         Re0norm = free.density * free.velocity / (free.mu *(T0s/free.temperature)**free.omega)
-        Re0 = 2.0*nodes_radius[p]*Re0norm
+        Re0 = 2.0*facet_radius[p]*Re0norm
         Stc = 2.1/np.sqrt(Re0)
     
     if hf_model == 'vd': #Van Driest
@@ -437,7 +437,7 @@ def aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p,body_t
 
     return Stc
 
-def aerothermodynamics_module_freemolecular(nodes_normal, free, p, flow_direction, Wall_Temperature):
+def aerothermodynamics_module_freemolecular(facet_normal, free, p, flow_direction, Wall_Temperature):
     """
     Heatflux computation for free-molecular regime
 
@@ -467,10 +467,10 @@ def aerothermodynamics_module_freemolecular(nodes_normal, free, p, flow_directio
     StConst = free.density*free.velocity**3 / 2.0
     if StConst<0.05: StConst = 0.05 # Neglect Cooling effect (as in Fostrad)
 
-    length_normal = np.linalg.norm(nodes_normal, ord = 2, axis = 1)
+    length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
     p = p*(length_normal[p] != 0)
 
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * nodes_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
 
     AccCoeff = 1.0 #TODO Wall molecular diffusive accomodation coefficient
     SR = np.sqrt(0.5*free.gamma)*free.mach
@@ -607,7 +607,7 @@ def aerodynamics_module_bridging(facet_normal,free,p,aerobridge, flow_direction,
 
     return Pressure, Shear
 
-def aerothermodynamics_module_bridging(nodes_normal, nodes_radius,free,p, wall_temperature, flow_direction, atm_data, hf_model, Kn_cont, Kn_free, lref, assembly, options):
+def aerothermodynamics_module_bridging(facet_normal, facet_radius,free,p, wall_temperature, flow_direction, atm_data, hf_model, Kn_cont, Kn_free, lref, assembly, options):
     """
     Heatflux computation for the heat-flux regime
 
@@ -743,7 +743,7 @@ def aerothermodynamics_module_bridging(nodes_normal, nodes_radius,free,p, wall_t
     Thermal_bridge[Thermal_bridge<0] = 0
     Thermal_bridge[Thermal_bridge>1] = 1 
 
-    rN_bridge = np.copy(nodes_radius)
+    rN_bridge = np.copy(facet_radius)
 
     rN_bridge[rN_bridge > 5.3] = 5.3; # The maximum calibrated radius is 5.3m.
     rN_bridge[rN_bridge < 0.0875] = 0.0875; # The minimum calibrated radius is 0.0875m. (Mars Micro Probe)
@@ -751,15 +751,15 @@ def aerothermodynamics_module_bridging(nodes_normal, nodes_radius,free,p, wall_t
     fBridge2 = PchipInterpolator(Rmodels, Thermal_bridge)
     BridgeReq = fBridge2(rN_bridge)
     
-    length_normal = np.linalg.norm(nodes_normal, ord = 2, axis = 1)
+    length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
     p = p*(length_normal[p] != 0)
 
     mix_properties.compute_stagnation(free_cont, options.freestream)
     mix_properties.compute_stagnation(free_free, options.freestream)
 
     #Compute the Stanton number for both regimes, in the transition altitudes
-    Stc = aerothermodynamics_module_continuum(nodes_normal, nodes_radius,free_cont,p, wall_temperature, flow_direction, hf_model)
-    Stfm = aerothermodynamics_module_freemolecular(nodes_normal,free_free,p, flow_direction, wall_temperature)
+    Stc = aerothermodynamics_module_continuum(facet_normal, facet_radius,free_cont,p, wall_temperature, flow_direction, hf_model)
+    Stfm = aerothermodynamics_module_freemolecular(facet_normal,free_free,p, flow_direction, wall_temperature)
 
     St = Stc + (Stfm - Stc) * BridgeReq[p]
 

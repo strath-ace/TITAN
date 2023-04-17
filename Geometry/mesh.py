@@ -63,7 +63,8 @@ class Mesh():
 
         self.facets = np.array([], dtype = int)
         self.facet_edges = np.zeros((len(self.v0), 3), dtype = int)
-        self.nodes_radius = np.ones([]) 
+        self.nodes_radius = np.ones([])
+        self.facet_radius = np.ones([]) 
 
         self.vol_coords = np.array([])
 
@@ -99,8 +100,11 @@ def compute_mesh(mesh, compute_radius = True):
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
     mesh.edges, mesh.facet_edges = map_edges_connectivity(mesh.facets)
     
-    if compute_radius: mesh.nodes_radius = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
-    else: mesh.node_radius = np.ones((len(mesh.nodes)))
+    if compute_radius: 
+        mesh.nodes_radius, mesh.facet_radius = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
+    else: 
+        mesh.node_radius  = np.ones((len(mesh.nodes)))
+        mesh.facet_radius = np.ones((len(mesh.facets)))
 
     mesh.surface_displacement = np.zeros((len(mesh.nodes),3))
     
@@ -244,6 +248,9 @@ def compute_min_max(nodes):
 
 def compute_curvature(nodes, facets,nodes_normal, facet_normals, facets_area, v0, v1, v2):
 
+    #Normalize facet_normals using a copy of the array to not change values by reference
+    facet_normals = np.copy(facet_normals)/facets_area[:,None]
+
     avType = 'e'
     Nsmooth = int(np.round(len(facets)/100, decimals = 0))
     M2M_RR = 10.0
@@ -289,11 +296,15 @@ def compute_curvature(nodes, facets,nodes_normal, facet_normals, facets_area, v0
         if len(InnerPointsInd) <= 1: continue
         radiiOnVerts[i]= sphVolSmoothing(InnerPointsInd, radiiOnVerts, avType, Nsmooth, Rmax, flatEdge, flatWeightFlag)
 
-    node_radius = radiiOnVerts
+    radiiOnVerts[radiiOnVerts <= 0] = Rmin
 
-    node_radius[node_radius <= 0] = Rmin
+    #calculate voronoi weights based on heron's formula area.
+    wfp = Acorner/Avertex[facets]
+    radiiOnFaces= np.sum(radiiOnVerts[facets]*wfp, axis = 1)/np.sum(wfp, axis = 1);
 
-    return node_radius
+    radiiOnFaces[radiiOnFaces <= 0] = Rmin
+
+    return radiiOnVerts, radiiOnFaces
 
 
 def sphVolSmoothing(InnerPointsInd, propOnVerts, avType, Nsmooth, MaxRefRadius, flatEdge, flatWeightFlag):
