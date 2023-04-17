@@ -191,14 +191,14 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
     #Pressure calculation only if Drag model is False
     if (not options.vehicle) or (options.vehicle and not options.vehicle.Cd):
         if  (assembly.freestream.knudsen <= Kn_cont_pressure):
-            assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly.mesh.nodes_normal, assembly.freestream, index, flow_direction)
+            assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction)
     
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly.mesh.nodes_normal, assembly.freestream , index, flow_direction, assembly.aerothermo.temperature)
+            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream , index, flow_direction, assembly.aerothermo.temperature)
     
         else: 
             aerobridge = bridging(assembly.freestream, Kn_cont_pressure, Kn_free )
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_bridging(assembly.mesh.nodes_normal, assembly.freestream, index, aerobridge, flow_direction, assembly.aerothermo.temperature)
+            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_bridging(assembly.mesh.facet_normal, assembly.freestream, index, aerobridge, flow_direction, assembly.aerothermo.temperature)
 
 def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     """
@@ -278,17 +278,12 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         ray_directions.shape = (-1,3)
 
         index = np.unique(ray.intersects_first(ray_origins = ray_list, ray_directions = ray_directions))
-
         index = index[index != -1] 
-        node_points = _assembly.mesh.facets[index]
-        node_points=np.sort(np.unique(node_points))
 
-        p = node_points
+        #compute_aerothermodynamics(_assembly, [], p, flow_direction, options)
+        compute_aerodynamics(_assembly, [], index, flow_direction, options)
 
-        compute_aerothermodynamics(_assembly, [], p, flow_direction, options)
-        compute_aerodynamics(_assembly, [], p, flow_direction, options)
-
-def aerodynamics_module_continuum(nodes_normal,free, p, flow_direction):
+def aerodynamics_module_continuum(facet_normal,free, p, flow_direction):
     """
     Pressure computation for continuum regime
 
@@ -311,11 +306,11 @@ def aerodynamics_module_continuum(nodes_normal,free, p, flow_direction):
         Vector with pressure values
     """
 
-    length_normal = np.linalg.norm(nodes_normal, axis = 1, ord = 2)
+    length_normal = np.linalg.norm(facet_normal, axis = 1, ord = 2)
 
     p = p*(length_normal[p] != 0)
 
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * nodes_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
 
     P0_s = free.P1_s
     Cpmax= (2.0/(free.gamma*free.mach**2.0))*((P0_s/free.pressure-1.0))
@@ -490,7 +485,7 @@ def aerothermodynamics_module_freemolecular(nodes_normal, free, p, flow_directio
 
     return Stfm
 
-def aerodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, body_temperature):
+def aerodynamics_module_freemolecular(facet_normal,free,p, flow_direction, body_temperature):
     """
     Pressure computation for Free-molecular regime
 
@@ -516,8 +511,8 @@ def aerodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, body_
         Vector with skin friction values
     """
 
-    length_normal = np.linalg.norm(nodes_normal, ord = 2, axis = 1)
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * nodes_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+    length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
+    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
 
     SR = np.sqrt(0.5*free.gamma)*free.mach
     SN = 1.0 #TODO 0.93
@@ -536,9 +531,9 @@ def aerodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, body_
 
     direction = np.copy(flow_direction)
     direction.shape = (-1)
-    direction=np.tile(direction,(len(nodes_normal[p]),1))
+    direction=np.tile(direction,(len(facet_normal[p]),1))
 
-    tangent_vector = direction - ((direction*nodes_normal[p]).sum(axis = 1))[:,None]*nodes_normal[p]/(nodes_normal[p]*nodes_normal[p]).sum(axis=1)[:,None]
+    tangent_vector = direction - ((direction*facet_normal[p]).sum(axis = 1))[:,None]*facet_normal[p]/(facet_normal[p]*facet_normal[p]).sum(axis=1)[:,None]
     tangent_vector = tangent_vector/np.sqrt((tangent_vector*tangent_vector).sum(axis=1)[:,None])
     
     Pressure.shape = (-1)
@@ -578,7 +573,7 @@ def bridging(free, Kn_cont, Kn_free):
     AeroBridge = (1+special.erf(Kn_trans_R*4-2.0))/2.0*BridgeCF
     return AeroBridge
 
-def aerodynamics_module_bridging(nodes_normal,free,p,aerobridge, flow_direction, wall_temperature):
+def aerodynamics_module_bridging(facet_normal,free,p,aerobridge, flow_direction, wall_temperature):
     """
     Pressure computation for Transitional regime
 
@@ -604,8 +599,8 @@ def aerodynamics_module_bridging(nodes_normal,free,p,aerobridge, flow_direction,
         Vector with skin friction values
     """
 
-    Pcont = aerodynamics_module_continuum(nodes_normal,free,p,flow_direction)
-    Pfree, Sfree = aerodynamics_module_freemolecular(nodes_normal,free, p, flow_direction, wall_temperature)
+    Pcont = aerodynamics_module_continuum(facet_normal,free,p,flow_direction)
+    Pfree, Sfree = aerodynamics_module_freemolecular(facet_normal,free, p, flow_direction, wall_temperature)
 
     Pressure = Pcont + (Pfree - Pcont)* aerobridge
     Shear = 0 + (Sfree - 0)* aerobridge

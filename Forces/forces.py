@@ -49,11 +49,10 @@ def compute_aerodynamic_forces(titan, options):
     else:
         for assembly in titan.assembly:
 
-            #TODO missing skin friction
-            force_nodes = -assembly.aerothermo.pressure[:,None]*assembly.mesh.nodes_normal+assembly.aerothermo.shear*np.linalg.norm(assembly.mesh.nodes_normal, axis=1)[:,None]
-            force = np.sum(force_nodes, axis = 0)
+            force_facets = -assembly.aerothermo.pressure[:,None]*assembly.mesh.facet_normal+assembly.aerothermo.shear*np.linalg.norm(assembly.mesh.facet_normal, axis=1)[:,None]
+            force = np.sum(force_facets, axis = 0)
             assembly.body_force.force = force
-            assembly.body_force.force_nodes = force_nodes
+            assembly.body_force.force_facets = force_facets
 
             q = assembly.quaternion
 
@@ -85,15 +84,15 @@ def compute_aerodynamic_moments(titan, options):
 
     for assembly in titan.assembly:
 
-        Moment = np.zeros((len(assembly.mesh.nodes),3))
+        Moment = np.zeros((len(assembly.mesh.facets),3))
 
         #TODO missing skin friction
-        force_nodes = -assembly.aerothermo.pressure[:,None]*assembly.mesh.nodes_normal
+        force_facets = -assembly.aerothermo.pressure[:,None]*assembly.mesh.facet_normal+assembly.aerothermo.shear*np.linalg.norm(assembly.mesh.facet_normal, axis=1)[:,None]
 
-        dist = (assembly.mesh.nodes[:]-assembly.COG)
-        Moment[:,0] = (force_nodes[:,2] * dist[:,1] - force_nodes[:,1] * dist[:,2]) 
-        Moment[:,1] = (force_nodes[:,0] * dist[:,2] - force_nodes[:,2] * dist[:,0]) 
-        Moment[:,2] = (force_nodes[:,1] * dist[:,0] - force_nodes[:,0] * dist[:,1]) 
+        dist = (assembly.mesh.facet_COG[:]-assembly.COG)
+        Moment[:,0] = (force_facets[:,2] * dist[:,1] - force_facets[:,1] * dist[:,2]) 
+        Moment[:,1] = (force_facets[:,0] * dist[:,2] - force_facets[:,2] * dist[:,0]) 
+        Moment[:,2] = (force_facets[:,1] * dist[:,0] - force_facets[:,0] * dist[:,1]) 
 
         moment = np.sum(Moment, axis = 0)
 

@@ -61,6 +61,7 @@ def loop(options = [], titan = []):
         if not titan.assembly: return
 
         dynamics.integrate(titan = titan, options = options)
+        
         if options.ablation:
             thermal.compute_thermal(titan = titan, options = options)
 

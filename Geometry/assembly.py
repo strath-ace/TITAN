@@ -327,7 +327,6 @@ class Assembly():
         self.mesh = Mesh.Mesh([])
         self.cfd_mesh = Mesh.Mesh([])
         self.trajectory = None 
-        self.aerothermo = None 
         self.loads = None 
         self.fenics = None
 
@@ -418,11 +417,11 @@ class Assembly():
 
         self.Lref = np.max(self.mesh.xmax-self.mesh.xmin)
 
-        self.aerothermo = Aerothermo(len(self.mesh.nodes))
+        self.aerothermo = Aerothermo(len(self.mesh.facets))
 
         #Initialize surface temperature of the assembly
         for obj in self.objects:
-            self.aerothermo.temperature[obj.node_index] = obj.temperature
+            self.aerothermo.temperature[obj.facet_index] = obj.temperature
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
         """
