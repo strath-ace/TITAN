@@ -200,3 +200,4 @@ In case of multiple components, if the components are in contact with each other
 
 * Introduced a new interpolation, the reverse interpolation needs to be double checked
 * Created function to map the surface facets to the correspondent tetra for thermal computation
+* Created a thermal function to use the tetras mass to compute surface temperature
