@@ -464,6 +464,9 @@ class Assembly():
             index = (self.mesh.vol_tag == obj.id)
             obj.mesh.vol_elements = np.copy(self.mesh.vol_elements[index])
 
+        print("Create mapping between surface facets and tetras")
+        self.mesh.index_surf_tetra = Mesh.map_surf_to_tetra(self.mesh)
+
         print("Done")
 
     def compute_mass_properties(self):
@@ -480,6 +483,7 @@ class Assembly():
 
         #Computes the volume of every single tetrahedral
         vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+        self.mesh.vol_volume = vol
 
         #Computes the mass of every single tetrahedral
         mass = vol*density

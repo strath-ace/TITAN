@@ -199,3 +199,4 @@ In case of multiple components, if the components are in contact with each other
 \[2023-04-18\]
 
 * Introduced a new interpolation, the reverse interpolation needs to be double checked
+* Created function to map the surface facets to the correspondent tetra for thermal computation

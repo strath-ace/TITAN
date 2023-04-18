@@ -843,3 +843,37 @@ def facet_to_vertex_linear(mesh, facet_value):
     np.add.at(total_value, mesh.facets, np.ones(mesh.facets.shape)*mesh.Acorner)
     
     return node_value/total_value
+
+def map_surf_to_tetra(mesh):
+    """
+    Function to map the surface elements to the respective tetra.
+    """
+
+    from collections import defaultdict
+
+    c=mesh.vol_coords
+    t=mesh.vol_elements
+    round_number = 5
+
+    #Creation of a dictionary to map the facet-> Tetra through the use of the geometrical center as key
+    map_facet_tetra = defaultdict(list)
+
+    #We only need to use the tetras to build the dictionary, compute the Geometrical center for each facet of each tetra
+    f1 = np.round((c[t[:,0]] + c[t[:,1]] + c[t[:,2]])/3,round_number).astype(str)
+    f2 = np.round((c[t[:,0]] + c[t[:,1]] + c[t[:,3]])/3,round_number).astype(str)
+    f3 = np.round((c[t[:,0]] + c[t[:,2]] + c[t[:,3]])/3,round_number).astype(str)
+    f4 = np.round((c[t[:,1]] + c[t[:,2]] + c[t[:,3]])/3,round_number).astype(str)
+    
+    #Convert to concatenated strings to obtain key maps
+    f1 = np.char.add(np.char.add(f1[:,0],f1[:,1]),f1[:,2])
+    f2 = np.char.add(np.char.add(f2[:,0],f2[:,1]),f2[:,2])
+    f3 = np.char.add(np.char.add(f3[:,0],f3[:,1]),f3[:,2])
+    f4 = np.char.add(np.char.add(f4[:,0],f4[:,1]),f4[:,2])
+
+    for index,[k1,k2,k3,k4] in enumerate(zip(f1,f2,f3,f4)):
+        map_facet_tetra[k1].append(index)
+        map_facet_tetra[k2].append(index)
+        map_facet_tetra[k3].append(index)
+        map_facet_tetra[k4].append(index)
+
+    return map_facet_tetra
