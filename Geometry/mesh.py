@@ -828,3 +828,18 @@ def vertex_to_facet_linear(mesh, vertex_value):
         facet_value = np.sum(vertex_value[mesh.facets]*wfp, axis = 1)/np.sum(wfp, axis = 1)
 
     return facet_value
+
+def facet_to_vertex_linear(mesh, facet_value):
+    """
+    Using Voronoi area of vertex
+    """
+
+    #Avertex - [NvX1] voronoi area at each vertex
+    #Acorner - [NfX3] slice of the voronoi area at each face corner
+
+    node_value = np.zeros(len(mesh.nodes))
+    total_value = np.zeros(len(mesh.nodes))
+    np.add.at(node_value, mesh.facets, np.ones(mesh.facets.shape)*mesh.Acorner*facet_value[:,None])
+    np.add.at(total_value, mesh.facets, np.ones(mesh.facets.shape)*mesh.Acorner)
+    
+    return node_value/total_value

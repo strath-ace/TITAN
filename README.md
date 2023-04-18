@@ -185,7 +185,7 @@ In case of multiple components, if the components are in contact with each other
 
 \[2023-04-17\]
 
-* Change Variable facets_normal to facet_normal in mesh class
+* Change name of variable facets_normal to facet_normal in mesh class
 * Compute facet_normal to be proportional to the facet area
 * Object of class aerothermo creates array based of number of facets instead of number of nodes
 * Aerodynamic computation now takes facets normals as input
@@ -195,3 +195,7 @@ In case of multiple components, if the components are in contact with each other
 * Ablation is now working with facets
 * SU2 solution is interpolated to the facets using a linear approach. Reverse function still needs to be written
 * Test-cases have been adapted to accomodate the vertex->facet changes
+
+\[2023-04-18\]
+
+* Introduced a new interpolation, the reverse interpolation needs to be double checked
