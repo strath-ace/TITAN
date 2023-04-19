@@ -309,6 +309,19 @@ class Aerothermo():
         self.heatflux = np.zeros((n_points))
         self.wall_temperature = 300
 
+    def append(self, n_points = 0, temperature= 300):
+        self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
+        self.pressure = np.append(self.pressure, np.zeros(n_points))
+        self.heatflux = np.append(self.heatflux, np.zeros(n_points))
+        self.shear = np.append(self.shear, np.zeros((n_points,3)), axis = 0)
+
+    def delete(self, index):
+        self.temperature = np.delete(self.temperature, index)
+        self.pressure = np.delete(self.pressure, index)
+        self.heatflux = np.delete(self.heatflux, index)
+        self.shear = np.delete(self.shear, index, axis = 0)
+
+
 class Assembly():
     """ Class Assembly
     
@@ -455,6 +468,7 @@ class Assembly():
         self.mesh.vol_coords, self.mesh.vol_elements, self.mesh.vol_density, self.mesh.vol_tag = GMSH.generate_inner_domain(self.mesh, self, write = write, output_folder = output_folder, output_filename = output_filename, bc_ids = bc_ids)
         self.mesh.volume_displacement = np.zeros((len(self.mesh.vol_coords),3))
         self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)
+        self.mesh.vol_T = np.ones(len(self.mesh.vol_elements))
 
         print("Volume Grid Completed")
 
@@ -462,6 +476,7 @@ class Assembly():
 
         for obj in self.objects:
             index = (self.mesh.vol_tag == obj.id)
+            self.mesh.vol_T[index] = obj.temperature            
             obj.mesh.vol_elements = np.copy(self.mesh.vol_elements[index])
 
         print("Create mapping between surface facets and tetras")

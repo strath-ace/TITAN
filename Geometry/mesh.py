@@ -876,4 +876,161 @@ def map_surf_to_tetra(mesh):
         map_facet_tetra[k3].append(index)
         map_facet_tetra[k4].append(index)
 
+    print(map_facet_tetra["-0.96468-0.10906-0.0326"])
+
     return map_facet_tetra
+
+def remove_tetra(assembly, delete_array):
+    """
+    Function to remove ablated tetras from the object.
+    Calls add_surface_facets to add the new exposed facets to the surface list
+    """
+
+    mesh = assembly.mesh
+    aerothermo = assembly.aerothermo
+
+    old_num_faces = len(mesh.facets)
+
+    facets_index, tetras_index = zip(*delete_array)
+    #facets_index = np.array(facets_index)
+    
+    tetras_index = np.unique(np.array(tetras_index))
+    #facets = mesh.facets[facets_index]
+    print("INDEX: ", tetras_index)
+    tetras = mesh.vol_elements[tetras_index]
+
+    #Append the new facets at the end of the list:
+    facets_index = add_new_surface_facets(assembly, tetras)
+    
+    #Update aerothermo
+    num_faces = len(mesh.v0)- old_num_faces
+    aerothermo.append(num_faces,300)
+    
+    #Delete the facets
+    mesh.v0  = np.delete(mesh.v0, facets_index, axis = 0)
+    mesh.v1  = np.delete(mesh.v1, facets_index, axis = 0)
+    mesh.v2  = np.delete(mesh.v2, facets_index, axis = 0)
+
+    #Delete the tetras 
+    mesh.vol_elements   = np.delete(mesh.vol_elements,tetras_index, axis = 0)
+    mesh.vol_density    = np.delete(mesh.vol_density,tetras_index, axis = 0)
+    mesh.vol_tag        = np.delete(mesh.vol_tag,tetras_index, axis = 0)
+
+    #Update the mesh according to new surface
+    #TODO missing CFD mesh
+    update_surface_mesh(mesh)
+
+    #TEST FOR ASSEMBLY WITH SINGLE OBJECT
+    assembly.objects[0].mesh.v0  = np.delete(assembly.objects[0].mesh.v0, facets_index, axis = 0)
+    assembly.objects[0].mesh.v1  = np.delete(assembly.objects[0].mesh.v1, facets_index, axis = 0)
+    assembly.objects[0].mesh.v2  = np.delete(assembly.objects[0].mesh.v2, facets_index, axis = 0)
+    
+    update_surface_mesh(assembly.objects[0].mesh)
+
+    for obj in assembly.objects:
+        obj.node_index, obj.node_mask = create_index(assembly.mesh.nodes, obj.mesh.nodes)
+        obj.facet_index, obj.facet_mask = create_index(assembly.mesh.facet_COG, obj.mesh.facet_COG)
+
+        assembly.mesh.nodes_radius[obj.node_index]  = obj.mesh.nodes_radius
+        assembly.mesh.facet_radius[obj.facet_index] = obj.mesh.facet_radius
+        assembly.mesh.Avertex[obj.node_index]  = obj.mesh.Avertex
+        assembly.mesh.Acorner[obj.facet_index] = obj.mesh.Acorner
+
+
+    aerothermo.delete(facets_index)
+
+    #Map new tetras
+    mesh.index_surf_tetra = map_surf_to_tetra(mesh)
+
+
+def add_new_surface_facets(assembly, tetras):
+    mesh = assembly.mesh
+
+    COG_list = np.round(mesh.facet_COG,5).astype(str)
+    COG_list = np.char.add(np.char.add(COG_list[:,0],COG_list[:,1]),COG_list[:,2])
+
+    delete_index = []
+    num_new_faces = 0
+
+    for t in tetras:
+
+        #Retrieve the 4 facets of the tetra
+        tf1 = [t[3], t[1], t[0]]
+        tf2 = [t[2], t[1], t[3]]
+        tf3 = [t[0], t[2], t[3]]
+        tf4 = [t[1], t[2], t[0]]
+
+        for face in [tf1,tf2,tf3,tf4]:
+            COG = np.round((mesh.vol_coords[face[0]]+mesh.vol_coords[face[1]]+mesh.vol_coords[face[2]])/3 ,5).astype(str)
+            COG = np.char.add(np.char.add(COG[0],COG[1]),COG[2])
+
+            if len(mesh.index_surf_tetra[str(COG)]) == 1:
+                print("Deleted: ", COG, assembly.mesh.index_surf_tetra[str(COG)])
+                delete_index.append(COG)
+
+            else:
+                print("Inserted: ", COG, assembly.mesh.index_surf_tetra[str(COG)])
+                mesh.index_surf_tetra[str(COG)].pop()
+                mesh.v0 = np.append(mesh.v0, [mesh.vol_coords[face[0]]], axis = 0)
+                mesh.v1 = np.append(mesh.v1, [mesh.vol_coords[face[1]]], axis = 0)
+                mesh.v2 = np.append(mesh.v2, [mesh.vol_coords[face[2]]], axis = 0)
+                COG_list = np.append(COG_list, COG)
+
+                #TEST FOR OBJECT
+                assembly.objects[0].mesh.v0  = np.append(assembly.objects[0].mesh.v0, [mesh.vol_coords[face[0]]], axis = 0)
+                assembly.objects[0].mesh.v1  = np.append(assembly.objects[0].mesh.v1, [mesh.vol_coords[face[1]]], axis = 0)
+                assembly.objects[0].mesh.v2  = np.append(assembly.objects[0].mesh.v2, [mesh.vol_coords[face[2]]], axis = 0)
+
+
+    delete_index = [np.where(COG_list==a)[0][0] for a in delete_index if np.where(COG_list==a)[0]]
+
+    print(tetras, delete_index)
+    return delete_index
+
+"""
+def add_new_surface_facets(mesh, tetras, facets):
+
+    for f,t in zip(facets,tetras):
+
+        #Retrieve the 4 facets of the tetra
+        tf1 = [t[0], t[1], t[3]]
+        tf2 = [t[3], t[1], t[2]]
+        tf3 = [t[3], t[2], t[0]]
+        tf4 = [t[0], t[2], t[1]]
+
+        #Compare to the facet one and append the remaining to the list as they are exposed
+        if (np.round(mesh.nodes[f[0]] + mesh.nodes[f[1]] + mesh.nodes[f[2]],5) == np.round(mesh.vol_coords[t[0]] + mesh.vol_coords[t[1]] + mesh.vol_coords[t[3]],5)).all(): 
+            mesh.v0 = np.append(mesh.v0, t[0], axis = 0)
+            mesh.v1 = np.append(mesh.v1, t[1], axis = 0)
+            mesh.v2 = np.append(mesh.v2, t[3], axis = 0)
+        
+        #if (np.round(mesh.nodes[f[0]] + mesh.nodes[f[1]] + mesh.nodes[f[2]],5) == np.round(mesh.vol_coords[t[3]] + mesh.vol_coords[t[1]] + mesh.vol_coords[t[2]],5)).all(): 
+            #mesh.facets = np.append(mesh.facets, [tf1,tf3,tf4], axis = 0)
+        
+        #if (np.round(mesh.nodes[f[0]] + mesh.nodes[f[1]] + mesh.nodes[f[2]],5) == np.round(mesh.vol_coords[t[3]] + mesh.vol_coords[t[2]] + mesh.vol_coords[t[0]],5)).all(): 
+            #mesh.facets = np.append(mesh.facets, [tf1,tf2,tf4], axis = 0)
+        
+        #if (np.round(mesh.nodes[f[0]] + mesh.nodes[f[1]] + mesh.nodes[f[2]],5) == np.round(mesh.vol_coords[t[0]] + mesh.vol_coords[t[2]] + mesh.vol_coords[t[1]],5)).all(): 
+            #mesh.facets = np.append(mesh.facets, [tf1,tf2,tf3], axis = 0)
+
+
+    exit(t[0])
+
+    pass
+"""
+def update_surface_mesh(mesh):
+    #mesh.v0 = mesh.vol_coords[mesh.facets[:,0]]   
+    #mesh.v1 = mesh.vol_coords[mesh.facets[:,1]]    
+    #mesh.v2 = mesh.vol_coords[mesh.facets[:,2]]
+
+    mesh.nodes, mesh.facets = map_facets_connectivity(mesh.v0, mesh.v1, mesh.v2)
+    mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
+    mesh.facet_COG = compute_facet_COG(mesh.v0, mesh.v1, mesh.v2)
+    mesh.COG = compute_geometrical_COG(mesh.facet_COG, mesh.facet_area)
+    mesh.facet_normal = compute_facet_normal(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2, mesh.facet_area)
+    mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2)
+    mesh.min, mesh.max = compute_min_max(mesh.nodes)
+
+    mesh.surface_displacement = np.zeros((len(mesh.nodes),3))
+
+    mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)

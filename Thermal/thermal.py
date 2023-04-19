@@ -18,6 +18,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 import numpy as np 
+from Geometry import mesh
 
 def compute_thermal_tetra(titan, options):
     # th = thermo-physical properties
@@ -30,6 +31,9 @@ def compute_thermal_tetra(titan, options):
     for assembly in titan.assembly:
         Tref = assembly.freestream.temperature
 
+        #array with facets and keys to delete tetras
+        delete_array = []
+        
         for obj in assembly.objects:
 
             facet_area = np.linalg.norm(assembly.mesh.facet_normal[obj.facet_index], ord = 2, axis = 1)
@@ -37,11 +41,13 @@ def compute_thermal_tetra(titan, options):
             
             #Properties for each facet
             Qin = heatflux*facet_area
-            cp  = obj.material.specificHeatCapacity(assembly.aerothermo.temperature[obj.facet_index])
-            emissivity = obj.material.emissivity(assembly.aerothermo.temperature[obj.facet_index])
+            temperature = assembly.aerothermo.temperature[obj.facet_index]
+            cp  = obj.material.specificHeatCapacity(temperature)
+            emissivity = obj.material.emissivity(temperature)
+
 
             # Estimating the radiation heat-flux
-            Qrad = 5.670373e-8*emissivity*(assembly.aerothermo.temperature[obj.facet_index]**4 - Tref**4)*facet_area
+            Qrad = 5.670373e-8*emissivity*(temperature**4 - Tref**4)*facet_area
             #TODO missing plasma radiation
 
             # Retrieve key to map surf to tetra
@@ -49,6 +55,9 @@ def compute_thermal_tetra(titan, options):
             key = np.char.add(np.char.add(key[:,0],key[:,1]),key[:,2])
 
             # Retrieve tetras and parameters(vol and density)
+            #for k in key:
+            #    print(k)
+            #    print(assembly.mesh.index_surf_tetra[k][0])
             tetra_array   = np.array([assembly.mesh.index_surf_tetra[k][0] for k in key])
             tetra_density = assembly.mesh.vol_density[tetra_array]
             tetra_vol     = assembly.mesh.vol_volume[tetra_array]
@@ -56,35 +65,30 @@ def compute_thermal_tetra(titan, options):
 
             # Computing temperature change
             dT = (Qin-Qrad)*dt/(tetra_mass*cp)
+            dm = np.zeros(len(dT))
 
-            """
-            if obj.temperature+dT > obj.material.meltingTemperature:
-                dT_melt = obj.material.meltingTemperature - obj.temperature
-                melt_Q = (obj.mass*cp)*(dT-dT_melt)
-                dm = -melt_Q/(obj.material.meltingHeat)
-                dT = dT_melt
-            else:
-                dm = 0
-            
-            #new_mass = obj.mass + dm
+            for index in range(len(dT)):
+                if temperature[index]+dT[index] > obj.material.meltingTemperature:
+                    dT_melt = obj.material.meltingTemperature - temperature[index]
+                    melt_Q = (tetra_mass[index]*cp[index])*(dT[index]-dT_melt)
+                    dm[index] = -melt_Q/(obj.material.meltingHeat)
+                    dT[index] = dT_melt
 
-            """
-            
+            new_mass = tetra_mass + dm           
+
             assembly.aerothermo.temperature[obj.facet_index] += dT
+            assembly.mesh.vol_density[tetra_array] *= new_mass/tetra_mass            
 
-            #obj.material.density *= new_mass/obj.mass
-            #obj.mass = new_mass
-            #obj.temperature = new_T
+            index_delete = np.where(assembly.mesh.vol_density[tetra_array]<=0)[0]
 
-            #if obj.material.density < 0:
-            #    obj.material.density = 0
-            #    obj.mass = 0
-            
-            #assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
-            #assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+            if len(index_delete) != 0:
+                for index in index_delete:
+                    delete_array.append([index, tetra_array[index]])
+        
+        if delete_array:
+            mesh.remove_tetra(assembly, delete_array)
 
         assembly.compute_mass_properties()
-        #Need to update Lat Lon of the body with the moving COM due to mass diferences
 
     return 
 

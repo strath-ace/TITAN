@@ -63,7 +63,7 @@ def loop(options = [], titan = []):
         dynamics.integrate(titan = titan, options = options)
         
         if options.ablation:
-            thermal.compute_thermal(titan = titan, options = options)
+            thermal.compute_thermal_tetra(titan = titan, options = options)
 
         if options.structural_dynamics:
             #TODO Needs further testing 
