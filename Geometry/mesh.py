@@ -941,83 +941,60 @@ def remove_tetra(assembly, delete_array):
     #Map new tetras
     mesh.index_surf_tetra = map_surf_to_tetra(mesh)
 
-
-def add_new_surface_facets(assembly, tetras):
+@timeis
+def add_new_surface_facets(assembly, tetras_index):    
     mesh = assembly.mesh
 
     COG_list = np.round(mesh.facet_COG,5).astype(str)
     COG_list = np.char.add(np.char.add(COG_list[:,0],COG_list[:,1]),COG_list[:,2])
 
     delete_index = []
-    num_new_faces = 0
 
-    for t in tetras:
+    tetras = mesh.vol_elements[tetras_index]
+    
+    c0 = tetras [:,0]
+    c1 = tetras [:,1]
+    c2 = tetras [:,2]
+    c3 = tetras [:,3]
 
-        #Retrieve the 4 facets of the tetra
-        tf1 = [t[3], t[1], t[0]]
-        tf2 = [t[2], t[1], t[3]]
-        tf3 = [t[0], t[2], t[3]]
-        tf4 = [t[1], t[2], t[0]]
+    tf1 = np.stack((c3,c1,c0), axis = 1)
+    tf2 = np.stack((c2,c1,c3), axis = 1)
+    tf3 = np.stack((c0,c2,c3), axis = 1)
+    tf4 = np.stack((c1,c2,c0), axis = 1)
+    tf = np.stack((tf1,tf2,tf3,tf4), axis = 0).reshape((-1,3))
+    tetras_index = np.stack((tetras_index, tetras_index, tetras_index, tetras_index), axis = 0).reshape(-1)
+    
+    COG = np.round((mesh.vol_coords[tf[:,0]]+mesh.vol_coords[tf[:,1]]+mesh.vol_coords[tf[:,2]])/3 ,5).astype(str)
+    COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
 
-        for face in [tf1,tf2,tf3,tf4]:
-            COG = np.round((mesh.vol_coords[face[0]]+mesh.vol_coords[face[1]]+mesh.vol_coords[face[2]])/3 ,5).astype(str)
-            COG = np.char.add(np.char.add(COG[0],COG[1]),COG[2])
+    #Arrray of booleans where True = Add surface and False = Delete surface
+    bool_array = np.zeros(len(tf), dtype = bool)
 
-            if len(mesh.index_surf_tetra[str(COG)]) == 1:
-#                if COG == "-0.01111-0.059560.99579":
-#                    print("Deleted: ", COG, assembly.mesh.index_surf_tetra[str(COG)])
-                delete_index.append(COG)
+    for face, center, index, i in zip(tf, COG, tetras_index, range(len(tf))):
+        if len(assembly.mesh.index_surf_tetra[center]) == 1:
+            assembly.mesh.index_surf_tetra.pop(center)
 
-            else:
-#                if COG == "-0.01111-0.059560.99579":
-#                    print("Inserted: ", COG, assembly.mesh.index_surf_tetra[str(COG)])
-                mesh.index_surf_tetra[str(COG)].pop()
-                mesh.v0 = np.append(mesh.v0, [mesh.vol_coords[face[0]]], axis = 0)
-                mesh.v1 = np.append(mesh.v1, [mesh.vol_coords[face[1]]], axis = 0)
-                mesh.v2 = np.append(mesh.v2, [mesh.vol_coords[face[2]]], axis = 0)
-                COG_list = np.append(COG_list, COG)
+        else:
+            assembly.mesh.index_surf_tetra[center].remove(index)
+            bool_array[i] = True
 
-                #TEST FOR OBJECT
-                assembly.objects[0].mesh.v0  = np.append(assembly.objects[0].mesh.v0, [mesh.vol_coords[face[0]]], axis = 0)
-                assembly.objects[0].mesh.v1  = np.append(assembly.objects[0].mesh.v1, [mesh.vol_coords[face[1]]], axis = 0)
-                assembly.objects[0].mesh.v2  = np.append(assembly.objects[0].mesh.v2, [mesh.vol_coords[face[2]]], axis = 0)
+    mesh.v0 = np.append(mesh.v0, mesh.vol_coords[tf[:,0][bool_array]], axis = 0)
+    mesh.v1 = np.append(mesh.v1, mesh.vol_coords[tf[:,1][bool_array]], axis = 0)
+    mesh.v2 = np.append(mesh.v2, mesh.vol_coords[tf[:,2][bool_array]], axis = 0)
+    COG_list = np.append(COG_list, COG[bool_array])
 
+    delete_index = np.append(delete_index, COG[~bool_array])
 
-    delete_index = [np.where(COG_list==a)[0][0] for a in delete_index if np.where(COG_list==a)[0] or np.where(COG_list==a)[0] == 0]
-    #print(tetras, delete_index)
+    #TEST FOR OBJECT
+    assembly.objects[0].mesh.v0  = np.append(assembly.objects[0].mesh.v0, mesh.vol_coords[tf[:,0][bool_array]], axis = 0)
+    assembly.objects[0].mesh.v1  = np.append(assembly.objects[0].mesh.v1, mesh.vol_coords[tf[:,1][bool_array]], axis = 0)
+    assembly.objects[0].mesh.v2  = np.append(assembly.objects[0].mesh.v2, mesh.vol_coords[tf[:,2][bool_array]], axis = 0)
+
+    __, delete_index, __ = np.intersect1d(COG_list, delete_index, return_indices=True)
+
     return delete_index
 
-"""
-def add_new_surface_facets(mesh, tetras, facets):
-
-    for f,t in zip(facets,tetras):
-
-        #Retrieve the 4 facets of the tetra
-        tf1 = [t[0], t[1], t[3]]
-        tf2 = [t[3], t[1], t[2]]
-        tf3 = [t[3], t[2], t[0]]
-        tf4 = [t[0], t[2], t[1]]
-
-        #Compare to the facet one and append the remaining to the list as they are exposed
-        if (np.round(mesh.nodes[f[0]] + mesh.nodes[f[1]] + mesh.nodes[f[2]],5) == np.round(mesh.vol_coords[t[0]] + mesh.vol_coords[t[1]] + mesh.vol_coords[t[3]],5)).all(): 
-            mesh.v0 = np.append(mesh.v0, t[0], axis = 0)
-            mesh.v1 = np.append(mesh.v1, t[1], axis = 0)
-            mesh.v2 = np.append(mesh.v2, t[3], axis = 0)
-        
-        #if (np.round(mesh.nodes[f[0]] + mesh.nodes[f[1]] + mesh.nodes[f[2]],5) == np.round(mesh.vol_coords[t[3]] + mesh.vol_coords[t[1]] + mesh.vol_coords[t[2]],5)).all(): 
-            #mesh.facets = np.append(mesh.facets, [tf1,tf3,tf4], axis = 0)
-        
-        #if (np.round(mesh.nodes[f[0]] + mesh.nodes[f[1]] + mesh.nodes[f[2]],5) == np.round(mesh.vol_coords[t[3]] + mesh.vol_coords[t[2]] + mesh.vol_coords[t[0]],5)).all(): 
-            #mesh.facets = np.append(mesh.facets, [tf1,tf2,tf4], axis = 0)
-        
-        #if (np.round(mesh.nodes[f[0]] + mesh.nodes[f[1]] + mesh.nodes[f[2]],5) == np.round(mesh.vol_coords[t[0]] + mesh.vol_coords[t[2]] + mesh.vol_coords[t[1]],5)).all(): 
-            #mesh.facets = np.append(mesh.facets, [tf1,tf2,tf3], axis = 0)
-
-
-    exit(t[0])
-
-    pass
-"""
+@timeis
 def update_surface_mesh(mesh):
     #mesh.v0 = mesh.vol_coords[mesh.facets[:,0]]   
     #mesh.v1 = mesh.vol_coords[mesh.facets[:,1]]    
