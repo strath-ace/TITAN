@@ -54,31 +54,35 @@ def compute_thermal_tetra(titan, options):
             key = np.round(assembly.mesh.facet_COG[obj.facet_index],5).astype(str)
             key = np.char.add(np.char.add(key[:,0],key[:,1]),key[:,2])
 
-            # Retrieve tetras and parameters(vol and density)
-            #for k in key:
-            #    print(k)
-            #    print(assembly.mesh.index_surf_tetra[k][0])
-            tetra_array   = np.array([assembly.mesh.index_surf_tetra[k][0] for k in key])
-            tetra_density = assembly.mesh.vol_density[tetra_array]
-            tetra_vol     = assembly.mesh.vol_volume[tetra_array]
-            tetra_mass    = tetra_density * tetra_vol
+            # Retrieve tetras and parameters
+            tetra_array    = np.array([assembly.mesh.index_surf_tetra[k][0] for k in key])
+
+            tetra_density  = assembly.mesh.vol_density[tetra_array]
+            tetra_vol      = assembly.mesh.vol_volume[tetra_array]
+            tetra_T        = assembly.mesh.vol_T[tetra_array]
+            tetra_heatflux = np.zeros(len(assembly.mesh.vol_elements))
+            tetra_cp       = obj.material.specificHeatCapacity(tetra_T)
+            tetra_mass     = tetra_density * tetra_vol
+
+            np.add.at(tetra_heatflux, tetra_array, Qin-Qrad)
+            tetra_heatflux = tetra_heatflux[tetra_array]
 
             # Computing temperature change
-            dT = (Qin-Qrad)*dt/(tetra_mass*cp)
-            dm = np.zeros(len(dT))
+            dT = tetra_heatflux*dt/(tetra_mass*cp)
+            dm = np.zeros(len(tetra_T))
 
-            for index in range(len(dT)):
-                if temperature[index]+dT[index] > obj.material.meltingTemperature:
-                    dT_melt = obj.material.meltingTemperature - temperature[index]
-                    melt_Q = (tetra_mass[index]*cp[index])*(dT[index]-dT_melt)
+            for index in range(len(tetra_array)):
+                if tetra_T[index]+dT[index] > obj.material.meltingTemperature:
+                    dT_melt = obj.material.meltingTemperature - tetra_T[index]
+                    melt_Q = (tetra_mass[index]*tetra_cp[index])*(dT[index]-dT_melt)
                     dm[index] = -melt_Q/(obj.material.meltingHeat)
                     dT[index] = dT_melt
 
             new_mass = tetra_mass + dm           
 
-            assembly.aerothermo.temperature[obj.facet_index] += dT
+            assembly.mesh.vol_T[tetra_array] += dT
             assembly.mesh.vol_density[tetra_array] *= new_mass/tetra_mass            
-
+            
             index_delete = np.where(assembly.mesh.vol_density[tetra_array]<=0)[0]
 
             if len(index_delete) != 0:
@@ -87,6 +91,14 @@ def compute_thermal_tetra(titan, options):
         
         if delete_array:
             mesh.remove_tetra(assembly, delete_array)
+
+        #Pass tetra temperature to surface mesh
+        COG = np.round(assembly.mesh.facet_COG,5).astype(str)
+        COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
+
+        for index, COG in enumerate(COG):
+            #print(COG)
+            assembly.aerothermo.temperature[index] = assembly.mesh.vol_T[assembly.mesh.index_surf_tetra[str(COG)][0]]
 
         assembly.compute_mass_properties()
 

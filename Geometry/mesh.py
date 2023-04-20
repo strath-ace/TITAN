@@ -876,8 +876,6 @@ def map_surf_to_tetra(mesh):
         map_facet_tetra[k3].append(index)
         map_facet_tetra[k4].append(index)
 
-    print(map_facet_tetra["-0.96468-0.10906-0.0326"])
-
     return map_facet_tetra
 
 def remove_tetra(assembly, delete_array):
@@ -896,7 +894,7 @@ def remove_tetra(assembly, delete_array):
     
     tetras_index = np.unique(np.array(tetras_index))
     #facets = mesh.facets[facets_index]
-    print("INDEX: ", tetras_index)
+    #print("INDEX: ", tetras_index)
     tetras = mesh.vol_elements[tetras_index]
 
     #Append the new facets at the end of the list:
@@ -915,7 +913,8 @@ def remove_tetra(assembly, delete_array):
     mesh.vol_elements   = np.delete(mesh.vol_elements,tetras_index, axis = 0)
     mesh.vol_density    = np.delete(mesh.vol_density,tetras_index, axis = 0)
     mesh.vol_tag        = np.delete(mesh.vol_tag,tetras_index, axis = 0)
-
+    mesh.vol_T          = np.delete(mesh.vol_T,tetras_index, axis = 0)
+    
     #Update the mesh according to new surface
     #TODO missing CFD mesh
     update_surface_mesh(mesh)
@@ -965,11 +964,13 @@ def add_new_surface_facets(assembly, tetras):
             COG = np.char.add(np.char.add(COG[0],COG[1]),COG[2])
 
             if len(mesh.index_surf_tetra[str(COG)]) == 1:
-                print("Deleted: ", COG, assembly.mesh.index_surf_tetra[str(COG)])
+#                if COG == "-0.01111-0.059560.99579":
+#                    print("Deleted: ", COG, assembly.mesh.index_surf_tetra[str(COG)])
                 delete_index.append(COG)
 
             else:
-                print("Inserted: ", COG, assembly.mesh.index_surf_tetra[str(COG)])
+#                if COG == "-0.01111-0.059560.99579":
+#                    print("Inserted: ", COG, assembly.mesh.index_surf_tetra[str(COG)])
                 mesh.index_surf_tetra[str(COG)].pop()
                 mesh.v0 = np.append(mesh.v0, [mesh.vol_coords[face[0]]], axis = 0)
                 mesh.v1 = np.append(mesh.v1, [mesh.vol_coords[face[1]]], axis = 0)
@@ -982,9 +983,8 @@ def add_new_surface_facets(assembly, tetras):
                 assembly.objects[0].mesh.v2  = np.append(assembly.objects[0].mesh.v2, [mesh.vol_coords[face[2]]], axis = 0)
 
 
-    delete_index = [np.where(COG_list==a)[0][0] for a in delete_index if np.where(COG_list==a)[0]]
-
-    print(tetras, delete_index)
+    delete_index = [np.where(COG_list==a)[0][0] for a in delete_index if np.where(COG_list==a)[0] or np.where(COG_list==a)[0] == 0]
+    #print(tetras, delete_index)
     return delete_index
 
 """
