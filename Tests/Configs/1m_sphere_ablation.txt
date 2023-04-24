@@ -1,0 +1,32 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 50
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+#High, Low or Hybrid
+Output_folder = Tests/Simulation
+FENICS = False
+Ablation = True
+
+#Ablation mode is set to TETRA
+Ablation_mode = Tetra
+
+
+[Trajectory]
+Altitude = 60000
+Velocity = 7000
+Flight_path_angle = 0
+
+[Assembly]
+Path = Tests/Mesh/Sphere/
+Sideslip = 180.0
+Angle_of_attack = 0.0
+
+[Time]
+Time_step = 0.5
+
+[Objects]
+Primary = [NAME = 1m_sphere_coarse.stl, MATERIAL = Unittest_demise, TYPE = Primitive, FENICS_ID = -1]

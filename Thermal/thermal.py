@@ -21,17 +21,13 @@ import numpy as np
 from Geometry import mesh
 
 def compute_thermal_tetra(titan, options):
-    # th = thermo-physical properties
-    # m0 = mass array of each component
-    # T0 = current temperature of each component
-    # Qin = integrated convective heat for each component
-
+  
     dt = options.dynamics.time_step
 
     for assembly in titan.assembly:
         Tref = assembly.freestream.temperature
 
-        #array with facets and keys to delete tetras
+        #array that will contain facets and keys to delete tetras
         delete_array = []
         
         for obj in assembly.objects:
@@ -45,7 +41,6 @@ def compute_thermal_tetra(titan, options):
             cp  = obj.material.specificHeatCapacity(temperature)
             emissivity = obj.material.emissivity(temperature)
 
-
             # Estimating the radiation heat-flux
             Qrad = 5.670373e-8*emissivity*(temperature**4 - Tref**4)*facet_area
             #TODO missing plasma radiation
@@ -54,9 +49,10 @@ def compute_thermal_tetra(titan, options):
             key = np.round(assembly.mesh.facet_COG[obj.facet_index],5).astype(str)
             key = np.char.add(np.char.add(key[:,0],key[:,1]),key[:,2])
 
-            # Retrieve tetras and parameters
+            # Retrieve tetras and respective properties
             tetra_array    = np.array([assembly.mesh.index_surf_tetra[k][0] for k in key])
 
+            tag_id         = assembly.mesh.vol_tag == obj.id
             tetra_density  = assembly.mesh.vol_density[tetra_array]
             tetra_vol      = assembly.mesh.vol_volume[tetra_array]
             tetra_T        = assembly.mesh.vol_T[tetra_array]
@@ -65,6 +61,8 @@ def compute_thermal_tetra(titan, options):
             tetra_mass     = tetra_density * tetra_vol
 
             np.add.at(tetra_heatflux, tetra_array, Qin-Qrad)
+
+            #Compute the heatflux that goes in for each tetra with faces at the surface
             tetra_heatflux = tetra_heatflux[tetra_array]
 
             # Computing temperature change
@@ -78,7 +76,9 @@ def compute_thermal_tetra(titan, options):
                     dm[index] = -melt_Q/(obj.material.meltingHeat)
                     dT[index] = dT_melt
 
+            #If the mass goes negative, we set it to 0. This means the tetra has ablated
             new_mass = tetra_mass + dm           
+            new_mass[new_mass < 0] = 0
 
             assembly.mesh.vol_T[tetra_array] += dT
             assembly.mesh.vol_density[tetra_array] *= new_mass/tetra_mass            
@@ -90,21 +90,20 @@ def compute_thermal_tetra(titan, options):
                     delete_array.append([index, tetra_array[index]])
         
         if delete_array:
-            mesh.remove_tetra(assembly, delete_array)
-
-        #Pass tetra temperature to surface mesh
+            mesh.remove_ablated_elements(assembly, delete_array)
+        
+        #Map the tetra temperature to surface mesh
         COG = np.round(assembly.mesh.facet_COG,5).astype(str)
         COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
 
         for index, COG in enumerate(COG):
-            #print(COG)
             assembly.aerothermo.temperature[index] = assembly.mesh.vol_T[assembly.mesh.index_surf_tetra[str(COG)][0]]
 
         assembly.compute_mass_properties()
 
     return 
 
-    
+@timeis
 def compute_thermal_0D(titan, options):
 
     dt = options.dynamics.time_step
@@ -151,6 +150,5 @@ def compute_thermal_0D(titan, options):
             assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
         assembly.compute_mass_properties()
-        #Need to update Lat Lon of the body with the moving COM due to mass diferences
 
     return 

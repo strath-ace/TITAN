@@ -99,7 +99,7 @@ class Component():
         self.vol_id = -1
         
 
-    def compute_mass_properties(self, coords, elements):
+    def compute_mass_properties(self, coords, elements, density):
         """
         Compute the inertia properties
 
@@ -116,10 +116,12 @@ class Component():
 
         vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
         
-        mass = vol*self.material.density
+        mass = vol*density
         self.mass = np.sum(mass)
+
         if self.mass <= 0:
             self.COG = np.array([0,0,0])
         else:
             self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*mass[:,None], axis = 0)/self.mass
-        self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, self.material.density)
+        
+        self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)

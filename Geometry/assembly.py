@@ -469,6 +469,14 @@ class Assembly():
         self.mesh.volume_displacement = np.zeros((len(self.mesh.vol_coords),3))
         self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)
         self.mesh.vol_T = np.ones(len(self.mesh.vol_elements))
+        self.mesh.vol_orig_index = np.arange(len(self.mesh.vol_elements))
+
+        coords = self.mesh.vol_coords
+        elements = self.mesh.vol_elements
+
+        #Computes the volume of every single tetrahedral
+        vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+        self.mesh.vol_volume = vol
 
         print("Volume Grid Completed")
 
@@ -495,10 +503,7 @@ class Assembly():
         elements = self.mesh.vol_elements
         density = self.mesh.vol_density
         tag = self.mesh.vol_tag
-
-        #Computes the volume of every single tetrahedral
-        vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
-        self.mesh.vol_volume = vol
+        vol = self.mesh.vol_volume
 
         #Computes the mass of every single tetrahedral
         mass = vol*density
@@ -516,4 +521,4 @@ class Assembly():
         #Loop over the components to compute each individual inertial properties
         for obj in self.objects:
             index = (tag == obj.id)
-            obj.compute_mass_properties(coords,elements[index])
+            obj.compute_mass_properties(coords, elements[index], density[index])

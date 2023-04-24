@@ -20,6 +20,7 @@
 import meshio
 import numpy as np
 import scipy.special as special
+import open3d as o3d
 
 
 def read_mesh(filename):
@@ -236,54 +237,70 @@ def compute_nodes_normals(num_nodes, facets ,facet_COG, v0,v1,v2):
 
 def compute_min_max(nodes):
     #Computes the minimum and maximum coordinates of the mesh
-
-    _min = np.zeros((3))
-    _max = np.zeros((3))
     
-    _min=np.min(nodes, axis = 0)
-    _max=np.max(nodes, axis = 0)
+    try:
+        _min=np.min(nodes, axis = 0)
+        _max=np.max(nodes, axis = 0)
+    except:
+        _min = np.zeros((3))
+        _max = np.zeros((3))
 
     return _min, _max
 
+@timeis
+def compute_curvature(_nodes, _facets,_nodes_normal, _facet_normals, _facets_area, _v0, _v1, _v2):
+    import trimesh
+    """
+    mesh = trimesh.Trimesh(vertices = nodes, faces = facets)    #mesh.show()
+    #mesh = trimesh.smoothing.filter_laplacian(mesh, iterations = 1)
+    
+    _nodes = mesh.vertices
+    _facets = mesh.faces
+    _facets_area = mesh.area_faces
+    _facet_COG = mesh.triangles_center
+    _facet_normals = mesh.face_normals*facets_area[:,None]
 
-def compute_curvature(nodes, facets,nodes_normal, facet_normals, facets_area, v0, v1, v2):
+    _v0 = nodes[facets[:,0]]
+    _v1 = nodes[facets[:,1]]
+    _v2 = nodes[facets[:,2]]
+    _nodes_normal = compute_nodes_normals(len(_nodes), _facets ,_facet_COG, _v0,_v1,_v2)
+    """
 
     #Avertex - [NvX1] voronoi area at each vertex
     #Acorner - [NfX3] slice of the voronoi area at each face corner
 
     #Normalize facet_normals using a copy of the array to not change values by reference
-    facet_normals = np.copy(facet_normals)/facets_area[:,None]
+    _facet_normals = np.copy(_facet_normals)/_facets_area[:,None]
 
     avType = 'e'
-    Nsmooth = int(np.round(len(facets)/100, decimals = 0))
+    Nsmooth = int(np.round(len(_facets)/100, decimals = 0))
     M2M_RR = 10.0
     flatEdge = 0.9
     flatWeightFlag = 2
 
     free_vector = np.array([1,0,0])
-    p1 = np.dot(facet_normals, free_vector)
+    p1 = np.dot(_facet_normals, free_vector)
     p1 = p1<0    
 
-    Theta = np.pi/2 - np.arccos(np.clip(np.sum(- free_vector * facet_normals[p1] , axis = 1), -1.0, 1.0))
-    
-    area = np.sum(facets_area[p1]*np.sin(Theta))
+    Theta = np.pi/2 - np.arccos(np.clip(np.sum(- free_vector * _facet_normals[p1] , axis = 1), -1.0, 1.0))
+    area = np.sum(_facets_area[p1]*np.sin(Theta))
 
     Rmax = np.sqrt(area/np.pi)*2
     Rmin = Rmax/M2M_RR 
     
     # Based on Fostrad module -> based on the work of Itzik Ben Shabat
 
-    VertexNormals,Avertex,Acorner,up,vp, avEdge = calculate_vertex_normals(nodes, facets, facet_normals, facets_area, v0,v1,v2)
-    VertexSFM=calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facet_normals,v0,v1,v2)
-    CurvUxVy,PrincipalDir1,PrincipalDir2=getPrincipalCurvatures(nodes,VertexSFM,up,vp)
+    VertexNormals,Avertex,Acorner,up,vp, avEdge = calculate_vertex_normals(_nodes, _facets, _facet_normals, _facets_area, _v0, _v1, _v2)
+    VertexSFM=calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,_nodes,_facets,_facet_normals,_v0,_v1,_v2)
+    CurvUxVy,PrincipalDir1,PrincipalDir2=getPrincipalCurvatures(_nodes,VertexSFM,up,vp)
 
     CurvUxVy = np.abs(CurvUxVy)
 
-    radiiOnVerts = np.zeros((len(nodes)))
+    radiiOnVerts = np.zeros((len(_nodes)))
 
     SearchRadius=avEdge
 
-    ParFlag = len(nodes)/50000.0
+    ParFlag = len(_nodes)/50000.0
 
     with np.errstate(divide='ignore'):
         radiiOnVerts[:] = np.sqrt(1/(CurvUxVy[:,0]*CurvUxVy[:,1]))
@@ -294,21 +311,33 @@ def compute_curvature(nodes, facets,nodes_normal, facet_normals, facets_area, v0
     radiiOnVerts[radiiOnVerts > Rmax] = Rmax
     radiiOnVerts[radiiOnVerts < Rmin] = Rmin
 
-    for i in range(len(nodes)):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(_nodes)
+    tree = o3d.geometry.KDTreeFlann(pcd)
+
+    for i in range(len(_nodes)):
+        [k, idx, _] = tree.search_hybrid_vector_3d(pcd.points[i],SearchRadius,Nsmooth+3)
+        if k <= Nsmooth: [k, idx, _] = tree.search_hybrid_vector_3d(pcd.points[i],10*SearchRadius,Nsmooth+3)    
+        if k <= 1: continue
+
+        radiiOnVerts[i]= sphVolSmoothing(np.asarray(idx)[::-1], radiiOnVerts, avType, Nsmooth, Rmax, flatEdge, flatWeightFlag)
+
+    """
+    for i in range(2):
         InnerPointsInd = searchableRadius(nodes[i],nodes,SearchRadius,Nsmooth)
+        print(InnerPointsInd)
         if len(InnerPointsInd) <= 1: continue
         radiiOnVerts[i]= sphVolSmoothing(InnerPointsInd, radiiOnVerts, avType, Nsmooth, Rmax, flatEdge, flatWeightFlag)
-
+    """
+   
     radiiOnVerts[radiiOnVerts <= 0] = Rmin
 
     #calculate voronoi weights based on heron's formula area.
-    wfp = Acorner/Avertex[facets]
-    radiiOnFaces= np.sum(radiiOnVerts[facets]*wfp, axis = 1)/np.sum(wfp, axis = 1);
-
+    wfp = Acorner/Avertex[_facets]
+    radiiOnFaces= np.sum(radiiOnVerts[_facets]*wfp, axis = 1)/np.sum(wfp, axis = 1);
     radiiOnFaces[radiiOnFaces <= 0] = Rmin
 
     return radiiOnVerts, radiiOnFaces, Avertex, Acorner
-
 
 def sphVolSmoothing(InnerPointsInd, propOnVerts, avType, Nsmooth, MaxRefRadius, flatEdge, flatWeightFlag):
     
@@ -325,13 +354,15 @@ def sphVolSmoothing(InnerPointsInd, propOnVerts, avType, Nsmooth, MaxRefRadius, 
     flatRatio = NpointsInf/Nsmooth
     propBaseline = np.mean(propOnVerts[propOnVerts<MaxRefRadius])
 
-    if flatRatio >= flatEdge: flatFlag = 1
+    if flatRatio >= flatEdge:
+        flatFlag = 1
     else:
         flatFlag = 0
         if flatWeightFlag ==2:
             propOnVerts[propOnVerts>=MaxRefRadius] = propBaseline + (MaxRefRadius - propBaseline)*((1+special.erf(flatRatio*4-2))/2)
 
-    if flatFlag == 1: smoothSphProp = MaxRefRadius
+    if flatFlag == 1:
+        smoothSphProp = MaxRefRadius
     else:
         if avType == 'e': 
             smoothSphProp = exponential_moving_average(propOnVerts[propOnVerts<MaxRefRadius], Nsmooth-NpointsInf , Nsmooth/32.0)#Nsmooth/2.0)
@@ -456,6 +487,9 @@ def calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facet_n
     B/= np.linalg.norm(B, axis = 1)[:,None]
     
     A = np.zeros((len(facet_normals),6,3))
+    sol_A = np.zeros((len(facet_normals),3,3))
+    sol_b = np.zeros((len(facet_normals),3))
+
     b = np.zeros((len(facet_normals),6))
 
     A[:,0,0] = np.sum(e0*e0_norm, axis = 1);         A[:,0,1] = np.sum(e0*B, axis = 1) ;              A[:,0,2] = 0; 
@@ -476,18 +510,18 @@ def calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facet_n
     b[:,4] = np.sum((n1-n0)*e0_norm , axis = 1)
     b[:,5] = np.sum((n1-n0)*B  , axis = 1)
 
-    x=np.zeros((int(len(b)),3))
-
-    #BOTTLENECK
-    for i in range(len(b)):
-        x[i]=np.linalg.lstsq(A[i],b[i], rcond=None)[0]
+    AT = np.transpose(A, (0,2,1))
+    sol_A = np.matmul(AT,A)
+    sol_b = np.matmul(AT,b[:,:,None])
+    sol_b.shape= (-1,3)
+   
+    x = np.linalg.solve(sol_A, sol_b)
 
     wfp = Acorner[:,:]/Avertex[facets[:]]
 
     VertexSFM = np.zeros((len(nodes),4))
 
     new_ku,new_kuv,new_kv = ProjectCurvatureTensor(e0_norm,B,facet_normals,x[:,0],x[:,1],x[:,2],up[facets],vp[facets])
-
     horizontal_stack_0 = np.stack((new_ku[:,0],new_kuv[:,0],new_kuv[:,0],new_kv[:,0]), axis = -1)
     horizontal_stack_1 = np.stack((new_ku[:,1],new_kuv[:,1],new_kuv[:,1],new_kv[:,1]), axis = -1)
     horizontal_stack_2 = np.stack((new_ku[:,2],new_kuv[:,2],new_kuv[:,2],new_kv[:,2]), axis = -1)
@@ -508,11 +542,10 @@ def RotateCoordinateSystem_nd(up,vp,nf, axis = 2):
     if axis == 2:
         _np=np.cross(up,vp, axis = -1)
         _np=_np/np.linalg.norm(_np, axis = -1)[:,:,None]
-
-        arrays_temp = nf
-        nf = np.repeat(nf[:,:,np.newaxis], repeats = 3, axis = -1)
-        nf[:] = arrays_temp[:,None]
-
+        
+        nf = np.repeat(nf, repeats = 3, axis = 0)
+        nf.shape = (-1,3,3)
+        
         ndot=np.sum(nf*_np, axis = -1)
 
         p = ndot<=-1
@@ -878,7 +911,7 @@ def map_surf_to_tetra(mesh):
 
     return map_facet_tetra
 
-def remove_tetra(assembly, delete_array):
+def remove_ablated_elements(assembly, delete_array):
     """
     Function to remove ablated tetras from the object.
     Calls add_surface_facets to add the new exposed facets to the surface list
@@ -898,8 +931,8 @@ def remove_tetra(assembly, delete_array):
     tetras = mesh.vol_elements[tetras_index]
 
     #Append the new facets at the end of the list:
-    facets_index = add_new_surface_facets(assembly, tetras)
-    
+    facets_index = add_new_surface_facets(assembly, tetras_index)
+
     #Update aerothermo
     num_faces = len(mesh.v0)- old_num_faces
     aerothermo.append(num_faces,300)
@@ -910,14 +943,14 @@ def remove_tetra(assembly, delete_array):
     mesh.v2  = np.delete(mesh.v2, facets_index, axis = 0)
 
     #Delete the tetras 
-    mesh.vol_elements   = np.delete(mesh.vol_elements,tetras_index, axis = 0)
-    mesh.vol_density    = np.delete(mesh.vol_density,tetras_index, axis = 0)
-    mesh.vol_tag        = np.delete(mesh.vol_tag,tetras_index, axis = 0)
-    mesh.vol_T          = np.delete(mesh.vol_T,tetras_index, axis = 0)
-    
+    #mesh.vol_elements   = np.delete(mesh.vol_elements,tetras_index, axis = 0)
+    #mesh.vol_density    = np.delete(mesh.vol_density,tetras_index, axis = 0)
+    #mesh.vol_tag        = np.delete(mesh.vol_tag,tetras_index, axis = 0)
+    #mesh.vol_T          = np.delete(mesh.vol_T,tetras_index, axis = 0)
+
     #Update the mesh according to new surface
     #TODO missing CFD mesh
-    update_surface_mesh(mesh)
+    update_surface_mesh(mesh, curvature = True)
 
     #TEST FOR ASSEMBLY WITH SINGLE OBJECT
     assembly.objects[0].mesh.v0  = np.delete(assembly.objects[0].mesh.v0, facets_index, axis = 0)
@@ -930,25 +963,30 @@ def remove_tetra(assembly, delete_array):
         obj.node_index, obj.node_mask = create_index(assembly.mesh.nodes, obj.mesh.nodes)
         obj.facet_index, obj.facet_mask = create_index(assembly.mesh.facet_COG, obj.mesh.facet_COG)
 
-        assembly.mesh.nodes_radius[obj.node_index]  = obj.mesh.nodes_radius
-        assembly.mesh.facet_radius[obj.facet_index] = obj.mesh.facet_radius
-        assembly.mesh.Avertex[obj.node_index]  = obj.mesh.Avertex
-        assembly.mesh.Acorner[obj.facet_index] = obj.mesh.Acorner
-
+    #    assembly.mesh.nodes_radius[obj.node_index]  = obj.mesh.nodes_radius
+    #    assembly.mesh.facet_radius[obj.facet_index] = obj.mesh.facet_radius
+    #    assembly.mesh.Avertex[obj.node_index]  = obj.mesh.Avertex
+    #    assembly.mesh.Acorner[obj.facet_index] = obj.mesh.Acorner
 
     aerothermo.delete(facets_index)
 
     #Map new tetras
-    mesh.index_surf_tetra = map_surf_to_tetra(mesh)
+    #mesh.index_surf_tetra = map_surf_to_tetra(mesh)
 
 @timeis
-def add_new_surface_facets(assembly, tetras_index):    
+def add_new_surface_facets(assembly, tetras_index):
+    """
+    Function to add the new facets that will be exposed to the flow
+    Returns the index of the deleted facets, used to remove the ablated facets
+    """
+
     mesh = assembly.mesh
 
+    #Creates the keys to retrieve the mapping between the facets exposed to the flow and tetras
     COG_list = np.round(mesh.facet_COG,5).astype(str)
     COG_list = np.char.add(np.char.add(COG_list[:,0],COG_list[:,1]),COG_list[:,2])
 
-    delete_index = []
+    delete_array = []
 
     tetras = mesh.vol_elements[tetras_index]
     
@@ -962,8 +1000,9 @@ def add_new_surface_facets(assembly, tetras_index):
     tf3 = np.stack((c0,c2,c3), axis = 1)
     tf4 = np.stack((c1,c2,c0), axis = 1)
     tf = np.stack((tf1,tf2,tf3,tf4), axis = 0).reshape((-1,3))
+
     tetras_index = np.stack((tetras_index, tetras_index, tetras_index, tetras_index), axis = 0).reshape(-1)
-    
+
     COG = np.round((mesh.vol_coords[tf[:,0]]+mesh.vol_coords[tf[:,1]]+mesh.vol_coords[tf[:,2]])/3 ,5).astype(str)
     COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
 
@@ -983,22 +1022,23 @@ def add_new_surface_facets(assembly, tetras_index):
     mesh.v2 = np.append(mesh.v2, mesh.vol_coords[tf[:,2][bool_array]], axis = 0)
     COG_list = np.append(COG_list, COG[bool_array])
 
-    delete_index = np.append(delete_index, COG[~bool_array])
+    delete_array = np.append(delete_array, COG[~bool_array])
 
     #TEST FOR OBJECT
     assembly.objects[0].mesh.v0  = np.append(assembly.objects[0].mesh.v0, mesh.vol_coords[tf[:,0][bool_array]], axis = 0)
     assembly.objects[0].mesh.v1  = np.append(assembly.objects[0].mesh.v1, mesh.vol_coords[tf[:,1][bool_array]], axis = 0)
     assembly.objects[0].mesh.v2  = np.append(assembly.objects[0].mesh.v2, mesh.vol_coords[tf[:,2][bool_array]], axis = 0)
 
-    __, delete_index, __ = np.intersect1d(COG_list, delete_index, return_indices=True)
+    #Checks which index to delete in the COG_list
+    __, delete_index, __ = np.intersect1d(COG_list, delete_array, return_indices=True)
 
     return delete_index
 
 @timeis
-def update_surface_mesh(mesh):
-    #mesh.v0 = mesh.vol_coords[mesh.facets[:,0]]   
-    #mesh.v1 = mesh.vol_coords[mesh.facets[:,1]]    
-    #mesh.v2 = mesh.vol_coords[mesh.facets[:,2]]
+def update_surface_mesh(mesh, curvature = False):
+    """
+    Updates the surface properties
+    """
 
     mesh.nodes, mesh.facets = map_facets_connectivity(mesh.v0, mesh.v1, mesh.v2)
     mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
@@ -1009,5 +1049,6 @@ def update_surface_mesh(mesh):
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
 
     mesh.surface_displacement = np.zeros((len(mesh.nodes),3))
-
-    mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
+    
+    if curvature:
+        mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
