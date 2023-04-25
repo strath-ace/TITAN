@@ -103,7 +103,6 @@ def compute_thermal_tetra(titan, options):
 
     return 
 
-@timeis
 def compute_thermal_0D(titan, options):
 
     dt = options.dynamics.time_step

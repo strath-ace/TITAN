@@ -247,7 +247,6 @@ def compute_min_max(nodes):
 
     return _min, _max
 
-@timeis
 def compute_curvature(_nodes, _facets,_nodes_normal, _facet_normals, _facets_area, _v0, _v1, _v2):
     import trimesh
     """
@@ -973,7 +972,6 @@ def remove_ablated_elements(assembly, delete_array):
     #Map new tetras
     #mesh.index_surf_tetra = map_surf_to_tetra(mesh)
 
-@timeis
 def add_new_surface_facets(assembly, tetras_index):
     """
     Function to add the new facets that will be exposed to the flow
@@ -1034,7 +1032,6 @@ def add_new_surface_facets(assembly, tetras_index):
 
     return delete_index
 
-@timeis
 def update_surface_mesh(mesh, curvature = False):
     """
     Updates the surface properties

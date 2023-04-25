@@ -416,9 +416,9 @@ class Assembly():
 
             self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes),3))
 
-            self.cfd_mesh.nodes = self.mesh.nodes
-            self.cfd_mesh.facets = self.cfd_mesh.facets[self.cfd_mesh.idx]
-            self.cfd_mesh.edges, self.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(self.cfd_mesh.facets)
+            #self.cfd_mesh.nodes = self.mesh.nodes
+            #self.cfd_mesh.facets = self.cfd_mesh.facets[self.cfd_mesh.idx]
+            #self.cfd_mesh.edges, self.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(self.cfd_mesh.facets)
 
             
             #Create mapping between the nodes and facets of the singular component and the assembly

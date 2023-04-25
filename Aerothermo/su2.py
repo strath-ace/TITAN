@@ -19,7 +19,7 @@
 #
 from Geometry import gmsh_api as GMSH
 from Geometry import assembly
-from Geometry import mesh
+from Geometry import mesh as Mesh
 from Dynamics import frames
 from Aerothermo import bloom, amg
 from copy import deepcopy
@@ -29,6 +29,8 @@ import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import subprocess
 import os
+import trimesh
+
 
 class Solver():
     """ Class Solver
@@ -491,7 +493,8 @@ def split_aerothermo(total_aerothermo, assembly_list):
 
         last_node += len(nodes)    
         cfd_nodes_sorted, idx_inv = np.unique(assembly_list[it].cfd_mesh.nodes, axis = 0, return_inverse = True)
-        node_index, node_mask = mesh.create_index(cfd_nodes_sorted, nodes)
+        
+        node_index, node_mask = Mesh.create_index(cfd_nodes_sorted, nodes)
 
         aerothermo = assembly.Aerothermo(len(assembly_list[it].mesh.nodes))
 
@@ -508,11 +511,11 @@ def split_aerothermo(total_aerothermo, assembly_list):
 
         #Interpolate to Facet based on the Veronai weights computed during the mesh preprocessing phase
         for field in [field for field in dir(assembly_list[it].aerothermo) if not field.startswith('__')]:
-            if field == 'density':      assembly_list[it].aerothermo.density     = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.density)
-            if field == 'temperature':  assembly_list[it].aerothermo.temperature = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.temperature)
-            if field == 'pressure':     assembly_list[it].aerothermo.pressure    = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.pressure)
-            if field == 'shear':        assembly_list[it].aerothermo.shear       = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.shear)
-            if field == 'heatflux':     assembly_list[it].aerothermo.heatflux    = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.heatflux)
+            if field == 'density':      assembly_list[it].aerothermo.density     = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.density)
+            if field == 'temperature':  assembly_list[it].aerothermo.temperature = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.temperature)
+            if field == 'pressure':     assembly_list[it].aerothermo.pressure    = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.pressure)
+            if field == 'shear':        assembly_list[it].aerothermo.shear       = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.shear)
+            if field == 'heatflux':     assembly_list[it].aerothermo.heatflux    = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.heatflux)
 
         assembly_list[it].aerothermo_cfd = aerothermo
 
@@ -615,6 +618,13 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
 
     free = assembly_list[it].freestream
     #TODO options for ref_size_surf
+
+    for i, assembly in enumerate(assembly_list):
+        mesh = trimesh.Trimesh(vertices = assembly.mesh.nodes, faces = assembly.mesh.facets)
+        assembly.cfd_mesh.nodes = mesh.vertices
+        assembly.cfd_mesh.facets = mesh.faces
+        assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
+
 
     #Convert from Body->ECEF and ECEF-> Wind
     #Translate the mesh to match the Center of Mass of the lowest assembly
