@@ -469,6 +469,7 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
 def split_aerothermo(total_aerothermo, assembly_list):
     """
     Split the solution into the different assemblies used in the CFD simulation
+    Function reworked on 25/04/2023
 
     Parameters
     ----------
@@ -477,35 +478,26 @@ def split_aerothermo(total_aerothermo, assembly_list):
     assembly:List_Assembly
         Object of class List_Assembly
     """
-
-    #Initializes the Aerothermo Object
-
-    last_node = 0
     first_node = 0
+    last_node = 0
 
-    #Loop through all the assembly objects
+    #Loop all the assemblies in the cluster
     for it in range(len(assembly_list)):
 
-        nodes = np.copy(assembly_list[it].cfd_mesh.nodes[assembly_list[it].cfd_mesh.edges])
+        #Create indexing between CFD_nodes and Assembly_nodes
+        node_index, __ = Mesh.create_index(assembly_list[it].mesh.nodes, assembly_list[it].cfd_mesh.nodes)
+        last_node += len(node_index)
 
-        nodes.shape = (-1,3)
-        nodes = np.unique(nodes, axis = 0)
-
-        last_node += len(nodes)    
-        cfd_nodes_sorted, idx_inv = np.unique(assembly_list[it].cfd_mesh.nodes, axis = 0, return_inverse = True)
-        
-        node_index, node_mask = Mesh.create_index(cfd_nodes_sorted, nodes)
-
+        #Create aerothermo object to store surface information on the assembly nodes
         aerothermo = assembly.Aerothermo(len(assembly_list[it].mesh.nodes))
-
-        #Store the solution into the correspondent assembly
+        
+        #Store surface info in the aerothermo object
         for field in [field for field in dir(assembly_list[it].aerothermo) if not field.startswith('__')]:
-            if field == 'density':      aerothermo.density[node_index]      = total_aerothermo.density     [first_node:last_node]; aerothermo.density = aerothermo.density[idx_inv]
-            if field == 'temperature':  aerothermo.temperature[node_index]  = total_aerothermo.temperature [first_node:last_node]; aerothermo.temperature = aerothermo.temperature[idx_inv]
-           #if field == 'momentum':     aerothermo.momentum[node_index]     = total_aerothermo.momentum    [first_node:last_node]
-            if field == 'pressure':     aerothermo.pressure[node_index]     = total_aerothermo.pressure    [first_node:last_node]; aerothermo.pressure = aerothermo.pressure[idx_inv]
-            if field == 'shear':        aerothermo.shear[node_index]        = total_aerothermo.shear[first_node:last_node];        aerothermo.shear = aerothermo.shear[idx_inv]
-            if field == 'heatflux':     aerothermo.heatflux[node_index]     = total_aerothermo.heatflux    [first_node:last_node]; aerothermo.heatflux = aerothermo.heatflux[idx_inv]
+            if field == 'density':      aerothermo.density[node_index]      = total_aerothermo.density     [first_node:last_node];# aerothermo.density = aerothermo.density[idx_inv]
+            if field == 'temperature':  aerothermo.temperature[node_index]  = total_aerothermo.temperature [first_node:last_node];# aerothermo.temperature = aerothermo.temperature[idx_inv]
+            if field == 'pressure':     aerothermo.pressure[node_index]     = total_aerothermo.pressure    [first_node:last_node];# aerothermo.pressure = aerothermo.pressure[idx_inv]
+            if field == 'shear':        aerothermo.shear[node_index]        = total_aerothermo.shear[first_node:last_node];       # aerothermo.shear = aerothermo.shear[idx_inv]
+            if field == 'heatflux':     aerothermo.heatflux[node_index]     = total_aerothermo.heatflux    [first_node:last_node];# aerothermo.heatflux = aerothermo.heatflux[idx_inv]
 
         first_node = last_node
 
@@ -518,6 +510,8 @@ def split_aerothermo(total_aerothermo, assembly_list):
             if field == 'heatflux':     assembly_list[it].aerothermo.heatflux    = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.heatflux)
 
         assembly_list[it].aerothermo_cfd = aerothermo
+
+    return
 
 def run_SU2(n, options):
     """
@@ -619,12 +613,25 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
     free = assembly_list[it].freestream
     #TODO options for ref_size_surf
 
+    #CFD mesh preprocessing for multiple
+    mesh = trimesh.Trimesh()
     for i, assembly in enumerate(assembly_list):
-        mesh = trimesh.Trimesh(vertices = assembly.mesh.nodes, faces = assembly.mesh.facets)
+        faces = np.array([[]], dtype = int).reshape((-1,3))
+        for obj in assembly.objects:
+            faces = np.append(faces, assembly.mesh.facets[obj.facet_index]).reshape((-1,3))
+
+        #Removing the duplicate faces so we only have the external geometry  //
+        #to generate the CFD Mesh (May require future improvements)
+
+        faces_tuple = [tuple(f) for f in faces]
+        count_faces_dict = pd.Series(faces_tuple).value_counts()
+        mask = [count_faces_dict[f] == 1 for f in faces_tuple]
+
+        mesh = trimesh.Trimesh(vertices = assembly.mesh.nodes, faces = faces[mask])
+    
         assembly.cfd_mesh.nodes = mesh.vertices
         assembly.cfd_mesh.facets = mesh.faces
         assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
-
 
     #Convert from Body->ECEF and ECEF-> Wind
     #Translate the mesh to match the Center of Mass of the lowest assembly
@@ -656,7 +663,6 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
     
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)
-
     #Writes the configuration file
     it = 0
     config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)+'.su2',bloom=False)

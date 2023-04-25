@@ -20,6 +20,7 @@
 import meshio
 import numpy as np
 import scipy.special as special
+from trimesh.viewer.windowed import SceneViewer
 import open3d as o3d
 
 
