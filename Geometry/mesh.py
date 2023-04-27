@@ -748,6 +748,31 @@ def create_index(body_atr, obj_atr):
 
     return index, mask
 
+def compute_new_volume_v2(original_mesh, new_mesh, new_objects):
+    """
+    Function to split the Tetras among the new assemblies
+    """
+
+    vol_elements = np.array([])
+    index = np.array([], dtype = int)
+    # Lists the ids that need to match to retrieve the tetras
+    list_tag_ids = [obj.id for obj in new_objects]
+
+    # Appends the volumes and retrieves the index for the tetras properties
+    for tag in list_tag_ids:
+        vol_elements = np.append(vol_elements, original_mesh.vol_elements[original_mesh.vol_tag == tag]).reshape((-1,4))
+        index = np.append(index, [i for i,val in enumerate(original_mesh.vol_tag == tag) if val])
+
+    #Remove the tetras with density == 0: They have already ablated
+    index = index[original_mesh.vol_density[index] != 0]
+
+    new_mesh.vol_elements = original_mesh.vol_elements[index]
+    new_mesh.vol_density = original_mesh.vol_density[index]
+    new_mesh.vol_T = original_mesh.vol_T[index]
+    new_mesh.vol_tag = original_mesh.vol_tag[index]
+    new_mesh.vol_volume = original_mesh.vol_volume[index]
+    new_mesh.vol_coords = original_mesh.vol_coords
+
 def compute_new_volume(assembly, old_nodes):
 
     assembly.mesh.vol_elements = np.array([], dtype = int)
