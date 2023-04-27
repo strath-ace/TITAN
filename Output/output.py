@@ -160,7 +160,7 @@ def generate_surface_solution(titan, options):
                     }
 
         point_data = { "Displacement": displacement,
-                       "Ellipse": ellipse,
+                      # "Ellipse": ellipse,
                      }
 
         trimesh = meshio.Mesh(points,
