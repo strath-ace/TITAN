@@ -941,7 +941,6 @@ def remove_ablated_elements(assembly, delete_array):
     Function to remove ablated tetras from the object.
     Calls add_surface_facets to add the new exposed facets to the surface list
     """
-
     mesh = assembly.mesh
     aerothermo = assembly.aerothermo
 
@@ -1043,7 +1042,9 @@ def add_new_surface_facets(assembly, tetras_index):
     delete_array = np.append(delete_array, COG[~bool_array])
 
     #Checks which index to delete in the COG_list
-    __, delete_index, __ = np.intersect1d(COG_list, delete_array, return_indices=True)
+    #__, delete_index, __ = np.intersect1d(COG_list, delete_array, return_indices=True)
+    mask = np.in1d(COG_list,delete_array)
+    delete_index = np.where(mask)[0]
 
     #Delete objects surfaces:
     for obj in assembly.objects:
@@ -1053,7 +1054,9 @@ def add_new_surface_facets(assembly, tetras_index):
         obj_COG = np.char.add(np.char.add(obj_COG[:,0],obj_COG[:,1]),obj_COG[:,2])
 
         #We compare the arrays that need to be deleted to our COG
-        __, delete_index_obj, __ = np.intersect1d(obj_COG, delete_array, return_indices=True)
+        #__, delete_index_obj, __ = np.intersect1d(obj_COG, delete_array, return_indices=True)
+        mask = np.in1d(obj_COG,delete_array)
+        delete_index_obj = np.where(mask)[0]
 
         #We delete them
         obj.mesh.v0 = np.delete(obj.mesh.v0, delete_index_obj, axis = 0)

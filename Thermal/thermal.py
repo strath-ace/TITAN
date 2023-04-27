@@ -81,8 +81,15 @@ def compute_thermal_tetra(titan, options):
             new_mass[new_mass < 0] = 0
 
             assembly.mesh.vol_T[tetra_array] += dT
-            assembly.mesh.vol_density[tetra_array] *= new_mass/tetra_mass            
             
+            #for i,den in enumerate(assembly.mesh.vol_density[tetra_array]):
+            #    if np.isnan(den*new_mass[i]/tetra_mass[i]): print(den, new_mass[i], tetra_mass[i], tetra_array[i])
+
+            assembly.mesh.vol_density[tetra_array] *= new_mass/tetra_mass 
+
+            #The are some densities that are NaN whe using multiple objects, need to check why        
+            assembly.mesh.vol_density[np.isnan(assembly.mesh.vol_density)] = 0
+
             index_delete = np.where(assembly.mesh.vol_density[tetra_array]<=0)[0]
 
             if len(index_delete) != 0:
@@ -95,6 +102,9 @@ def compute_thermal_tetra(titan, options):
         #Map the tetra temperature to surface mesh
         COG = np.round(assembly.mesh.facet_COG,5).astype(str)
         COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
+
+        #Limit Tetras temperature so it does not go negative due to small mass
+        assembly.mesh.vol_T[assembly.mesh.vol_T<300] = 300  
 
         for index, COG in enumerate(COG):
             assembly.aerothermo.temperature[index] = assembly.mesh.vol_T[assembly.mesh.index_surf_tetra[str(COG)][0]]
