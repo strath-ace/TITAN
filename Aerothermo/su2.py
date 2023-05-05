@@ -613,6 +613,96 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
     free = assembly_list[it].freestream
     #TODO options for ref_size_surf
 
+
+
+    #Reconstruct the surface to be able to perform BL
+    for i, assembly in enumerate(assembly_list):
+
+        mesh = trimesh.Trimesh()
+        for obj in assembly.objects:
+            mesh += trimesh.Trimesh(vertices = obj.mesh.nodes, faces = obj.mesh.facets) 
+            #faces = np.append(faces, assembly.mesh.facets[obj.facet_index]).reshape((-1,3))
+            #trimesh.Trimesh(vertices = assembly.mesh.nodes, faces = assembly.mesh.facets[obj.facet_index]).show()
+
+        COG = np.round(np.sum(mesh.vertices[mesh.faces], axis = 1)/3,5)
+
+        faces_tuple = [tuple(f) for f in COG]
+        count_faces_dict = pd.Series(faces_tuple).value_counts()
+        mask = [count_faces_dict[f] == 1 for f in faces_tuple]
+
+        mesh = trimesh.Trimesh(vertices = mesh.vertices, faces = mesh.faces[mask])
+        mesh.show()
+        
+        tri_mesh = o3d.geometry.TriangleMesh()
+        tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices)
+        tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces)
+        mesh = tri_mesh
+        o3d.visualization.draw_geometries([tri_mesh])
+
+        mesh.compute_vertex_normals()
+        pcd = mesh.sample_points_poisson_disk(1000)
+        o3d.visualization.draw_geometries([pcd])
+
+        print('run Poisson surface reconstruction')
+        with o3d.utility.VerbosityContextManager(
+                o3d.utility.VerbosityLevel.Debug) as cm:
+            mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+                pcd, depth=6)
+        trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
+
+        voxel_size = max(mesh.get_max_bound() - mesh.get_min_bound()) / 16.0
+
+        mesh = mesh.simplify_vertex_clustering(voxel_size = voxel_size,
+            contraction=o3d.geometry.SimplificationContraction.Average)
+
+        #Pass the mesh to trimesh again
+        mesh = trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles))
+        mesh.show()
+
+
+
+    exit(9)
+
+    #Smooth Mesh to generate the BL
+    #Number of iterations to smooth surface
+    num_smooth_iter = 0
+
+    for i, assembly in enumerate(assembly_list):
+        mesh = trimesh.Trimesh(vertices = assembly.mesh.nodes, faces = assembly.mesh.facets)
+        tri_mesh = o3d.geometry.TriangleMesh()
+        tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices)
+        tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces)
+        
+        #Perform smoothing using Taubin filter
+        #http://www.open3d.org/docs/release/python_api/open3d.geometry.TriangleMesh.html
+        if num_smooth_iter == 0:
+            mesh = tri_mesh
+        else:
+            mesh = tri_mesh.filter_smooth_taubin(number_of_iterations = num_smooth_iter)
+        #--> o3d.visualization.draw_geometries([mesh])
+
+        #Map the surface coords with the Volume coords to change the correct nodes in the vol_coords list
+        #so we can compute the correct mass of the object
+        node_index,__ = Mesh.create_index(assembly.mesh.vol_coords, assembly.mesh.nodes)
+
+        #Change the surface and the volume nodes:
+        assembly.mesh.nodes = np.asarray(mesh.vertices)
+        assembly.mesh.vol_coords[node_index] = np.asarray(mesh.vertices)
+
+        #Recompute the density of each tetra to keep the mass: density = mass/volume
+        mass = assembly.mesh.vol_density*assembly.mesh.vol_volume
+        coords = assembly.mesh.vol_coords
+        elements = assembly.mesh.vol_elements
+        
+        #New tetra volume list due to smoothing
+        assembly.mesh.vol_volume = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+
+        #Compute the new density list
+        assembly.mesh.vol_density = mass/assembly.mesh.vol_volume
+
+        #Recompute the properties
+        assembly.compute_mass_properties()
+
     #CFD mesh preprocessing for multiple
     mesh = trimesh.Trimesh()
     for i, assembly in enumerate(assembly_list):
