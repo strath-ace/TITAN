@@ -322,6 +322,9 @@ class Options():
         #: [int] Number of dynamic iterations
         self.iters = iters
 
+        #:[int] Frequency of generating a restart file [per number of iterations]
+        self.save_freq = 1
+
         #: [int] Current iteration
         self.current_iter = 0
                 
@@ -399,7 +402,8 @@ class Options():
 
         #titan.high_fidelity_model = None 
         # titan.low_fidelity_model = None 
-
+        
+        print("Saving state")
         outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
         pickle.dump(titan, outfile)
         outfile.close()
@@ -681,6 +685,7 @@ def read_config_file(configParser, postprocess = ""):
     if postprocess: return options, None
 
     options.iters         = get_config_value(configParser, options.iters, 'Options', 'Num_iters', 'int')
+    options.save_freq     = get_config_value(configParser, options.save_freq, 'Options', 'Save_freq', 'int')
     options.load_state    = get_config_value(configParser, False, 'Options', 'Load_state', 'boolean')
     options.load_mesh     = get_config_value(configParser, False, 'Options', 'Load_mesh', 'boolean')
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
