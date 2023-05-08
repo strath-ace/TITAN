@@ -2,41 +2,49 @@
 #First test case to test the config file of TITAN
 
 [Options]
-Num_iters = 1
+Num_iters = 11
 Load_mesh = False
 Load_state = False
-Fidelity = High
+Fidelity = Low
 #High, Low or Hybrid
 Output_folder = Tests/Simulation
 FENICS = False
+Ablation = True
 
-[Trajectory]
-Altitude = 10000
-Velocity = 1000
-Flight_path_angle = 0
+#Ablation mode is set to TETRA
+Ablation_mode = Tetra
+
 
 [Bloom]
 Flag =  True
 Layers = 15
-Spacing = 0.001
+Spacing = 0.00025
 Growth_Rate = 1.15
 
 [AMG]
 Flag = True
 
 [SU2]
-Solver = NAVIER_STOKES
+Solver = EULER
 Conv_method = AUSM
 Adapt_iter = 1
 Num_cores = 6
-Num_iters = 10
+Num_iters = 1000
 Muscl = NO
-Cfl = 0.5
+Cfl = 0.25
+
+[Trajectory]
+Altitude = 60000
+Velocity = 7000
+Flight_path_angle = 0
 
 [Assembly]
 Path = Tests/Mesh/Sphere/
 Sideslip = 180.0
 Angle_of_attack = 0.0
 
+[Time]
+Time_step = 0.5
+
 [Objects]
-Primary = [NAME = 1m_sphere.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]
+Primary = [NAME = 1m_sphere_coarse.stl, MATERIAL = Unittest_demise, TYPE = Primitive, FENICS_ID = -1]

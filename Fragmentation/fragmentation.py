@@ -19,11 +19,12 @@
 #
 import numpy as np
 from Geometry.assembly import create_assembly_flag, Assembly
-from Geometry.mesh import compute_new_volume
+from Geometry.mesh import compute_new_volume_v2, map_surf_to_tetra
 from copy import deepcopy
 from scipy.spatial.transform import Rotation as Rot
 from Output import output
 import pymap3d
+import open3d as o3d
 
 def demise_components(titan, i, joints_id, options): 
     """
@@ -111,10 +112,16 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].connectivity.shape = (-1,3)
 
         #Uses GMSH again to compute the inner domain of the new assembly
-        titan.assembly[-1].generate_inner_domain(write = False, output_folder = options.output_folder)
-        titan.assembly[-1].compute_mass_properties()
+        #titan.assembly[-1].generate_inner_domain(write = False, output_folder = options.output_folder)
+        #titan.assembly[-1].compute_mass_properties()
+        #output.generate_volume(titan = titan, options = options)
+
+        compute_new_volume_v2(titan.assembly[i].mesh, titan.assembly[-1].mesh, titan.assembly[-1].objects)
+        titan.assembly[-1].mesh.index_surf_tetra = map_surf_to_tetra(titan.assembly[-1].mesh.vol_coords, titan.assembly[-1].mesh.vol_elements)
         output.generate_volume(titan = titan, options = options)
-            
+
+        titan.assembly[-1].compute_mass_properties()
+
         titan.assembly[-1].roll  = angle[0]
         titan.assembly[-1].pitch = angle[1]
         titan.assembly[-1].yaw   = angle[2]
@@ -170,6 +177,30 @@ def fragmentation(titan, options):
     options: Options
         Object of class Options
     """
+
+    #ROUTINE to check if the mesh has split.
+    # If True, change the density to 0 and recompute the mass of the singular component.
+    # For now, only performed for assembly with multiple components
+    for assembly in titan.assembly:
+        if len(assembly.objects) == 1: continue
+        for obj in assembly.objects:
+            mesh = obj.mesh
+    
+            tri_mesh = o3d.geometry.TriangleMesh()
+            tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.nodes)
+            tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.facets)
+            
+            #o3d.visualization.draw_geometries([tri_mesh])
+            #print("Cluster connected triangles")
+
+            triangle_clusters, cluster_n_triangles, cluster_area = (tri_mesh.cluster_connected_triangles())
+
+            #If mesh has split into two clusters, remove the object splitting
+            #"WARNING": This is not the best algorith, ideally you need to chech what portion has spitted,
+            #TODO
+            if len(cluster_n_triangles) > 1: 
+                assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = 0
+                assembly.compute_mass_properties()
 
     assembly_id = np.array([], dtype = int)
     lenght_assembly = len(titan.assembly)

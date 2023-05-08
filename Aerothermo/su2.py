@@ -19,16 +19,20 @@
 #
 from Geometry import gmsh_api as GMSH
 from Geometry import assembly
-from Geometry import mesh
+from Geometry import mesh as Mesh
 from Dynamics import frames
 from Aerothermo import bloom, amg
 from copy import deepcopy
 from scipy.spatial.transform import Rotation as Rot
 import numpy as np
+from Geometry.tetra import inertia_tetra, vol_tetra
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import subprocess
 import os
+import trimesh
+import open3d as o3d
+import pandas as pd
 
 class Solver():
     """ Class Solver
@@ -467,6 +471,7 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
 def split_aerothermo(total_aerothermo, assembly_list):
     """
     Split the solution into the different assemblies used in the CFD simulation
+    Function reworked on 25/04/2023
 
     Parameters
     ----------
@@ -475,46 +480,40 @@ def split_aerothermo(total_aerothermo, assembly_list):
     assembly:List_Assembly
         Object of class List_Assembly
     """
-
-    #Initializes the Aerothermo Object
-
-    last_node = 0
     first_node = 0
+    last_node = 0
 
-    #Loop through all the assembly objects
+    #Loop all the assemblies in the cluster
     for it in range(len(assembly_list)):
 
-        nodes = np.copy(assembly_list[it].cfd_mesh.nodes[assembly_list[it].cfd_mesh.edges])
+        #Create indexing between CFD_nodes and Assembly_nodes
+        node_index, __ = Mesh.create_index(assembly_list[it].mesh.nodes, assembly_list[it].cfd_mesh.nodes)
+        last_node += len(node_index)
 
-        nodes.shape = (-1,3)
-        nodes = np.unique(nodes, axis = 0)
-
-        last_node += len(nodes)    
-        cfd_nodes_sorted, idx_inv = np.unique(assembly_list[it].cfd_mesh.nodes, axis = 0, return_inverse = True)
-        node_index, node_mask = mesh.create_index(cfd_nodes_sorted, nodes)
-
+        #Create aerothermo object to store surface information on the assembly nodes
         aerothermo = assembly.Aerothermo(len(assembly_list[it].mesh.nodes))
-
-        #Store the solution into the correspondent assembly
+        
+        #Store surface info in the aerothermo object
         for field in [field for field in dir(assembly_list[it].aerothermo) if not field.startswith('__')]:
-            if field == 'density':      aerothermo.density[node_index]      = total_aerothermo.density     [first_node:last_node]; aerothermo.density = aerothermo.density[idx_inv]
-            if field == 'temperature':  aerothermo.temperature[node_index]  = total_aerothermo.temperature [first_node:last_node]; aerothermo.temperature = aerothermo.temperature[idx_inv]
-           #if field == 'momentum':     aerothermo.momentum[node_index]     = total_aerothermo.momentum    [first_node:last_node]
-            if field == 'pressure':     aerothermo.pressure[node_index]     = total_aerothermo.pressure    [first_node:last_node]; aerothermo.pressure = aerothermo.pressure[idx_inv]
-            if field == 'shear':        aerothermo.shear[node_index]        = total_aerothermo.shear[first_node:last_node];        aerothermo.shear = aerothermo.shear[idx_inv]
-            if field == 'heatflux':     aerothermo.heatflux[node_index]     = total_aerothermo.heatflux    [first_node:last_node]; aerothermo.heatflux = aerothermo.heatflux[idx_inv]
+            if field == 'density':      aerothermo.density[node_index]      = total_aerothermo.density     [first_node:last_node];# aerothermo.density = aerothermo.density[idx_inv]
+            if field == 'temperature':  aerothermo.temperature[node_index]  = total_aerothermo.temperature [first_node:last_node];# aerothermo.temperature = aerothermo.temperature[idx_inv]
+            if field == 'pressure':     aerothermo.pressure[node_index]     = total_aerothermo.pressure    [first_node:last_node];# aerothermo.pressure = aerothermo.pressure[idx_inv]
+            if field == 'shear':        aerothermo.shear[node_index]        = total_aerothermo.shear[first_node:last_node];       # aerothermo.shear = aerothermo.shear[idx_inv]
+            if field == 'heatflux':     aerothermo.heatflux[node_index]     = total_aerothermo.heatflux    [first_node:last_node];# aerothermo.heatflux = aerothermo.heatflux[idx_inv]
 
         first_node = last_node
 
         #Interpolate to Facet based on the Veronai weights computed during the mesh preprocessing phase
         for field in [field for field in dir(assembly_list[it].aerothermo) if not field.startswith('__')]:
-            if field == 'density':      assembly_list[it].aerothermo.density     = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.density)
-            if field == 'temperature':  assembly_list[it].aerothermo.temperature = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.temperature)
-            if field == 'pressure':     assembly_list[it].aerothermo.pressure    = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.pressure)
-            if field == 'shear':        assembly_list[it].aerothermo.shear       = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.shear)
-            if field == 'heatflux':     assembly_list[it].aerothermo.heatflux    = mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.heatflux)
+            if field == 'density':      assembly_list[it].aerothermo.density     = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.density)
+            if field == 'temperature':  assembly_list[it].aerothermo.temperature = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.temperature)
+            if field == 'pressure':     assembly_list[it].aerothermo.pressure    = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.pressure)
+            if field == 'shear':        assembly_list[it].aerothermo.shear       = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.shear)
+            if field == 'heatflux':     assembly_list[it].aerothermo.heatflux    = Mesh.vertex_to_facet_linear(assembly_list[it].mesh, aerothermo.heatflux)
 
         assembly_list[it].aerothermo_cfd = aerothermo
+
+    return
 
 def run_SU2(n, options):
     """
@@ -549,7 +548,6 @@ def generate_BL(assembly, options, it, cluster_tag):
 
     if options.bloom.flag:
         bloom.generate_BL(it, options, num_obj = len(assembly), bloom = options.bloom, input_grid ='Domain_'+str(it)+'_cluster_'+str(cluster_tag) , output_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
-
     
 def adapt_mesh(assembly, options, it, cluster_tag):
     """
@@ -616,6 +614,91 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
     free = assembly_list[it].freestream
     #TODO options for ref_size_surf
 
+    #Number of iterations to smooth surface
+    num_smooth_iter = 0
+
+    #Reconstruct the surface to be able to perform BL if ablation = Tetra
+    for i, assembly in enumerate(assembly_list):
+
+        mesh = trimesh.Trimesh()
+        for obj in assembly.objects:
+            mesh += trimesh.Trimesh(vertices = obj.mesh.nodes, faces = obj.mesh.facets) 
+
+        COG = np.round(np.sum(mesh.vertices[mesh.faces], axis = 1)/3,5)
+
+        faces_tuple = [tuple(f) for f in COG]
+        count_faces_dict = pd.Series(faces_tuple).value_counts()
+        mask = [count_faces_dict[f] == 1 for f in faces_tuple]
+
+        mesh = trimesh.Trimesh(vertices = mesh.vertices, faces = mesh.faces[mask])
+        
+        if options.ablation_mode == "tetra":
+
+            #mesh.show()
+            
+            tri_mesh = o3d.geometry.TriangleMesh()
+            tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices)
+            tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces)
+            mesh = tri_mesh
+            #o3d.visualization.draw_geometries([tri_mesh])
+
+            mesh.compute_vertex_normals()
+            pcd = mesh.sample_points_poisson_disk(1000)
+
+            o3d.visualization.draw_geometries([pcd])
+
+            print('run Poisson surface reconstruction')
+            with o3d.utility.VerbosityContextManager(
+                    o3d.utility.VerbosityLevel.Debug) as cm:
+                mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+                    pcd, depth=8)
+            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
+
+            #Removes the non-manifold_edges
+            mesh.remove_non_manifold_edges()
+
+            #Removes the isolated triangles  
+
+            voxel_size = max(mesh.get_max_bound() - mesh.get_min_bound()) / 32.0
+
+            mesh = mesh.simplify_vertex_clustering(voxel_size = voxel_size,
+                contraction=o3d.geometry.SimplificationContraction.Average)
+
+            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
+
+            #if num_smooth_iter != 0:
+            #    mesh = mesh.filter_smooth_taubin(number_of_iterations = num_smooth_iter)
+
+            #Check the triangle clustering, there shall only be one
+            cluster, number_tri, __ = mesh.cluster_connected_triangles()
+            mask = cluster!=np.argmax(number_tri)
+            mesh.remove_triangles_by_mask(mask)
+            mesh.remove_unreferenced_vertices()
+
+            #Removes the non-manifold_triangles
+            #non_man_vertex =  mesh.get_non_manifold_vertices()
+            #print(non_man_vertex)
+            #mesh.remove_vertices_by_index(non_man_vertex)
+            
+            #--> But is removing the triangle with smaller area: 
+            mesh.remove_non_manifold_edges()
+
+            print(np.asarray(mesh.get_non_manifold_edges(allow_boundary_edges=True)))
+            print(np.array(mesh.get_non_manifold_edges()))
+
+            #Pass the mesh to trimesh again
+            mesh = trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles))
+            #mesh.fill_holes()
+            #mesh.fix_normals()
+            #mesh.show()
+
+        assembly.cfd_mesh.nodes = mesh.vertices
+        assembly.cfd_mesh.facets = mesh.faces
+        assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
+        print(assembly.cfd_mesh.facets.shape)
+    
+
+    #exit()
     #Convert from Body->ECEF and ECEF-> Wind
     #Translate the mesh to match the Center of Mass of the lowest assembly
     assembly_windframe = deepcopy(assembly_list)
@@ -643,7 +726,7 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
 
     #Automatically generates the CFD domain
     GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = 0.5, ref_size_far = 0.5 , output_folder = options.output_folder, output_grid = 'Domain_'+str(0)+'_cluster_'+str(cluster_tag)+'.su2')
-    
+
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)
 

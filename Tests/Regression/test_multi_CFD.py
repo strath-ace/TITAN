@@ -21,26 +21,19 @@ import pytest
 import sys
 import numpy as np
 from TITAN import main
+import meshio
 
-options, titan1 = main("Tests/Configs/2cube_frag_altitude.txt")
+options, titan = main("Tests/Configs/multi_CFD.txt")
 
-#ALtitude fragmentation
-def test_frag_altitude(): assert len(titan1.assembly) == 2
+titan_aerothermo_cfd_1 = titan.assembly[0].aerothermo_cfd
+titan_aerothermo_cfd_2 = titan.assembly[1].aerothermo_cfd
+titan_pressure = np.append(titan_aerothermo_cfd_1.pressure , titan_aerothermo_cfd_2.pressure)
+titan_heatflux = np.append(titan_aerothermo_cfd_1.heatflux , titan_aerothermo_cfd_2.heatflux)
 
-options, titan2 = main("Tests/Configs/2cube_frag_temperature.txt")
+SU2_mesh = meshio.read("Tests/Simulation/CFD_sol/surface_flow_0_0_cluster_0.vtk")
 
-#Temperature fragmentation
-def test_frag_temperature(): assert len(titan2.assembly) == 2
+def test_pressure():
+	assert all(np.isclose(np.round(np.sort(titan_pressure),2),np.round(np.sort(SU2_mesh.point_data["Pressure"].reshape(-1)),2), 0.1))
 
-#Testing temperature in addition to fragmentation
-
-#### Using old backface culling algo
-#def test_temperature(): assert np.round(titan2.assembly[0].objects[0].temperature,5) == np.round(382.09268330658256,5)
-
-### Using new backface culling algo
-def test_temperature(): assert np.round(titan2.assembly[0].objects[0].temperature,5) == np.round(399.28493,5)
-
-options, titan3 = main("Tests/Configs/cube_demise.txt")
-
-#Test demise
-def test_demise(): assert len(titan3.assembly) == 0
+def test_heatflux():
+	assert all(np.isclose(np.round(np.sort(titan_heatflux),2),np.round(np.sort(SU2_mesh.point_data["Heat_Flux"].reshape(-1)),2), 0.1))

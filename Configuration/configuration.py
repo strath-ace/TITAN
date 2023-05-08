@@ -343,6 +343,12 @@ class Options():
         #: [str] Fidelity of the aerothermo calculation (Low - Default, High, Hybrid)
         self.fidelity = fidelity
 
+        #: [boolean] Flag to perform ablation
+        self.ablation = False
+
+        #: [str] Ablation Model (0D, tetra)
+        self.ablation_mode = "0D"
+
         
     def clean_up_folders(self):
         """
@@ -679,8 +685,9 @@ def read_config_file(configParser, postprocess = ""):
     options.load_mesh     = get_config_value(configParser, False, 'Options', 'Load_mesh', 'boolean')
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
     #options.SPARTA =       get_config_value(configParser, options.SPARTA, 'Options', 'SPARTA', 'boolean')
-    options.structural_dynamics   = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
+    options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
     options.ablation      = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
+    options.ablation_mode = get_config_value(configParser, "0D", 'Options', 'Ablation_mode', 'str').lower()
 
     #Read FENICS options
     if options.structural_dynamics:

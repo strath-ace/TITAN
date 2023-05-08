@@ -309,6 +309,19 @@ class Aerothermo():
         self.heatflux = np.zeros((n_points))
         self.wall_temperature = 300
 
+    def append(self, n_points = 0, temperature= 300):
+        self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
+        self.pressure = np.append(self.pressure, np.zeros(n_points))
+        self.heatflux = np.append(self.heatflux, np.zeros(n_points))
+        self.shear = np.append(self.shear, np.zeros((n_points,3)), axis = 0)
+
+    def delete(self, index):
+        self.temperature = np.delete(self.temperature, index)
+        self.pressure = np.delete(self.pressure, index)
+        self.heatflux = np.delete(self.heatflux, index)
+        self.shear = np.delete(self.shear, index, axis = 0)
+
+
 class Assembly():
     """ Class Assembly
     
@@ -396,29 +409,15 @@ class Assembly():
             self.mesh.edges, self.mesh.facet_edges = Mesh.map_edges_connectivity(self.mesh.facets)
             self.mesh.nodes_normal = Mesh.compute_nodes_normals(len(self.mesh.nodes), self.mesh.facets ,self.mesh.facet_COG, self.mesh.v0,self.mesh.v1,self.mesh.v2)
             self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
-            self.mesh.nodes_radius = np.zeros(len(self.mesh.nodes))
-            self.mesh.facet_radius = np.zeros(len(self.mesh.facets))
-            self.mesh.Avertex = np.zeros(len(self.mesh.nodes))
-            self.mesh.Acorner = np.zeros((len(self.mesh.facets),3))
+            self.mesh.nodes_radius, self.mesh.facet_radius, self.mesh.Avertex, self.mesh.Acorner = Mesh.compute_curvature(self.mesh.nodes, self.mesh.facets, self.mesh.nodes_normal, self.mesh.facet_normal, self.mesh.facet_area, self.mesh.v0, self.mesh.v1, self.mesh.v2)
+
 
             self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes),3))
 
-            self.cfd_mesh.nodes = self.mesh.nodes
-            self.cfd_mesh.facets = self.cfd_mesh.facets[self.cfd_mesh.idx]
-            self.cfd_mesh.edges, self.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(self.cfd_mesh.facets)
-
-            
             #Create mapping between the nodes and facets of the singular component and the assembly
             for obj in objects:
                 obj.node_index, obj.node_mask = Mesh.create_index(self.mesh.nodes, obj.mesh.nodes)
                 obj.facet_index, obj.facet_mask = Mesh.create_index(self.mesh.facet_COG, obj.mesh.facet_COG)
-
-                #print("IMPORTANT TEST: ", (self.mesh.nodes[obj.node_index] == obj.mesh.nodes).all())
-                self.mesh.nodes_radius[obj.node_index]  = obj.mesh.nodes_radius
-                self.mesh.facet_radius[obj.facet_index] = obj.mesh.facet_radius
-                self.mesh.Avertex[obj.node_index]  = obj.mesh.Avertex
-                self.mesh.Acorner[obj.facet_index] = obj.mesh.Acorner
-
 
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
             self.inside_shock = np.zeros(len(self.mesh.nodes))
@@ -454,7 +453,16 @@ class Assembly():
         #Saves the 3D volumetric information
         self.mesh.vol_coords, self.mesh.vol_elements, self.mesh.vol_density, self.mesh.vol_tag = GMSH.generate_inner_domain(self.mesh, self, write = write, output_folder = output_folder, output_filename = output_filename, bc_ids = bc_ids)
         self.mesh.volume_displacement = np.zeros((len(self.mesh.vol_coords),3))
-        self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)
+        #self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)
+        self.mesh.vol_T = np.ones(len(self.mesh.vol_elements))
+        self.mesh.vol_orig_index = np.arange(len(self.mesh.vol_elements))
+
+        coords = self.mesh.vol_coords
+        elements = self.mesh.vol_elements
+
+        #Computes the volume of every single tetrahedral
+        vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+        self.mesh.vol_volume = vol
 
         print("Volume Grid Completed")
 
@@ -462,7 +470,11 @@ class Assembly():
 
         for obj in self.objects:
             index = (self.mesh.vol_tag == obj.id)
+            self.mesh.vol_T[index] = obj.temperature            
             obj.mesh.vol_elements = np.copy(self.mesh.vol_elements[index])
+
+        print("Create mapping between surface facets and tetras")
+        self.mesh.index_surf_tetra = Mesh.map_surf_to_tetra(self.mesh.vol_coords, self.mesh.vol_elements)
 
         print("Done")
 
@@ -477,9 +489,7 @@ class Assembly():
         elements = self.mesh.vol_elements
         density = self.mesh.vol_density
         tag = self.mesh.vol_tag
-
-        #Computes the volume of every single tetrahedral
-        vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+        vol = self.mesh.vol_volume
 
         #Computes the mass of every single tetrahedral
         mass = vol*density
@@ -497,4 +507,4 @@ class Assembly():
         #Loop over the components to compute each individual inertial properties
         for obj in self.objects:
             index = (tag == obj.id)
-            obj.compute_mass_properties(coords,elements[index])
+            obj.compute_mass_properties(coords, elements[index], density[index])

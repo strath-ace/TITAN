@@ -63,7 +63,12 @@ def loop(options = [], titan = []):
         dynamics.integrate(titan = titan, options = options)
         
         if options.ablation:
-            thermal.compute_thermal(titan = titan, options = options)
+            if options.ablation_mode == "tetra":
+                thermal.compute_thermal_tetra(titan = titan, options = options)
+            elif options.ablation_mode == "0d":
+                thermal.compute_thermal_0D(titan = titan, options = options)
+            else:
+                raise ValueError("Ablation Mode can only be 0D or Tetra")
 
         if options.structural_dynamics:
             #TODO Needs further testing 

@@ -148,10 +148,8 @@ def generate_surface_solution(titan, options):
         displacement = assembly.mesh.surface_displacement
         radius = assembly.mesh.facet_radius
         ellipse = assembly.inside_shock
-        temperature  = np.ones(len(facets))
-        for obj in assembly.objects:
-            temperature[obj.facet_index] = obj.temperature
-
+        temperature  = assembly.aerothermo.temperature
+        
         cells = {"triangle": facets}
 
         cell_data = { "Pressure": [pressure],
@@ -162,7 +160,7 @@ def generate_surface_solution(titan, options):
                     }
 
         point_data = { "Displacement": displacement,
-                       "Ellipse": ellipse,
+                      # "Ellipse": ellipse,
                      }
 
         trimesh = meshio.Mesh(points,

@@ -115,11 +115,11 @@ def generate_visualization(options, data, iter_value, postprocess = "wind"):
 	#Create new mesh
 	points = mesh[0].points
 	facets = mesh[0].cells[0].data
-	pressure = mesh[0].point_data['Pressure']
-	heatflux = mesh[0].point_data['Heatflux']
-	ellipse = mesh[0].point_data['Ellipse']
-	displacement = mesh[0].point_data['Displacement']
-	temperature  = mesh[0].point_data['Temperature']
+	pressure = mesh[0].cell_data['Pressure']
+	heatflux = mesh[0].cell_data['Heatflux']
+	#ellipse = mesh[0].point_data['Ellipse']
+	#displacement = mesh[0].point_data['Displacement']
+	temperature  = mesh[0].cell_data['Temperature']
 
 	facet_dev = len(points)
 
@@ -127,24 +127,33 @@ def generate_visualization(options, data, iter_value, postprocess = "wind"):
 		if i == 0: continue
 		points = np.append(points, mesh[i].points, axis = 0)
 		facets = np.append(facets, mesh[i].cells[-1].data+facet_dev, axis = 0)
-		pressure = np.append(pressure,mesh[i].point_data['Pressure'])
-		heatflux = np.append(heatflux,mesh[i].point_data['Heatflux'])
-		ellipse = np.append(ellipse,mesh[i].point_data['Ellipse'])
-#		displacement = np.append(displacement, mesh[i].point_data['Displacement'])
-		temperature = np.append(temperature, mesh[i].point_data['Temperature'])
+		pressure = np.append(pressure,mesh[i].cell_data['Pressure'])
+		heatflux = np.append(heatflux,mesh[i].cell_data['Heatflux'])
+		#ellipse = np.append(ellipse,mesh[i].point_data['Ellipse'])
+		#displacement = np.append(displacement, mesh[i].point_data['Displacement'])
+		temperature = np.append(temperature, mesh[i].cell_data['Temperature'])
 
 		facet_dev = len(points)
 
 	cells = {"triangle": facets}
-   
-	point_data = {"Pressure": pressure,
+   	
+
+	cell_data = {"Pressure": pressure,
                   "Heatflux": heatflux,
                   "temperature": temperature,
-                  "ellipse": ellipse}
+#                  "ellipse": ellipse,
+				 }
+
+	if len(assembly_ID) > 1:
+		cell_data = {"Pressure": [pressure],
+                  "Heatflux": [heatflux],
+                  "temperature": [temperature],
+#                  "ellipse": ellipse,
+				 }	
 
 	trimesh = meshio.Mesh(
         points,
         cells=cells,
-        point_data = point_data)
+        cell_data = cell_data)
 
 	trimesh.write(options.output_folder+'/Postprocess/'+str(iter_value).zfill(3)+'.vtk')
