@@ -323,7 +323,7 @@ class Options():
         self.iters = iters
 
         #:[int] Frequency of generating a restart file [per number of iterations]
-        self.save_freq = 1
+        self.save_freq = 100000
 
         #: [int] Current iteration
         self.current_iter = 0
