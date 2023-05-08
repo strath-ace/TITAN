@@ -16,6 +16,12 @@ Altitude = 50000
 Velocity = 7000
 Flight_path_angle = 0
 
+[Bloom]
+Flag =  True
+Layers = 15
+Spacing = 0.00025
+Growth_Rate = 1.15
+
 [Assembly]
 # Path for the geometry files
 Path = Tests/Mesh/Cubes/

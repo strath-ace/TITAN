@@ -25,11 +25,13 @@ from Aerothermo import bloom, amg
 from copy import deepcopy
 from scipy.spatial.transform import Rotation as Rot
 import numpy as np
+from Geometry.tetra import inertia_tetra, vol_tetra
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import subprocess
 import os
 import trimesh
+import open3d as o3d
 import pandas as pd
 
 class Solver():
@@ -546,7 +548,6 @@ def generate_BL(assembly, options, it, cluster_tag):
 
     if options.bloom.flag:
         bloom.generate_BL(it, options, num_obj = len(assembly), bloom = options.bloom, input_grid ='Domain_'+str(it)+'_cluster_'+str(cluster_tag) , output_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
-
     
 def adapt_mesh(assembly, options, it, cluster_tag):
     """
@@ -613,16 +614,15 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
     free = assembly_list[it].freestream
     #TODO options for ref_size_surf
 
+    #Number of iterations to smooth surface
+    num_smooth_iter = 0
 
-
-    #Reconstruct the surface to be able to perform BL
+    #Reconstruct the surface to be able to perform BL if ablation = Tetra
     for i, assembly in enumerate(assembly_list):
 
         mesh = trimesh.Trimesh()
         for obj in assembly.objects:
             mesh += trimesh.Trimesh(vertices = obj.mesh.nodes, faces = obj.mesh.facets) 
-            #faces = np.append(faces, assembly.mesh.facets[obj.facet_index]).reshape((-1,3))
-            #trimesh.Trimesh(vertices = assembly.mesh.nodes, faces = assembly.mesh.facets[obj.facet_index]).show()
 
         COG = np.round(np.sum(mesh.vertices[mesh.faces], axis = 1)/3,5)
 
@@ -631,98 +631,74 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
         mask = [count_faces_dict[f] == 1 for f in faces_tuple]
 
         mesh = trimesh.Trimesh(vertices = mesh.vertices, faces = mesh.faces[mask])
-        mesh.show()
         
-        tri_mesh = o3d.geometry.TriangleMesh()
-        tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices)
-        tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces)
-        mesh = tri_mesh
-        o3d.visualization.draw_geometries([tri_mesh])
+        if options.ablation_mode == "tetra":
 
-        mesh.compute_vertex_normals()
-        pcd = mesh.sample_points_poisson_disk(1000)
-        o3d.visualization.draw_geometries([pcd])
-
-        print('run Poisson surface reconstruction')
-        with o3d.utility.VerbosityContextManager(
-                o3d.utility.VerbosityLevel.Debug) as cm:
-            mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-                pcd, depth=6)
-        trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
-
-        voxel_size = max(mesh.get_max_bound() - mesh.get_min_bound()) / 16.0
-
-        mesh = mesh.simplify_vertex_clustering(voxel_size = voxel_size,
-            contraction=o3d.geometry.SimplificationContraction.Average)
-
-        #Pass the mesh to trimesh again
-        mesh = trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles))
-        mesh.show()
-
-
-
-    exit(9)
-
-    #Smooth Mesh to generate the BL
-    #Number of iterations to smooth surface
-    num_smooth_iter = 0
-
-    for i, assembly in enumerate(assembly_list):
-        mesh = trimesh.Trimesh(vertices = assembly.mesh.nodes, faces = assembly.mesh.facets)
-        tri_mesh = o3d.geometry.TriangleMesh()
-        tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices)
-        tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces)
-        
-        #Perform smoothing using Taubin filter
-        #http://www.open3d.org/docs/release/python_api/open3d.geometry.TriangleMesh.html
-        if num_smooth_iter == 0:
+            #mesh.show()
+            
+            tri_mesh = o3d.geometry.TriangleMesh()
+            tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices)
+            tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces)
             mesh = tri_mesh
-        else:
-            mesh = tri_mesh.filter_smooth_taubin(number_of_iterations = num_smooth_iter)
-        #--> o3d.visualization.draw_geometries([mesh])
+            #o3d.visualization.draw_geometries([tri_mesh])
 
-        #Map the surface coords with the Volume coords to change the correct nodes in the vol_coords list
-        #so we can compute the correct mass of the object
-        node_index,__ = Mesh.create_index(assembly.mesh.vol_coords, assembly.mesh.nodes)
+            mesh.compute_vertex_normals()
+            pcd = mesh.sample_points_poisson_disk(1000)
 
-        #Change the surface and the volume nodes:
-        assembly.mesh.nodes = np.asarray(mesh.vertices)
-        assembly.mesh.vol_coords[node_index] = np.asarray(mesh.vertices)
+            o3d.visualization.draw_geometries([pcd])
 
-        #Recompute the density of each tetra to keep the mass: density = mass/volume
-        mass = assembly.mesh.vol_density*assembly.mesh.vol_volume
-        coords = assembly.mesh.vol_coords
-        elements = assembly.mesh.vol_elements
-        
-        #New tetra volume list due to smoothing
-        assembly.mesh.vol_volume = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+            print('run Poisson surface reconstruction')
+            with o3d.utility.VerbosityContextManager(
+                    o3d.utility.VerbosityLevel.Debug) as cm:
+                mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+                    pcd, depth=8)
+            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
 
-        #Compute the new density list
-        assembly.mesh.vol_density = mass/assembly.mesh.vol_volume
+            #Removes the non-manifold_edges
+            mesh.remove_non_manifold_edges()
 
-        #Recompute the properties
-        assembly.compute_mass_properties()
+            #Removes the isolated triangles  
 
-    #CFD mesh preprocessing for multiple
-    mesh = trimesh.Trimesh()
-    for i, assembly in enumerate(assembly_list):
-        faces = np.array([[]], dtype = int).reshape((-1,3))
-        for obj in assembly.objects:
-            faces = np.append(faces, assembly.mesh.facets[obj.facet_index]).reshape((-1,3))
+            voxel_size = max(mesh.get_max_bound() - mesh.get_min_bound()) / 32.0
 
-        #Removing the duplicate faces so we only have the external geometry  //
-        #to generate the CFD Mesh (May require future improvements)
+            mesh = mesh.simplify_vertex_clustering(voxel_size = voxel_size,
+                contraction=o3d.geometry.SimplificationContraction.Average)
 
-        faces_tuple = [tuple(f) for f in faces]
-        count_faces_dict = pd.Series(faces_tuple).value_counts()
-        mask = [count_faces_dict[f] == 1 for f in faces_tuple]
+            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
 
-        mesh = trimesh.Trimesh(vertices = assembly.mesh.nodes, faces = faces[mask])
-    
+            #if num_smooth_iter != 0:
+            #    mesh = mesh.filter_smooth_taubin(number_of_iterations = num_smooth_iter)
+
+            #Check the triangle clustering, there shall only be one
+            cluster, number_tri, __ = mesh.cluster_connected_triangles()
+            mask = cluster!=np.argmax(number_tri)
+            mesh.remove_triangles_by_mask(mask)
+            mesh.remove_unreferenced_vertices()
+
+            #Removes the non-manifold_triangles
+            #non_man_vertex =  mesh.get_non_manifold_vertices()
+            #print(non_man_vertex)
+            #mesh.remove_vertices_by_index(non_man_vertex)
+            
+            #--> But is removing the triangle with smaller area: 
+            mesh.remove_non_manifold_edges()
+
+            print(np.asarray(mesh.get_non_manifold_edges(allow_boundary_edges=True)))
+            print(np.array(mesh.get_non_manifold_edges()))
+
+            #Pass the mesh to trimesh again
+            mesh = trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles))
+            #mesh.fill_holes()
+            #mesh.fix_normals()
+            #mesh.show()
+
         assembly.cfd_mesh.nodes = mesh.vertices
         assembly.cfd_mesh.facets = mesh.faces
         assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
+        print(assembly.cfd_mesh.facets.shape)
+    
 
+    #exit()
     #Convert from Body->ECEF and ECEF-> Wind
     #Translate the mesh to match the Center of Mass of the lowest assembly
     assembly_windframe = deepcopy(assembly_list)
@@ -750,9 +726,10 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
 
     #Automatically generates the CFD domain
     GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = 0.5, ref_size_far = 0.5 , output_folder = options.output_folder, output_grid = 'Domain_'+str(0)+'_cluster_'+str(cluster_tag)+'.su2')
-    
+
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)
+
     #Writes the configuration file
     it = 0
     config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)+'.su2',bloom=False)

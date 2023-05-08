@@ -117,7 +117,7 @@ def demise_components(titan, i, joints_id, options):
         #output.generate_volume(titan = titan, options = options)
 
         compute_new_volume_v2(titan.assembly[i].mesh, titan.assembly[-1].mesh, titan.assembly[-1].objects)
-        titan.assembly[-1].mesh.index_surf_tetra = map_surf_to_tetra(titan.assembly[-1].mesh)
+        titan.assembly[-1].mesh.index_surf_tetra = map_surf_to_tetra(titan.assembly[-1].mesh.vol_coords, titan.assembly[-1].mesh.vol_elements)
         output.generate_volume(titan = titan, options = options)
 
         titan.assembly[-1].compute_mass_properties()

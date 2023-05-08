@@ -902,15 +902,15 @@ def facet_to_vertex_linear(mesh, facet_value):
     
     return node_value/total_value
 
-def map_surf_to_tetra(mesh):
+def map_surf_to_tetra(vol_coords, vol_elements):
     """
     Function to map the surface elements to the respective tetra.
     """
 
     from collections import defaultdict
 
-    c=mesh.vol_coords
-    t=mesh.vol_elements
+    c=vol_coords
+    t=vol_elements
     round_number = 5
 
     #Creation of a dictionary to map the facet-> Tetra through the use of the geometrical center as key
@@ -954,8 +954,11 @@ def remove_ablated_elements(assembly, delete_array):
 
     tetras = mesh.vol_elements[tetras_index]
 
-    #Append the new facets at the end of the list:
+    #Append the new facets at the end of the list and delete facets from the objects surface:
     facets_index = add_new_surface_facets(assembly, tetras_index)
+
+    #Remove the facets with no tetra associated from tetras
+    remove_isolated_facets(assembly)
 
     #Update aerothermo
     num_faces = len(mesh.v0)- old_num_faces
@@ -978,7 +981,7 @@ def remove_ablated_elements(assembly, delete_array):
     aerothermo.delete(facets_index)
 
     #Map new tetras
-    #mesh.index_surf_tetra = map_surf_to_tetra(mesh)
+    #mesh.index_surf_tetra = map_surf_to_tetra(mesh.vol_coords, mesh.vol_elements)
 
 def add_new_surface_facets(assembly, tetras_index):
     """
@@ -1134,3 +1137,30 @@ def update_object_mesh_from_tetra(obj, assembly_mesh, curvature = False):
     
     if curvature:
         mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
+
+def remove_isolated_facets(assembly):
+    """
+    Needs debugging
+    """
+
+    #index to remove ablated tetras
+    vol_elements= assembly.mesh.vol_elements[assembly.mesh.vol_density != 0]
+    vol_tag = assembly.mesh.vol_tag[assembly.mesh.vol_density != 0]
+
+    for obj in assembly.objects:
+
+        #map the tetras contained in the object
+        surf_tetra_index = map_surf_to_tetra(assembly.mesh.vol_coords, vol_elements[vol_tag == obj.id])
+
+        #Build the key of the facet (COG)
+        COG = np.round((obj.mesh.v0+obj.mesh.v1+obj.mesh.v2)/3 ,5).astype(str)
+        COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
+
+        #Delete the facets that are not in the surf_tetra_index.keys()
+        mask = np.in1d(COG,np.array(list(surf_tetra_index.keys()), dtype = str))
+        delete_index_obj = np.where(~mask)[0]
+        
+        obj.mesh.v0 = np.delete(obj.mesh.v0, delete_index_obj, axis = 0)
+        obj.mesh.v1 = np.delete(obj.mesh.v1, delete_index_obj, axis = 0)
+        obj.mesh.v2 = np.delete(obj.mesh.v2, delete_index_obj, axis = 0)
+    

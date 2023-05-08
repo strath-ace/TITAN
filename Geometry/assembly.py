@@ -409,31 +409,15 @@ class Assembly():
             self.mesh.edges, self.mesh.facet_edges = Mesh.map_edges_connectivity(self.mesh.facets)
             self.mesh.nodes_normal = Mesh.compute_nodes_normals(len(self.mesh.nodes), self.mesh.facets ,self.mesh.facet_COG, self.mesh.v0,self.mesh.v1,self.mesh.v2)
             self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
-            #self.mesh.nodes_radius = np.zeros(len(self.mesh.nodes))
-            #self.mesh.facet_radius = np.zeros(len(self.mesh.facets))
-            #self.mesh.Avertex = np.zeros(len(self.mesh.nodes))
-            #self.mesh.Acorner = np.zeros((len(self.mesh.facets),3))
             self.mesh.nodes_radius, self.mesh.facet_radius, self.mesh.Avertex, self.mesh.Acorner = Mesh.compute_curvature(self.mesh.nodes, self.mesh.facets, self.mesh.nodes_normal, self.mesh.facet_normal, self.mesh.facet_area, self.mesh.v0, self.mesh.v1, self.mesh.v2)
 
 
             self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes),3))
 
-            #self.cfd_mesh.nodes = self.mesh.nodes
-            #self.cfd_mesh.facets = self.cfd_mesh.facets[self.cfd_mesh.idx]
-            #self.cfd_mesh.edges, self.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(self.cfd_mesh.facets)
-
             #Create mapping between the nodes and facets of the singular component and the assembly
             for obj in objects:
                 obj.node_index, obj.node_mask = Mesh.create_index(self.mesh.nodes, obj.mesh.nodes)
                 obj.facet_index, obj.facet_mask = Mesh.create_index(self.mesh.facet_COG, obj.mesh.facet_COG)
-
-                #print("IMPORTANT TEST: ", (self.mesh.nodes[obj.node_index] == obj.mesh.nodes).all())
-                #self.mesh.nodes_radius[obj.node_index]  = obj.mesh.nodes_radius
-                #self.mesh.facet_radius[obj.facet_index] = obj.mesh.facet_radius
-                #self.mesh.Avertex[obj.node_index]  = obj.mesh.Avertex
-                #self.mesh.Acorner[obj.facet_index] = obj.mesh.Acorner
-
-
 
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
             self.inside_shock = np.zeros(len(self.mesh.nodes))
@@ -490,7 +474,7 @@ class Assembly():
             obj.mesh.vol_elements = np.copy(self.mesh.vol_elements[index])
 
         print("Create mapping between surface facets and tetras")
-        self.mesh.index_surf_tetra = Mesh.map_surf_to_tetra(self.mesh)
+        self.mesh.index_surf_tetra = Mesh.map_surf_to_tetra(self.mesh.vol_coords, self.mesh.vol_elements)
 
         print("Done")
 

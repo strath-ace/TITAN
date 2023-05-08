@@ -87,7 +87,7 @@ def compute_thermal_tetra(titan, options):
 
             assembly.mesh.vol_density[tetra_array] *= new_mass/tetra_mass 
 
-            #The are some densities that are NaN whe using multiple objects, need to check why        
+            #The are some densities that are NaN whe using multiple objects, need to check why
             assembly.mesh.vol_density[np.isnan(assembly.mesh.vol_density)] = 0
 
             index_delete = np.where(assembly.mesh.vol_density[tetra_array]<=0)[0]
@@ -98,7 +98,7 @@ def compute_thermal_tetra(titan, options):
         
         if delete_array:
             mesh.remove_ablated_elements(assembly, delete_array)
-        
+
         #Map the tetra temperature to surface mesh
         COG = np.round(assembly.mesh.facet_COG,5).astype(str)
         COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
