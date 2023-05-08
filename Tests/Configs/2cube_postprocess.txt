@@ -2,7 +2,7 @@
 #First test case to test the config file of TITAN
 
 [Options]
-Num_iters = 0
+Num_iters = 1
 Load_mesh = False
 Load_state = False
 Fidelity = Low
