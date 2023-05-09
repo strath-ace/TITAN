@@ -22,6 +22,7 @@ import numpy as np
 import scipy.special as special
 from trimesh.viewer.windowed import SceneViewer
 import open3d as o3d
+import trimesh
 
 
 def read_mesh(filename):
@@ -38,7 +39,7 @@ def read_mesh(filename):
 class Mesh():
     def __init__(self, filename = []):
 
-        if filename == []:
+        if not filename:
             self.v0 = np.array([])
             self.v1 = np.array([])
             self.v2 = np.array([])
@@ -1140,7 +1141,7 @@ def update_object_mesh_from_tetra(obj, assembly_mesh, curvature = False):
 
 def remove_isolated_facets(assembly):
     """
-    Needs debugging
+    Needs speed improvements
     """
 
     #index to remove ablated tetras
@@ -1163,4 +1164,89 @@ def remove_isolated_facets(assembly):
         obj.mesh.v0 = np.delete(obj.mesh.v0, delete_index_obj, axis = 0)
         obj.mesh.v1 = np.delete(obj.mesh.v1, delete_index_obj, axis = 0)
         obj.mesh.v2 = np.delete(obj.mesh.v2, delete_index_obj, axis = 0)
+
+def check_tetra_in_surface(surface_facets, surface_nodes, tetra_elements, tetra_nodes):
+    """
+    Check which tetras are inside a watetight surface by performing a raycast operation on all the tetras provided
+
+    This function computes the COG of the tetras, performs the raycast and returns the index of the tetas inside the geometry
+    DEBUG this part: sometimes is not returning the correct amount of tetras, but missing only by <5-10 elementes
+    """
+
+    #Compute the COG of the tetras:
+    tetra_COG = np.sum(tetra_nodes[tetra_elements], axis = 1)/4
+
+    #Creates mesh scene for raycasting
+    mesh = trimesh.Trimesh(vertices=surface_nodes, faces=surface_facets)
+    ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh, scale_to_box = False)
+
+    #The rays start at the tetra_COG location
+    ray_list = tetra_COG
+
+#    #Give an arbitrary direction for the rays
+#    ray_directions = np.tile([1,0,0],len(ray_list))
+#    ray_directions.shape = (-1,3)
+#
+#    #If the rays intersect a odd number of times, they are inside
+#    #Else, the tetras are outside
+#
+#    #Direction = [1,0,0]
+#    index_tri, index_ray = ray.intersects_id(ray_origins = ray_list, ray_directions = ray_directions, multiple_hits = True, max_hits = 100)
+#    teste, count = np.unique(index_ray, axis = 0, return_counts = True)
+#    print("Direction [1,0,0]: ", np.sum(count%2!=0))
+#
+#    #Direction = [0,1,0]
+#    ray_directions = np.tile([0,1,0],len(ray_list))
+#    ray_directions.shape = (-1,3)
+#    index_tri, index_ray = ray.intersects_id(ray_origins = ray_list, ray_directions = ray_directions, multiple_hits = True, max_hits = 100)
+#    teste, count = np.unique(index_ray, axis = 0, return_counts = True)
+#    print("Direction [0,1,0]: ", np.sum(count%2!=0))
+#
+#    #Direction = [0,0,1]
+#    ray_directions = np.tile([0,0,1],len(ray_list))
+#    ray_directions.shape = (-1,3)
+#    index_tri, index_ray = ray.intersects_id(ray_origins = ray_list, ray_directions = ray_directions, multiple_hits = True, max_hits = 100)
+#    teste, count = np.unique(index_ray, axis = 0, return_counts = True)
+#    print("Direction [0,0,1]: ", np.sum(count%2!=0))
+#    print(index_tri, index_ray, teste)
+#    print(np.sum(ray.contains_points(tetra_COG)))
+
+    return ray.contains_points(tetra_COG)
+
+
+def compute_surface_from_tetra(coords, elements):
+    """
+    Function to compute the v0,v1 and v2 given the tetras:
+
+    if two facets are repeated, the are removed, as they are not in the surface
+    """
     
+    # retrieve mapping of coords for each face
+    col_0 = elements[:,0]
+    col_1 = elements[:,1]
+    col_2 = elements[:,2]
+    col_3 = elements[:,3]
+
+    # stack the columns to form the tetras
+    tf1 = np.stack((col_3,col_1,col_0), axis = 1)
+    tf2 = np.stack((col_2,col_1,col_3), axis = 1)
+    tf3 = np.stack((col_0,col_2,col_3), axis = 1)
+    tf4 = np.stack((col_1,col_2,col_0), axis = 1)
+    tf = np.stack((tf1,tf2,tf3,tf4), axis = 0).reshape((-1,3))
+
+    #Compute the COG and pass it to a concatenated string to be easily manipulated
+    COG = np.round((coords[tf[:,0]]+coords[tf[:,1]]+coords[tf[:,2]])/3 ,5).astype(str)
+    COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
+
+    #compute the counting of the facets
+    __, inverse_index, count_COG = np.unique(COG, return_inverse = True, return_counts = True)
+    count_COG = count_COG[inverse_index]
+
+    tf = tf[count_COG==1]
+
+    #Revert the normals
+    v0 = coords[tf[:,2]]
+    v1 = coords[tf[:,1]]
+    v2 = coords[tf[:,0]]
+
+    return v0, v1, v2

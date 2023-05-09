@@ -42,7 +42,7 @@ class Component():
     """
     
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
-                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest'):
+                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest', v0 = [], v1 = [], v2 = [], parent_id = None):
 
         print("Generating Body: ", filename)
         
@@ -64,6 +64,12 @@ class Component():
         self.inner_mesh = False
 
         mesh = Mesh.Mesh(filename)
+
+        if len(v0) != 0:# and v1 and v2:
+            mesh.v0 = v0
+            mesh.v1 = v1
+            mesh.v2 = v2
+
         mesh = Mesh.compute_mesh(mesh, compute_radius = True) #TODO
         
         #: [Mesh] Object of class mesh that stores the mesh information
@@ -97,6 +103,9 @@ class Component():
         
         self.fenics_bc_id = fenics_bc_id
         self.vol_id = -1
+
+        self.parent_id = None
+        if parent_id: self.parent_id = parent_id
         
 
     def compute_mass_properties(self, coords, elements, density):

@@ -97,7 +97,7 @@ class Assembly_list():
         self.iter = 0
 
         #: [array] List of the linkage information between the different components
-        self.connectivity = []
+        self.connectivity = np.array([], dtype = int)
 
     def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0):            
         """
@@ -492,14 +492,14 @@ class Assembly():
         vol = self.mesh.vol_volume
 
         #Computes the mass of every single tetrahedral
-        mass = vol*density
-        self.mass = np.sum(mass)
+        self.mesh.vol_mass  = vol*density
+        self.mass = np.sum(self.mesh.vol_mass)
 
         #Computes the Center of Mass
         if self.mass <= 0:
             self.COG = np.array([0,0,0])
         else:
-            self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*mass[:,None], axis = 0)/self.mass
+            self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*self.mesh.vol_mass[:,None], axis = 0)/self.mass
         
         #Computes the inertia matrix
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
@@ -508,3 +508,27 @@ class Assembly():
         for obj in self.objects:
             index = (tag == obj.id)
             obj.compute_mass_properties(coords, elements[index], density[index])
+
+    def rearrange_ids(self):
+        """
+        Rearrange the objects ids and connectivity not to break in the fragmentation section
+        """
+
+        list_of_ids = [obj.id for obj in self.objects]
+        new_ids = np.arange(1, len(list_of_ids)+1)
+        print(self.objects, self.mesh.vol_tag, self.connectivity, list_of_ids, new_ids)
+        #Organize into dictionary to easy access:
+        d = {}
+        for key, value in zip(list_of_ids, new_ids):
+            d[key] = value
+
+        #Change the values in the object
+        for obj in self.objects:
+            obj.id = d[obj.id]
+
+        #Change the values in the connectivity matrix
+        #Change the values in vol_tag
+        for id in list_of_ids:
+            if self.connectivity != []:
+                self.connectivity[self.connectivity == id] = d[id]
+            self.mesh.vol_tag[self.mesh.vol_tag == id] = d[id]
