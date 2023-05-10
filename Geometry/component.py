@@ -70,7 +70,7 @@ class Component():
             mesh.v1 = v1
             mesh.v2 = v2
 
-        mesh = Mesh.compute_mesh(mesh, compute_radius = True) #TODO
+        mesh = Mesh.compute_mesh(mesh, compute_radius = False) #TODO
         
         #: [Mesh] Object of class mesh that stores the mesh information
         self.mesh = mesh
