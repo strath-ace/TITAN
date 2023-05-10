@@ -27,6 +27,7 @@ import pymap3d
 import open3d as o3d
 import trimesh
 from Geometry.component import Component
+from collections import defaultdict
 
 def demise_components(titan, i, joints_id, options): 
     """
@@ -172,35 +173,37 @@ def split_components():
 def check_breakup_v2(titan, options):
 
     #ROUTINE to check if the mesh has split.
-    # If True, change the density to 0 and recompute the mass of the singular component.
-    # For now, only performed for assembly with multiple components
 
-
-    def check_problematic_tetras():
-        pass
-
+    #Loop all the assemblies
     for assembly in titan.assembly:
 
-        mesh = assembly.mesh
-
         tri_mesh = o3d.geometry.TriangleMesh()
-        tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.nodes)
-        tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.facets)
+        tri_mesh.vertices = o3d.utility.Vector3dVector(assembly.mesh.nodes)
+        tri_mesh.triangles = o3d.utility.Vector3iVector(assembly.mesh.facets)
         
+        #Compute the surface clusters
         triangle_clusters, cluster_n_triangles, cluster_area = (tri_mesh.cluster_connected_triangles())
-        
         triangle_clusters = np.asarray(triangle_clusters)
+
+        #Check how many clusters are there
         cluster_ids = set(triangle_clusters)
         
-        #Breakup occurred
+        #If there is just one cluster, fragmentation did not occurr, so we skip the assembly
         if len(cluster_ids) != 1:
 
-            vol_elements = mesh.vol_elements[mesh.vol_mass != 0]
-            vol_tag = mesh.vol_tag[mesh.vol_mass != 0]
+            #Retrieve only the elements that have not been ablated
+            vol_elements = assembly.mesh.vol_elements[assembly.mesh.vol_mass != 0]
+            vol_tag = assembly.mesh.vol_tag[assembly.mesh.vol_mass != 0]
 
             last_id = max([obj.id for obj in assembly.objects])
             
-            #Loop the geometrical clusters
+            ###
+            # This section checks which tetra belong to each computed cluster
+            # 
+            # The function check_tetra_in_surface uses raycast to determine if the tetra is inside or
+            # outside the cluster. There is still no good function open-source that we can use, therefore
+            # we have a temporary fix 
+            ###
             index_list = []
             for id in cluster_ids:
 
@@ -208,12 +211,13 @@ def check_breakup_v2(titan, options):
                 #
                 #This function needs some debugging as it's not constantly returning the same number
                 #Most likely we need to create our own function in C++
-                #
-                #For this to work, we need to pass the entirity of the assembly tetras to the new objects
                 index_list.append(check_tetra_in_surface(np.asarray(tri_mesh.triangles)[triangle_clusters==id],
                                        np.asarray(tri_mesh.vertices),
                                        vol_elements,
-                                       mesh.vol_coords))
+                                       assembly.mesh.vol_coords))
+
+            #Section to fix the tetras that have not been allocated, by searching where the neighbour tetras
+            #belong to (which cluster)
 
             index_list = np.array(index_list)
             missing_tetra = np.sum(index_list , axis = 0).astype(bool)
@@ -225,7 +229,7 @@ def check_breakup_v2(titan, options):
             #print(f"{missing_tetra[index_missing_tetra]}")
             #print(f"{index_list[:,index_missing_tetra]}")
 
-            c = mesh.vol_coords
+            c = assembly.mesh.vol_coords
             map_tetra = map_surf_to_tetra(c, vol_elements)
             for index in index_missing_tetra:
                 t = vol_elements[index]
@@ -240,8 +244,6 @@ def check_breakup_v2(titan, options):
                 f2 = str(np.char.add(np.char.add(f2[0],f2[1]),f2[2]))
                 f3 = str(np.char.add(np.char.add(f3[0],f3[1]),f3[2]))
                 f4 = str(np.char.add(np.char.add(f4[0],f4[1]),f4[2]))
-
-                #mesh.index_surf_tetra
 
                 for i,row in enumerate(index_list):
                     try:
@@ -276,14 +278,20 @@ def check_breakup_v2(titan, options):
             missing_tetra = np.invert(missing_tetra)
             print("Final missing tetras: ", sum(missing_tetra))
 
-            #exit()
-            for index in index_list:
-                objs_ids = list(set(mesh.vol_tag[mesh.vol_mass != 0][index]))
-                print("Index of objs_ids", objs_ids)
+            # At this stage, we have the division of tetras between the different clusters
+            # 
+            # There are 2 scenarios: 
+            #
+            # 1- The tetras for a cluster only belong to one objects
+            # 2- The tetras for a cluster belong to several objects (In this case, we need to check for connectivity)
 
-                #If its only One 
-                #AND IS NOT CONNECTED TO ANYTHING
+            for index in index_list:
+                objs_ids = list(set(assembly.mesh.vol_tag[assembly.mesh.vol_mass != 0][index]))
+
+                #Scenario 1:
                 if len(objs_ids)==1:
+
+                    obj_id = objs_ids[0]
                     v0,v1,v2 = compute_surface_from_tetra(assembly.mesh.vol_coords, vol_elements[index])
 
                     new_component = Component(filename = None, file_type = "Primitive", id = last_id + 1, material = 'Unittest_demise',
@@ -294,30 +302,79 @@ def check_breakup_v2(titan, options):
 
                     last_id += 1
 
-
-                    print("Before:",  set(assembly.mesh.vol_tag), last_id)
-                    assembly.mesh.vol_tag[np.where(mesh.vol_mass != 0)[0][index]] = last_id
-                    print("After:",  set(assembly.mesh.vol_tag))
-
+                    assembly.mesh.vol_tag[np.where(assembly.mesh.vol_mass != 0)[0][index]] = last_id
                     assembly.objects = np.append(assembly.objects,new_component)
-
                     assembly.connectivity = np.append(assembly.connectivity, np.array([objs_ids[0], last_id, 0], dtype =int)).reshape((-1,3))
                 
-                #TODO
-                #If mass smaller than 0.05 kg, remove it instead of dealing with it for the remaining iterations 
-                #if np.sum(mesh.vol_mass[index]) < 0.05:
-                #    mesh.vol_density[mesh.vol_tag == obj.id] = 0
-                #trimesh.Trimesh(vertices = tri_mesh.vertices, faces = np.asarray(tri_mesh.triangles)[triangle_clusters==id]).show()
+                #Scenario 2:
+                else:
 
-            #Pass the remaining failed tetras
+                    # Create dictionary to map the old components with the new components
+                    d = defaultdict(list)
+
+                    #Loop the different ids of the object
+                    for obj_id in objs_ids:
+                    
+                        #Checking if any tetra of the object ablated here. If not, we do not need to change anything here
+                        #Here we just need to to a simple check:
+                        if len(vol_elements[vol_tag == obj_id]) == len(vol_elements[index][vol_tag[index] == obj_id]):
+                            d[obj_id].append(obj_id)
+                            continue
+                        #if the check fails, the obj_id has separated
+
+                        #Generate the new components
+                        v0,v1,v2 = compute_surface_from_tetra(assembly.mesh.vol_coords, vol_elements[index][vol_tag[index] == obj_id])
+
+                        new_component = Component(filename = None, file_type = assembly.objects[obj_id-1].type, id = last_id + 1, material = 'Unittest_demise',
+                                v0 = v0,
+                                v1 = v1,
+                                v2 = v2, 
+                                parent_id = obj_id)
+
+                        last_id += 1
+
+                        assembly.mesh.vol_tag[np.where(assembly.mesh.vol_mass != 0)[0][index][vol_tag[index] == obj_id]] = last_id
+                        assembly.objects = np.append(assembly.objects,new_component)
+                        
+                        #For now, just leave as it was before
+                        #If using only this, It's working, but the connectivity will be an individual joint
+                        #                        
+                        #assembly.connectivity = np.append(assembly.connectivity, np.array([obj_id, last_id, 0], dtype =int)).reshape((-1,3))
+
+                        d[obj_id].append(last_id)
+
+                    #Check the connectivity:
+                    connectivity = np.copy(assembly.connectivity)
+                    print(d)
+                    for row in connectivity:
+                        new_connect = np.array([0,0,0], dtype = int)
+
+                        #if prim 1 and prim 2 are in dict.keys()
+                        if row[0] in d.keys() and row[1] in d.keys():
+                            new_connect[0] = d[row[0]][0]
+                            new_connect[1] = d[row[1]][0]
+                            new_connect[2] = d[row[2]][0]
+
+                        elif row[0] in d.keys() and row[2] in d.keys():
+                                new_connect[0] = d[row[0]][0]
+                                new_connect[1] = d[row[2]][0]
+                                new_connect[2] = d[row[2]][0]
+
+                        elif row[1] in d.keys() and row[2] in d.keys():
+                                new_connect[0] = d[row[1]][0]
+                                new_connect[1] = d[row[2]][0]
+                                new_connect[2] = d[row[2]][0]
+
+                        if (new_connect != np.array([0,0,0])).all():
+                            assembly.connectivity = np.append(assembly.connectivity, new_connect).reshape((-1,3))
 
 
+            #If the mass of a newly generated object is inferior to the imposed threshold, demise it so we do not
+            #generate too many debris
             for obj in assembly.objects:
-                if np.sum(assembly.mesh.vol_mass[assembly.mesh.vol_tag == obj.id]) <= 0.05:
-                    mesh.vol_density[mesh.vol_tag == obj.id] = 0
+                if np.sum(assembly.mesh.vol_mass[assembly.mesh.vol_tag == obj.id]) <= 0.01:
+                    assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = 0
             
-            #if len(set(mesh.vol_tag)) == len(assembly.objects): exit("Problem: vol_tag is not correct")
-            print(len(assembly.objects), len(set(vol_tag)))
             assembly.compute_mass_properties()
             for obj in assembly.objects: print(obj.mass)
 
@@ -418,7 +475,8 @@ def fragmentation(titan, options):
         Object of class Options
     """
 
-    check_breakup_v2(titan, options)
+    if options.ablation_mode.lower() == "tetra":
+        check_breakup_v2(titan, options)
 
     assembly_id = np.array([], dtype = int)
     lenght_assembly = len(titan.assembly)
@@ -484,9 +542,9 @@ def fragmentation(titan, options):
             
     titan.assembly = np.delete(titan.assembly,assembly_id).tolist()
 
-    print("After fragmentation:")
-    print([obj.id for obj in titan.assembly[0].objects])
-    print(set(titan.assembly[0].mesh.vol_tag))
+    #print("After fragmentation:")
+    #print([obj.id for obj in titan.assembly[0].objects])
+    #print(set(titan.assembly[0].mesh.vol_tag))
 
 #    print("Before rearrange:")
 #    print([obj.id for obj in titan.assembly[0].objects])
@@ -497,10 +555,10 @@ def fragmentation(titan, options):
         assembly.rearrange_ids()
 #        assembly.mesh.index_surf_tetra = map_surf_to_tetra(assembly.mesh.vol_coords, assembly.mesh.vol_elements)
 #
-    print("After rearrange:")
-    print([obj.id for obj in titan.assembly[0].objects])
-    print(set(titan.assembly[0].mesh.vol_tag))
-
+    #print("After rearrange:")
+    #print([obj.id for obj in titan.assembly[0].objects])
+    #print(set(titan.assembly[0].mesh.vol_tag))
+#
     #titan.assembly = titan.assembly[:1]
 
 
