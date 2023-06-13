@@ -20,16 +20,8 @@
 import pytest
 import sys
 import numpy as np
+#sys.path.append('../')
 from TITAN import main
 
-#options, titan1 = main("Tests/Configs/2cube_frag_altitude.txt")
-
-#ALtitude fragmentation
-#def test_frag_altitude(): assert len(titan1.assembly) == 2
-
-#options, titan2 = main("Tests/Configs/2cube_frag_iteration_tetra.txt")
-options, titan2 = main("Tests/Configs/2cube_frag_iteration_tetra_delete.txt")
-#Iteration fragmentation
-#def test_frag_iter():
-
-
+options, titan = main("Tests/Configs/1m_sphere_altitude.txt")
+print(titan.assembly[0].freestream.pressure, titan.assembly[0].freestream.temperature)

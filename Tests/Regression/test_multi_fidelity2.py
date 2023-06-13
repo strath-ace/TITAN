@@ -26,8 +26,8 @@ import meshio
 
 options, titan1 = main("Tests/Configs/multi_fidelity_2.txt")
 
-TITAN_mesh1 = meshio.read("Tests/Simulation/Surface_solution/ID_1/solution_iter_000.vtk")
-TITAN_mesh2 = meshio.read("Tests/Simulation/Surface_solution/ID_2/solution_iter_000.vtk")
+TITAN_mesh1 = meshio.read("Tests/Simulation/Surface_solution/ID_1/solution_iter_000.xdmf")
+TITAN_mesh2 = meshio.read("Tests/Simulation/Surface_solution/ID_2/solution_iter_000.xdmf")
 SU2_mesh = meshio.read("Tests/Simulation/CFD_sol/surface_flow_0_0_cluster_1.vtk")
 
 def test_pressure():
