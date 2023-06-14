@@ -18,18 +18,6 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 import pytest
-import sys
-import numpy as np
 from TITAN import main
 
-#options, titan1 = main("Tests/Configs/2cube_frag_altitude.txt")
-
-#ALtitude fragmentation
-#def test_frag_altitude(): assert len(titan1.assembly) == 2
-
-#options, titan2 = main("Tests/Configs/2cube_frag_iteration_tetra.txt")
-options, titan2 = main("Tests/Configs/2cube_frag_iteration_tetra_delete.txt")
-#Iteration fragmentation
-#def test_frag_iter():
-
-
+options, titan = main("Tests/Configs/dumbbell_breakup.txt")

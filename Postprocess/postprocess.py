@@ -80,7 +80,7 @@ def generate_visualization(options, data, iter_value, postprocess = "wind"):
 	#Read mesh information and surface quantities, place them on the ECEF
 	mesh = []
 	for i, _id in enumerate(assembly_ID):
-		mesh.append(meshio.read(options.output_folder+'/Surface_solution/ID_'+str(_id)+'/solution_iter_'+str(iter_value).zfill(3)+'.vtk'))
+		mesh.append(meshio.read(options.output_folder+'/Surface_solution/ID_'+str(_id)+'/solution_iter_'+str(iter_value).zfill(3)+'.xdmf'))
 		
 		R_B_ECEF = Rot.from_quat(q[i])
 
@@ -156,4 +156,4 @@ def generate_visualization(options, data, iter_value, postprocess = "wind"):
         cells=cells,
         cell_data = cell_data)
 
-	trimesh.write(options.output_folder+'/Postprocess/'+str(iter_value).zfill(3)+'.vtk')
+	trimesh.write(options.output_folder+'/Postprocess/'+str(iter_value).zfill(3)+'.xdmf')

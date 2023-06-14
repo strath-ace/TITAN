@@ -71,7 +71,7 @@ def loop(options = [], titan = []):
                 raise ValueError("Ablation Mode can only be 0D or Tetra")
 
         if options.structural_dynamics:
-            #TODO Needs further testing 
+            #TODO
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)
 

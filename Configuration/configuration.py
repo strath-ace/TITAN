@@ -41,8 +41,6 @@ class Trajectory():
     def __init__(self, altitude = 0, gamma = 0, chi = 0, velocity = 0, 
               latitude = 0, longitude = 0):
         
-        #TODO 
-
         #: [meters] Altitude value.
         self.altitude = altitude
 
@@ -61,33 +59,6 @@ class Trajectory():
         #: [radians] Longitude value.
         self.longitude = longitude
 
-        #self.df = pd.DataFrame({'Time': [0],
-        #                 'Altitude': [altitude],
-        #                 'Velocity' : [velocity],
-        #                 'Gamma' : [gamma],
-        #                 'Chi' : [chi],
-        #                 'Latitude' : [latitude],
-        #                 'Longitude' : [longitude],
-        #                 'Stress Ratio': [stress_ratio],
-        #                 'Max vm': [stress_max_vm]})
-        
-        #self.aoa = aoa
-        #self.yaw = yaw
-        #self.roll = roll
-
-        #self.x_angle = x_angle
-        #self.y_angle = y_angle
-        #self.z_angle = z_angle
-
-        #self.max_x_disp = max_x_disp
-        #self.max_y_disp = max_y_disp
-        #self.max_z_disp = max_z_disp
-        
-        #self.stress_ratio = stress_ratio
-        #self.stress_max_vm = stress_max_vm
-        #self.max_stress_obj = max_stress_obj
-        #self.dyPrev = None
-
 #FENICS class
 class Fenics():
     """ FEniCS class
@@ -96,12 +67,6 @@ class Fenics():
     """
 
     def __init__ (self, E = 68e9, FENICS = False, FE_MPI = False, FE_MPI_cores = 12, FE_verbose = False):
-
-        #TODO
-        #self.x_nodes = []
-        #self.y_nodes = []
-        #self.z_nodes = []
-        #self.vol_mesh = []
 
         #: [Pa] Young Modulus
         self.E = E
@@ -478,9 +443,6 @@ def get_config_value(configParser, variable, section, field, var_type, list_type
                 print(f"Error reading the value of field {field} in section {section}. Returning to default values!")
                 pass
 
-   # else:
-   #     print(f"Config file has no value {field} in section {section}!")
-
     return variable
 
 def check_angle(keywords):
@@ -669,16 +631,7 @@ def read_config_file(configParser, postprocess = ""):
 
     """
 
-    #Initialize classes:
-
     options = Options()
-    #[ X ]  --  options.fenics = TITAN.FENICS()
-    #[ X ]  --  options.timeopt = TITAN.time_options()
-    #[  ]  --  options.sparta = SPARTA.Sparta()
-    #[ X ]  --  options.su2 = SU2.Su2()
-    #[ X ]  --  options.bloom = BLOOM.Bloom()
-    #[ X ]  --  options.amg = AMG.Amg()
-    #[ X ]  --  options.aerothermo = Aerothermo.aerothermo_options()
     
     #Read Options Conditions
     options.output_folder = get_config_value(configParser, options.output_folder, 'Options', 'output_folder', 'str')

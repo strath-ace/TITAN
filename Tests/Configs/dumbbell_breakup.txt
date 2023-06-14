@@ -1,0 +1,31 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 401
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+#High, Low or Hybrid
+Output_folder = Tests/Simulation
+Ablation = True
+Ablation_mode = Tetra
+
+[Trajectory]
+Altitude = 60000
+Velocity = 7000
+Flight_path_angle = -5
+
+[Assembly]
+# Path for the geometry files
+Path = Tests/Mesh/Dumbbell/
+Sideslip = 90.0
+
+[Time]
+Time_step = 0.5
+
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+dumbbell = [NAME = dumbbell.stl,         TYPE = Primitive,   MATERIAL = Unittest_demise,   FENICS_ID = 1]]
