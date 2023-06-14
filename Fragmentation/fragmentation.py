@@ -89,9 +89,6 @@ def demise_components(titan, i, joints_id, options):
     assembly_flag = create_assembly_flag(titan.assembly[i].objects, Flags)
 
     for j in range(len(assembly_flag)):
-        for it in range(len(assembly_flag[j])):
-            if assembly_flag[j][it]: 
-                print(titan.assembly[i].objects[it].name, it)
        
         titan.assembly.append(Assembly(titan.assembly[i].objects[assembly_flag[j]], titan.id))
         titan.id += 1
@@ -166,9 +163,6 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].aoa = titan.assembly[i].aoa
         titan.assembly[-1].slip = titan.assembly[i].slip
 
-def split_components():
-    pass
-
 
 def check_breakup_v2(titan, options):
 
@@ -222,12 +216,8 @@ def check_breakup_v2(titan, options):
             index_list = np.array(index_list)
             missing_tetra = np.sum(index_list , axis = 0).astype(bool)
             missing_tetra = np.invert(missing_tetra)
-            print("Initial missing tetras: ", sum(missing_tetra))
 
             index_missing_tetra = np.where(missing_tetra)[0]
-            #print("Are tetras missing ? ")
-            #print(f"{missing_tetra[index_missing_tetra]}")
-            #print(f"{index_list[:,index_missing_tetra]}")
 
             c = assembly.mesh.vol_coords
             map_tetra = map_surf_to_tetra(c, vol_elements)
@@ -248,28 +238,22 @@ def check_breakup_v2(titan, options):
                 for i,row in enumerate(index_list):
                     try:
                         if any(row[map_tetra[f1]]):
-                            #print(f"Found one f1 at row {i} and position{map_tetra[f1]}")
-                            #print(f"Values before are {index_list[i, [map_tetra[f1]]]}")
                             index_list[i,[map_tetra[f1]]] = True;
-                            #print(f"Values after are {index_list[i, [map_tetra[f1]]]}")
                             break;
                     except: pass
                     try:
                         if any(row[map_tetra[f2]]):
                             index_list[i,[map_tetra[f2]]] = True;
-                            #print(f"Found one f2 at row {i} and position{map_tetra[f2]}")
                             break;
                     except: pass
                     try:
                         if any(row[map_tetra[f3]]):
                             index_list[i,[map_tetra[f3]]] = True;
-                            #print(f"Found one f3 at row {i} and position{map_tetra[f3]}")
                             break;
                     except: pass
                     try:
                         if any(row[map_tetra[f4]]):
                             index_list[i,[map_tetra[f4]]] = True;
-                            #print(f"Found one f4 at row {i} and position{map_tetra[f4]}")
                             break;
                     except: pass
 
@@ -336,16 +320,11 @@ def check_breakup_v2(titan, options):
                         assembly.mesh.vol_tag[np.where(assembly.mesh.vol_mass != 0)[0][index][vol_tag[index] == obj_id]] = last_id
                         assembly.objects = np.append(assembly.objects,new_component)
                         
-                        #For now, just leave as it was before
-                        #If using only this, It's working, but the connectivity will be an individual joint
-                        #                        
-                        #assembly.connectivity = np.append(assembly.connectivity, np.array([obj_id, last_id, 0], dtype =int)).reshape((-1,3))
-
                         d[obj_id].append(last_id)
 
                     #Check the connectivity:
                     connectivity = np.copy(assembly.connectivity)
-                    print(d)
+
                     for row in connectivity:
                         new_connect = np.array([0,0,0], dtype = int)
 
@@ -385,10 +364,6 @@ def check_breakup(titan, options):
     # If True, change the density to 0 and recompute the mass of the singular component.
     # For now, only performed for assembly with multiple components
 
-
-    def check_problematic_tetras():
-        pass
-
     for assembly in titan.assembly:
 
         mesh = assembly.mesh
@@ -422,8 +397,6 @@ def check_breakup(titan, options):
                                        mesh.vol_coords)
             
                 objs_ids = list(set(mesh.vol_tag[index]))
-                #if len(objs_ids) > 1: exit("Problem")
-                #for these objects, create new ones from the old ones:
 
                 #If its only One 
                 #AND IS NOT CONNECTED TO ANYTHING
@@ -449,14 +422,10 @@ def check_breakup(titan, options):
                 #    mesh.vol_density[mesh.vol_tag == obj.id] = 0
                 #trimesh.Trimesh(vertices = tri_mesh.vertices, faces = np.asarray(tri_mesh.triangles)[triangle_clusters==id]).show()
 
-            #Pass the remaining failed tetras
-
-
             for obj in assembly.objects:
                 if np.sum(assembly.mesh.vol_mass[assembly.mesh.vol_tag == obj.id]) <= 0.05:
                     mesh.vol_density[mesh.vol_tag == obj.id] = 0
             
-            #if len(set(mesh.vol_tag)) == len(assembly.objects): exit("Problem: vol_tag is not correct")
             assembly.compute_mass_properties()
             for obj in assembly.objects: print(obj.mass)
 
@@ -481,8 +450,8 @@ def fragmentation(titan, options):
     assembly_id = np.array([], dtype = int)
     lenght_assembly = len(titan.assembly)
 
-    print("Before fragmentation:")
-    print([obj.id for obj in titan.assembly[0].objects])
+    #print("Before fragmentation:")
+    #print([obj.id for obj in titan.assembly[0].objects])
 
 
     for it in range(lenght_assembly):
@@ -537,29 +506,8 @@ def fragmentation(titan, options):
         if len(objs_id) != 0:
             if len(titan.assembly[it].objects) != 1: demise_components(titan, it, objs_id, options)
             assembly_id = np.append(assembly_id, it)
-#            titan.assembly[it].rearrange_ids()
-
             
     titan.assembly = np.delete(titan.assembly,assembly_id).tolist()
 
-    #print("After fragmentation:")
-    #print([obj.id for obj in titan.assembly[0].objects])
-    #print(set(titan.assembly[0].mesh.vol_tag))
-
-#    print("Before rearrange:")
-#    print([obj.id for obj in titan.assembly[0].objects])
-#    print(set(titan.assembly[0].mesh.vol_tag))
-#    print(titan.assembly[0].connectivity)
-#
     for assembly in titan.assembly:
         assembly.rearrange_ids()
-#        assembly.mesh.index_surf_tetra = map_surf_to_tetra(assembly.mesh.vol_coords, assembly.mesh.vol_elements)
-#
-    #print("After rearrange:")
-    #print([obj.id for obj in titan.assembly[0].objects])
-    #print(set(titan.assembly[0].mesh.vol_tag))
-#
-    #titan.assembly = titan.assembly[:1]
-
-
-#    print(titan.assembly[0].connectivity)

@@ -633,7 +633,7 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
         mesh = trimesh.Trimesh(vertices = mesh.vertices, faces = mesh.faces[mask])
         
         if options.ablation_mode == "tetra":
-
+            exit("CFD solver using tetra-ablation is curently now working, please use 0D option")
             #mesh.show()
             
             tri_mesh = o3d.geometry.TriangleMesh()
@@ -683,8 +683,8 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
             #--> But is removing the triangle with smaller area: 
             mesh.remove_non_manifold_edges()
 
-            print(np.asarray(mesh.get_non_manifold_edges(allow_boundary_edges=True)))
-            print(np.array(mesh.get_non_manifold_edges()))
+            #print(np.asarray(mesh.get_non_manifold_edges(allow_boundary_edges=True)))
+            #print(np.array(mesh.get_non_manifold_edges()))
 
             #Pass the mesh to trimesh again
             mesh = trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles))
@@ -695,7 +695,7 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
         assembly.cfd_mesh.nodes = mesh.vertices
         assembly.cfd_mesh.facets = mesh.faces
         assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
-        print(assembly.cfd_mesh.facets.shape)
+        #print(assembly.cfd_mesh.facets.shape)
     
 
     #exit()

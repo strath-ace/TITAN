@@ -411,7 +411,6 @@ class Assembly():
             self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
             self.mesh.nodes_radius, self.mesh.facet_radius, self.mesh.Avertex, self.mesh.Acorner = Mesh.compute_curvature(self.mesh.nodes, self.mesh.facets, self.mesh.nodes_normal, self.mesh.facet_normal, self.mesh.facet_area, self.mesh.v0, self.mesh.v1, self.mesh.v2)
 
-
             self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes),3))
 
             #Create mapping between the nodes and facets of the singular component and the assembly
@@ -516,7 +515,8 @@ class Assembly():
 
         list_of_ids = [obj.id for obj in self.objects]
         new_ids = np.arange(1, len(list_of_ids)+1)
-        print(self.objects, self.mesh.vol_tag, self.connectivity, list_of_ids, new_ids)
+        
+        #print(self.objects, self.mesh.vol_tag, self.connectivity, list_of_ids, new_ids)
         #Organize into dictionary to easy access:
         d = {}
         for key, value in zip(list_of_ids, new_ids):

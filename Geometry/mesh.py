@@ -942,6 +942,7 @@ def remove_ablated_elements(assembly, delete_array):
     Function to remove ablated tetras from the object.
     Calls add_surface_facets to add the new exposed facets to the surface list
     """
+    
     mesh = assembly.mesh
     aerothermo = assembly.aerothermo
 
