@@ -40,3 +40,26 @@ def test_heatflux_vd_70():
 def test_heatflux_sc_70(): 
 	options, titan = main("Tests/Configs/Heatflux/sphere_sc_70.txt")
 	assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(367190.59826,5)
+
+
+def test_FR_70():
+	options, titan = main("Tests/Configs/Heatflux/sphere_fr_70.txt")
+	assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(445822.91107,5)
+
+
+def test_SG_70():
+	options, titan = main("Tests/Configs/Heatflux/sphere_sg_70.txt")
+	assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(350701.40617,5)
+
+
+def test_FR_noncat_70():
+	options, titan = main("Tests/Configs/Heatflux/sphere_fr_noncat_70.txt")
+	assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(167370.33972,5)
+
+def test_FR_parcat_70():
+	options, titan = main("Tests/Configs/Heatflux/sphere_fr_parcat_70.txt")
+	assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(419742.03825,5)
+
+
+
+

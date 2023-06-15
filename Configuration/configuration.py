@@ -663,7 +663,11 @@ def read_config_file(configParser, postprocess = ""):
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
-    
+    options.aerothermo.vel_grad   = get_config_value(configParser, 'fr', 'Aerothermo', 'Vel_grad', 'str')
+    options.aerothermo.standoff   = get_config_value(configParser, 'freeman', 'Aerothermo', 'Standoff', 'str')
+    options.aerothermo.cat_method = get_config_value(configParser, 'constant', 'Aerothermo', 'Catalicity_method', 'str')
+    options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
+
     #Read Freestream options
     options.freestream.model =  get_config_value(configParser, options.freestream.model, 'Freestream', 'Model', 'str')
     options.freestream.method =  get_config_value(configParser, options.freestream.method, 'Freestream', 'Method', 'str')
