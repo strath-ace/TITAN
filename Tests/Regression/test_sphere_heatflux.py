@@ -23,11 +23,20 @@ import numpy as np
 sys.path.append('../')
 from TITAN import main
 
-def test_heatflux_vd():
-	options, titan = main("Tests/Configs/Heatflux/sphere_vd.txt")
+def test_heatflux_vd_90():
+	options, titan = main("Tests/Configs/Heatflux/sphere_vd_90.txt")
 	assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(186710.17558,5)
 
 
-def test_heatflux_sc(): 
-	options, titan = main("Tests/Configs/Heatflux/sphere_sc.txt")
+def test_heatflux_sc_90(): 
+	options, titan = main("Tests/Configs/Heatflux/sphere_sc_90.txt")
 	assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(206941.77197,5)
+
+def test_heatflux_vd_70():
+	options, titan = main("Tests/Configs/Heatflux/sphere_vd_70.txt")
+	assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(269620.63658,5)
+
+
+def test_heatflux_sc_70(): 
+	options, titan = main("Tests/Configs/Heatflux/sphere_sc_70.txt")
+	assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(367190.59826,5)
