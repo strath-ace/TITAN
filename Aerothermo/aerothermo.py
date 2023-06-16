@@ -420,13 +420,13 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
         ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
 
-        ray_list = _assembly.mesh.facet_COG - flow_direction*3*_assembly.Lref
+        ray_list = _assembly.mesh.facet_COG - 1E-4*flow_direction  #flow_direction*3*_assembly.Lref
 
-        ray_directions = np.tile(flow_direction,len(ray_list))
+        ray_directions = np.tile(-flow_direction,len(ray_list))
         ray_directions.shape = (-1,3)
 
-        index = np.unique(ray.intersects_first(ray_origins = ray_list, ray_directions = ray_directions))
-        index = index[index != -1] 
+        index = ~ray.intersects_any(ray_origins = ray_list, ray_directions = ray_directions)
+        index = np.arange(len(_assembly.mesh.facets))[index]
 
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
