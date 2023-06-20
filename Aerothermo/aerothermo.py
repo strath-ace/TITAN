@@ -342,13 +342,18 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
     if (not options.vehicle) or (options.vehicle and not options.vehicle.Cd):
         if  (assembly.freestream.knudsen <= Kn_cont_pressure):
             assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction)
-    
+            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
+
         elif (assembly.freestream.knudsen >= Kn_free): 
             assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream , index, flow_direction, assembly.aerothermo.temperature)
-    
+            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
+            assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
+
         else: 
             aerobridge = bridging(assembly.freestream, Kn_cont_pressure, Kn_free )
             assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_bridging(assembly.mesh.facet_normal, assembly.freestream, index, aerobridge, flow_direction, assembly.aerothermo.temperature)
+            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
+            assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
 def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     """
