@@ -175,8 +175,8 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
     ref_phys_surface = 1
     node_ref = 1; edge_ref = 1; surf_ref = 1
     
-    xmin = np.copy(assembly[0].COG)
-    xmax = np.copy(assembly[0].COG)
+    xmin = assembly[0].cfd_mesh.xmin
+    xmax = assembly[0].cfd_mesh.xmax
 
     init_ref_surf = 1
     ref_phys_surface = 1
@@ -225,12 +225,16 @@ def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface):
 
 def outer_surface(gmsh,ref,surf_ref, xmin,xmax, ref_phys_surface):
     
-    gmsh.model.geo.addPoint(0.8*abs((xmax[0]-xmin[0]))+xmax[0], 0.5*(xmax[1]+xmin[1]), 0.5*(xmax[2]+xmin[2]), ref)
-    gmsh.model.geo.addPoint(- 0.5*abs((xmax[0]-xmin[0]))+xmin[0], 0.5*(xmax[1]+xmin[1]), 0.5*(xmax[2]+xmin[2]), ref)
+    front = 1.5
+    back = -1
+    side = 1.5
+
+    gmsh.model.geo.addPoint(front*abs((xmax[0]-xmin[0]))+xmax[0], 0.5*(xmax[1]+xmin[1]), 0.5*(xmax[2]+xmin[2]), ref)
+    gmsh.model.geo.addPoint(back*abs((xmax[0]-xmin[0]))+xmin[0], 0.5*(xmax[1]+xmin[1]), 0.5*(xmax[2]+xmin[2]), ref)
     if(xmax[2]-xmin[2] > xmax[1]-xmin[1]):
-        iNode = gmsh.model.geo.addPoint(- 0.5*abs((xmax[0]-xmin[0]))+xmin[0], 0.5*(xmax[1]+xmin[1]), 1.0*abs(xmax[2]-xmin[2])+xmax[2], ref)
+        iNode = gmsh.model.geo.addPoint(back*abs((xmax[0]-xmin[0]))+xmin[0], 0.5*(xmax[1]+xmin[1]), side*abs(xmax[2]-xmin[2])+xmax[2], ref)
     else: 
-        iNode = gmsh.model.geo.addPoint( -0.5 *abs((xmax[0]-xmin[0]))+xmin[0], 1.0*abs(xmax[1]-xmin[1])+xmax[1], 0.5*(xmax[2]+xmin[2]),  ref)
+        iNode = gmsh.model.geo.addPoint(back*abs((xmax[0]-xmin[0]))+xmin[0], side*abs(xmax[1]-xmin[1])+xmax[1], 0.5*(xmax[2]+xmin[2]),  ref)
 
     ellipse = gmsh.model.geo.addEllipseArc(iNode-2 ,iNode-1, iNode-2 ,iNode)
 
