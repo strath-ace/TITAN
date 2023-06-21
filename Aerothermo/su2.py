@@ -697,8 +697,6 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
         assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
         #print(assembly.cfd_mesh.facets.shape)
     
-
-    #exit()
     #Convert from Body->ECEF and ECEF-> Wind
     #Translate the mesh to match the Center of Mass of the lowest assembly
     assembly_windframe = deepcopy(assembly_list)

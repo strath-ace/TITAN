@@ -25,9 +25,10 @@ import numpy as np
 from Dynamics import frames
 from sympy import sqrt,tan
 import sympy
+from pathlib import Path
 
 
-def sphere_surface(radius, center, num_assembly, num_object, i):
+def sphere_surface(radius, center, num_assembly, num_object, i, assembly, options):
     """    
     Creation of a virtual Sphere
 
@@ -73,7 +74,10 @@ def sphere_surface(radius, center, num_assembly, num_object, i):
 
     trimesh = meshio.Mesh(coord, cells = {"quad": cells})
 
-    vol_mesh_filepath = f"Billig/Sphere_{i}_{num_assembly}_{num_object}.vtk"
+    folder_path = options.output_folder+'/Surface_solution/ID_'+str(assembly.id)
+    Path(folder_path).mkdir(parents=True, exist_ok=True)
+
+    vol_mesh_filepath = f"{folder_path}/Sphere_{i}_{num_assembly}_{num_object}.vtk"
     meshio.write(vol_mesh_filepath, trimesh)
 
 
@@ -169,8 +173,8 @@ def compute_aerothermo(titan, options):
             list_assembly.remove(index)
 
             #Compute billig formula and retrieve the bodies that are inside the computed shock envelopes
-            #sphere_surface(radius, center, index, index_object, titan.iter)
-            computational_domain_bodies = compute_billig(M, theta, center, radius, index, np.array(assembly_windframe), list_assembly, index_object, titan.iter, titan.assembly)
+            sphere_surface(radius, center, index, index_object, titan.iter, assembly, options)
+            computational_domain_bodies = compute_billig(M, theta, center, radius, index, np.array(assembly_windframe), list_assembly, index_object, titan.iter, titan.assembly, assembly.freestream, options)
             assembly_shock_list += computational_domain_bodies
 
         computational_domain_tag += 1
@@ -229,7 +233,7 @@ def compute_aerothermo(titan, options):
 
 
 
-def compute_billig(M,theta, center, sphere_radius, index_assembly, assembly, list_assembly, index_object, i, true_assembly):
+def compute_billig(M,theta, center, sphere_radius, index_assembly, assembly, list_assembly, index_object, i, true_assembly, freestream, options):
     """
     Computation of the shock envelope using the Billing formula
 
@@ -269,7 +273,10 @@ def compute_billig(M,theta, center, sphere_radius, index_assembly, assembly, lis
     cells = []
 
     r = sympy.Symbol("r")
-    x_limit = 20*assembly[index_assembly].Lref
+    #x_limit = 20*assembly[index_assembly].Lref
+
+    #Blast Wave implementation here
+    x_limit = compute_blast_wave_limit(sphere_radius, freestream, options) - delta - sphere_radius
 
     exp = 1*(sphere_radius+delta-Rc*(1/tan(theta))**2*(sqrt(1+(r**2)*(tan(theta)**2)/(Rc**2))-1))+x_limit
     sol = sympy.solve(exp)
@@ -303,27 +310,123 @@ def compute_billig(M,theta, center, sphere_radius, index_assembly, assembly, lis
 
     trimesh = meshio.Mesh(coord, cells = {"quad": cells})
 
-    #vol_mesh_filepath = f"Billig/Billig_{i}_{index_assembly}_{index_object}.vtk"
-    #meshio.write(vol_mesh_filepath, trimesh)
+    folder_path = options.output_folder+'/Surface_solution/ID_'+str(assembly[index_assembly].id)
+    Path(folder_path).mkdir(parents=True, exist_ok=True)
+
+    vol_mesh_filepath = f"{folder_path}/Billig_{i}_{index_assembly}_{index_object}.vtk"
+    meshio.write(vol_mesh_filepath, trimesh)
 
     computational_domain_bodies = [index_assembly]
 
     for index in list_assembly:
 
         _assembly = assembly[index]
+
         x_assembly = _assembly.mesh.nodes[:,0]-center[0]
         y_assembly = _assembly.mesh.nodes[:,1]-center[1]
         z_assembly = _assembly.mesh.nodes[:,2]-center[2]
 
         r_assembly = np.sqrt(y_assembly**2 + z_assembly**2)
 
-        inside_ellipse = ((-x_assembly - Rc/np.tan(theta)**2*(np.sqrt(1+(r_assembly**2)*(np.tan(theta)**2)/(Rc**2))-1) >= -(sphere_radius+delta))) # * (x_assembly <= x_limit)# * (x_assembly >= -sphere_radius)
-
+        inside_ellipse = ((-x_assembly - Rc/np.tan(theta)**2*(np.sqrt(1+(r_assembly**2)*(np.tan(theta)**2)/(Rc**2))-1) >= -(sphere_radius+delta))) * (-x_assembly <= x_limit)# * (x_assembly >= -sphere_radius)
         #(sphere_radius+delta-Rc*(1/np.tan(theta))**2*(np.sqrt(1+(_r**2)*(np.tan(theta)**2)/(Rc**2))-1))
-        
+
         true_assembly[index].inside_shock += np.zeros(len(x_assembly))+inside_ellipse
 
         if inside_ellipse.any():
             computational_domain_bodies.append(index)
 
     return computational_domain_bodies
+
+
+
+def compute_blast_wave_limit(radius, freestream, options):
+
+    gamma = freestream.gamma
+    velocity = freestream.velocity
+    M = freestream.mach
+    density = freestream.density
+    eta_0 = 1.004 #From Laurence thesis for gamma = 1.4
+    ratio = 1.0   # r/Rs
+
+    theta = 0.0001
+    delta = radius*(0.143*np.exp(3.24/(M**2)))
+    Rc = radius*(1.143*np.exp(0.54/(M-1)**1.2))
+
+    """
+    k1 = -(gamma-1.0)/(gamma)
+    k2 = -2.0/(2.0 - gamma)
+    k3 = 1.0/gamma
+    k4 = -k2
+
+    def find_u_nd(gamma, value):
+        min_value = (gamma+1.0)/(2*gamma)+ 1E-16
+        max_value = 1.0+1E-16
+        max_iters = 100
+
+        mid_value = (min_value+max_value)/2.0
+
+        for _ in range(max_iters):
+            u_nd = mid_value
+            result = u_nd*((2*gamma*u_nd - (gamma+1))/(gamma-1))**k1*(gamma+1.0-gamma*u_nd)
+
+            if result > value:
+                min_value = mid_value
+                mid_value = (min_value+max_value)/2.0
+            else:
+                max_value = mid_value
+                mid_value = (min_value+max_value)/2.0
+        return u_nd
+
+    u_nd = find_u_nd(gamma,ratio**-2)
+    rho_nd = ((gamma+1.0-2.0*u_nd)/(gamma-1.0))**k2*((2*gamma*u_nd - (gamma+1))/(gamma-1))**k3*(gamma+1.0-gamma*u_nd)**k4
+    p_nd = ((u_nd**2*(gamma + 1.0 - 2*u_nd))/(2*gamma*u_nd-(gamma+1)))*rho_nd
+    """
+
+    Ps = freestream.pressure #Pressure at the shock is equal to freestream pressure (shock lost strenght)
+
+    x = density*velocity**2/Ps*(eta_0 * ((2*radius)**2*np.pi*1*0.88/8)**0.25)**2/(2*(gamma+1.0))
+
+    #Shock radius as function of x distance
+
+    Rs = eta_0*((2*radius)**2*np.pi*0.88/8)**0.25*np.sqrt(x)
+
+#    print(Rs, x, density*velocity**2/x**2*Rs**2/(2*(gamma+1.0)))
+#    print(density*velocity**2/x**2*Rs**2/(2*(gamma+1.0)))
+#    print(freestream.pressure)
+
+    """
+    #Use of Billig Rs predicts 2 times the x value than the Blast wave method
+
+    x_min = radius
+    x_guess = radius*10
+    x_max = radius*300
+
+    r = sympy.Symbol("r")
+
+    while abs(x_max - x_guess) > 0.01:
+
+        exp = 1*(-Rc*(1/tan(theta))**2*(sqrt(1+(r**2)*(tan(theta)**2)/(Rc**2))-1))+x_guess
+        sol = sympy.solve(exp)
+        R_guess = float(abs(sol[0]))
+        Ps = density*velocity**2/x_guess**2*R_guess**2/(2*(gamma+1.0))
+
+        if Ps > freestream.pressure:
+            x_min = x_guess
+            x_guess = (x_min+x_max)/2.0
+
+
+        elif Ps < freestream.pressure:
+            x_max = x_guess
+            x_guess = (x_min+x_max)/2.0
+
+        print(x_guess, Ps, (eta_0 * ((2*radius)**2*np.pi*1*0.88/8)**0.25*x_guess**0.5))
+
+        #x_guess = density*velocity**2/Ps*Rs/(2*(gamma+1.0))
+
+    exit(print(Rs,x))    
+    print()
+
+    """
+
+    return x
