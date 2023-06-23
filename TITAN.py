@@ -46,6 +46,12 @@ def loop(options = [], titan = []):
         object of class Assembly_list
     """
 
+    #For collision testing purposes
+    if "sphere-sphere.txt" in options.filepath:
+        titan.assembly[0].mass = 1
+        titan.assembly[1].mass = 2
+        titan.assembly[0].velocity[2] = 5
+
     if options.structural_dynamics:
         exit("Structural dynamics is currently under development")
 
@@ -104,6 +110,7 @@ def main(filename = "", postprocess = ""):
 
     #Pre-processing phase: Creates the options and titan class
     options, titan = configuration.read_config_file(configParser, postprocess)
+    options.filepath = filename
 
     #Initialization of the simulation
     if not postprocess:

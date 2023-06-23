@@ -40,7 +40,7 @@ def compute_Euler(titan, options):
         Object of class Options
     """
 
-    if options.collision and len(titan.assembly)>1:
+    if options.collision.flag and len(titan.assembly)>1:
         flag_collision, __ = collision.check_collision(titan, options, 0)
         if flag_collision: collision.collision_physics(titan, options)
         #if flag_collision: collision.collision_physics_simultaneous(titan, options)
@@ -54,7 +54,7 @@ def compute_Euler(titan, options):
     output.write_output_data(titan = titan, options = options)
 
     time_step = options.dynamics.time_step
-    if options.collision and len(titan.assembly)>1:
+    if options.collision.flag and len(titan.assembly)>1:
 
         #Check collision for future time intervals with respect to current time-step velocity
         __, time_step = collision.check_collision(titan, options, time_step)

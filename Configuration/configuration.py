@@ -33,6 +33,22 @@ from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
 
+
+class Collision_options():
+
+    def __init__(self, post_fragmentation_iters = 0,
+                 post_fragmentation_timestep = 0.0,
+                 elastic_factor = 1.0,
+                 max_depth = 1E-6,
+                 mesh_factor = 1E-3):
+
+        self.flag = False
+        self.post_fragmentation_iters = post_fragmentation_iters
+        self.post_fragmentation_timestep = post_fragmentation_timestep
+        self.elastic_factor = elastic_factor
+        self.max_depth = max_depth
+        self.mesh_factor = mesh_factor
+
 class Trajectory():
     """ Class Trajectory
     
@@ -276,6 +292,8 @@ class Options():
         self.bloom = Bloom()
         self.amg = Amg()
 
+        self.collision = Collision_options()
+
         #: [:class:`.Aerothermo`] Object of class Aerothermo
         self.aerothermo = Aerothermo()
 
@@ -289,7 +307,7 @@ class Options():
         self.iters = iters
 
         #:[int] Frequency of generating a restart file [per number of iterations]
-        self.save_freq = 50
+        self.save_freq = 500
 
         #: [int] Current iteration
         self.current_iter = 0
@@ -371,7 +389,7 @@ class Options():
         
         print("Saving state")
 
-        if self.collision:
+        if self.collision.flag:
             for assembly in titan.assembly:
                 assembly.collision = None
 
@@ -382,8 +400,8 @@ class Options():
         pickle.dump(titan, outfile)
         outfile.close()
 
-        if self.collision:
-            for assembly in titan.assembly: collision.generate_collision_mesh(assembly)
+        if self.collision.flag:
+            for assembly in titan.assembly: collision.generate_collision_mesh(assembly, self)
             collision.generate_collision_handler(titan, self)
 
     def read_mesh(self):
@@ -654,9 +672,9 @@ def read_config_file(configParser, postprocess = ""):
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
     #options.SPARTA =       get_config_value(configParser, options.SPARTA, 'Options', 'SPARTA', 'boolean')
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
-    options.ablation      = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
-    options.ablation_mode = get_config_value(configParser, "0D", 'Options', 'Ablation_mode', 'str').lower()
-    options.collision      = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
+    options.ablation       = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
+    options.ablation_mode  = get_config_value(configParser, "0D", 'Options', 'Ablation_mode', 'str').lower()
+    options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
 
     #Read FENICS options
     if options.structural_dynamics:
@@ -747,6 +765,13 @@ def read_config_file(configParser, postprocess = ""):
         options.amg.c = get_config_value(configParser,options.amg.c,'AMG', 'C', 'int')
         options.amg.sensor = get_config_value(configParser,options.amg.sensor,'AMG', 'Sensor', 'str')
 
+    if options.collision.flag:
+        options.collision.post_fragmentation_iters = get_config_value(configParser, options.collision.post_fragmentation_iters, 'Collision', 'Post_fragmentation_iters', 'int')
+        options.collision.post_fragmentation_timestep = get_config_value(configParser, options.collision.post_fragmentation_timestep, 'Collision', 'Post_fragmentation_timestep', 'float')
+        options.collision.max_depth = get_config_value(configParser, options.collision.max_depth, 'Collision', 'Max_depth', 'float')
+        options.collision.mesh_factor = get_config_value(configParser, options.collision.mesh_factor, 'Collision', 'Mesh_factor', 'float')
+        options.collision.elastic_factor = get_config_value(configParser, options.collision.elastic_factor, 'Collision', 'Elastic_factor', 'float')
+
     output.options_information(options)
 
     if options.load_mesh != True and options.load_state != True:
@@ -789,8 +814,8 @@ def read_config_file(configParser, postprocess = ""):
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)
 
-    if options.collision:
-        for assembly in titan.assembly: collision.generate_collision_mesh(assembly)
+    if options.collision.flag:
+        for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
         collision.generate_collision_handler(titan, options)
 
     ### if options.FENICS:

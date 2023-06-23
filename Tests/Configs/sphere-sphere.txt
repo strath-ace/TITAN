@@ -25,6 +25,20 @@ Sideslip = 0.0
 Angle_of_attack = 0.0
 Roll = 0.0
 
+[Collision]
+# Number of iterations after fragmentation occurs to decrease time-step
+Post_fragmentation_iters = 0
+
+# Time-step for post-fragmentation period
+Post_fragmentation_timestep = 0.01
+
+#Scalar to build the collision mesh
+Mesh_factor = 0.001
+
+Max_depth = 0.000001
+Elastic_factor = 1.0
+
+
 [Time]
 Time_step = 0.05
 [Objects]
