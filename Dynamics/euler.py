@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from Dynamics import dynamics, frames
+from Dynamics import dynamics, frames, collision
 from Aerothermo import aerothermo
 from Forces import forces
 import pymap3d
@@ -40,6 +40,11 @@ def compute_Euler(titan, options):
         Object of class Options
     """
 
+    if options.collision and len(titan.assembly)>1:
+        flag_collision, __ = collision.check_collision(titan, options, 0)
+        if flag_collision: collision.collision_physics(titan, options)
+        #if flag_collision: collision.collision_physics_simultaneous(titan, options)
+
     aerothermo.compute_aerothermo(titan, options)
 
     forces.compute_aerodynamic_forces(titan, options)
@@ -48,13 +53,21 @@ def compute_Euler(titan, options):
     # Writes the output data before
     output.write_output_data(titan = titan, options = options)
 
+    time_step = options.dynamics.time_step
+    if options.collision and len(titan.assembly)>1:
+
+        #Check collision for future time intervals with respect to current time-step velocity
+        __, time_step = collision.check_collision(titan, options, time_step)
+    
+    titan.time += time_step
+
     # Loop over the assemblies and compute the dericatives
     for assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)
-        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options)
+        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step)
         
-def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options):
+def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step):
     """
     Update position and attitude of the assembly
 
@@ -70,7 +83,7 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
         Object of class Options
     """
 
-    dt = options.dynamics.time_step
+    dt = time_step
 
     assembly.position[0] += dt*cartesianDerivatives.dx
     assembly.position[1] += dt*cartesianDerivatives.dy

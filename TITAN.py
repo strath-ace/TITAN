@@ -81,7 +81,6 @@ def loop(options = [], titan = []):
 
         titan.iter += 1
         options.current_iter = titan.iter
-        titan.time += options.dynamics.time_step
         if options.current_iter%options.save_freq == 0:
             options.save_state(titan)
 

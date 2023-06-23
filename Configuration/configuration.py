@@ -29,6 +29,7 @@ import copy
 from Geometry import component as Component
 from Geometry import assembly as Assembly
 from Dynamics import dynamics
+from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
 
@@ -646,6 +647,7 @@ def read_config_file(configParser, postprocess = ""):
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
     options.ablation      = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
     options.ablation_mode = get_config_value(configParser, "0D", 'Options', 'Ablation_mode', 'str').lower()
+    options.collision      = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
 
     #Read FENICS options
     if options.structural_dynamics:
@@ -777,6 +779,10 @@ def read_config_file(configParser, postprocess = ""):
         
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)
+
+    if options.collision:
+        for assembly in titan.assembly: collision.generate_collision_mesh(assembly)
+        collision.generate_collision_handler(titan, options)
 
     ### if options.FENICS:
     ###     fenics = TITAN.FENICS()
