@@ -289,7 +289,7 @@ class Options():
         self.iters = iters
 
         #:[int] Frequency of generating a restart file [per number of iterations]
-        self.save_freq = 100000
+        self.save_freq = 50
 
         #: [int] Current iteration
         self.current_iter = 0
@@ -370,12 +370,21 @@ class Options():
         # titan.low_fidelity_model = None 
         
         print("Saving state")
+
+        if self.collision:
+            for assembly in titan.assembly:
+                assembly.collision = None
+
         outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
         pickle.dump(titan, outfile)
         outfile.close()
         outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb')
         pickle.dump(titan, outfile)
         outfile.close()
+
+        if self.collision:
+            for assembly in titan.assembly: collision.generate_collision_mesh(assembly)
+            collision.generate_collision_handler(titan, self)
 
     def read_mesh(self):
         infile = open(self.output_folder + '/Restart/'+ 'Mesh.p','rb')
