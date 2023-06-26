@@ -529,6 +529,6 @@ class Assembly():
         #Change the values in the connectivity matrix
         #Change the values in vol_tag
         for id in list_of_ids:
-            if self.connectivity != []:
+            if len(self.connectivity):
                 self.connectivity[self.connectivity == id] = d[id]
             self.mesh.vol_tag[self.mesh.vol_tag == id] = d[id]
