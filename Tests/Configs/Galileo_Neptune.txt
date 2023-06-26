@@ -39,7 +39,7 @@ Area_reference = 1.227
 MinMaxFactor= 0.5
 ComputeMinMaxFactor = 0
 SPICE_Path = Executables/SPICE/
-GRAM_Path = /home/fmpmorgado/software/GRAM
+GRAM_Path = Executables/
 
 [Freestream]
 method = Mutationpp
