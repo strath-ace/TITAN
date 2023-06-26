@@ -1,0 +1,58 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 1
+Load_mesh = False
+Load_state =  False
+Fidelity = Low
+#High, Low or Hybrid
+Output_folder = Tests/Simulation
+FENICS = False
+
+[Trajectory]
+Altitude = 600133
+Velocity = 23082
+Flight_path_angle = -35
+Heading_angle = 84.468
+Latitude = -0.749
+Longitude = -8.821
+
+[Model]
+Planet = neptune
+Vehicle = True
+Drag_model = True
+
+[Vehicle]
+
+Mass = 341
+
+Drag_file = Galileo_CD.csv
+
+#For stagnation point
+Nose_radius = 0.22
+
+#For Drag model
+Area_reference = 1.227
+
+[GRAM]
+MinMaxFactor= 0.5
+ComputeMinMaxFactor = 0
+SPICE_Path = Executables/SPICE/
+GRAM_Path = /home/fmpmorgado/software/GRAM
+
+[Freestream]
+method = Mutationpp
+model = GRAM
+
+[Time]
+Time_step = 0.25
+
+[Assembly]
+Path = Tests/Mesh/Galileo/
+Angle_of_attack = 0.0
+Sideslip = 0.0
+Roll = 0.0
+
+[Objects]
+Primary = [NAME = galileo.stl, MATERIAL = Unittest, TYPE = Primitive]
