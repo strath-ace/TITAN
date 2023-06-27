@@ -8,11 +8,11 @@ Load_state = False
 Fidelity = Low
 Structural_dynamics = True
 #High, Low or Hybrid
-Output_folder = /home/fmpmorgado/Pictures/Teste
+Output_folder = Tests/Simulation
 
 [Assembly]
 # Path for the geometry files
-Path = /home/fmpmorgado/software/TITAN_cleanup_v2/Test/Mesh/ATV_coarse/
+Path = /Tests/Mesh/ATV_coarse/
 Connectivity = [[1,2,3],[1,4,5]]
 #Connectivity = [[1,2,3]]
 Sideslip = 0.0
