@@ -12,7 +12,7 @@ Output_folder = Tests/Simulation
 
 [Assembly]
 # Path for the geometry files
-Path = /Tests/Mesh/ATV_coarse/
+Path = Tests/Mesh/ATV_coarse/
 Connectivity = [[1,2,3],[1,4,5]]
 #Connectivity = [[1,2,3]]
 Sideslip = 0.0
