@@ -122,8 +122,8 @@ def update_surface_displacement(mesh, surface_displacement_vector):
     mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
     mesh.facet_COG = compute_facet_COG(mesh.v0, mesh.v1, mesh.v2)
     mesh.COG = compute_geometrical_COG(mesh.facet_COG, mesh.facet_area)
-    mesh.facet_normal = compute_facet_normal(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2)
-    mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2, mesh.facet_area)
+    mesh.facet_normal = compute_facet_normal(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2, mesh.facet_area)
+    mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2)
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
 
 
@@ -772,6 +772,7 @@ def compute_new_volume_v2(original_mesh, new_mesh, new_objects):
     new_mesh.vol_T = original_mesh.vol_T[index]
     new_mesh.vol_tag = original_mesh.vol_tag[index]
     new_mesh.vol_volume = original_mesh.vol_volume[index]
+    new_mesh.volume_displacement = original_mesh.volume_displacement
     new_mesh.vol_coords = original_mesh.vol_coords
 
 def compute_new_volume(assembly, old_nodes):

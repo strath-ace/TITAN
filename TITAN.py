@@ -53,7 +53,8 @@ def loop(options = [], titan = []):
         titan.assembly[0].velocity[2] = 5
 
     if options.structural_dynamics:
-        exit("Structural dynamics is currently under development")
+        print("Structural dynamics selected: still requiring further validation")
+    #    exit("Structural dynamics is currently under development")
 
     options.current_iter = titan.iter
     

@@ -1,0 +1,53 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 2
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+Structural_dynamics = True
+#High, Low or Hybrid
+Output_folder = /home/fmpmorgado/Pictures/Teste
+
+[Assembly]
+# Path for the geometry files
+Path = /home/fmpmorgado/software/TITAN_cleanup_v2/Test/Mesh/ATV_coarse/
+Connectivity = [[1,2,3],[1,4,5]]
+#Connectivity = [[1,2,3]]
+Sideslip = 0.0
+Angle_of_attack = 0.0
+
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+ATV =     [NAME = ATV.stl, TYPE = Primitive, MATERIAL = Unittest, FENICS_ID = 1]
+Panel_1 = [NAME = Panel1.stl, TYPE = Primitive, MATERIAL = fenics, FENICS_ID = 2]
+Joint_1 = [NAME = Joint1.stl,          TYPE = Joint,       MATERIAL = fenics,  TEMPERATURE = 300,  FENICS_ID = -1, TRIGGER_TYPE = Iteration, TRIGGER_VALUE = 5000]
+
+Panel_2 = [NAME = Panel2.stl, TYPE = Primitive, MATERIAL = fenics, FENICS_ID = 2]
+Joint_2 = [NAME = Joint2.stl,          TYPE = Joint,       MATERIAL = fenics,  TEMPERATURE = 300,  FENICS_ID = -1, TRIGGER_TYPE = Iteration, TRIGGER_VALUE = 5000]
+
+#Panel_3 = [NAME = Panel3.stl, TYPE = Primitive, MATERIAL = Unittest_debug, FENICS_ID = 2]
+#Joint_3 = [NAME = Joint3.stl,          TYPE = Joint,       MATERIAL = Unittest, TEMPERATURE = 900,  FENICS_ID = -1, TRIGGER_TYPE = Iteration, TRIGGER_VALUE = 5]
+
+#Panel_4 = [NAME = Panel4.stl, TYPE = Primitive, MATERIAL = Unittest, FENICS_ID = 2]
+#Joint_4 = [NAME = Joint4.stl,          TYPE = Joint,       MATERIAL = Unittest, TEMPERATURE = 900,  FENICS_ID = -1, TRIGGER_TYPE = Iteration, TRIGGER_VALUE = 5]
+
+
+
+
+[Trajectory]
+Altitude = 80000
+Velocity = 7000
+Flight_path_angle = 0
+Heading_angle = 0
+Roll = 0
+
+[Time]
+Time_step = 2.5
+
+[Initial Conditions]
+Angular Velocity = (1 : [0,0,0])
+

@@ -117,7 +117,6 @@ def demise_components(titan, i, joints_id, options):
 
         compute_new_volume_v2(titan.assembly[i].mesh, titan.assembly[-1].mesh, titan.assembly[-1].objects)
         titan.assembly[-1].mesh.index_surf_tetra = map_surf_to_tetra(titan.assembly[-1].mesh.vol_coords, titan.assembly[-1].mesh.vol_elements)
-        output.generate_volume(titan = titan, options = options)
 
         titan.assembly[-1].compute_mass_properties()
 
@@ -452,7 +451,7 @@ def fragmentation(titan, options):
 
     #print("Before fragmentation:")
     #print([obj.id for obj in titan.assembly[0].objects])
-
+    fragmentation_flag = False
 
     for it in range(lenght_assembly):
         objs_id = np.array([], dtype = int)
@@ -504,6 +503,7 @@ def fragmentation(titan, options):
         objs_id = np.unique(objs_id)+1
 
         if len(objs_id) != 0:
+            fragmentation_flag = True
             if len(titan.assembly[it].objects) != 1: demise_components(titan, it, objs_id, options)
             assembly_id = np.append(assembly_id, it)
             
@@ -511,3 +511,6 @@ def fragmentation(titan, options):
 
     for assembly in titan.assembly:
         assembly.rearrange_ids()
+        
+    if fragmentation_flag:
+        output.generate_volume(titan = titan, options = options)
