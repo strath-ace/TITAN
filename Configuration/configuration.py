@@ -534,7 +534,7 @@ def read_trajectory(configParser):
     
     return trajectory
 
-def read_geometry(configParser):
+def read_geometry(configParser, options):
     """
     Geometry pre-processing
 
@@ -579,7 +579,7 @@ def read_geometry(configParser):
                     except:
                         temperature = 300
                     
-                    objects.insert_component(filename = object_path, file_type = object_type, fenics_bc_id = fenics_bc_id, material = material, temperature = temperature )
+                    objects.insert_component(filename = object_path, file_type = object_type, fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -612,7 +612,7 @@ def read_geometry(configParser):
                         temperature = 300
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
-                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature) 
+                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 
 
 
     # Creates a list of the different assemblies, where each assembly is a object with several linked components
@@ -673,8 +673,9 @@ def read_config_file(configParser, postprocess = ""):
     #options.SPARTA =       get_config_value(configParser, options.SPARTA, 'Options', 'SPARTA', 'boolean')
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
     options.ablation       = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
-    options.ablation_mode  = get_config_value(configParser, "0D", 'Options', 'Ablation_mode', 'str').lower()
+    options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
+    options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
 
     #Read FENICS options
     if options.structural_dynamics:
@@ -792,7 +793,7 @@ def read_config_file(configParser, postprocess = ""):
         else:
             #Reads the user-defined geometries, properties and connectivity
             #to generate an assembly. The information is stored in the titan object
-            titan = read_geometry(configParser)
+            titan = read_geometry(configParser, options)
             
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:

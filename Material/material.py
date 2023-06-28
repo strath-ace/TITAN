@@ -49,8 +49,10 @@ class Material():
 	A class to store the material properties for each user-defined component
 	"""
 	
-	def __init__ (self, name):
-		with open(os.path.dirname(os.path.abspath(__file__))+'/database_material.xml', 'r') as f:
+	def __init__ (self, name, options):
+		#database_material.xml
+
+		with open(os.path.dirname(os.path.abspath(__file__))+'/'+options.material_file, 'r') as f:
 			data = f.read()
 		 
 		# Passing the stored data inside

@@ -28,11 +28,11 @@ class Component_list():
         self.object = []
         self.id = 1
 
-    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300):
+    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None):
         
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
-                           trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material))
+                           trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, options = options))
         self.id += 1
 
 class Component():
@@ -42,7 +42,7 @@ class Component():
     """
     
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
-                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest', v0 = [], v1 = [], v2 = [], parent_id = None):
+                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest', v0 = [], v1 = [], v2 = [], parent_id = None, options = None):
 
         print("Generating Body: ", filename)
         
@@ -79,7 +79,7 @@ class Component():
         self.mass = 0
 
         #: [Material] Object of class Material to store the material properties
-        self.material = Material(material)
+        self.material = Material(material, options)
 
         #: [K] Temperature
         self.temperature = temperature
