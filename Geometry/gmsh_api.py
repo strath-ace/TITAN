@@ -30,7 +30,7 @@ def mesh_Settings(gmsh):
     #self.gmsh.option.setNumber("Mesh.Optimize",1)
     #self.gmsh.option.setNumber("Mesh.QualityType",2);
 
-def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '',bc_ids = []):
+def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '', bc_ids = []):
     gmsh.initialize()
     mesh_Settings(gmsh)
 
@@ -55,7 +55,18 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
         for i in range(len(assembly.objects)):
             out = gmsh.model.geo.addSurfaceLoop(np.array(assembly.objects[i].facet_index)+1)
 
-            vol_tag = gmsh.model.geo.addVolume([out])
+            if assembly.objects[i].inner_mesh:
+                node_ref_end , edge_ref_end, surf_ref_end = object_grid(gmsh,assembly.objects[i].inner_mesh.nodes, assembly.objects[i].inner_mesh.edges, assembly.objects[i].inner_mesh.facet_edges, ref,node_ref_init, edge_ref_init, surf_ref_init)
+                #assembly.objects[i].inner_node_index = np.array(range(node_ref_init-1, node_ref_end-1))
+                hole = gmsh.model.geo.addSurfaceLoop(range(surf_ref_init, surf_ref_end))
+                vol_tag = gmsh.model.geo.addVolume([out,hole])
+                
+                node_ref_init = node_ref_end
+                edge_ref_init = edge_ref_end
+                surf_ref_init = surf_ref_end
+
+            else:
+                vol_tag = gmsh.model.geo.addVolume([out])
             
             assembly.objects[i].vol_tag = vol_tag 
             ref_phys_volume = gmsh.model.geo.addPhysicalGroup(3, [vol_tag])

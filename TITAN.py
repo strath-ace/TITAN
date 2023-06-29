@@ -77,7 +77,7 @@ def loop(options = [], titan = []):
             else:
                 raise ValueError("Ablation Mode can only be 0D or Tetra")
 
-        if options.structural_dynamics:
+        if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)

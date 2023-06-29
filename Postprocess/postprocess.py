@@ -84,7 +84,7 @@ def generate_visualization(options, data, iter_value, postprocess = "wind"):
 		
 		R_B_ECEF = Rot.from_quat(q[i])
 
-		#Apply Displacemenet due to the use of FEniCS
+		#Apply Displacement due to the use of FEniCS
 		mesh[i].points += mesh[i].point_data['Displacement']
 
 		#Translate the assembly to (0,0,0)

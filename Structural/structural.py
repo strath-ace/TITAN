@@ -55,6 +55,7 @@ def run_FENICS(titan, options):
 
     for assembly in titan.assembly:
         if len(assembly.objects) <= 1: continue
+        if '1' not in [obj.fenics_bc_id for obj in assembly.objects] or '2' not in [obj.fenics_bc_id for obj in assembly.objects] : continue
 
         # Step 1 - Convert from facet force to node force
         force_facets = assembly.body_force.force_facets
@@ -106,7 +107,10 @@ def run_FENICS(titan, options):
 
         
         for obj in assembly.objects:
-            if np.max(assembly.mesh.volume_vonMises[assembly.mesh.vol_tag == obj.id]) > yield_stress and obj.fenics_bc_id == '-1':
+            obj.yield_stress = obj.material.yieldStress(obj.temperature)
+            obj.max_stress = np.max(assembly.mesh.volume_vonMises[assembly.mesh.vol_tag == obj.id])
+
+            if obj.max_stress > obj.yield_stress and obj.fenics_bc_id == '-1':
                 obj.mass = 0
                 assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = 0
 

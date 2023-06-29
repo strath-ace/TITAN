@@ -97,6 +97,8 @@ class Fenics():
         #: [bool] Flag value indicating the verbosity of FEniCS solver
         self.FE_verbose = FE_verbose # printing FE progress (for debugging)
 
+        self.FE_freq = 1
+
 class Dynamics():
     """ Dynamics class
 
@@ -569,6 +571,17 @@ def read_geometry(configParser, options):
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
                     material= [s for s in value if "material=" in s.lower()][0].split("=")[1]
                     
+
+                    try:
+                        inner_stl_file = [s for s in value if "inner_stl=" in s.lower()][0].split("=")[1]
+                    except:
+                        inner_stl_file = 'none'
+
+                    if inner_stl_file != 'None' and inner_stl_file != 'none':
+                        inner_path = path+inner_stl_file
+                    else:
+                        inner_path = ''
+
                     try:
                         fenics_bc_id = [s for s in value if "fenics_id=" in s.lower()][0].split("=")[1]
                     except:
@@ -579,7 +592,8 @@ def read_geometry(configParser, options):
                     except:
                         temperature = 300
                     
-                    objects.insert_component(filename = object_path, file_type = object_type, fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options)
+                    objects.insert_component(filename = object_path, file_type = object_type, fenics_bc_id = fenics_bc_id, inner_stl = inner_path, 
+                                            material = material, temperature = temperature, options = options)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -683,13 +697,14 @@ def read_config_file(configParser, postprocess = ""):
         options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'bool')
         options.fenics.FE_MPI_cores = get_config_value(configParser, options.fenics.FE_MPI_cores, 'FENICS', 'FENICS_cores', 'int')
         options.fenics.FE_verbose   = get_config_value(configParser, options.fenics.FE_verbose, 'FENICS', 'FENICS_verbose', 'boolean')
+        options.fenics.FE_freq      = get_config_value(configParser, options.fenics.FE_freq, 'FENICS', 'FENICS_freq', 'int')
 
     #Read Dynamics options
     options.dynamics.time = 0
     options.dynamics.time_step           = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
-    options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
-    options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
-    options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
+    #options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
+    #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
+    #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')

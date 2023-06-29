@@ -91,18 +91,21 @@ class Component():
         #: [kg/m^2] Inertia matrix
         self.inertia = np.zeros((3,3))
         
-###        if inner_stl:
-###            self.inner_mesh = True
-###            
-###            inner_mesh = Mesh.Mesh(inner_stl)
-###            inner_mesh = Mesh.compute_mesh(inner_mesh, compute_radius = False)
-###            self.mesh.inner_nodes  = inner_mesh.nodes
-###            self.mesh.inner_edges  = inner_mesh.edges
-###            self.mesh.inner_facets = inner_mesh.facets
-###            self.mesh.inner_facet_edges = inner_mesh.facet_edges
+        if inner_stl:
+            #self.inner_mesh = True
+            
+            inner_mesh = Mesh.Mesh(inner_stl)
+            self.inner_mesh = Mesh.compute_mesh(inner_mesh, compute_radius = False)
+            #self.mesh.inner_nodes  = inner_mesh.nodes
+            #self.mesh.inner_edges  = inner_mesh.edges
+            #self.mesh.inner_facets = inner_mesh.facets
+            #self.mesh.inner_facet_edges = inner_mesh.facet_edges
         
         self.fenics_bc_id = fenics_bc_id
         self.vol_id = -1
+
+        self.max_stress = 0
+        self.yield_stress = 0
 
         self.parent_id = None
         if parent_id: self.parent_id = parent_id

@@ -129,6 +129,21 @@ def write_output_data(titan, options):
         df = df.round(decimals = 12)
         df.to_csv(options.output_folder + '/Data/'+ 'data.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data.csv'), index = False)
 
+    df = pd.DataFrame()
+    for assembly in titan.assembly:
+        df["Time"] = [titan.time]
+        df["Iter"] = [titan.iter]
+        df["Assembly_ID"] = [assembly.id]
+        for obj in assembly.objects:
+            df["Obj_name"] = [obj.name]
+            df["Temperature"] = [obj.temperature]
+            df["Mass"] = [obj.mass]
+            df["Max_stress"] = [obj.max_stress]
+            df["Yield_stress"] = [obj.yield_stress]
+            
+            df = df.round(decimals = 6)
+            df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
+
 def generate_surface_solution(titan, options):
     points = np.array([])
     facets = np.array([])
