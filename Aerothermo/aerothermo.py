@@ -464,7 +464,7 @@ def aerodynamics_module_continuum(facet_normal,free, p, flow_direction):
     Cpmax= (2.0/(free.gamma*free.mach**2.0))*((P0_s/free.pressure-1.0))
 
     #TODO
-    if free.mach <= 1.1: Cpmax = 1
+    if free.mach <= 1.0: Cpmax = 1
 
     Cp = Cpmax*np.sin(Theta)**2
     Cp[Theta < 0] = 0

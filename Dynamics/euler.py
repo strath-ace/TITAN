@@ -135,8 +135,18 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.pitch_vel += dt*angularDerivatives.ddpitch
     assembly.yaw_vel   += dt*angularDerivatives.ddyaw
 
+    #Limiting the angular velocity to 100 rad/s.
+
+    if assembly.roll_vel > 100:  assembly.roll_vel = 100
+    if assembly.roll_vel < -100: assembly.roll_vel = -100
+
+    if assembly.pitch_vel > 100:  assembly.pitch_vel = 100
+    if assembly.pitch_vel < -100: assembly.pitch_vel = -100
+
+    if assembly.yaw_vel > 100:  assembly.yaw_vel = 100
+    if assembly.yaw_vel < -100: assembly.yaw_vel = -100
+
     # angle of attack is zero if a Drag model is specified, so pitch needs to follow the flght path angle
-    
     if options.vehicle:# and options.vehicle.Cd:
         assembly.roll_vel  = 0
         assembly.pitch_vel = (gamma-assembly.pitch)/dt
