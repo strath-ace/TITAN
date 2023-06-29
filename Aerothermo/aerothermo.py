@@ -603,6 +603,8 @@ def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_t
     StConst = free.density*free.velocity**3 / 2.0
     if StConst<0.05: StConst = 0.05 # Neglect Cooling effect (as in Fostrad)
 
+    if free.mach < 1: hf_model = 'vd'
+
     if hf_model == 'sc': #Scarab formulation and Lees distribution
         # (OLD Fostrad equation)
         Re0norm = free.density * free.velocity / (free.mu *(T0s/free.temperature)**free.omega)
