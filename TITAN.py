@@ -63,7 +63,8 @@ def loop(options = [], titan = []):
         titan.assembly[0].mass = options.vehicle.mass
 
     while titan.iter < options.iters:
-        
+        options.high_fidelity_flag = False
+
         fragmentation.fragmentation(titan = titan, options = options)
         if not titan.assembly: return
 
@@ -88,8 +89,8 @@ def loop(options = [], titan = []):
 
         titan.iter += 1
         options.current_iter = titan.iter
-        if options.current_iter%options.save_freq == 0:
-            options.save_state(titan)
+        if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
+            options.save_state(titan, options.current_iter)
 
     options.save_state(titan)
 

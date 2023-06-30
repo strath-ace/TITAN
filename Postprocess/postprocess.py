@@ -136,7 +136,6 @@ def generate_visualization(options, data, iter_value, postprocess = "wind"):
 		facet_dev = len(points)
 
 	cells = {"triangle": facets}
-   	
 
 	cell_data = {"Pressure": pressure,
                   "Heatflux": heatflux,

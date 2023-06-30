@@ -527,6 +527,7 @@ def run_SU2(n, options):
         Object of class Options
     """
 
+    options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run([path+'/Executables/mpirun_SU2','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
 
