@@ -306,7 +306,7 @@ def compute_aerothermo(titan, options):
     for assembly in titan.assembly:
         #Compute the freestream properties and stagnation quantities
         mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
-        if assembly.freestream.mach >= 1: mix_properties.compute_stagnation(assembly.freestream, options.freestream)
+        mix_properties.compute_stagnation(assembly.freestream, options.freestream)
 
     if options.fidelity.lower() == 'low':
         compute_low_fidelity_aerothermo(titan.assembly, options)
