@@ -456,7 +456,8 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
 
     #sorts the solution by the correspondent coordinates of the nodes
     coords_sorted , idx_sim= np.unique(coords, axis = 0, return_index = True)
-    
+
+    """
     #Missing the different densities from NEMO
     #Retrieves the solution fields and stores them in the aerothermo object.
     if ('Density' in index.dtype.names): aerothermo.density = vtk_to_numpy(data.GetPointData().GetArray(index['Density'][0]))[idx_sim][idx_inv]
@@ -467,6 +468,16 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
         aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray(index['Skin_Friction_Coefficient'][0]))[idx_sim][idx_inv]
         aerothermo.shear *= 0.5*freestream.density*freestream.velocity**2
     if ('Heat_Flux' in index.dtype.names): aerothermo.heatflux = vtk_to_numpy(data.GetPointData().GetArray(index['Heat_Flux'][0]))[idx_sim][idx_inv]
+    """
+
+    aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
+
+    try:
+        aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray('Skin_Friction_Coefficient'))[idx_sim][idx_inv]
+        aerothermo.shear *= 0.5*freestream.density*freestream.velocity**2
+        aerothermo.heatflux = vtk_to_numpy(data.GetPointData().GetArray("Heat_Flux"))[idx_sim][idx_inv]
+    except:
+        pass
 
     return aerothermo
 
