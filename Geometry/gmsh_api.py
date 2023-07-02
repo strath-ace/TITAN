@@ -173,7 +173,7 @@ def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1
 
     return node_ref, edge_ref, surf_ref
 
-def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, output_folder = '', output_grid = 'Grid.su2'):
+def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, output_folder = '', output_grid = 'Grid.su2', options = None):
 
     print("Generating CFD Mesh")
 
@@ -209,7 +209,7 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
         node_ref, edge_ref, surf_ref = object_grid(gmsh,assembly[it].cfd_mesh.nodes,assembly[it].cfd_mesh.edges,assembly[it].cfd_mesh.facet_edges,np.ones((len(assembly[it].cfd_mesh.nodes)))*ref, node_ref, edge_ref, surf_ref)
         init_ref_surf, ref_phys_surface = object_physical(gmsh, init_ref_surf, surf_ref, ref_phys_surface)
     
-    outer_surface(gmsh,ref2, surf_ref-1, xmin, xmax, ref_phys_surface)
+    outer_surface(gmsh,ref2, surf_ref-1, xmin, xmax, ref_phys_surface, options = None)
     
     gmsh.model.geo.synchronize()
 
@@ -234,7 +234,7 @@ def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface):
 
     return end_ref_surf, ref_phys_surface
 
-def outer_surface(gmsh,ref,surf_ref, xmin,xmax, ref_phys_surface):
+def outer_surface(gmsh,ref,surf_ref, xmin,xmax, ref_phys_surface, options = None):
     
     front = 1.5
     back = -1

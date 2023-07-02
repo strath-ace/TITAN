@@ -76,6 +76,13 @@ class Trajectory():
         #: [radians] Longitude value.
         self.longitude = longitude
 
+class Meshing():
+
+    def __init__(self):
+        self.far_size = 0.5
+        self.surf_size = 0.5
+
+
 #FENICS class
 class Fenics():
     """ FEniCS class
@@ -293,6 +300,8 @@ class Options():
         self.cfd = CFD()
         self.bloom = Bloom()
         self.amg = Amg()
+
+        self.meshing = Meshing()
 
         self.collision = Collision_options()
 
@@ -712,6 +721,10 @@ def read_config_file(configParser, postprocess = ""):
     options.aerothermo.standoff   = get_config_value(configParser, 'freeman', 'Aerothermo', 'Standoff', 'str')
     options.aerothermo.cat_method = get_config_value(configParser, 'constant', 'Aerothermo', 'Catalicity_method', 'str')
     options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
+
+    #Read meshing options
+    options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
+    options.meshing.surf_size = get_config_value(configParser, 0.5, 'Mesh', 'Surf_size', 'float')
 
     #Read Freestream options
     options.freestream.model =  get_config_value(configParser, options.freestream.model, 'Freestream', 'Model', 'str')
