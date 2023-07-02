@@ -63,13 +63,15 @@ class Solver():
             #: [str] Gas Model (Gas to be used in the simulation)
             self.gas_model = 'GAS_MODEL= air_5'
 
-            #Hardcoded for the NRLMSISE00 database
-            N = str(abs(np.around(freestream.percent_gas[0],5)))
-            O = str(abs(np.around(freestream.percent_gas[1],5)))
-            NO = '0'
-            N2= str(abs(np.around(freestream.percent_gas[2]+freestream.percent_gas[4]+freestream.percent_gas[5]+freestream.percent_gas[6],5)))
-            O2= str(abs(np.around(freestream.percent_gas[3],5)))
-            
+            print(freestream.percent_mass, freestream.species_index)
+
+            N  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N']])),5))
+            O  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O']])),5))
+            NO = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['NO']])),5))
+
+            N2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N2','He','Ar','H']])),5))
+            O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O2']])),5))
+
             #: [str] Gas Composition
             self.gas_composition = 'GAS_COMPOSITION= (' + N + ','  + O + ',' + NO + ',' + N2 + ',' + O2 + ')'
 
@@ -724,7 +726,7 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
         assembly.cfd_mesh.xmax = np.max(assembly.cfd_mesh.nodes , axis = 0)
 
     #Automatically generates the CFD domain
-    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = 0.5, ref_size_far = 0.5 , output_folder = options.output_folder, output_grid = 'Domain_'+str(0)+'_cluster_'+str(cluster_tag)+'.su2')
+    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = 'Domain_'+str(0)+'_cluster_'+str(cluster_tag)+'.su2', options = options)
 
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)
