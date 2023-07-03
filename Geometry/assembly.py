@@ -516,6 +516,9 @@ class Assembly():
         list_of_ids = [obj.id for obj in self.objects]
         new_ids = np.arange(1, len(list_of_ids)+1)
         
+        #copy_connectivity = np.copy(self.connectivity)
+        copy_vol_tag = np.copy(self.mesh.vol_tag)
+
         #print(self.objects, self.mesh.vol_tag, self.connectivity, list_of_ids, new_ids)
         #Organize into dictionary to easy access:
         d = {}
@@ -529,6 +532,7 @@ class Assembly():
         #Change the values in the connectivity matrix
         #Change the values in vol_tag
         for id in list_of_ids:
-            if len(self.connectivity):
-                self.connectivity[self.connectivity == id] = d[id]
-            self.mesh.vol_tag[self.mesh.vol_tag == id] = d[id]
+            #if len(self.connectivity):
+            #    self.connectivity[copy_connectivity == id] = d[id]
+            self.mesh.vol_tag[copy_vol_tag == id] = d[id]
+

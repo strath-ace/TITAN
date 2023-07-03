@@ -509,8 +509,16 @@ def fragmentation(titan, options):
             
     titan.assembly = np.delete(titan.assembly,assembly_id).tolist()
 
-    for assembly in titan.assembly:
-        assembly.rearrange_ids()
-        
     if fragmentation_flag:
+        for assembly in titan.assembly:
+            assembly.rearrange_ids()
+
+        if options.collision.flag and len(assembly_id) != 0:
+            for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
+            collision.generate_collision_handler(titan, options)
+        
+            if lenght_assembly < len(titan.assembly): 
+                options.time_counter = options.collision.post_fragmentation_iters
+
         output.generate_volume(titan = titan, options = options)
+
