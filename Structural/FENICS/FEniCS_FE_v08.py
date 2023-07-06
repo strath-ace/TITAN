@@ -124,7 +124,7 @@ def run_fenics(forces, num_surf_points, vol_bc_dict, vol_mesh_filename = 'Benchm
                save_vonMises = False, assembly = [], options = [], inertial_forces = []):
 
     #Map surface vertex and volume vertex
-    index, __ = mesh_TITAN.create_index(assembly.mesh.vol_coords, assembly.mesh.nodes)
+    index, __ = mesh_TITAN.create_index(assembly.mesh.vol_coords, assembly.mesh.nodes, round_value = 4)
 
     # Load mesh
     mesh_fenics = Mesh()

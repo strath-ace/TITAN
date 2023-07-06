@@ -21,6 +21,7 @@ from Geometry import mesh as Mesh
 from Geometry import gmsh_api as GMSH
 from Geometry.tetra import inertia_tetra, vol_tetra
 import numpy as np
+from copy import deepcopy
 
 def create_assembly_flag(list_bodies, Flags):
     """
@@ -453,6 +454,7 @@ class Assembly():
 
         #Saves the 3D volumetric information
         self.mesh.vol_coords, self.mesh.vol_elements, self.mesh.vol_density, self.mesh.vol_tag = GMSH.generate_inner_domain(self.mesh, self, write = write, output_folder = output_folder, output_filename = output_filename, bc_ids = bc_ids)
+
         self.mesh.volume_displacement = np.zeros((len(self.mesh.vol_coords),3))
         #self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)
         self.mesh.vol_T = np.ones(len(self.mesh.vol_elements))
@@ -464,6 +466,9 @@ class Assembly():
         #Computes the volume of every single tetrahedral
         vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
         self.mesh.vol_volume = vol
+
+        #Copy original coords to use when fragmenting an object
+        self.mesh.original_vol_coords = deepcopy(self.mesh.vol_coords)
 
         print("Volume Grid Completed")
 

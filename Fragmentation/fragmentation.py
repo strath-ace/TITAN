@@ -19,7 +19,7 @@
 #
 import numpy as np
 from Geometry.assembly import create_assembly_flag, Assembly
-from Geometry.mesh import compute_new_volume_v2, map_surf_to_tetra, check_tetra_in_surface, compute_surface_from_tetra
+from Geometry.mesh import compute_new_volume_v2, map_surf_to_tetra, check_tetra_in_surface, compute_surface_from_tetra, update_volume_displacement
 from copy import deepcopy
 from scipy.spatial.transform import Rotation as Rot
 from Output import output
@@ -88,7 +88,9 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[i].temp_ids = np.delete(titan.assembly[i].temp_ids,mask_delete)
 
     assembly_flag = create_assembly_flag(titan.assembly[i].objects, Flags)
-
+    
+    update_volume_displacement(titan.assembly[i].mesh, - titan.assembly[i].mesh.volume_displacement)
+    
     for j in range(len(assembly_flag)):
        
         titan.assembly.append(Assembly(titan.assembly[i].objects[assembly_flag[j]], titan.id))

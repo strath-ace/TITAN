@@ -438,7 +438,7 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
     """
 
     #Initializes the Aerothermo Object
-    aerothermo = assembly.Aerothermo(len(assembly_coords))
+    aerothermo = Assembly.Aerothermo(len(assembly_coords))
     
     #Retrieve the index to read the correct solution fields
     index = retrieve_index(options.cfd.solver)
@@ -504,7 +504,7 @@ def split_aerothermo(total_aerothermo, assembly_list):
         last_node += len(node_index)
 
         #Create aerothermo object to store surface information on the assembly nodes
-        aerothermo = assembly.Aerothermo(len(assembly_list[it].mesh.nodes))
+        aerothermo = Assembly.Aerothermo(len(assembly_list[it].mesh.nodes))
         
         #Store surface info in the aerothermo object
         for field in [field for field in dir(assembly_list[it].aerothermo) if not field.startswith('__')]:
