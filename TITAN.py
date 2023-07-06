@@ -57,7 +57,8 @@ def loop(options = [], titan = []):
     #    exit("Structural dynamics is currently under development")
 
     options.current_iter = titan.iter
-    
+    options.user_time    = options.dynamics.time_step
+
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
         titan.assembly[0].mass = options.vehicle.mass
@@ -67,6 +68,12 @@ def loop(options = [], titan = []):
 
         fragmentation.fragmentation(titan = titan, options = options)
         if not titan.assembly: return
+
+        if options.time_counter>0:
+            options.dynamics.time_step = options.collision.post_fragmentation_timestep
+            options.time_counter-=1
+        else:
+            options.dynamics.time_step = options.user_time
 
         dynamics.integrate(titan = titan, options = options)
         

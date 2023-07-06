@@ -430,6 +430,8 @@ class Assembly():
         for obj in self.objects:
             self.aerothermo.temperature[obj.facet_index] = obj.temperature
 
+        self.collision = None
+
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
         """
         Generates the 3D structural mesh
@@ -536,3 +538,14 @@ class Assembly():
             #    self.connectivity[copy_connectivity == id] = d[id]
             self.mesh.vol_tag[copy_vol_tag == id] = d[id]
 
+
+def copy_assembly(list_assemblies, options):
+    from copy import deepcopy
+
+    if options.collision.flag:
+        for assembly in list_assemblies:
+            assembly.collision = None
+
+    copy_list_assemblies = deepcopy(list_assemblies)
+
+    return copy_list_assemblies

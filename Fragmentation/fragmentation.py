@@ -28,6 +28,7 @@ import open3d as o3d
 import trimesh
 from Geometry.component import Component
 from collections import defaultdict
+from Dynamics import collision
 
 def demise_components(titan, i, joints_id, options): 
     """

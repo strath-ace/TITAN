@@ -47,6 +47,12 @@ def compute_Euler(titan, options):
 
     aerothermo.compute_aerothermo(titan, options)
 
+    # If we go to switch.py or su2.py, Because we call deepcopy() function, we need to rebuild
+    #the collision mesh
+    if options.collision.flag and options.fidelity.lower() in ['multi','high']:
+        for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
+        collision.generate_collision_handler(titan, options)
+
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
 

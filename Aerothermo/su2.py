@@ -18,7 +18,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 from Geometry import gmsh_api as GMSH
-from Geometry import assembly
+from Geometry import assembly as Assembly
 from Geometry import mesh as Mesh
 from Dynamics import frames
 from Aerothermo import bloom, amg
@@ -713,7 +713,8 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
     
     #Convert from Body->ECEF and ECEF-> Wind
     #Translate the mesh to match the Center of Mass of the lowest assembly
-    assembly_windframe = deepcopy(assembly_list)
+    assembly_windframe = Assembly.copy_assembly(assembly_list, options)
+   # assembly_windframe = deepcopy(assembly_list)
 
     pos = assembly_list[it].position
     

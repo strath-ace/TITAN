@@ -26,7 +26,7 @@ from Dynamics import frames
 from sympy import sqrt,tan
 import sympy
 from pathlib import Path
-
+from Geometry import assembly as Assembly
 
 def sphere_surface(radius, center, num_assembly, num_object, i, assembly, options):
     """    
@@ -109,7 +109,10 @@ def compute_aerothermo(titan, options):
 
     #Convert from Body->ECEF and ECEF-> Wind
     #Translate the mesh to match the Center of Mass of the lowest assembly
-    assembly_windframe = deepcopy(titan.assembly)
+
+    assembly_windframe = Assembly.copy_assembly(titan.assembly, options)
+    #assembly_windframe = deepcopy(titan.assembly)
+    
     pos = titan.assembly[it].position
     
     for i, assembly in enumerate(assembly_windframe):

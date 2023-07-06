@@ -699,6 +699,7 @@ def read_config_file(configParser, postprocess = ""):
     options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
     options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
+    options.time_counter   = 0
 
     #Read FENICS options
     if options.structural_dynamics:
