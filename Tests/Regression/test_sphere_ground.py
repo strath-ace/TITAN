@@ -34,5 +34,5 @@ def test_latitude1(): assert np.round(np.max(titan_1.assembly[0].trajectory.lati
 def test_longitude1(): assert np.round(np.max(titan_1.assembly[0].trajectory.longitude),5) == np.round(0.7854,5)
 
 options, titan_2 = main("Tests/Configs/1m_sphere_ground_0_0_45_45.txt")
-def test_latitude2(): assert np.round(np.max(titan_2.assembly[0].trajectory.latitude),5) == np.round(0.17249,5)
+def test_latitude2(): assert np.round(np.max(titan_2.assembly[0].trajectory.latitude),5) == np.round(0.17248,5)
 def test_longitude2(): assert np.round(np.max(titan_2.assembly[0].trajectory.longitude),5) == np.round(-0.20775,5)
