@@ -378,7 +378,7 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     # Heatflux calculation for Earth
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options, assembly)*StConst
         
         elif (assembly.freestream.knudsen >= Kn_free): 
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction, assembly.aerothermo.temperature)*StConst
@@ -521,7 +521,7 @@ def aerothermodynamics_module_ice_giants(assembly, index, flow_direction, option
 
     return Q
 
-def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_temperature, flow_direction, options):
+def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_temperature, flow_direction, options, assembly):
     """
     Heatflux computation for continuum regime
 
@@ -583,7 +583,19 @@ def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_t
         return q
 
     hf_model = options.aerothermo.heat_model
-    cat_rate = options.aerothermo.cat_rate
+
+    if options.aerothermo.cat_method.lower() == 'constant':
+        cat_rate = options.aerothermo.cat_rate
+    elif options.aerothermo.cat_method.lower() == 'material':
+        cat_rate = np.ones(len(facet_normal))
+        for obj in assembly.objects:
+            if obj.material.catalycity != None:
+                cat_rate[obj.facet_index] = obj.material.catalycity
+
+        cat_rate = cat_rate[p]
+    else:
+        raise ValueError("Error in catalicity method (constant or material)")
+
 
     length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
     p = p*(length_normal[p] != 0)
@@ -973,7 +985,7 @@ def aerothermodynamics_module_bridging(facet_normal, facet_radius,free,p, wall_t
     mix_properties.compute_stagnation(free_free, options.freestream)
 
     #Compute the Stanton number for both regimes, in the transition altitudes
-    Stc = aerothermodynamics_module_continuum(facet_normal, facet_radius,free_cont,p, wall_temperature, flow_direction, options)
+    Stc = aerothermodynamics_module_continuum(facet_normal, facet_radius,free_cont,p, wall_temperature, flow_direction, options, assembly)
     Stfm = aerothermodynamics_module_freemolecular(facet_normal,free_free,p, flow_direction, wall_temperature)
 
     St = Stc + (Stfm - Stc) * BridgeReq[p]

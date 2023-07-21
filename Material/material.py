@@ -121,6 +121,9 @@ class Material():
 			self.youngModulus = None
 			self.yieldStress = None
 
+		#: [float] Catalycity rate
+		self.catalycity = self.material_catalycity(index)
+
 
 	def material_name(self,index):
 		"""
@@ -145,6 +148,21 @@ class Material():
 		"""
 
 		return float(self.metalMaterial.find('density').get_text())
+
+	def material_catalycity(self,index):
+		"""
+		Function to retrieve the material catalycity
+
+		Returns
+		-------
+		density: float
+			Return material catalycity
+		"""
+		try:
+			return float(self.metalMaterial.find('catalycity').get_text())
+
+		except:
+			return None
 
 	def material_specificHeatCapacity(self,index):
 		"""
