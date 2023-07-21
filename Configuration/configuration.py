@@ -730,6 +730,7 @@ def read_config_file(configParser, postprocess = ""):
     options.aerothermo.standoff   = get_config_value(configParser, 'freeman', 'Aerothermo', 'Standoff', 'str')
     options.aerothermo.cat_method = get_config_value(configParser, 'constant', 'Aerothermo', 'Catalicity_method', 'str')
     options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
+    options.aerothermo.subdivision_triangle = get_config_value(configParser, 0, 'Aerothermo', 'Level_division', 'int')
 
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
