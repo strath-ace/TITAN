@@ -49,8 +49,10 @@ class Material():
 	A class to store the material properties for each user-defined component
 	"""
 	
-	def __init__ (self, name):
-		with open(os.path.dirname(os.path.abspath(__file__))+'/database_material.xml', 'r') as f:
+	def __init__ (self, name, options):
+		#database_material.xml
+
+		with open(os.path.dirname(os.path.abspath(__file__))+'/'+options.material_file, 'r') as f:
 			data = f.read()
 		 
 		# Passing the stored data inside
@@ -119,6 +121,9 @@ class Material():
 			self.youngModulus = None
 			self.yieldStress = None
 
+		#: [float] Catalycity rate
+		self.catalycity = self.material_catalycity(index)
+
 
 	def material_name(self,index):
 		"""
@@ -143,6 +148,21 @@ class Material():
 		"""
 
 		return float(self.metalMaterial.find('density').get_text())
+
+	def material_catalycity(self,index):
+		"""
+		Function to retrieve the material catalycity
+
+		Returns
+		-------
+		density: float
+			Return material catalycity
+		"""
+		try:
+			return float(self.metalMaterial.find('catalycity').get_text())
+
+		except:
+			return None
 
 	def material_specificHeatCapacity(self,index):
 		"""

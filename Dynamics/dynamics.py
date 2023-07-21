@@ -19,6 +19,7 @@
 #
 import numpy as np
 from Dynamics import euler, frames
+from Freestream import gram
 import pymap3d
 from scipy.spatial.transform import Rotation as Rot
 import pyquaternion
@@ -198,6 +199,11 @@ def compute_cartesian_derivatives(assembly, options):
     
     r = np.linalg.norm(assembly.position)
     gr,gt = options.planet.gravitationalAcceleration(r, phi = np.pi/2 - assembly.trajectory.latitude)
+
+    if options.freestream.method.upper() == "GRAM":
+        data = gram.read_gram(assembly, options)
+        gr = float(data['Gravity_ms2'])
+        gt = 0
 
     #Delete
     #gr = -assembly.gravity

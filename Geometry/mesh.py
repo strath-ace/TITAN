@@ -23,6 +23,7 @@ import scipy.special as special
 from trimesh.viewer.windowed import SceneViewer
 import open3d as o3d
 import trimesh
+from copy import deepcopy
 
 
 def read_mesh(filename):
@@ -122,8 +123,8 @@ def update_surface_displacement(mesh, surface_displacement_vector):
     mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
     mesh.facet_COG = compute_facet_COG(mesh.v0, mesh.v1, mesh.v2)
     mesh.COG = compute_geometrical_COG(mesh.facet_COG, mesh.facet_area)
-    mesh.facet_normal = compute_facet_normal(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2)
-    mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2, mesh.facet_area)
+    mesh.facet_normal = compute_facet_normal(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2, mesh.facet_area)
+    mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2)
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
 
 
@@ -739,10 +740,14 @@ def remove_repeated_facets(assembly_mesh):
     return idx
     
 
-def create_index(body_atr, obj_atr):
+def create_index(body_atr, obj_atr, round_value = None):
 
-    cond_obj = np.char.add(np.char.add(obj_atr[:,0].astype(str),obj_atr[:,1].astype(str)),obj_atr[:,2].astype(str) )
-    cond_body = np.char.add(np.char.add(body_atr[:,0].astype(str),body_atr[:,1].astype(str)), body_atr[:,2].astype(str))
+    if round_value == None:
+        cond_obj = np.char.add(np.char.add(obj_atr[:,0].astype(str),obj_atr[:,1].astype(str)),obj_atr[:,2].astype(str) )
+        cond_body = np.char.add(np.char.add(body_atr[:,0].astype(str),body_atr[:,1].astype(str)), body_atr[:,2].astype(str))
+    else:
+        cond_obj = np.char.add(np.char.add(np.round(obj_atr[:,0],round_value).astype(str),np.round(obj_atr[:,1],round_value).astype(str)),np.round(obj_atr[:,2],round_value).astype(str))
+        cond_body = np.char.add(np.char.add(np.round(body_atr[:,0],round_value).astype(str),np.round(body_atr[:,1],round_value).astype(str)), np.round(body_atr[:,2],round_value).astype(str))
 
     mask = np.in1d(cond_body,cond_obj)
     index = np.where(mask)[0]
@@ -772,7 +777,9 @@ def compute_new_volume_v2(original_mesh, new_mesh, new_objects):
     new_mesh.vol_T = original_mesh.vol_T[index]
     new_mesh.vol_tag = original_mesh.vol_tag[index]
     new_mesh.vol_volume = original_mesh.vol_volume[index]
-    new_mesh.vol_coords = original_mesh.vol_coords
+    new_mesh.volume_displacement = original_mesh.volume_displacement
+    new_mesh.vol_coords = original_mesh.original_vol_coords
+    new_mesh.original_vol_coords = deepcopy(original_mesh.original_vol_coords)
 
 def compute_new_volume(assembly, old_nodes):
 

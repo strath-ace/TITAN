@@ -25,6 +25,7 @@ def compute_thermal_tetra(titan, options):
     dt = options.dynamics.time_step
 
     for assembly in titan.assembly:
+        if assembly.ablation_mode != 'tetra': continue
         Tref = assembly.freestream.temperature
 
         #array that will contain facets and keys to delete tetras
@@ -108,6 +109,17 @@ def compute_thermal_tetra(titan, options):
 
         assembly.compute_mass_properties()
 
+
+    #Removing assembly with no more tetra elements to prevent problems
+
+    index = []
+
+    for i,assembly in enumerate(titan.assembly):
+        if len(assembly.mesh.nodes) == 0:
+            index.append(i)
+
+    titan.assembly = list(np.delete(titan.assembly,index))
+
     return 
 
 def compute_thermal_0D(titan, options):
@@ -116,6 +128,8 @@ def compute_thermal_0D(titan, options):
     Tref = 273
 
     for assembly in titan.assembly:
+        if assembly.ablation_mode != '0d': continue
+
         for obj in assembly.objects:
 
             facet_area = np.linalg.norm(obj.mesh.facet_normal, ord = 2, axis = 1)

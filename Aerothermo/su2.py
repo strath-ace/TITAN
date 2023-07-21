@@ -18,7 +18,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 from Geometry import gmsh_api as GMSH
-from Geometry import assembly
+from Geometry import assembly as Assembly
 from Geometry import mesh as Mesh
 from Dynamics import frames
 from Aerothermo import bloom, amg
@@ -63,13 +63,15 @@ class Solver():
             #: [str] Gas Model (Gas to be used in the simulation)
             self.gas_model = 'GAS_MODEL= air_5'
 
-            #Hardcoded for the NRLMSISE00 database
-            N = str(abs(np.around(freestream.percent_gas[0],5)))
-            O = str(abs(np.around(freestream.percent_gas[1],5)))
-            NO = '0'
-            N2= str(abs(np.around(freestream.percent_gas[2]+freestream.percent_gas[4]+freestream.percent_gas[5]+freestream.percent_gas[6],5)))
-            O2= str(abs(np.around(freestream.percent_gas[3],5)))
-            
+            print(freestream.percent_mass, freestream.species_index)
+
+            N  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N']])),5))
+            O  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O']])),5))
+            NO = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['NO']])),5))
+
+            N2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N2','He','Ar','H']])),5))
+            O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O2']])),5))
+
             #: [str] Gas Composition
             self.gas_composition = 'GAS_COMPOSITION= (' + N + ','  + O + ',' + NO + ',' + N2 + ',' + O2 + ')'
 
@@ -436,7 +438,7 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
     """
 
     #Initializes the Aerothermo Object
-    aerothermo = assembly.Aerothermo(len(assembly_coords))
+    aerothermo = Assembly.Aerothermo(len(assembly_coords))
     
     #Retrieve the index to read the correct solution fields
     index = retrieve_index(options.cfd.solver)
@@ -454,7 +456,8 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
 
     #sorts the solution by the correspondent coordinates of the nodes
     coords_sorted , idx_sim= np.unique(coords, axis = 0, return_index = True)
-    
+
+    """
     #Missing the different densities from NEMO
     #Retrieves the solution fields and stores them in the aerothermo object.
     if ('Density' in index.dtype.names): aerothermo.density = vtk_to_numpy(data.GetPointData().GetArray(index['Density'][0]))[idx_sim][idx_inv]
@@ -465,6 +468,16 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
         aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray(index['Skin_Friction_Coefficient'][0]))[idx_sim][idx_inv]
         aerothermo.shear *= 0.5*freestream.density*freestream.velocity**2
     if ('Heat_Flux' in index.dtype.names): aerothermo.heatflux = vtk_to_numpy(data.GetPointData().GetArray(index['Heat_Flux'][0]))[idx_sim][idx_inv]
+    """
+
+    aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
+
+    try:
+        aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray('Skin_Friction_Coefficient'))[idx_sim][idx_inv]
+        aerothermo.shear *= 0.5*freestream.density*freestream.velocity**2
+        aerothermo.heatflux = vtk_to_numpy(data.GetPointData().GetArray("Heat_Flux"))[idx_sim][idx_inv]
+    except:
+        pass
 
     return aerothermo
 
@@ -491,7 +504,7 @@ def split_aerothermo(total_aerothermo, assembly_list):
         last_node += len(node_index)
 
         #Create aerothermo object to store surface information on the assembly nodes
-        aerothermo = assembly.Aerothermo(len(assembly_list[it].mesh.nodes))
+        aerothermo = Assembly.Aerothermo(len(assembly_list[it].mesh.nodes))
         
         #Store surface info in the aerothermo object
         for field in [field for field in dir(assembly_list[it].aerothermo) if not field.startswith('__')]:
@@ -527,8 +540,9 @@ def run_SU2(n, options):
         Object of class Options
     """
 
+    options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([path+'/Executables/mpirun_SU2','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    subprocess.run([path+'/Executables/mpirun_SU2','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
 
 def generate_BL(assembly, options, it, cluster_tag):
     """
@@ -697,11 +711,10 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
         assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
         #print(assembly.cfd_mesh.facets.shape)
     
-
-    #exit()
     #Convert from Body->ECEF and ECEF-> Wind
     #Translate the mesh to match the Center of Mass of the lowest assembly
-    assembly_windframe = deepcopy(assembly_list)
+    assembly_windframe = Assembly.copy_assembly(assembly_list, options)
+   # assembly_windframe = deepcopy(assembly_list)
 
     pos = assembly_list[it].position
     
@@ -725,7 +738,7 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
         assembly.cfd_mesh.xmax = np.max(assembly.cfd_mesh.nodes , axis = 0)
 
     #Automatically generates the CFD domain
-    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = 0.5, ref_size_far = 0.5 , output_folder = options.output_folder, output_grid = 'Domain_'+str(0)+'_cluster_'+str(cluster_tag)+'.su2')
+    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = 'Domain_'+str(0)+'_cluster_'+str(cluster_tag)+'.su2', options = options)
 
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)

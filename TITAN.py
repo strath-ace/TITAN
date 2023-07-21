@@ -46,22 +46,38 @@ def loop(options = [], titan = []):
         object of class Assembly_list
     """
 
+    #For collision testing purposes
+    if "sphere-sphere.txt" in options.filepath:
+        titan.assembly[0].mass = 1
+        titan.assembly[1].mass = 2
+        titan.assembly[0].velocity[2] = 5
+
     if options.structural_dynamics:
-        exit("Structural dynamics is currently under development")
+        print("Structural dynamics selected: still requiring further validation")
+    #    exit("Structural dynamics is currently under development")
 
     options.current_iter = titan.iter
-    
+    options.user_time    = options.dynamics.time_step
+
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
         titan.assembly[0].mass = options.vehicle.mass
 
     while titan.iter < options.iters:
-        
+        options.high_fidelity_flag = False
+
         fragmentation.fragmentation(titan = titan, options = options)
         if not titan.assembly: return
 
+        if options.time_counter>0:
+            options.dynamics.time_step = options.collision.post_fragmentation_timestep
+            options.time_counter-=1
+        else:
+            options.dynamics.time_step = options.user_time
+
         dynamics.integrate(titan = titan, options = options)
-        
+        output.generate_surface_solution(titan = titan, options = options)
+
         if options.ablation:
             if options.ablation_mode == "tetra":
                 thermal.compute_thermal_tetra(titan = titan, options = options)
@@ -70,7 +86,7 @@ def loop(options = [], titan = []):
             else:
                 raise ValueError("Ablation Mode can only be 0D or Tetra")
 
-        if options.structural_dynamics:
+        if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)
@@ -81,13 +97,12 @@ def loop(options = [], titan = []):
 
         titan.iter += 1
         options.current_iter = titan.iter
-        titan.time += options.dynamics.time_step
-        if options.current_iter%options.save_freq == 0:
-            options.save_state(titan)
+        if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
+            options.save_state(titan, options.current_iter)
 
     options.save_state(titan)
 
-def main(filename = "", postprocess = ""):
+def main(filename = "", postprocess = "", filter_name = None):
     """TITAN main function
 
     Parameters
@@ -105,6 +120,7 @@ def main(filename = "", postprocess = ""):
 
     #Pre-processing phase: Creates the options and titan class
     options, titan = configuration.read_config_file(configParser, postprocess)
+    options.filepath = filename
 
     #Initialization of the simulation
     if not postprocess:
@@ -116,7 +132,7 @@ def main(filename = "", postprocess = ""):
     #to ECEF-Frame or Wind-Frame
     if postprocess:
         Path(options.output_folder+'/Postprocess/').mkdir(parents=True, exist_ok=True)
-        pp.postprocess(options, postprocess)
+        pp.postprocess(options, postprocess, filter_name)
     
 if __name__ == "__main__":
 
@@ -135,6 +151,11 @@ if __name__ == "__main__":
                         type=str,
                         help="simulation postprocess (ECEF, WIND)",
                         metavar="postprocess")
+    parser.add_argument("-flt", "--filter",
+                        dest="filtername",
+                        type=str,
+                        help="filter postprocess (name of the ovject)",
+                        metavar="filtername")
     
     args=parser.parse_args()
 
@@ -143,7 +164,8 @@ if __name__ == "__main__":
 
     filename = args.configfilename
     postprocess = args.postprocess
+    filter_name = args.filtername
     if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef"):
         raise Exception("Postprocess can only be WIND or ECEF")
 
-    main(filename = filename, postprocess = postprocess)
+    main(filename = filename, postprocess = postprocess, filter_name = filter_name)

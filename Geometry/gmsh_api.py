@@ -30,7 +30,7 @@ def mesh_Settings(gmsh):
     #self.gmsh.option.setNumber("Mesh.Optimize",1)
     #self.gmsh.option.setNumber("Mesh.QualityType",2);
 
-def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '',bc_ids = []):
+def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '', bc_ids = []):
     gmsh.initialize()
     mesh_Settings(gmsh)
 
@@ -55,7 +55,18 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
         for i in range(len(assembly.objects)):
             out = gmsh.model.geo.addSurfaceLoop(np.array(assembly.objects[i].facet_index)+1)
 
-            vol_tag = gmsh.model.geo.addVolume([out])
+            if assembly.objects[i].inner_mesh:
+                node_ref_end , edge_ref_end, surf_ref_end = object_grid(gmsh,assembly.objects[i].inner_mesh.nodes, assembly.objects[i].inner_mesh.edges, assembly.objects[i].inner_mesh.facet_edges, ref,node_ref_init, edge_ref_init, surf_ref_init)
+                #assembly.objects[i].inner_node_index = np.array(range(node_ref_init-1, node_ref_end-1))
+                hole = gmsh.model.geo.addSurfaceLoop(range(surf_ref_init, surf_ref_end))
+                vol_tag = gmsh.model.geo.addVolume([out,hole])
+                
+                node_ref_init = node_ref_end
+                edge_ref_init = edge_ref_end
+                surf_ref_init = surf_ref_end
+
+            else:
+                vol_tag = gmsh.model.geo.addVolume([out])
             
             assembly.objects[i].vol_tag = vol_tag 
             ref_phys_volume = gmsh.model.geo.addPhysicalGroup(3, [vol_tag])
@@ -162,7 +173,7 @@ def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1
 
     return node_ref, edge_ref, surf_ref
 
-def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, output_folder = '', output_grid = 'Grid.su2'):
+def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, output_folder = '', output_grid = 'Grid.su2', options = None):
 
     print("Generating CFD Mesh")
 
@@ -175,8 +186,8 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
     ref_phys_surface = 1
     node_ref = 1; edge_ref = 1; surf_ref = 1
     
-    xmin = np.copy(assembly[0].COG)
-    xmax = np.copy(assembly[0].COG)
+    xmin = assembly[0].cfd_mesh.xmin
+    xmax = assembly[0].cfd_mesh.xmax
 
     init_ref_surf = 1
     ref_phys_surface = 1
@@ -198,7 +209,7 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
         node_ref, edge_ref, surf_ref = object_grid(gmsh,assembly[it].cfd_mesh.nodes,assembly[it].cfd_mesh.edges,assembly[it].cfd_mesh.facet_edges,np.ones((len(assembly[it].cfd_mesh.nodes)))*ref, node_ref, edge_ref, surf_ref)
         init_ref_surf, ref_phys_surface = object_physical(gmsh, init_ref_surf, surf_ref, ref_phys_surface)
     
-    outer_surface(gmsh,ref2, surf_ref-1, xmin, xmax, ref_phys_surface)
+    outer_surface(gmsh,ref2, surf_ref-1, xmin, xmax, ref_phys_surface, options = None)
     
     gmsh.model.geo.synchronize()
 
@@ -223,14 +234,18 @@ def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface):
 
     return end_ref_surf, ref_phys_surface
 
-def outer_surface(gmsh,ref,surf_ref, xmin,xmax, ref_phys_surface):
+def outer_surface(gmsh,ref,surf_ref, xmin,xmax, ref_phys_surface, options = None):
     
-    gmsh.model.geo.addPoint(0.8*abs((xmax[0]-xmin[0]))+xmax[0], 0.5*(xmax[1]+xmin[1]), 0.5*(xmax[2]+xmin[2]), ref)
-    gmsh.model.geo.addPoint(- 0.5*abs((xmax[0]-xmin[0]))+xmin[0], 0.5*(xmax[1]+xmin[1]), 0.5*(xmax[2]+xmin[2]), ref)
+    front = 1.5
+    back = -1
+    side = 1.5
+
+    gmsh.model.geo.addPoint(front*abs((xmax[0]-xmin[0]))+xmax[0], 0.5*(xmax[1]+xmin[1]), 0.5*(xmax[2]+xmin[2]), ref)
+    gmsh.model.geo.addPoint(back*abs((xmax[0]-xmin[0]))+xmin[0], 0.5*(xmax[1]+xmin[1]), 0.5*(xmax[2]+xmin[2]), ref)
     if(xmax[2]-xmin[2] > xmax[1]-xmin[1]):
-        iNode = gmsh.model.geo.addPoint(- 0.5*abs((xmax[0]-xmin[0]))+xmin[0], 0.5*(xmax[1]+xmin[1]), 1.0*abs(xmax[2]-xmin[2])+xmax[2], ref)
+        iNode = gmsh.model.geo.addPoint(back*abs((xmax[0]-xmin[0]))+xmin[0], 0.5*(xmax[1]+xmin[1]), side*abs(xmax[2]-xmin[2])+xmax[2], ref)
     else: 
-        iNode = gmsh.model.geo.addPoint( -0.5 *abs((xmax[0]-xmin[0]))+xmin[0], 1.0*abs(xmax[1]-xmin[1])+xmax[1], 0.5*(xmax[2]+xmin[2]),  ref)
+        iNode = gmsh.model.geo.addPoint(back*abs((xmax[0]-xmin[0]))+xmin[0], side*abs(xmax[1]-xmin[1])+xmax[1], 0.5*(xmax[2]+xmin[2]),  ref)
 
     ellipse = gmsh.model.geo.addEllipseArc(iNode-2 ,iNode-1, iNode-2 ,iNode)
 
