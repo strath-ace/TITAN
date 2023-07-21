@@ -21,6 +21,7 @@ from Geometry import mesh as Mesh
 from Geometry import gmsh_api as GMSH
 from Geometry.tetra import inertia_tetra, vol_tetra
 import numpy as np
+from copy import deepcopy
 
 def create_assembly_flag(list_bodies, Flags):
     """
@@ -99,7 +100,7 @@ class Assembly_list():
         #: [array] List of the linkage information between the different components
         self.connectivity = np.array([], dtype = int)
 
-    def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0):            
+    def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):            
         """
         Creates the assembly list
 
@@ -137,7 +138,7 @@ class Assembly_list():
         #loops the Assembly connectivity matrix in order to generate the different assemblies and append
         #them into a list.
         for i in range(len(assembly_flag)):
-            self.assembly.append(Assembly(self.objects[assembly_flag[i]], self.id, aoa = aoa, slip = slip, roll = roll))
+            self.assembly.append(Assembly(self.objects[assembly_flag[i]], self.id, aoa = aoa, slip = slip, roll = roll, options = options))
             self.id += 1
             connectivity_assembly = np.zeros(connectivity.shape, dtype = bool)
             id_objs = np.array(range(1,len(assembly_flag[i])+1))[assembly_flag[i]]
@@ -328,7 +329,7 @@ class Assembly():
         A class to store the information respective to each assemly at every time iteration
     """
 
-    def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0):
+    def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):
 
         #: [int] ID of the assembly
         self.id = id
@@ -430,6 +431,23 @@ class Assembly():
         for obj in self.objects:
             self.aerothermo.temperature[obj.facet_index] = obj.temperature
 
+        self.collision = None
+
+        if options.ablation_mode.lower() == '0d':
+            if options.post_fragment_tetra_ablation:
+                if len(self.objects) > 1:
+                    self.ablation_mode = '0d'
+                else:
+                    self.ablation_mode = 'tetra'
+            else:
+                self.ablation_mode = '0d'
+
+        elif options.ablation_mode.lower() == 'tetra':
+            self.ablation_mode = 'tetra'
+
+        else: raise ValueError("ablation mode has to be Tetra or 0D")
+
+
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
         """
         Generates the 3D structural mesh
@@ -451,6 +469,7 @@ class Assembly():
 
         #Saves the 3D volumetric information
         self.mesh.vol_coords, self.mesh.vol_elements, self.mesh.vol_density, self.mesh.vol_tag = GMSH.generate_inner_domain(self.mesh, self, write = write, output_folder = output_folder, output_filename = output_filename, bc_ids = bc_ids)
+
         self.mesh.volume_displacement = np.zeros((len(self.mesh.vol_coords),3))
         #self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)
         self.mesh.vol_T = np.ones(len(self.mesh.vol_elements))
@@ -462,6 +481,9 @@ class Assembly():
         #Computes the volume of every single tetrahedral
         vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
         self.mesh.vol_volume = vol
+
+        #Copy original coords to use when fragmenting an object
+        self.mesh.original_vol_coords = deepcopy(self.mesh.vol_coords)
 
         print("Volume Grid Completed")
 
@@ -516,6 +538,9 @@ class Assembly():
         list_of_ids = [obj.id for obj in self.objects]
         new_ids = np.arange(1, len(list_of_ids)+1)
         
+        #copy_connectivity = np.copy(self.connectivity)
+        copy_vol_tag = np.copy(self.mesh.vol_tag)
+
         #print(self.objects, self.mesh.vol_tag, self.connectivity, list_of_ids, new_ids)
         #Organize into dictionary to easy access:
         d = {}
@@ -529,6 +554,18 @@ class Assembly():
         #Change the values in the connectivity matrix
         #Change the values in vol_tag
         for id in list_of_ids:
-            if len(self.connectivity):
-                self.connectivity[self.connectivity == id] = d[id]
-            self.mesh.vol_tag[self.mesh.vol_tag == id] = d[id]
+            #if len(self.connectivity):
+            #    self.connectivity[copy_connectivity == id] = d[id]
+            self.mesh.vol_tag[copy_vol_tag == id] = d[id]
+
+
+def copy_assembly(list_assemblies, options):
+    from copy import deepcopy
+
+    if options.collision.flag:
+        for assembly in list_assemblies:
+            assembly.collision = None
+
+    copy_list_assemblies = deepcopy(list_assemblies)
+
+    return copy_list_assemblies

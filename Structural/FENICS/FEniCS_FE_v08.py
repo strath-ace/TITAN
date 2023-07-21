@@ -28,6 +28,7 @@ Created on Fri Feb  4 14:38:06 2022
 
 import numpy as np
 import meshio
+from Geometry import mesh as mesh_TITAN
 from Structural.FENICS.fe_functions_v1 import run_FE, vonMises, maxvonMises, run_FE_MPI
 import pickle
 # from fe_functions import run_FE, run_FE_MPI, vonMises, maxvonMises
@@ -122,6 +123,9 @@ def run_fenics(forces, num_surf_points, vol_bc_dict, vol_mesh_filename = 'Benchm
                output_folder = 'TITAN_sol', regen_subdomains = False, save_displacement = False,
                save_vonMises = False, assembly = [], options = [], inertial_forces = []):
 
+    #Map surface vertex and volume vertex
+    index, __ = mesh_TITAN.create_index(assembly.mesh.vol_coords, assembly.mesh.nodes, round_value = 4)
+
     # Load mesh
     mesh_fenics = Mesh()
     vol_mesh_filename = options.output_folder+"/Surface_solution/ID_"+str(assembly.id)+"/volume.xdmf"
@@ -163,9 +167,9 @@ def run_fenics(forces, num_surf_points, vol_bc_dict, vol_mesh_filename = 'Benchm
     force_y_func_arr = force_x_func_arr.copy()
     force_z_func_arr = force_x_func_arr.copy()
     
-    force_x_func_arr[0:num_surf_points] = forces[0]
-    force_y_func_arr[0:num_surf_points] = forces[1]
-    force_z_func_arr[0:num_surf_points] = forces[2]
+    force_x_func_arr[index] = forces[0]
+    force_y_func_arr[index] = forces[1]
+    force_z_func_arr[index] = forces[2]
     
     force_x_func_arr += inertial_forces[:,0]
     force_y_func_arr += inertial_forces[:,1]
@@ -227,8 +231,8 @@ def run_fenics(forces, num_surf_points, vol_bc_dict, vol_mesh_filename = 'Benchm
     max_vm_dict = maxvonMises(von_Mises, subdomains_3d.array(), volume_ids, yield_stress)    
     disp_arr = u_tot.vector()[v2d_CG_VFS].reshape(-1,3)
     
-    surf_displacement = disp_arr[0:num_surf_points]
-    surf_vM = vM_arr[0:num_surf_points]
+    surf_displacement = disp_arr[index]
+    surf_vM = vM_arr[index]
 
     force_arr = force_func.vector()[v2d_CG_VFS].reshape(-1,3)
     surf_force = force_arr[0:num_surf_points]

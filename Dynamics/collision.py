@@ -252,7 +252,7 @@ def check_collision(titan, options, time_step):
 	titan.collision_data = collision_data
 
 	if len(titan.collision_data["assembly"]) != 0: 
-		return True, np.max([5.0E-5, dt])
+		return True, np.max([5.0E-3, dt])
 	else: 
 		#print("Here")
 		return False, options.dynamics.time_step

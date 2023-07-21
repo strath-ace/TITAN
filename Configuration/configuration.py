@@ -76,6 +76,13 @@ class Trajectory():
         #: [radians] Longitude value.
         self.longitude = longitude
 
+class Meshing():
+
+    def __init__(self):
+        self.far_size = 0.5
+        self.surf_size = 0.5
+
+
 #FENICS class
 class Fenics():
     """ FEniCS class
@@ -96,6 +103,8 @@ class Fenics():
 
         #: [bool] Flag value indicating the verbosity of FEniCS solver
         self.FE_verbose = FE_verbose # printing FE progress (for debugging)
+
+        self.FE_freq = 1
 
 class Dynamics():
     """ Dynamics class
@@ -292,6 +301,8 @@ class Options():
         self.bloom = Bloom()
         self.amg = Amg()
 
+        self.meshing = Meshing()
+
         self.collision = Collision_options()
 
         #: [:class:`.Aerothermo`] Object of class Aerothermo
@@ -336,6 +347,7 @@ class Options():
         #: [str] Ablation Model (0D, tetra)
         self.ablation_mode = "0D"
 
+        self.post_fragment_tetra_ablation = False
         
     def clean_up_folders(self):
         """
@@ -534,7 +546,7 @@ def read_trajectory(configParser):
     
     return trajectory
 
-def read_geometry(configParser):
+def read_geometry(configParser, options):
     """
     Geometry pre-processing
 
@@ -569,6 +581,24 @@ def read_geometry(configParser):
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
                     material= [s for s in value if "material=" in s.lower()][0].split("=")[1]
                     
+
+                    try:
+                        inner_stl_file = [s for s in value if "inner_stl=" in s.lower()][0].split("=")[1]
+                    except:
+                        inner_stl_file = 'none'
+
+                    if inner_stl_file != 'None' and inner_stl_file != 'none':
+                        inner_path = path+inner_stl_file
+                    else:
+                        inner_path = ''
+
+                    try:
+                        trigger_type = [s for s in value if "trigger_type=" in s.lower()][0].split("=")[1]
+                        trigger_value = [s for s in value if "trigger_value=" in s.lower()][0].split("=")[1]
+                    except:
+                        trigger_type = ""
+                        trigger_value = 0
+
                     try:
                         fenics_bc_id = [s for s in value if "fenics_id=" in s.lower()][0].split("=")[1]
                     except:
@@ -579,7 +609,8 @@ def read_geometry(configParser):
                     except:
                         temperature = 300
                     
-                    objects.insert_component(filename = object_path, file_type = object_type, fenics_bc_id = fenics_bc_id, material = material, temperature = temperature )
+                    objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
+                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -612,7 +643,7 @@ def read_geometry(configParser):
                         temperature = 300
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
-                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature) 
+                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 
 
 
     # Creates a list of the different assemblies, where each assembly is a object with several linked components
@@ -624,7 +655,7 @@ def read_geometry(configParser):
     slip = get_config_value(configParser, 0.0, 'Assembly', 'Sideslip', 'custom','angle')
     roll = get_config_value(configParser, 0.0, 'Assembly', 'Roll', 'custom','angle')
 
-    titan.create_assembly(connectivity = connectivity, aoa = aoa, slip = slip, roll = roll)
+    titan.create_assembly(connectivity = connectivity, aoa = aoa, slip = slip, roll = roll, options = options)
 
     return titan
 
@@ -673,8 +704,10 @@ def read_config_file(configParser, postprocess = ""):
     #options.SPARTA =       get_config_value(configParser, options.SPARTA, 'Options', 'SPARTA', 'boolean')
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
     options.ablation       = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
-    options.ablation_mode  = get_config_value(configParser, "0D", 'Options', 'Ablation_mode', 'str').lower()
+    options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
+    options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
+    options.time_counter   = 0
 
     #Read FENICS options
     if options.structural_dynamics:
@@ -682,13 +715,14 @@ def read_config_file(configParser, postprocess = ""):
         options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'bool')
         options.fenics.FE_MPI_cores = get_config_value(configParser, options.fenics.FE_MPI_cores, 'FENICS', 'FENICS_cores', 'int')
         options.fenics.FE_verbose   = get_config_value(configParser, options.fenics.FE_verbose, 'FENICS', 'FENICS_verbose', 'boolean')
+        options.fenics.FE_freq      = get_config_value(configParser, options.fenics.FE_freq, 'FENICS', 'FENICS_freq', 'int')
 
     #Read Dynamics options
     options.dynamics.time = 0
     options.dynamics.time_step           = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
-    options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
-    options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
-    options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
+    #options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
+    #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
+    #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
@@ -696,6 +730,11 @@ def read_config_file(configParser, postprocess = ""):
     options.aerothermo.standoff   = get_config_value(configParser, 'freeman', 'Aerothermo', 'Standoff', 'str')
     options.aerothermo.cat_method = get_config_value(configParser, 'constant', 'Aerothermo', 'Catalicity_method', 'str')
     options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
+    options.aerothermo.subdivision_triangle = get_config_value(configParser, 0, 'Aerothermo', 'Level_division', 'int')
+
+    #Read meshing options
+    options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
+    options.meshing.surf_size = get_config_value(configParser, 0.5, 'Mesh', 'Surf_size', 'float')
 
     #Read Freestream options
     options.freestream.model =  get_config_value(configParser, options.freestream.model, 'Freestream', 'Model', 'str')
@@ -792,7 +831,7 @@ def read_config_file(configParser, postprocess = ""):
         else:
             #Reads the user-defined geometries, properties and connectivity
             #to generate an assembly. The information is stored in the titan object
-            titan = read_geometry(configParser)
+            titan = read_geometry(configParser, options)
             
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:

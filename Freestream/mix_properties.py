@@ -332,9 +332,14 @@ def compute_stagnation(free, options):
     options: Options
         Object of class Options
     """
-    
-    free.P1_s = free.pressure *(0.5*(free.gamma+1.0)*free.mach**2.0)**(free.gamma/(free.gamma-1.0)) * ((free.gamma+1.0)/(2.0*free.gamma*free.mach**2.0 - (free.gamma-1.0)))**(1.0/(free.gamma-1.0))
-    free.T1_s  = free.temperature * (1 + 0.5 * (free.gamma-1) * free.mach**2)
+
+    if free.mach >= 1.0:
+        free.P1_s = free.pressure *(0.5*(free.gamma+1.0)*free.mach**2.0)**(free.gamma/(free.gamma-1.0)) * ((free.gamma+1.0)/(2.0*free.gamma*free.mach**2.0 - (free.gamma-1.0)))**(1.0/(free.gamma-1.0))
+    else:
+        free.P1_s = 0.5*free.density*free.velocity**2 + free.pressure #free.pressure *(0.5*(free.gamma+1.0)*free.mach**2.0)**(free.gamma/(free.gamma-1.0))
+
+    free.T1_s  = free.temperature * (1 + 0.5 * (free.gamma-1) * free.mach**2)    
+
     free.h1_s  = free.cp * free.T1_s
     free.rho_s = free.P1_s/free.R/free.T1_s
 

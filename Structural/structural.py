@@ -55,32 +55,36 @@ def run_FENICS(titan, options):
 
     for assembly in titan.assembly:
         if len(assembly.objects) <= 1: continue
+        if '1' not in [obj.fenics_bc_id for obj in assembly.objects] or '2' not in [obj.fenics_bc_id for obj in assembly.objects] : continue
 
-        inertial_forces = compute_inertial_forces(assembly,options)
+        # Step 1 - Convert from facet force to node force
+        force_facets = assembly.body_force.force_facets
 
-        force_x = assembly.body_force.force_nodes[:,0].copy()
-        force_y = assembly.body_force.force_nodes[:,1].copy()
-        force_z = assembly.body_force.force_nodes[:,2].copy()
-
-        force_x[assembly.objects[0].node_index] = 0
-        force_y[assembly.objects[0].node_index] = 0
-        force_z[assembly.objects[0].node_index] = 0
+        force_x = mesh.facet_to_vertex_linear(assembly.mesh, force_facets[:,0])
+        force_y = mesh.facet_to_vertex_linear(assembly.mesh, force_facets[:,1])
+        force_z = mesh.facet_to_vertex_linear(assembly.mesh, force_facets[:,2])
 
         forces = [force_x, force_y, force_z]
+
+        # Step 2 - Compute inertial forces
+        inertial_forces = compute_inertial_forces(assembly,options)
 
         num_surf_points = len(assembly.mesh.nodes)
 
         map_physical_volume = []
 
         E = 1E20
+        yield_stress = 1E20
         for obj in assembly.objects:
-            print(vars(obj.material))
             E = np.min([E,obj.material.youngModulus(obj.temperature)])
+            yield_stress = np.min([yield_stress, obj.material.yieldStress(obj.temperature)])
 
         #Young Modulus
         surf_displacement, surf_vM, stress_ratio_dict, surf_force, disp_arr, max_displacements, vM_arr = fenics.run_fenics(forces, num_surf_points,
                                                                map_physical_volume, assembly = assembly, options = options,
-                                                               regen_subdomains = regen_subdomains, inertial_forces = inertial_forces, E = E)
+                                                               regen_subdomains = regen_subdomains, yield_stress = yield_stress, inertial_forces = inertial_forces, E = E,
+                                                               output_folder = options.output_folder)
+
         max_stress_ratio = -1e6 
         max_vm = -1e6
         for vol_id, vals in stress_ratio_dict.items():
@@ -100,6 +104,15 @@ def run_FENICS(titan, options):
 
         #Update the inertia matrix due to displacement
         assembly.compute_mass_properties()
+
+        
+        for obj in assembly.objects:
+            obj.yield_stress = obj.material.yieldStress(obj.temperature)
+            obj.max_stress = np.max(assembly.mesh.volume_vonMises[assembly.mesh.vol_tag == obj.id])
+
+            if obj.max_stress > obj.yield_stress and obj.fenics_bc_id == '-1':
+                obj.mass = 0
+                assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = 0
 
         #disp_change_arr = disp_arr - fenics.disp_arr_prev
         #fenics.disp_arr_prev = disp_arr.copy()

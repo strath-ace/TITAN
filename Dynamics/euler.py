@@ -47,6 +47,12 @@ def compute_Euler(titan, options):
 
     aerothermo.compute_aerothermo(titan, options)
 
+    # If we go to switch.py or su2.py, Because we call deepcopy() function, we need to rebuild
+    #the collision mesh
+    if options.collision.flag and options.fidelity.lower() in ['multi','high']:
+        for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
+        collision.generate_collision_handler(titan, options)
+
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
 
@@ -135,8 +141,18 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.pitch_vel += dt*angularDerivatives.ddpitch
     assembly.yaw_vel   += dt*angularDerivatives.ddyaw
 
+    #Limiting the angular velocity to 100 rad/s.
+
+    if assembly.roll_vel > 100:  assembly.roll_vel = 100
+    if assembly.roll_vel < -100: assembly.roll_vel = -100
+
+    if assembly.pitch_vel > 100:  assembly.pitch_vel = 100
+    if assembly.pitch_vel < -100: assembly.pitch_vel = -100
+
+    if assembly.yaw_vel > 100:  assembly.yaw_vel = 100
+    if assembly.yaw_vel < -100: assembly.yaw_vel = -100
+
     # angle of attack is zero if a Drag model is specified, so pitch needs to follow the flght path angle
-    
     if options.vehicle:# and options.vehicle.Cd:
         assembly.roll_vel  = 0
         assembly.pitch_vel = (gamma-assembly.pitch)/dt

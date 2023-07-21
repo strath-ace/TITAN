@@ -306,7 +306,7 @@ def compute_aerothermo(titan, options):
     for assembly in titan.assembly:
         #Compute the freestream properties and stagnation quantities
         mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
-        if assembly.freestream.mach >= 1: mix_properties.compute_stagnation(assembly.freestream, options.freestream)
+        mix_properties.compute_stagnation(assembly.freestream, options.freestream)
 
     if options.fidelity.lower() == 'low':
         compute_low_fidelity_aerothermo(titan.assembly, options)
@@ -342,13 +342,18 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
     if (not options.vehicle) or (options.vehicle and not options.vehicle.Cd):
         if  (assembly.freestream.knudsen <= Kn_cont_pressure):
             assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction)
-    
+            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
+
         elif (assembly.freestream.knudsen >= Kn_free): 
             assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream , index, flow_direction, assembly.aerothermo.temperature)
-    
+            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
+            assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
+
         else: 
             aerobridge = bridging(assembly.freestream, Kn_cont_pressure, Kn_free )
             assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_bridging(assembly.mesh.facet_normal, assembly.freestream, index, aerobridge, flow_direction, assembly.aerothermo.temperature)
+            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
+            assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
 def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     """
@@ -378,16 +383,20 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     # Heatflux calculation for Earth
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options)*StConst
-        
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options, assembly)*StConst
+            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
+
         elif (assembly.freestream.knudsen >= Kn_free): 
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction, assembly.aerothermo.temperature)*StConst
-        
+            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index]
+
         else: 
             #atmospheric model for the aerothermodynamics bridging needs to be the NRLSMSISE00
             atmo_model = "NRLMSISE00"
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, assembly.Lref, assembly, options)*StConst
+            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
+
 
     elif options.planet.name == "neptune" or options.planet.name == "uranus":
         #https://sci.esa.int/documents/34923/36148/1567260384517-Ice_Giants_CDF_study_report.pdf        
@@ -409,6 +418,44 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         Object of class Options
     """
 
+    def COG_subdivision(v0,v1,v2, COG, start, n, i = 1):
+
+        v0v1 = (v0 + v1) / 2.0
+        v0v2 = (v0 + v2) / 2.0
+        v1v2 = (v1 + v2) / 2.0
+
+        if i == n:
+
+            COG[start+0::4**n,:] = (v0v1 + v0v2 + v0)/3.0
+            COG[start+1::4**n,:] = (v0v1 + v1v2 + v1)/3.0
+            COG[start+2::4**n,:] = (v0v2 + v1v2 + v2)/3.0
+            COG[start+3::4**n,:] = (v0v1 + v0v2 + v1v2)/3.0
+
+            return start + 4
+
+        else:
+            start = COG_subdivision(v0v1,v0v2, v0, COG, start, n, i+1)
+            start = COG_subdivision(v0v1,v1, v1v2, COG, start, n, i+1)
+            start = COG_subdivision(v0v2,v1v2, v2, COG, start, n, i+1)
+            start = COG_subdivision(v0v1,v1v2, v0v2, COG, start, n, i+1)
+
+
+    def edge_subdivision(v0,v1,v2, n):
+    # Each subdivision level divides the triangle into 4 parts with equal areas
+    # Function returns the number of triangles and the geometrical center of each generated triangle
+
+        if n == 0:
+            COG = (v0+v1+v2)/3.0
+
+        else:
+            COG = np.zeros((len(v0)*4**n,3))
+            COG_subdivision(v0,v1,v2,COG, 0, n)
+
+        return COG
+
+    #Number of subdivisions
+    n = options.aerothermo.subdivision_triangle
+
     for it, _assembly in enumerate(assembly):
         _assembly.aerothermo.heatflux *= 0
         _assembly.aerothermo.pressure *= 0
@@ -420,13 +467,20 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
         ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
 
-        ray_list = _assembly.mesh.facet_COG - flow_direction*3*_assembly.Lref
+        COG = edge_subdivision(_assembly.mesh.v0, _assembly.mesh.v1, _assembly.mesh.v2, n)
 
-        ray_directions = np.tile(flow_direction,len(ray_list))
+        ray_list = COG - 1E-4*flow_direction  #flow_direction*3*_assembly.Lref
+
+        ray_directions = np.tile(-flow_direction,len(ray_list))
         ray_directions.shape = (-1,3)
 
-        index = np.unique(ray.intersects_first(ray_origins = ray_list, ray_directions = ray_directions))
-        index = index[index != -1] 
+        index = ~ray.intersects_any(ray_origins = ray_list, ray_directions = ray_directions)
+        index.shape = (-1, 4**n)
+        index = np.sum(index, axis = 1)
+
+        _assembly.aerothermo.partial_factor = np.zeros(len(_assembly.mesh.facets)) + index/(4**n)
+
+        index = np.arange(len(_assembly.mesh.facets))[index != 0]
 
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
@@ -464,7 +518,7 @@ def aerodynamics_module_continuum(facet_normal,free, p, flow_direction):
     Cpmax= (2.0/(free.gamma*free.mach**2.0))*((P0_s/free.pressure-1.0))
 
     #TODO
-    if free.mach <= 1.1: Cpmax = 1
+    if free.mach <= 1.0: Cpmax = 1
 
     Cp = Cpmax*np.sin(Theta)**2
     Cp[Theta < 0] = 0
@@ -521,7 +575,7 @@ def aerothermodynamics_module_ice_giants(assembly, index, flow_direction, option
 
     return Q
 
-def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_temperature, flow_direction, options):
+def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_temperature, flow_direction, options, assembly):
     """
     Heatflux computation for continuum regime
 
@@ -583,7 +637,19 @@ def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_t
         return q
 
     hf_model = options.aerothermo.heat_model
-    cat_rate = options.aerothermo.cat_rate
+
+    if options.aerothermo.cat_method.lower() == 'constant':
+        cat_rate = options.aerothermo.cat_rate
+    elif options.aerothermo.cat_method.lower() == 'material':
+        cat_rate = np.ones(len(facet_normal))
+        for obj in assembly.objects:
+            if obj.material.catalycity != None:
+                cat_rate[obj.facet_index] = obj.material.catalycity
+
+        cat_rate = cat_rate[p]
+    else:
+        raise ValueError("Error in catalicity method (constant or material)")
+
 
     length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
     p = p*(length_normal[p] != 0)
@@ -602,6 +668,8 @@ def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_t
 
     StConst = free.density*free.velocity**3 / 2.0
     if StConst<0.05: StConst = 0.05 # Neglect Cooling effect (as in Fostrad)
+
+    if free.mach < 1: hf_model = 'vd'
 
     if hf_model == 'sc': #Scarab formulation and Lees distribution
         # (OLD Fostrad equation)
@@ -971,7 +1039,7 @@ def aerothermodynamics_module_bridging(facet_normal, facet_radius,free,p, wall_t
     mix_properties.compute_stagnation(free_free, options.freestream)
 
     #Compute the Stanton number for both regimes, in the transition altitudes
-    Stc = aerothermodynamics_module_continuum(facet_normal, facet_radius,free_cont,p, wall_temperature, flow_direction, options)
+    Stc = aerothermodynamics_module_continuum(facet_normal, facet_radius,free_cont,p, wall_temperature, flow_direction, options, assembly)
     Stfm = aerothermodynamics_module_freemolecular(facet_normal,free_free,p, flow_direction, wall_temperature)
 
     St = Stc + (Stfm - Stc) * BridgeReq[p]
