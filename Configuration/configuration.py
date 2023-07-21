@@ -347,6 +347,7 @@ class Options():
         #: [str] Ablation Model (0D, tetra)
         self.ablation_mode = "0D"
 
+        self.post_fragment_tetra_ablation = False
         
     def clean_up_folders(self):
         """
@@ -592,6 +593,13 @@ def read_geometry(configParser, options):
                         inner_path = ''
 
                     try:
+                        trigger_type = [s for s in value if "trigger_type=" in s.lower()][0].split("=")[1]
+                        trigger_value = [s for s in value if "trigger_value=" in s.lower()][0].split("=")[1]
+                    except:
+                        trigger_type = ""
+                        trigger_value = 0
+
+                    try:
                         fenics_bc_id = [s for s in value if "fenics_id=" in s.lower()][0].split("=")[1]
                     except:
                         fenics_bc_id = None
@@ -601,8 +609,8 @@ def read_geometry(configParser, options):
                     except:
                         temperature = 300
                     
-                    objects.insert_component(filename = object_path, file_type = object_type, fenics_bc_id = fenics_bc_id, inner_stl = inner_path, 
-                                            material = material, temperature = temperature, options = options)
+                    objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
+                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -647,7 +655,7 @@ def read_geometry(configParser, options):
     slip = get_config_value(configParser, 0.0, 'Assembly', 'Sideslip', 'custom','angle')
     roll = get_config_value(configParser, 0.0, 'Assembly', 'Roll', 'custom','angle')
 
-    titan.create_assembly(connectivity = connectivity, aoa = aoa, slip = slip, roll = roll)
+    titan.create_assembly(connectivity = connectivity, aoa = aoa, slip = slip, roll = roll, options = options)
 
     return titan
 

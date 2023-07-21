@@ -76,7 +76,8 @@ def loop(options = [], titan = []):
             options.dynamics.time_step = options.user_time
 
         dynamics.integrate(titan = titan, options = options)
-        
+        output.generate_surface_solution(titan = titan, options = options)
+
         if options.ablation:
             if options.ablation_mode == "tetra":
                 thermal.compute_thermal_tetra(titan = titan, options = options)

@@ -42,7 +42,7 @@ class Component():
     """
     
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
-                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest', v0 = [], v1 = [], v2 = [], parent_id = None, options = None):
+                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest', v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None):
 
         print("Generating Body: ", filename)
         
@@ -52,12 +52,13 @@ class Component():
         #: [str] Type of the component (joint, primitive). Several sub-components can be used to form a larger component
         self.type = file_type
     
-        if self.type == "Joint":
-            #: [str] Type of trigger for type joint (Altitude, Temperature, Stress)
-            self.trigger_type = trigger_type
+        #if self.type == "Joint":
+        
+        #: [str] Type of trigger for type joint (Altitude, Temperature, Stress)
+        self.trigger_type = trigger_type
 
-            #: [float] Value of the trigger criteria
-            self.trigger_value = trigger_value
+        #: [float] Value of the trigger criteria
+        self.trigger_value = trigger_value
 
         #: [int] ID of the component
         self.id = id
@@ -65,6 +66,9 @@ class Component():
 
         mesh = Mesh.Mesh(filename)
 
+        if filename == None:
+            self.name = "New_component"
+        
         if len(v0) != 0:# and v1 and v2:
             mesh.v0 = v0
             mesh.v1 = v1
@@ -107,9 +111,12 @@ class Component():
         self.max_stress = 0
         self.yield_stress = 0
 
-        self.parent_id = None
-        if parent_id: self.parent_id = parent_id
+        self.parent_id = 0
+        self.parent_part = self.name #None
         
+        if parent_id: 
+            self.parent_id = parent_id
+            self.parent_part = parent_part
 
     def compute_mass_properties(self, coords, elements, density):
         """

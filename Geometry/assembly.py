@@ -100,7 +100,7 @@ class Assembly_list():
         #: [array] List of the linkage information between the different components
         self.connectivity = np.array([], dtype = int)
 
-    def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0):            
+    def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):            
         """
         Creates the assembly list
 
@@ -138,7 +138,7 @@ class Assembly_list():
         #loops the Assembly connectivity matrix in order to generate the different assemblies and append
         #them into a list.
         for i in range(len(assembly_flag)):
-            self.assembly.append(Assembly(self.objects[assembly_flag[i]], self.id, aoa = aoa, slip = slip, roll = roll))
+            self.assembly.append(Assembly(self.objects[assembly_flag[i]], self.id, aoa = aoa, slip = slip, roll = roll, options = options))
             self.id += 1
             connectivity_assembly = np.zeros(connectivity.shape, dtype = bool)
             id_objs = np.array(range(1,len(assembly_flag[i])+1))[assembly_flag[i]]
@@ -329,7 +329,7 @@ class Assembly():
         A class to store the information respective to each assemly at every time iteration
     """
 
-    def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0):
+    def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):
 
         #: [int] ID of the assembly
         self.id = id
@@ -432,6 +432,21 @@ class Assembly():
             self.aerothermo.temperature[obj.facet_index] = obj.temperature
 
         self.collision = None
+
+        if options.ablation_mode.lower() == '0d':
+            if options.post_fragment_tetra_ablation:
+                if len(self.objects) > 1:
+                    self.ablation_mode = '0d'
+                else:
+                    self.ablation_mode = 'tetra'
+            else:
+                self.ablation_mode = '0d'
+
+        elif options.ablation_mode.lower() == 'tetra':
+            self.ablation_mode = 'tetra'
+
+        else: raise ValueError("ablation mode has to be Tetra or 0D")
+
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
         """

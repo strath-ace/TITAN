@@ -61,7 +61,7 @@ def demise_components(titan, i, joints_id, options):
     for id in joints_id:
         index += (connectivity[:,0] == id) + (connectivity[:,1] == id) + (connectivity[:,2] == id)
 
-    connectivity = connectivity[~index]
+    connectivity = np.copy(connectivity[~index])
 
     #Change conectivity here to match the objects vector in assembly
     Flags = np.array([], dtype = int)
@@ -78,10 +78,13 @@ def demise_components(titan, i, joints_id, options):
     #Remove demised objects
     mask_delete = []
 
+    aux = 0
     for enum_obj, obj in enumerate(titan.assembly[i].objects):
         if obj.mass <= 0 or titan.assembly[i].trajectory.altitude <= 0:
             mask_delete.append(enum_obj)
-            Flags[Flags >= (enum_obj+1)] -= 1
+            Flags[Flags >= (enum_obj+1-aux)] -= 1
+            #connectivity[connectivity >= (enum_obj+1-aux)] -= 1
+            aux += 1
 
     if len(mask_delete) > 0:
         titan.assembly[i].objects = np.delete(titan.assembly[i].objects,mask_delete)
@@ -92,10 +95,13 @@ def demise_components(titan, i, joints_id, options):
     update_volume_displacement(titan.assembly[i].mesh, - titan.assembly[i].mesh.volume_displacement)
     
     for j in range(len(assembly_flag)):
-       
-        titan.assembly.append(Assembly(titan.assembly[i].objects[assembly_flag[j]], titan.id))
+        titan.assembly.append(Assembly(titan.assembly[i].objects[assembly_flag[j]], titan.id, options = options))
+        for obj in titan.assembly[-1].objects:
+            obj.parent_id = titan.assembly[i].id
+
         titan.id += 1
 
+        """
         temp_ids = titan.assembly[i].temp_ids[assembly_flag[j]]
 
         connectivity_assembly = np.zeros(connectivity.shape, dtype = bool)
@@ -112,6 +118,34 @@ def demise_components(titan, i, joints_id, options):
                     titan.assembly[-1].connectivity[k1] = k2+1
 
         titan.assembly[-1].connectivity.shape = (-1,3)
+        """
+
+        #New computation of connectivity
+
+        objs_old_ids = np.array([obj.id for obj in titan.assembly[-1].objects])
+        objs_new_ids = np.arange(1,len(titan.assembly[-1].objects)+1)
+
+        dict_aux = {0:0}
+        for old, new in zip(objs_old_ids, objs_new_ids):
+            dict_aux[old] = new
+
+        new_connectivity = []
+
+        for con in connectivity:
+            if con[0] in objs_old_ids or con[1] in objs_old_ids:
+                new_connectivity.append(con)
+
+        new_connectivity = np.array(new_connectivity)
+
+        new_connectivity.shape = -1
+
+        for index_con in range(len(new_connectivity)):
+            new_connectivity[index_con] = dict_aux[new_connectivity[index_con]]
+
+        new_connectivity.shape = (-1,3)
+
+
+        titan.assembly[-1].connectivity = np.array(new_connectivity)
 
         #Uses GMSH again to compute the inner domain of the new assembly
         #titan.assembly[-1].generate_inner_domain(write = False, output_folder = options.output_folder)
@@ -172,6 +206,7 @@ def check_breakup_v2(titan, options):
 
     #Loop all the assemblies
     for assembly in titan.assembly:
+        if assembly.ablation_mode != 'tetra': continue
 
         tri_mesh = o3d.geometry.TriangleMesh()
         tri_mesh.vertices = o3d.utility.Vector3dVector(assembly.mesh.nodes)
@@ -280,11 +315,16 @@ def check_breakup_v2(titan, options):
                     obj_id = objs_ids[0]
                     v0,v1,v2 = compute_surface_from_tetra(assembly.mesh.vol_coords, vol_elements[index])
 
-                    new_component = Component(filename = None, file_type = "Primitive", id = last_id + 1, material = 'Unittest_demise',
+                    if len(v0) < 4: 
+                        continue
+
+                    new_component = Component(filename = None, file_type = "Primitive", id = last_id + 1, material = assembly.objects[obj_id-1].material.name,
                         v0 = v0,
                         v1 = v1,
-                        v2 = v2, 
-                        parent_id = objs_ids[0])
+                        v2 = v2,
+                        trigger_type = assembly.objects[obj_id-1].trigger_type,
+                        trigger_value = assembly.objects[obj_id-1].trigger_value,
+                        parent_id = assembly.id, parent_part = assembly.objects[obj_id-1].parent_part ,options = options)
 
                     last_id += 1
 
@@ -311,11 +351,16 @@ def check_breakup_v2(titan, options):
                         #Generate the new components
                         v0,v1,v2 = compute_surface_from_tetra(assembly.mesh.vol_coords, vol_elements[index][vol_tag[index] == obj_id])
 
-                        new_component = Component(filename = None, file_type = assembly.objects[obj_id-1].type, id = last_id + 1, material = 'Unittest_demise',
+                        if len(v0) < 4: 
+                            continue
+
+                        new_component = Component(filename = None, file_type = "Primitive", id = last_id + 1, material = assembly.objects[obj_id-1].material.name,
                                 v0 = v0,
                                 v1 = v1,
-                                v2 = v2, 
-                                parent_id = obj_id)
+                                v2 = v2,
+                                trigger_type = assembly.objects[obj_id-1].trigger_type,
+                                trigger_value = assembly.objects[obj_id-1].trigger_value,
+                                parent_id = assembly.id, parent_part = assembly.objects[obj_id-1].parent_part, options = options)
 
                         last_id += 1
 
@@ -334,17 +379,26 @@ def check_breakup_v2(titan, options):
                         if row[0] in d.keys() and row[1] in d.keys():
                             new_connect[0] = d[row[0]][0]
                             new_connect[1] = d[row[1]][0]
-                            new_connect[2] = d[row[2]][0]
+                            try:
+                                new_connect[2] = d[row[2]][0]
+                            except:
+                                new_connect[2] = 0
 
                         elif row[0] in d.keys() and row[2] in d.keys():
-                                new_connect[0] = d[row[0]][0]
-                                new_connect[1] = d[row[2]][0]
+                            new_connect[0] = d[row[0]][0]
+                            new_connect[1] = d[row[2]][0]
+                            try:
                                 new_connect[2] = d[row[2]][0]
+                            except:
+                                new_connect[2] = 0
 
                         elif row[1] in d.keys() and row[2] in d.keys():
-                                new_connect[0] = d[row[1]][0]
-                                new_connect[1] = d[row[2]][0]
+                            new_connect[0] = d[row[1]][0]
+                            new_connect[1] = d[row[2]][0]
+                            try:
                                 new_connect[2] = d[row[2]][0]
+                            except:
+                                new_connect[2] = 0
 
                         if (new_connect != np.array([0,0,0])).all():
                             assembly.connectivity = np.append(assembly.connectivity, new_connect).reshape((-1,3))
@@ -353,7 +407,7 @@ def check_breakup_v2(titan, options):
             #If the mass of a newly generated object is inferior to the imposed threshold, demise it so we do not
             #generate too many debris
             for obj in assembly.objects:
-                if np.sum(assembly.mesh.vol_mass[assembly.mesh.vol_tag == obj.id]) <= 0.01:
+                if np.sum(assembly.mesh.vol_mass[assembly.mesh.vol_tag == obj.id]) <= 0.05:
                     assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = 0
             
             assembly.compute_mass_properties()
@@ -446,8 +500,10 @@ def fragmentation(titan, options):
         Object of class Options
     """
 
-    if options.ablation_mode.lower() == "tetra":
-        check_breakup_v2(titan, options)
+    #if options.ablation_mode.lower() == "tetra":
+    
+    #Check for tetra ablation
+    check_breakup_v2(titan, options)
 
     assembly_id = np.array([], dtype = int)
     lenght_assembly = len(titan.assembly)
@@ -458,6 +514,7 @@ def fragmentation(titan, options):
 
     for it in range(lenght_assembly):
         objs_id = np.array([], dtype = int)
+        primitive_separation = False
 
         for _id, obj in enumerate(titan.assembly[it].objects):
 
@@ -483,6 +540,29 @@ def fragmentation(titan, options):
                     print ('Time Fragmentation occured ')
                     objs_id = np.append(objs_id, _id)
 
+                elif obj.trigger_type.lower() == 'joint':
+                    if len(titan.assembly[it].objects) <= 2:
+                        objs_id = np.append(objs_id, _id)
+
+            if obj.type == "Primitive":
+
+                if obj.trigger_type.lower() == 'altitude' and titan.assembly[it].trajectory.altitude <= obj.trigger_value:
+
+                    print ('Altitude Fragmentation occured ')
+                    con_delete = []
+
+                    for index, con in enumerate(titan.assembly[it].connectivity):
+                        if con[2] == _id+1:
+                            con_delete.append(index)
+                    
+                    titan.assembly[it].connectivity = np.delete(titan.assembly[it].connectivity, con_delete, axis = 0)
+                    titan.assembly[it].shape = (-1,3)
+
+                    primitive_separation = True
+
+                    #Removing the trigger once activated
+                    obj.trigger_type = ""
+
                 """    
                 elif obj.trigger_type == 'Stress' and assembly.trajectory.stress_ratio >= 0.:
                     if (assembly_id == it).any() == False: assembly_id = np.append(assembly_id, it)
@@ -494,7 +574,7 @@ def fragmentation(titan, options):
                         # trajectory[it].stress_ratio = -1
                 """
 
-            if obj.mass <= 0:
+            if obj.mass <= 0 or len(obj.mesh.nodes) <= 3:
                 print ('Mass demise occured')
                 objs_id = np.append(objs_id, _id)
                 print(objs_id)
@@ -505,7 +585,7 @@ def fragmentation(titan, options):
 
         objs_id = np.unique(objs_id)+1
 
-        if len(objs_id) != 0:
+        if len(objs_id) != 0 or primitive_separation:
             fragmentation_flag = True
             if len(titan.assembly[it].objects) != 1: demise_components(titan, it, objs_id, options)
             assembly_id = np.append(assembly_id, it)
@@ -524,4 +604,3 @@ def fragmentation(titan, options):
                 options.time_counter = options.collision.post_fragmentation_iters
 
         output.generate_volume(titan = titan, options = options)
-

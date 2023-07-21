@@ -140,6 +140,8 @@ def write_output_data(titan, options):
             df["Mass"] = [obj.mass]
             df["Max_stress"] = [obj.max_stress]
             df["Yield_stress"] = [obj.yield_stress]
+            df["Parent_id"] = [obj.parent_id]
+            df["Parent_part"] = [obj.parent_part]
             
             df = df.round(decimals = 6)
             df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
