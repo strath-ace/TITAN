@@ -14,7 +14,6 @@ In order to install the required packages, the Anaconda environment can be creat
 ```console
 $ conda create --name myenv --file requirements.txt
 ```
-
 If the packages are not found, the user can append a conda channel to retrieve the packages, by running
 
 ```console
@@ -33,11 +32,24 @@ the user can use the pip manager to install the packages listed in the pip_requi
 (.venv) $ pip install -r pip_requirements.txt
 ```
 
-To install pymap3D, you can clone the following github page <https://github.com/geospace-code/pymap3d/> into the Executables foldar and install using
+### List of required libraries:
+- numpy
+- pandas
+- mshio
+- scipy
+- pyglet
+- vtk
+- sympy
+- pymap3d
+- lxml
+- fenics=2019.1.0=py310hff52083_34 (conda only)
+- bs4
+- scikit-build
+- pytest (optional)
+- open3d
+- gmsh=4.10.5 (pip only)
+- trimsh[all] (pip only)
 
-```console
-(.venv) $ pip install -e pymap3d
-```
 
 ### Optional
 
@@ -54,7 +66,7 @@ Once the mutation++ has been compiled, you can install by:
 ```
 
 #### AMGio
-AMGio is a library that is required to perform mesh adaptation when running high-fidelity simulations. To install the AMGio library, one must clone the following github page to the TITAN/Executables folder: <https://github.com/bmunguia/amgio>. THe user can the proceed to the installation using
+AMGio is a library that is required to perform mesh adaptation when running high-fidelity simulations. To install the AMGio library, one must clone the following github page to the TITAN/Executables folder: <https://github.com/bmunguia/amgio>. The user can the proceed to the installation using
 
 ```console
 (.venv) $ pip install -e amgio/su2gmf/
