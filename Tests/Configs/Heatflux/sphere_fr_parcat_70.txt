@@ -24,7 +24,7 @@ Angle_of_attack = 0.0
 Heat_model = fr_parcat
 Vel_grad = olivier
 Standoff = freeman
-Catalicity_method = manual
+Catalicity_method = constant
 Catalicity_rate = 0.5
 
 [Objects]
