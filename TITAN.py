@@ -101,7 +101,7 @@ def loop(options = [], titan = []):
 
     options.save_state(titan)
 
-def main(filename = "", postprocess = ""):
+def main(filename = "", postprocess = "", filter_name = None):
     """TITAN main function
 
     Parameters
@@ -131,7 +131,7 @@ def main(filename = "", postprocess = ""):
     #to ECEF-Frame or Wind-Frame
     if postprocess:
         Path(options.output_folder+'/Postprocess/').mkdir(parents=True, exist_ok=True)
-        pp.postprocess(options, postprocess)
+        pp.postprocess(options, postprocess, filter_name)
     
 if __name__ == "__main__":
 
@@ -150,6 +150,11 @@ if __name__ == "__main__":
                         type=str,
                         help="simulation postprocess (ECEF, WIND)",
                         metavar="postprocess")
+    parser.add_argument("-flt", "--filter",
+                        dest="filtername",
+                        type=str,
+                        help="filter postprocess (name of the ovject)",
+                        metavar="filtername")
     
     args=parser.parse_args()
 
@@ -158,7 +163,8 @@ if __name__ == "__main__":
 
     filename = args.configfilename
     postprocess = args.postprocess
+    filter_name = args.filtername
     if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef"):
         raise Exception("Postprocess can only be WIND or ECEF")
 
-    main(filename = filename, postprocess = postprocess)
+    main(filename = filename, postprocess = postprocess, filter_name = filter_name)

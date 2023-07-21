@@ -23,23 +23,30 @@ import meshio
 from Dynamics import frames
 from scipy.spatial.transform import Rotation as Rot
 
-def postprocess(options, postprocess = "wind"):
+def postprocess(options, postprocess = "wind", filter_name = None):
 
 	data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
+	data_obj = pd.read_csv(options.output_folder+'/Data/data_assembly.csv', index_col = False)
+
 	iter_interval = np.unique(data['Iter'].to_numpy())
-
+	
 	for iter_value in iter_interval:
+		generate_visualization(options, data, iter_value, postprocess, filter_name, data_obj)
 
-		generate_visualization(options, data, iter_value, postprocess)
-
-def generate_visualization(options, data, iter_value, postprocess = "wind"):
+def generate_visualization(options, data, iter_value, postprocess = "wind", filter_name = None, data_obj = None):
 
 	index = data['Iter']==iter_value
 
 	assembly_ID = data[index]['Assembly_ID'].to_numpy()
-	latitude    = data[index]['Latitude'].to_numpy()
+
+	if filter_name:
+		assembly_obj = data_obj[(data_obj['Iter'] == iter_value)*(data_obj['Parent_part'].str.contains(filter_name))]['Assembly_ID'].to_numpy()
+		index = (data['Iter']==iter_value)*(data['Assembly_ID']==assembly_obj[0])
+		assembly_ID = data[index]['Assembly_ID'].to_numpy()
+
+	latitude    = data[index]['Latitude'].to_numpy()/180*np.pi
 	altitude    = data[index]['Altitude'].to_numpy()
-	longitude   = data[index]['Longitude'].to_numpy()
+	longitude   = data[index]['Longitude'].to_numpy()/180*np.pi
 	chi         = data[index]['HeadingAngle'].to_numpy()/180*np.pi
 	gamma       = data[index]['FlighPathAngle'].to_numpy()/180*np.pi
 	aoa         = data[index]['AngleAttack'].to_numpy()/180*np.pi
