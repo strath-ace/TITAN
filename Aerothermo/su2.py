@@ -60,11 +60,13 @@ class Solver():
             self.gas_model = 'GAS_MODEL= air_5'
 
             #Hardcoded for the NRLMSISE00 database
-            N = str(abs(np.around(freestream.percent_gas[0],5)))
-            O = str(abs(np.around(freestream.percent_gas[1],5)))
-            NO = '0'
-            N2= str(abs(np.around(freestream.percent_gas[2]+freestream.percent_gas[4]+freestream.percent_gas[5]+freestream.percent_gas[6],5)))
-            O2= str(abs(np.around(freestream.percent_gas[3],5)))
+
+            N  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N']])),5))
+            O  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O']])),5))
+            NO = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['NO']])),5))
+
+            N2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N2','He','Ar','H']])),5))
+            O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O2']])),5))
             
             #: [str] Gas Composition
             self.gas_composition = 'GAS_COMPOSITION= (' + N + ','  + O + ',' + NO + ',' + N2 + ',' + O2 + ')'
@@ -392,18 +394,18 @@ def retrieve_index(SU2_type):
     index: np.array()
         Array of index with the position of solution fields of interest
     """
-
+    #TODO: Instead of hardcoded with SU2 indexes, needs to read name of field and retrieve value
     if SU2_type == 'EULER':
         index = np.array([(0,1,3,4)], dtype = [('Density', 'i4'),('Momentum', 'i4'),('Pressure', 'i4'),('Temperature', 'i4')])
         
     if SU2_type == 'NEMO_EULER':
-        index = np.array([(3)], dtype = [('Pressure', 'i4')])
+        index = np.array([(13)], dtype = [('Pressure', 'i4')])
 
     if SU2_type == 'NAVIER_STOKES':
         index = np.array([(0,1,3,4,8,9)], dtype = [('Density', 'i4'),('Momentum', 'i4'),('Pressure', 'i4'),('Temperature', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
         
     if SU2_type == 'NEMO_NAVIER_STOKES':
-        index = np.array([(3,9,10)], dtype = [('Pressure', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
+        index = np.array([(13,19,20)], dtype = [('Pressure', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
 
     return index
 
@@ -515,7 +517,7 @@ def run_SU2(n, options):
     """
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run(['mpirun','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    subprocess.run([path+'/Executables/mpirun','-np', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
 
 def generate_BL(assembly, options, it, cluster_tag):
     """
