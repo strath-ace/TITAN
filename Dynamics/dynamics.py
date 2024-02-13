@@ -256,6 +256,11 @@ def compute_angular_derivatives(assembly):
     ddroll  = rotational_accel[0]
     ddpitch = rotational_accel[1]
     ddyaw   = rotational_accel[2]
+
+    if (abs(ddroll) > 100) or (abs(ddpitch) > 100) or (abs(ddyaw) > 100):
+        ddroll = np.sign(ddroll)*100
+        ddpitch = np.sign(ddpitch)*100
+        ddyaw = np.sign(ddyaw)*100
     
     return DerivativesAngle(droll = droll, dpitch = dpitch, dyaw = dyaw, ddroll = ddroll, ddpitch = ddpitch, ddyaw = ddyaw)
 
