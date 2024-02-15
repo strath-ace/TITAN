@@ -98,6 +98,8 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.velocity[1] += dt*cartesianDerivatives.dv
     assembly.velocity[2] += dt*cartesianDerivatives.dw
 
+    assembly.distance_travelled += np.sqrt(dt*cartesianDerivatives.dx*dt*cartesianDerivatives.dx+dt*cartesianDerivatives.dy*dt*cartesianDerivatives.dy+dt*cartesianDerivatives.dz*dt*cartesianDerivatives.dz) 
+
     q = assembly.quaternion
 
     # Get the new latitude, longitude and altitude

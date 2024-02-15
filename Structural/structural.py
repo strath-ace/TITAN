@@ -111,6 +111,7 @@ def run_FENICS(titan, options):
             obj.max_stress = np.max(assembly.mesh.volume_vonMises[assembly.mesh.vol_tag == obj.id])
 
             if obj.max_stress > obj.yield_stress and obj.fenics_bc_id == '-1':
+                print('Demise due to structural failure:', obj.name)
                 obj.mass = 0
                 assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = 0
 
