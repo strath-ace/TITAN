@@ -408,9 +408,9 @@ class Options():
         outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
         pickle.dump(titan, outfile)
         outfile.close()
-        outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb')
-        pickle.dump(titan, outfile)
-        outfile.close()
+        #outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb')
+        #pickle.dump(titan, outfile)
+        #outfile.close()
 
         if self.collision.flag:
             for assembly in titan.assembly: collision.generate_collision_mesh(assembly, self)
