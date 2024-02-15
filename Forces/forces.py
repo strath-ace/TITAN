@@ -140,3 +140,23 @@ def compute_inertial_forces(assembly, options):
 
 def compute_coefficients(todo):
     pass
+
+
+def compute_thrust_force(titan, options):
+    """
+    Computes the thrust force in the body frame
+    Parameters
+    ----------
+    titan: Assembly_list
+        Object of class Assembly_list
+    options: Options
+        Object of class Options
+    """
+
+
+    thrust = np.zeros(3)
+
+    thrust = [20000000, 0, 0]
+
+    for assembly in titan.assembly:
+        assembly.body_force.thrust = thrust    

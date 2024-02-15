@@ -180,13 +180,16 @@ class Body_force():
         A class to store the force and moment information that the assembly experiences at each iteration in the body frame
     """
 
-    def __init__(self, force = np.zeros((3,1)), moment = np.zeros((3,1))):
+    def __init__(self, force = np.zeros((3,1)), moment = np.zeros((3,1)), thrust = np.zeros((3,1))):
 
         #: [np.array] Force array (3x1)
         self.force = force
 
         #: [np.array] Moment array (3x1)
         self.moment = moment
+
+        #: [np.array] Force array (3x1)
+        self.thrust = thrust
 
 class Wind_force():
     """ Class Wind_force

@@ -55,6 +55,7 @@ def compute_Euler(titan, options):
 
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
+    forces.compute_thrust_force(titan, options)
 
     # Writes the output data before
     output.write_output_data(titan = titan, options = options)
