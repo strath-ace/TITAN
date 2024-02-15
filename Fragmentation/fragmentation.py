@@ -546,7 +546,7 @@ def fragmentation(titan, options):
 
             if obj.type == "Primitive":
 
-                if obj.trigger_type.lower() == 'altitude' and titan.assembly[it].trajectory.altitude <= obj.trigger_value:
+                if obj.trigger_type.lower() == 'altitude' and titan.assembly[it].trajectory.altitude >= obj.trigger_value:
 
                     print ('Altitude Fragmentation occured ')
                     con_delete = []
