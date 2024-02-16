@@ -1,11 +1,11 @@
 [Options]
-Num_iters = 10000
+Num_iters = 100000
 Load_mesh = False
 Load_state = False
 Fidelity = Low
 #High, Low or Hybrid
 Output_folder = Tests/ariane_test
-#Output_frame = E
+Output_frame = E
 FENICS = False
 Save_freq = 50
 Collision = False
