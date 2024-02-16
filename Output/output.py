@@ -22,6 +22,7 @@ import numpy as np
 import os
 import meshio
 from pathlib import Path
+from Dynamics import frames
 
 def write_output_data(titan, options):
     
@@ -180,6 +181,7 @@ def generate_surface_solution(titan, options):
 
 
     for assembly in titan.assembly:
+        points = assembly.mesh.nodes - assembly.mesh.surface_displacement
         facets = assembly.mesh.facets
         pressure = assembly.aerothermo.pressure
         heatflux = assembly.aerothermo.heatflux
