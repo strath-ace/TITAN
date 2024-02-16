@@ -32,6 +32,7 @@ from Dynamics import dynamics
 from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
+from Dynamics import frames
 
 
 class Collision_options():
@@ -290,7 +291,7 @@ class Options():
                  fenics = False, FE_MPI = False, FE_MPI_cores = 12, FE_verbose = False,
                  case = 'benchmark', E = 68e9, output_folder = 'TITAN_sol', propagator = 'Euler', adapt_propagator=False,
                  assembly_rotation = [], manifold_correction = True, adapt_time_step = False, rerr_tol=1e-3, 
-                 num_joints= 0, frame_for_writing = 'W', max_time_step=0.5, save_displacement = False, save_vonMises = False):
+                 num_joints= 0, frame_for_writing = 'B', max_time_step=0.5, save_displacement = False, save_vonMises = False):
 
         #: [:class:`.Fenics`] Object of class Fenics
         self.fenics = Fenics(fenics)
@@ -348,6 +349,9 @@ class Options():
         self.ablation_mode = "0D"
 
         self.post_fragment_tetra_ablation = False
+
+        #: [str] Frame for 3D output (B, W, E)
+        self.frame_for_writing = frame_for_writing
         
     def clean_up_folders(self):
         """
@@ -698,6 +702,7 @@ def read_config_file(configParser, postprocess = ""):
 
     options.iters         = get_config_value(configParser, options.iters, 'Options', 'Num_iters', 'int')
     options.save_freq     = get_config_value(configParser, options.save_freq, 'Options', 'Save_freq', 'int')
+    options.frame_for_writing = get_config_value(configParser, options.frame_for_writing, 'Options', 'output_frame', 'str')
     options.load_state    = get_config_value(configParser, False, 'Options', 'Load_state', 'boolean')
     options.load_mesh     = get_config_value(configParser, False, 'Options', 'Load_mesh', 'boolean')
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')

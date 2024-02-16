@@ -158,9 +158,28 @@ def generate_surface_solution(titan, options):
     radius = np.array([])
     ellipse = np.array([])
 
+    for assembly in titan.assembly:
+        if options.frame_for_writing == 'B':
+            points = assembly.mesh.nodes - assembly.mesh.surface_displacement
+
+        elif options.frame_for_writing == 'W':
+            R_B_W = frames.R_B_W(aoa = assembly.aoa, slip = assembly.slip)
+            points = R_B_W.apply(assembly.mesh.nodes - assembly.mesh.surface_displacement)
+
+        elif options.frame_for_writing == 'E':
+
+            R_B_W = frames.R_B_W(aoa = assembly.aoa, slip = assembly.slip)
+            points_w = R_B_W.apply(assembly.mesh.nodes - assembly.mesh.surface_displacement)
+
+            R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+            R_W_NED = frames.R_W_NED(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)
+
+            R_W_ECEF = R_NED_ECEF*R_W_NED
+
+            points = R_W_ECEF.apply(points_w)    
+
 
     for assembly in titan.assembly:
-        points = assembly.mesh.nodes - assembly.mesh.surface_displacement
         facets = assembly.mesh.facets
         pressure = assembly.aerothermo.pressure
         heatflux = assembly.aerothermo.heatflux
