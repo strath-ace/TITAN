@@ -156,7 +156,21 @@ def compute_thrust_force(titan, options):
 
     thrust = np.zeros(3)
 
-    thrust = [20000000, 0, 0]
+    Tmax = 20000000
+    Tmin = 10000000
+    t_linear = 10
+
+    if titan.time <= titan.booster_t_trigger:
+        T = Tmax
+    elif titan.time > titan.booster_t_trigger and titan.time <= (titan.booster_t_trigger + t_linear):
+        T = Tmax - ((Tmax-Tmin)/t_linear)*titan.time
+    else:
+        T = Tmin
+
+    thrust = [T, 0, 0]
 
     for assembly in titan.assembly:
-        assembly.body_force.thrust = thrust    
+        if any(obj.name == 'Tests/Mesh/Ariane/UpperSection_M.stl' for obj in assembly.objects):
+            assembly.body_force.thrust = thrust
+        else:
+            assembly.body_force.thrust = np.zeros(3)

@@ -57,6 +57,9 @@ def write_output_data(titan, options):
         df['BODY_COM_Y']  = [assembly.COG[1]]
         df['BODY_COM_Z']  = [assembly.COG[2]]
 
+        #Thrust force in the Body frame
+        df['Thrust'] = [assembly.body_force.thrust[0]]
+
         #Forces and Moments in the Body frame
         df['Aero_Fx_B'] = [assembly.body_force.force[0]]
         df['Aero_Fy_B'] = [assembly.body_force.force[1]]

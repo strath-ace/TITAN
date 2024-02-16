@@ -94,6 +94,9 @@ class Assembly_list():
         #: [float] simulation physical time 
         self.time = 0
 
+        #: [seconds] Physical time of when the booster is separated.
+        self.booster_t_trigger = 0        
+
         #: [int] Iteration
         self.iter = 0
 
