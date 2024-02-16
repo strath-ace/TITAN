@@ -4,10 +4,10 @@ Load_mesh = False
 Load_state = False
 Fidelity = Low
 #High, Low or Hybrid
-Output_folder = Tests/ariane_test
-Output_frame = E
+Output_folder = Tests/ariane
+Output_frame = B
 FENICS = False
-Save_freq = 50
+Save_freq = 5
 Collision = False
 Ablation = False
 ##Ablation mode is set to TETRA
@@ -63,7 +63,7 @@ Roll = 0.0
 #Elastic_factor = 1.0
 
 [Time]
-Time_step = 0.01
+Time_step = 0.025
 
 [Objects]
 #Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
