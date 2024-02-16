@@ -1049,7 +1049,7 @@ def aerothermodynamics_module_bridging(facet_normal, facet_radius,free,p, wall_t
 
 def bridging_altitudes(model, Kn_cont,Kn_free, lref):
 
-    h_interval = np.linspace(1000,300000,25000)
+    h_interval = np.linspace(1000,900000,75000)
     altitude_knudsen = mix_properties.interpolate_atmosphere_knudsen(model, lref, h_interval)
 
     alt_cont = altitude_knudsen(Kn_cont)
