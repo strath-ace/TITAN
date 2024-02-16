@@ -1,0 +1,75 @@
+[Options]
+Num_iters = 10000
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+#High, Low or Hybrid
+Output_folder = Tests/ariane_test
+#Output_frame = E
+FENICS = False
+Save_freq = 50
+Collision = False
+Ablation = False
+##Ablation mode is set to TETRA
+#Ablation_mode = Tetra
+
+[Trajectory]
+Altitude = 6760
+Velocity = 324.7
+Flight_path_angle = 89.9
+Latitude = 0
+Longitude = 0
+Heading_angle = 0
+
+[Model]
+Planet = Earth
+Vehicle = False
+Drag_model = False
+
+#[Vehicle]
+#Mass = 341
+#Drag_file = Galileo_CD.csv
+##For stagnation point
+#Nose_radius = 0.22
+##For Drag model
+#Area_reference = 1.227
+
+[Freestream]
+method = Standard
+model = NRLMSISE00
+
+#[GRAM]
+#MinMaxFactor= 0.5
+#ComputeMinMaxFactor = 0
+#SPICE_Path = Executables/SPICE/
+#GRAM_Path = Executables/
+
+[Assembly]
+# Path for the geometry files
+Path = Tests/Mesh/Ariane/
+Connectivity = [[1,2,0],[1,0,3],[1,0,4]]
+Sideslip = 0.0
+Angle_of_attack = 0.0
+Roll = 0.0
+
+#[Collision]
+## Number of iterations after fragmentation occurs to decrease time-step
+#Post_fragmentation_iters = 0
+## Time-step for post-fragmentation period
+#Post_fragmentation_timestep = 0.01
+##Scalar to build the collision mesh
+#Mesh_factor = 0.001
+#Max_depth = 0.000001
+#Elastic_factor = 1.0
+
+[Time]
+Time_step = 0.01
+
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+main_body  = [NAME = MainBody_M.stl,     TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1]
+upper_body = [NAME = UpperSection_M.stl, TYPE = Primitive, MATERIAL = Unittest_ariane, FENICS_ID = 1]
+RadialA    = [NAME = RadialA_M.stl,      TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1,TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 50000]
+RadialB    = [NAME = RadialB_M.stl,      TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1,TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 50000]

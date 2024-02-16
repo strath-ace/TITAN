@@ -95,7 +95,7 @@ class Assembly_list():
         self.time = 0
 
         #: [seconds] Physical time of when the booster is separated.
-        self.booster_t_trigger = 0        
+        self.booster_t_trigger = 100000000 #large value        
 
         #: [int] Iteration
         self.iter = 0

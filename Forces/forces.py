@@ -160,9 +160,9 @@ def compute_thrust_force(titan, options):
     Tmin = 10000000
     t_linear = 10
 
-    if titan.time <= titan.booster_t_trigger:
+    if titan.time < titan.booster_t_trigger:
         T = Tmax
-    elif titan.time > titan.booster_t_trigger and titan.time <= (titan.booster_t_trigger + t_linear):
+    elif titan.time >= titan.booster_t_trigger and titan.time < (titan.booster_t_trigger + t_linear):
         T = Tmax - ((Tmax-Tmin)/t_linear)*titan.time
     else:
         T = Tmin
