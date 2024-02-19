@@ -53,6 +53,7 @@ def demise_components(titan, i, joints_id, options):
     COG = titan.assembly[i].COG
     angle = np.array([titan.assembly[i].roll, titan.assembly[i].pitch, titan.assembly[i].yaw])
     angle_vel = np.array([titan.assembly[i].roll_vel, titan.assembly[i].pitch_vel, titan.assembly[i].yaw_vel])
+    distance_travelled = titan.assembly[i].distance_travelled
 
     connectivity = titan.assembly[i].connectivity
     index = np.zeros(len(connectivity), dtype = bool)
@@ -186,6 +187,7 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].trajectory.latitude = latitude
         titan.assembly[-1].trajectory.longitude = longitude
         titan.assembly[-1].trajectory.altitude = altitude
+        titan.assembly[-1].distance_travelled = distance_travelled 
 
         [vEast, vNorth, vUp] = pymap3d.uvw2enu(titan.assembly[-1].velocity[0], titan.assembly[-1].velocity[1], titan.assembly[-1].velocity[2], latitude, longitude, deg=False)
 
