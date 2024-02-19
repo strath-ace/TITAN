@@ -66,6 +66,9 @@ def loop(options = [], titan = []):
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
 
+        if options.current_iter%options.output_freq == 0:
+            output.generate_surface_solution(titan = titan, options = options)
+
         fragmentation.fragmentation(titan = titan, options = options)
         if not titan.assembly: return
 
@@ -76,7 +79,7 @@ def loop(options = [], titan = []):
             options.dynamics.time_step = options.user_time
 
         dynamics.integrate(titan = titan, options = options)
-        output.generate_surface_solution(titan = titan, options = options)
+        #output.generate_surface_solution(titan = titan, options = options)
 
         if options.ablation:
             if options.ablation_mode == "tetra":
@@ -91,7 +94,7 @@ def loop(options = [], titan = []):
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)
 
-        output.generate_surface_solution(titan = titan, options = options)
+        #output.generate_surface_solution(titan = titan, options = options)
         
         output.iteration(titan = titan, options = options)
 
