@@ -161,6 +161,7 @@ def write_output_data(titan, options):
         for obj in assembly.objects:
             df["Obj_name"] = [obj.name]
             df["Temperature"] = [obj.temperature]
+            df["Photons_second"] = [obj.photons]
             df["Mass"] = [obj.mass]
             df["Max_stress"] = [obj.max_stress]
             df["Yield_stress"] = [obj.yield_stress]

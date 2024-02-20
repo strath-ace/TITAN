@@ -577,7 +577,7 @@ def fragmentation(titan, options):
                 """
 
             if obj.mass <= 0 or len(obj.mesh.nodes) <= 3:
-                print ('Mass demise occured')
+                print ('Mass demise occured for object:', obj.name)
                 objs_id = np.append(objs_id, _id)
                 print(objs_id)
                         
