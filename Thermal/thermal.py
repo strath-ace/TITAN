@@ -186,9 +186,9 @@ def compute_radiance(temperature, area, emissivity):
 
     integral = integrate.quad(black_body,wavelength_min,wavelength_max,args=(temperature))
 
-    bb = integral*area*emissivity
+    bb = integral*area*emissivity #units: photons*s-1*sr-1
 
-    p = bb*(np.pi*r_aper*r_aper)/(4*np.pi*L*L)
+    p = bb*(np.pi*r_aper*r_aper)/(4*np.pi*L*L) #units: photons*s-1
 
     return p
 
@@ -200,6 +200,6 @@ def black_body(wavelength, T):
 
     exp = np.exp((h*c)/(k*wavelength*T))   
 
-    b = (2*c/pow(wavelength,4)) *(1/(exp-1))
+    b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
 
     return b
