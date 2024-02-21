@@ -20,6 +20,8 @@
 import numpy as np 
 from Geometry import mesh
 from scipy import integrate
+import pandas as pd
+import os
 
 def compute_thermal_tetra(titan, options):
   
@@ -203,3 +205,5 @@ def black_body(wavelength, T):
     b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
 
     return b
+
+
