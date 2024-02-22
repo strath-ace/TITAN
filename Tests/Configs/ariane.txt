@@ -64,7 +64,7 @@ Roll = 0.0
 #Elastic_factor = 1.0
 
 [Time]
-Time_step = 0.01
+Time_step = 0.025
 
 [Objects]
 #Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
