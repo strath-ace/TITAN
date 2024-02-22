@@ -169,8 +169,31 @@ def compute_thrust_force(titan, options):
 
     thrust = [T, 0, 0]
 
+    if titan.time == titan.booster_t_trigger:
+
+        print('Booster separation occurring, applying lateral thrust in boosters')
+
+        lateral_boost  = 5000000
+        rotation_boost = 10000000
+
+        for assembly in titan.assembly:
+            if any(obj.name == 'Tests/Mesh/Ariane/UpperSection_M.stl' for obj in assembly.objects):
+                assembly.body_force.thrust = thrust
+            elif any(obj.name == 'Tests/Mesh/Ariane/RadialA_M.stl' for obj in assembly.objects):
+                assembly.body_force.thrust = [0,lateral_boost,0]
+                assembly.body_force.thrust_moment = [0,0,-rotation_boost]        
+            elif any(obj.name == 'Tests/Mesh/Ariane/RadialB_M.stl' for obj in assembly.objects):
+                assembly.body_force.thrust = [0,-lateral_boost,0]
+                assembly.body_force.thrust_moment = [0,0,rotation_boost+0.75*rotation_boost]
+    else:
+
+        for assembly in titan.assembly:
+            if any(obj.name == 'Tests/Mesh/Ariane/UpperSection_M.stl' for obj in assembly.objects):
+                assembly.body_force.thrust = thrust
+            else:
+                assembly.body_force.thrust        = np.zeros(3)
+                assembly.body_force.thrust_moment = np.zeros(3)
+    i = 0
     for assembly in titan.assembly:
-        if any(obj.name == 'Tests/Mesh/Ariane/UpperSection_M.stl' for obj in assembly.objects):
-            assembly.body_force.thrust = thrust
-        else:
-            assembly.body_force.thrust = np.zeros(3)
+        #print('Assembly ID =', i, ', Thrust=', assembly.body_force.thrust, ', Moment=', assembly.body_force.thrust_moment)
+        i+=1

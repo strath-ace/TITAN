@@ -321,6 +321,9 @@ class Options():
         #:[int] Frequency of generating a restart file [per number of iterations]
         self.save_freq = 500
 
+        #:[int] Frequency of generating output surface solution [per number of iterations]
+        self.output_freq = 500        
+
         #: [int] Current iteration
         self.current_iter = 0
                 
@@ -698,6 +701,7 @@ def read_config_file(configParser, postprocess = ""):
     
     #Read Options Conditions
     options.output_folder = get_config_value(configParser, options.output_folder, 'Options', 'output_folder', 'str')
+    options.output_freq     = get_config_value(configParser, options.output_freq, 'Options', 'Output_freq', 'int')
     if postprocess: return options, None
 
     options.iters         = get_config_value(configParser, options.iters, 'Options', 'Num_iters', 'int')

@@ -251,7 +251,7 @@ def compute_angular_derivatives(assembly):
     angle_vel = np.array([assembly.roll_vel, assembly.pitch_vel, assembly.yaw_vel])
 
     moment_euler = - np.cross(angle_vel, assembly.inertia@angle_vel)
-    moment_body = assembly.body_force.moment
+    moment_body = assembly.body_force.moment + assembly.body_force.thrust_moment
 
     rotational_accel = np.linalg.solve(assembly.inertia, moment_body + moment_euler)
 

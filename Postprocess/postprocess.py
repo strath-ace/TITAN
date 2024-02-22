@@ -30,7 +30,7 @@ def postprocess(options, postprocess = "wind", filter_name = None):
 
 	iter_interval = np.unique(data['Iter'].to_numpy())
 	
-	for iter_value in iter_interval:
+	for iter_value in range(0, max(iter_interval), options.output_freq):
 		generate_visualization(options, data, iter_value, postprocess, filter_name, data_obj)
 
 def generate_visualization(options, data, iter_value, postprocess = "wind", filter_name = None, data_obj = None):
@@ -162,4 +162,4 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
         cells=cells,
         cell_data = cell_data)
 
-	trimesh.write(options.output_folder+'/Postprocess/'+str(iter_value).zfill(3)+'.xdmf')
+	trimesh.write(options.output_folder+'/Postprocess/'+ "solution_" + str(iter_value).zfill(3)+'.xdmf')

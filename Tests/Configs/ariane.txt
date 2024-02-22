@@ -4,10 +4,11 @@ Load_mesh = False
 Load_state = False
 Fidelity = Low
 #High, Low or Hybrid
-Output_folder = Tests/ariane_test
-Output_frame = E
+Output_folder = Tests/ariane
+Output_frame = B
+Output_freq = 2
 FENICS = False
-Save_freq = 50
+Save_freq = 500
 Collision = False
 Ablation = False
 ##Ablation mode is set to TETRA
