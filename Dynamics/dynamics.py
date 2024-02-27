@@ -130,7 +130,7 @@ def compute_quaternion(assembly):
 
     #Fix pitch and yaw values according to flight path angle, heading angle, slip and angle of attack
     assembly.pitch= assembly.trajectory.gamma+assembly.aoa
-    assembly.yaw  = assembly.trajectory.chi - assembly.slip
+    assembly.yaw  = assembly.trajectory.chi - assembly.slip #christie: check sign of slip
 
     R_B_NED =   frames.R_B_NED(roll = assembly.roll, pitch = assembly.pitch, yaw = assembly.yaw) 
     R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
@@ -253,6 +253,7 @@ def compute_angular_derivatives(assembly):
     moment_euler = - np.cross(angle_vel, assembly.inertia@angle_vel)
     moment_body = assembly.body_force.moment
 
+#christie: check d(euler) is correct from dM
     rotational_accel = np.linalg.solve(assembly.inertia, moment_body + moment_euler)
 
     droll  =  assembly.roll_vel

@@ -61,7 +61,7 @@ def compute_aerodynamic_forces(titan, options):
             R_B_W_quat =  (R_NED_ECEF * R_W_NED).inv()*Rot.from_quat(q)
 
             #Applies a rotation matrix to change from Body frame to Wind Frame
-            aerodynamic_forces = R_B_W_quat.apply(force)*[-1,1,-1]
+            aerodynamic_forces = R_B_W_quat.apply(force)*[-1,1,-1]#christie: NED body frame?
 
             assembly.wind_force.drag      = aerodynamic_forces[0]
             assembly.wind_force.crosswind = aerodynamic_forces[1]

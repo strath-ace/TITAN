@@ -94,6 +94,7 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.position[0] += dt*cartesianDerivatives.dx
     assembly.position[1] += dt*cartesianDerivatives.dy
     assembly.position[2] += dt*cartesianDerivatives.dz
+
     assembly.velocity[0] += dt*cartesianDerivatives.du
     assembly.velocity[1] += dt*cartesianDerivatives.dv
     assembly.velocity[2] += dt*cartesianDerivatives.dw
@@ -137,12 +138,13 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     py_quat.integrate([angularDerivatives.droll, angularDerivatives.dpitch,angularDerivatives.dyaw], dt)
     assembly.quaternion = np.append(py_quat.vector, py_quat.real)
 
-    assembly.roll_vel  += dt*angularDerivatives.ddroll
+    assembly.roll_vel  += dt*angularDerivatives.ddroll  #christie: p,q,r or d(euler)??
     assembly.pitch_vel += dt*angularDerivatives.ddpitch
     assembly.yaw_vel   += dt*angularDerivatives.ddyaw
 
     #Limiting the angular velocity to 100 rad/s.
 
+    #christie: not good
     if assembly.roll_vel > 100:  assembly.roll_vel = 100
     if assembly.roll_vel < -100: assembly.roll_vel = -100
 
