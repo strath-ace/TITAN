@@ -38,7 +38,7 @@ def test_frag_temperature(): assert len(titan2.assembly) == 2
 #def test_temperature(): assert np.round(titan2.assembly[0].objects[0].temperature,5) == np.round(382.09268330658256,5)
 
 ### Using new backface culling algo
-def test_temperature(): assert np.round(titan2.assembly[0].objects[0].temperature,5) == np.round(400.87135,5)
+def test_temperature(): assert np.round(titan2.assembly[0].objects[0].temperature,5) == np.round(399.28493,5)
 
 options, titan3 = main("Tests/Configs/cube_demise.txt")
 

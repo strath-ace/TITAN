@@ -26,9 +26,9 @@ import meshio
 
 options, titan1 = main("Tests/Configs/multi_fidelity_2.txt")
 
-TITAN_mesh1 = meshio.read("Tests/Simulation/Surface_solution/ID_1/solution_iter_000.vtk")
-TITAN_mesh2 = meshio.read("Tests/Simulation/Surface_solution/ID_2/solution_iter_000.vtk")
+TITAN_mesh1 = meshio.read("Tests/Simulation/Surface_solution/ID_1/solution_iter_000.xdmf")
+TITAN_mesh2 = meshio.read("Tests/Simulation/Surface_solution/ID_2/solution_iter_000.xdmf")
 SU2_mesh = meshio.read("Tests/Simulation/CFD_sol/surface_flow_0_0_cluster_1.vtk")
 
 def test_pressure():
-	assert all(np.isclose(np.round(np.sort(np.append(TITAN_mesh1.point_data["Pressure"],TITAN_mesh2.point_data["Pressure"])),2),np.round(np.sort(SU2_mesh.point_data["Pressure"].reshape(-1)),2), 0.1))
+	assert all(np.isclose(np.round(np.sort(np.append(titan1.assembly[0].aerothermo_cfd.pressure,titan1.assembly[1].aerothermo_cfd.pressure)),2),np.round(np.sort(SU2_mesh.point_data["Pressure"].reshape(-1)),2), 0.1))

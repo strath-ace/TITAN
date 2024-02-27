@@ -1,0 +1,30 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 1
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+#High, Low or Hybrid
+Output_folder = Tests/Simulation
+FENICS = False
+
+[Trajectory]
+Altitude = 70000
+Velocity = 6000
+Flight_path_angle = 0
+
+[Assembly]
+Path = Tests/Mesh/Sphere/
+Sideslip = 180.0
+Angle_of_attack = 0.0
+
+[Aerothermo]
+Heat_model = fr
+Vel_grad = olivier
+Standoff = freeman
+
+
+[Objects]
+Primary = [NAME = sphere_1.6.stl, MATERIAL = Unittest, TEMPERATURE = 300, TYPE = Primitive, FENICS_ID = -1]

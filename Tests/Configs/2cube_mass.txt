@@ -7,7 +7,7 @@ Load_mesh = False
 Load_state = False
 Fidelity = Low
 #High, Low or Hybrid
-Output_folder = /home/fmpmorgado/Pictures/Teste
+Output_folder = ./Tests/Simulation
 
 [Trajectory]
 Altitude = 100000

@@ -23,7 +23,12 @@ import numpy as np
 sys.path.append('Material')
 from material import Material
 
-material=Material("Unittest")
+class options:
+    def __init__(self):
+        self.material_file = 'database_material.xml'
+
+
+material=Material("Unittest", options())
 
 def test_density(): assert material.density == 1000.0, "Density of the material is different"
 def test_specificHeatCapacity(): assert material.specificHeatCapacity(293) == 877.5, " specificHeatCapacity is different "

@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from Dynamics import dynamics, frames
+from Dynamics import dynamics, frames, collision
 from Aerothermo import aerothermo
 from Forces import forces
 import pymap3d
@@ -40,7 +40,18 @@ def compute_Euler(titan, options):
         Object of class Options
     """
 
+    if options.collision.flag and len(titan.assembly)>1:
+        flag_collision, __ = collision.check_collision(titan, options, 0)
+        if flag_collision: collision.collision_physics(titan, options)
+        #if flag_collision: collision.collision_physics_simultaneous(titan, options)
+
     aerothermo.compute_aerothermo(titan, options)
+
+    # If we go to switch.py or su2.py, Because we call deepcopy() function, we need to rebuild
+    #the collision mesh
+    if options.collision.flag and options.fidelity.lower() in ['multi','high']:
+        for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
+        collision.generate_collision_handler(titan, options)
 
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
@@ -48,13 +59,21 @@ def compute_Euler(titan, options):
     # Writes the output data before
     output.write_output_data(titan = titan, options = options)
 
+    time_step = options.dynamics.time_step
+    if options.collision.flag and len(titan.assembly)>1:
+
+        #Check collision for future time intervals with respect to current time-step velocity
+        __, time_step = collision.check_collision(titan, options, time_step)
+    
+    titan.time += time_step
+
     # Loop over the assemblies and compute the dericatives
     for assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)
-        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options)
+        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step)
         
-def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options):
+def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step):
     """
     Update position and attitude of the assembly
 
@@ -70,11 +89,12 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
         Object of class Options
     """
 
-    dt = options.dynamics.time_step
+    dt = time_step
 
     assembly.position[0] += dt*cartesianDerivatives.dx
     assembly.position[1] += dt*cartesianDerivatives.dy
     assembly.position[2] += dt*cartesianDerivatives.dz
+
     assembly.velocity[0] += dt*cartesianDerivatives.du
     assembly.velocity[1] += dt*cartesianDerivatives.dv
     assembly.velocity[2] += dt*cartesianDerivatives.dw
@@ -118,12 +138,23 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     py_quat.integrate([angularDerivatives.droll, angularDerivatives.dpitch,angularDerivatives.dyaw], dt)
     assembly.quaternion = np.append(py_quat.vector, py_quat.real)
 
-    assembly.roll_vel  += dt*angularDerivatives.ddroll
+    assembly.roll_vel  += dt*angularDerivatives.ddroll  #christie: p,q,r or d(euler)??
     assembly.pitch_vel += dt*angularDerivatives.ddpitch
     assembly.yaw_vel   += dt*angularDerivatives.ddyaw
 
+    #Limiting the angular velocity to 100 rad/s.
+
+    #christie: not good
+    if assembly.roll_vel > 100:  assembly.roll_vel = 100
+    if assembly.roll_vel < -100: assembly.roll_vel = -100
+
+    if assembly.pitch_vel > 100:  assembly.pitch_vel = 100
+    if assembly.pitch_vel < -100: assembly.pitch_vel = -100
+
+    if assembly.yaw_vel > 100:  assembly.yaw_vel = 100
+    if assembly.yaw_vel < -100: assembly.yaw_vel = -100
+
     # angle of attack is zero if a Drag model is specified, so pitch needs to follow the flght path angle
-    
     if options.vehicle:# and options.vehicle.Cd:
         assembly.roll_vel  = 0
         assembly.pitch_vel = (gamma-assembly.pitch)/dt

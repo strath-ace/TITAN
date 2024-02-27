@@ -17,8 +17,8 @@ Flight_path_angle = 0
 
 [Bloom]
 Flag =  True
-Layers = 10
-Spacing = 0.00001
+Layers = 15
+Spacing = 0.001
 Growth_Rate = 1.15
 
 [AMG]
@@ -31,7 +31,7 @@ Adapt_iter = 1
 Num_cores = 6
 Num_iters = 10
 Muscl = NO
-Cfl = 0.25
+Cfl = 0.5
 
 [Assembly]
 Path = Tests/Mesh/Sphere/

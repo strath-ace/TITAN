@@ -26,6 +26,5 @@ from TITAN import main
 options, titan = main("Tests/Configs/1m_sphere_rarefied.txt")
 
 def test_pressure(): assert np.round(np.max(titan.assembly[0].aerothermo.pressure),5) == np.round(0.00048,5)
-def test_heatflux(): assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(0.33276,5)
+def test_heatflux(): assert np.round(np.max(titan.assembly[0].aerothermo.heatflux),5) == np.round(0.33274,5)
 def test_shear(): assert np.round(np.max(titan.assembly[0].aerothermo.shear),7) == np.round(0.0001159,7)
-

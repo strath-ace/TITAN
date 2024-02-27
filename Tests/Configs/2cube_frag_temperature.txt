@@ -19,6 +19,7 @@ Flight_path_angle = -5
 # Path for the geometry files
 Path = Tests/Mesh/Cubes/
 Connectivity = [[1,2,3]]
+Sideslip = 90.0
 
 [Time]
 Time_step = 1.0

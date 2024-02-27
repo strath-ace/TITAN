@@ -21,6 +21,7 @@ from Geometry import mesh as Mesh
 from Geometry import gmsh_api as GMSH
 from Geometry.tetra import inertia_tetra, vol_tetra
 import numpy as np
+from copy import deepcopy
 
 def create_assembly_flag(list_bodies, Flags):
     """
@@ -97,9 +98,9 @@ class Assembly_list():
         self.iter = 0
 
         #: [array] List of the linkage information between the different components
-        self.connectivity = []
+        self.connectivity = np.array([], dtype = int)
 
-    def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0):            
+    def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):            
         """
         Creates the assembly list
 
@@ -137,7 +138,7 @@ class Assembly_list():
         #loops the Assembly connectivity matrix in order to generate the different assemblies and append
         #them into a list.
         for i in range(len(assembly_flag)):
-            self.assembly.append(Assembly(self.objects[assembly_flag[i]], self.id, aoa = aoa, slip = slip, roll = roll))
+            self.assembly.append(Assembly(self.objects[assembly_flag[i]], self.id, aoa = aoa, slip = slip, roll = roll, options = options))
             self.id += 1
             connectivity_assembly = np.zeros(connectivity.shape, dtype = bool)
             id_objs = np.array(range(1,len(assembly_flag[i])+1))[assembly_flag[i]]
@@ -309,13 +310,26 @@ class Aerothermo():
         self.heatflux = np.zeros((n_points))
         self.wall_temperature = 300
 
+    def append(self, n_points = 0, temperature= 300):
+        self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
+        self.pressure = np.append(self.pressure, np.zeros(n_points))
+        self.heatflux = np.append(self.heatflux, np.zeros(n_points))
+        self.shear = np.append(self.shear, np.zeros((n_points,3)), axis = 0)
+
+    def delete(self, index):
+        self.temperature = np.delete(self.temperature, index)
+        self.pressure = np.delete(self.pressure, index)
+        self.heatflux = np.delete(self.heatflux, index)
+        self.shear = np.delete(self.shear, index, axis = 0)
+
+
 class Assembly():
     """ Class Assembly
     
         A class to store the information respective to each assemly at every time iteration
     """
 
-    def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0):
+    def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):
 
         #: [int] ID of the assembly
         self.id = id
@@ -327,7 +341,6 @@ class Assembly():
         self.mesh = Mesh.Mesh([])
         self.cfd_mesh = Mesh.Mesh([])
         self.trajectory = None 
-        self.aerothermo = None 
         self.loads = None 
         self.fenics = None
 
@@ -397,32 +410,43 @@ class Assembly():
             self.mesh.edges, self.mesh.facet_edges = Mesh.map_edges_connectivity(self.mesh.facets)
             self.mesh.nodes_normal = Mesh.compute_nodes_normals(len(self.mesh.nodes), self.mesh.facets ,self.mesh.facet_COG, self.mesh.v0,self.mesh.v1,self.mesh.v2)
             self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
-            self.mesh.nodes_radius = np.zeros(len(self.mesh.nodes))
+            self.mesh.nodes_radius, self.mesh.facet_radius, self.mesh.Avertex, self.mesh.Acorner = Mesh.compute_curvature(self.mesh.nodes, self.mesh.facets, self.mesh.nodes_normal, self.mesh.facet_normal, self.mesh.facet_area, self.mesh.v0, self.mesh.v1, self.mesh.v2)
+
             self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes),3))
 
-            self.cfd_mesh.nodes = self.mesh.nodes
-            self.cfd_mesh.facets = self.cfd_mesh.facets[self.cfd_mesh.idx]
-            self.cfd_mesh.edges, self.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(self.cfd_mesh.facets)
-
-            
             #Create mapping between the nodes and facets of the singular component and the assembly
             for obj in objects:
                 obj.node_index, obj.node_mask = Mesh.create_index(self.mesh.nodes, obj.mesh.nodes)
                 obj.facet_index, obj.facet_mask = Mesh.create_index(self.mesh.facet_COG, obj.mesh.facet_COG)
-
-                #print("IMPORTANT TEST: ", (self.mesh.nodes[obj.node_index] == obj.mesh.nodes).all())
-                self.mesh.nodes_radius[obj.node_index] = obj.mesh.nodes_radius
 
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
             self.inside_shock = np.zeros(len(self.mesh.nodes))
 
         self.Lref = np.max(self.mesh.xmax-self.mesh.xmin)
 
-        self.aerothermo = Aerothermo(len(self.mesh.nodes))
+        self.aerothermo = Aerothermo(len(self.mesh.facets))
+        self.aerothermo_cfd = Aerothermo(len(self.mesh.nodes))
 
         #Initialize surface temperature of the assembly
         for obj in self.objects:
-            self.aerothermo.temperature[obj.node_index] = obj.temperature
+            self.aerothermo.temperature[obj.facet_index] = obj.temperature
+
+        self.collision = None
+
+        if options.ablation_mode.lower() == '0d':
+            if options.post_fragment_tetra_ablation:
+                if len(self.objects) > 1:
+                    self.ablation_mode = '0d'
+                else:
+                    self.ablation_mode = 'tetra'
+            else:
+                self.ablation_mode = '0d'
+
+        elif options.ablation_mode.lower() == 'tetra':
+            self.ablation_mode = 'tetra'
+
+        else: raise ValueError("ablation mode has to be Tetra or 0D")
+
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
         """
@@ -445,8 +469,21 @@ class Assembly():
 
         #Saves the 3D volumetric information
         self.mesh.vol_coords, self.mesh.vol_elements, self.mesh.vol_density, self.mesh.vol_tag = GMSH.generate_inner_domain(self.mesh, self, write = write, output_folder = output_folder, output_filename = output_filename, bc_ids = bc_ids)
+
         self.mesh.volume_displacement = np.zeros((len(self.mesh.vol_coords),3))
-        self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)
+        #self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)
+        self.mesh.vol_T = np.ones(len(self.mesh.vol_elements))
+        self.mesh.vol_orig_index = np.arange(len(self.mesh.vol_elements))
+
+        coords = self.mesh.vol_coords
+        elements = self.mesh.vol_elements
+
+        #Computes the volume of every single tetrahedral
+        vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+        self.mesh.vol_volume = vol
+
+        #Copy original coords to use when fragmenting an object
+        self.mesh.original_vol_coords = deepcopy(self.mesh.vol_coords)
 
         print("Volume Grid Completed")
 
@@ -454,7 +491,11 @@ class Assembly():
 
         for obj in self.objects:
             index = (self.mesh.vol_tag == obj.id)
+            self.mesh.vol_T[index] = obj.temperature            
             obj.mesh.vol_elements = np.copy(self.mesh.vol_elements[index])
+
+        print("Create mapping between surface facets and tetras")
+        self.mesh.index_surf_tetra = Mesh.map_surf_to_tetra(self.mesh.vol_coords, self.mesh.vol_elements)
 
         print("Done")
 
@@ -469,19 +510,17 @@ class Assembly():
         elements = self.mesh.vol_elements
         density = self.mesh.vol_density
         tag = self.mesh.vol_tag
-
-        #Computes the volume of every single tetrahedral
-        vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+        vol = self.mesh.vol_volume
 
         #Computes the mass of every single tetrahedral
-        mass = vol*density
-        self.mass = np.sum(mass)
+        self.mesh.vol_mass  = vol*density
+        self.mass = np.sum(self.mesh.vol_mass)
 
         #Computes the Center of Mass
         if self.mass <= 0:
             self.COG = np.array([0,0,0])
         else:
-            self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*mass[:,None], axis = 0)/self.mass
+            self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*self.mesh.vol_mass[:,None], axis = 0)/self.mass
         
         #Computes the inertia matrix
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
@@ -489,4 +528,44 @@ class Assembly():
         #Loop over the components to compute each individual inertial properties
         for obj in self.objects:
             index = (tag == obj.id)
-            obj.compute_mass_properties(coords,elements[index])
+            obj.compute_mass_properties(coords, elements[index], density[index])
+
+    def rearrange_ids(self):
+        """
+        Rearrange the objects ids and connectivity not to break in the fragmentation section
+        """
+
+        list_of_ids = [obj.id for obj in self.objects]
+        new_ids = np.arange(1, len(list_of_ids)+1)
+        
+        #copy_connectivity = np.copy(self.connectivity)
+        copy_vol_tag = np.copy(self.mesh.vol_tag)
+
+        #print(self.objects, self.mesh.vol_tag, self.connectivity, list_of_ids, new_ids)
+        #Organize into dictionary to easy access:
+        d = {}
+        for key, value in zip(list_of_ids, new_ids):
+            d[key] = value
+
+        #Change the values in the object
+        for obj in self.objects:
+            obj.id = d[obj.id]
+
+        #Change the values in the connectivity matrix
+        #Change the values in vol_tag
+        for id in list_of_ids:
+            #if len(self.connectivity):
+            #    self.connectivity[copy_connectivity == id] = d[id]
+            self.mesh.vol_tag[copy_vol_tag == id] = d[id]
+
+
+def copy_assembly(list_assemblies, options):
+    from copy import deepcopy
+
+    if options.collision.flag:
+        for assembly in list_assemblies:
+            assembly.collision = None
+
+    copy_list_assemblies = deepcopy(list_assemblies)
+
+    return copy_list_assemblies

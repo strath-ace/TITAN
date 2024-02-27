@@ -129,6 +129,23 @@ def write_output_data(titan, options):
         df = df.round(decimals = 12)
         df.to_csv(options.output_folder + '/Data/'+ 'data.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data.csv'), index = False)
 
+    df = pd.DataFrame()
+    for assembly in titan.assembly:
+        df["Time"] = [titan.time]
+        df["Iter"] = [titan.iter]
+        df["Assembly_ID"] = [assembly.id]
+        for obj in assembly.objects:
+            df["Obj_name"] = [obj.name]
+            df["Temperature"] = [obj.temperature]
+            df["Mass"] = [obj.mass]
+            df["Max_stress"] = [obj.max_stress]
+            df["Yield_stress"] = [obj.yield_stress]
+            df["Parent_id"] = [obj.parent_id]
+            df["Parent_part"] = [obj.parent_part]
+            
+            df = df.round(decimals = 6)
+            df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
+
 def generate_surface_solution(titan, options):
     points = np.array([])
     facets = np.array([])
@@ -146,31 +163,33 @@ def generate_surface_solution(titan, options):
         heatflux = assembly.aerothermo.heatflux
         shear = assembly.aerothermo.shear
         displacement = assembly.mesh.surface_displacement
-        radius = assembly.mesh.nodes_radius
+        radius = assembly.mesh.facet_radius
         ellipse = assembly.inside_shock
-        temperature  = np.ones(len(points))
-        for obj in assembly.objects:
-            temperature[obj.node_index] = obj.temperature
-
+        temperature  = assembly.aerothermo.temperature
+        
         cells = {"triangle": facets}
 
-        point_data = {"Pressure": pressure,
-                      "Heatflux": heatflux,
-                      "Displacement": displacement,
-                      "Temperature": temperature,
-                      "Shear": shear,
-                      "Radius": radius,
-                      "Ellipse": ellipse}
+        cell_data = { "Pressure": [pressure],
+                      "Heatflux": [heatflux],
+                      "Temperature": [temperature],
+                      "Shear": [shear],
+                      "Radius": [radius],
+                    }
+
+        point_data = { "Displacement": displacement,
+                      # "Ellipse": ellipse,
+                     }
 
         trimesh = meshio.Mesh(points,
                               cells=cells,
-                              point_data = point_data)
+                              point_data = point_data,
+                              cell_data = cell_data)
 
         folder_path = options.output_folder+'/Surface_solution/ID_'+str(assembly.id)
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
-        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(titan.iter).zfill(3)}.vtk"
-        meshio.write(vol_mesh_filepath, trimesh, file_format="vtk")
+        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(titan.iter).zfill(3)}.xdmf"
+        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 #Generate volume for FENICS
 def generate_volume(titan, options):
