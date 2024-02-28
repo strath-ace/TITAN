@@ -30,7 +30,7 @@ def postprocess(options, postprocess = "wind", filter_name = None):
 
 	iter_interval = np.unique(data['Iter'].to_numpy())
 	
-	for iter_value in iter_interval:
+	for iter_value in range(0, max(iter_interval), options.output_freq):
 		generate_visualization(options, data, iter_value, postprocess, filter_name, data_obj)
 
 def generate_visualization(options, data, iter_value, postprocess = "wind", filter_name = None, data_obj = None):
@@ -48,7 +48,7 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	altitude    = data[index]['Altitude'].to_numpy()
 	longitude   = data[index]['Longitude'].to_numpy()/180*np.pi
 	chi         = data[index]['HeadingAngle'].to_numpy()/180*np.pi
-	gamma       = data[index]['FlighPathAngle'].to_numpy()/180*np.pi
+	gamma       = data[index]['FlightPathAngle'].to_numpy()/180*np.pi
 	aoa         = data[index]['AngleAttack'].to_numpy()/180*np.pi
 	slip        = data[index]['AngleSideslip'].to_numpy()/180*np.pi
 	mass        = data[index]['Mass'].to_numpy()

@@ -19,6 +19,9 @@
 #
 import numpy as np 
 from Geometry import mesh
+from scipy import integrate
+import pandas as pd
+import os
 
 def compute_thermal_tetra(titan, options):
   
@@ -169,6 +172,38 @@ def compute_thermal_0D(titan, options):
             assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
             assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
+            obj.photons = compute_radiance(obj.temperature, Atot, emissivity)
+
         assembly.compute_mass_properties()
 
-    return 
+    return
+
+def compute_radiance(temperature, area, emissivity):
+
+    wavelength_min = 0.000000500
+    wavelength_max = 0.000000502
+
+    L      = 1000000 #distance from fragment
+    r_aper = 1
+
+    integral = integrate.quad(black_body,wavelength_min,wavelength_max,args=(temperature))
+
+    bb = integral*area*emissivity #units: photons*s-1*sr-1
+
+    p = bb*(np.pi*r_aper*r_aper)/(4*np.pi*L*L) #units: photons*s-1
+
+    return p
+
+def black_body(wavelength, T):
+
+    h = 6.62607015e-34 # m2.kg.s-1        planck constant
+    c = 3e8            # m.s-1           light speed in vaccum
+    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant 
+
+    exp = np.exp((h*c)/(k*wavelength*T))   
+
+    b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
+
+    return b
+
+

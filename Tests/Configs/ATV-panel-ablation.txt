@@ -1,0 +1,99 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+#0.05 -> 492+ 80 iters 
+#0.1 ->  492+ 40 iters 
+#0.2 ->  492+ 20 iters 
+
+Num_iters = 30000
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+Output_folder = ATV-panel-ablation
+SPARTA = False
+Structural_dynamics = True
+Ablation = True
+Ablation_mode = 0D
+Material_file = ATV_material.xml
+#Density joints = 1000
+
+Save_freq = 5000
+
+[Model]
+Planet = Earth
+
+[Time]
+Time_step = 0.05
+Propagator = Euler
+
+[Trajectory]
+Altitude = 120000
+Velocity = 7560
+Flight_path_angle = -1.45
+Heading_angle = 78
+Latitude = -40
+Longitude = 207
+ 
+[Freestream]
+Model = NRLMSISE00
+Method = Standard
+
+[Aerothermo]
+Heat_model = sc
+
+[FENICS]
+E = 68e9
+SIGMA_Y = 8e6
+FENICS_MPI = True
+FENICS_cores = 4
+FENICS_verbose = True
+FENICS_freq = 2
+
+[Bloom]
+Flag =  False
+Layers = 40
+Spacing = 0.00001
+Growth_Rate = 1.15
+
+[SU2]
+Solver = NEMO_NAVIER_STOKES
+Conv_method = AUSM
+Adapt_iter = 2
+Num_cores = 40
+Num_iters = 10000
+Muscl = YES
+Cfl = 0.25
+
+[AMG]
+P = 4
+C = 100000
+Sensor = Mach
+
+[Assembly]
+# Path for the geometry files
+Path = Tests/Mesh/ATV_simple_fenics_geometry/
+Connectivity = [[1,2,6],[1,3,7],[1,4,8],[1,5,9]]
+#[[1,6,6],[6,2,0],[3,7,0],[1,7,7],[1,8,8],[8,4,0],[1,9,9],[9,5,0]]
+# [[1,2,3]]
+# [[1,2,6],[1,3,7],[1,4,8],[1,5,9]]
+
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+ATV = [NAME = ATV.stl, TYPE = Primitive, MATERIAL = ATV_body, FENICS_ID = 1]
+
+Panel1 = [NAME = Panel1.stl, TYPE = Primitive, MATERIAL = ATV_panel, FENICS_ID = 2]
+Panel2 = [NAME = Panel2.stl, TYPE = Primitive, MATERIAL = ATV_panel, FENICS_ID = 2]
+Panel3 = [NAME = Panel3.stl, TYPE = Primitive, MATERIAL = ATV_panel, FENICS_ID = 2]
+Panel4 = [NAME = Panel4.stl, TYPE = Primitive, MATERIAL = ATV_panel, FENICS_ID = 2]
+
+Joint1 = [NAME = Joint1.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint1_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 00, FENICS_ID = -1]
+Joint2 = [NAME = Joint2.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint2_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 00, FENICS_ID = -1]
+Joint3 = [NAME = Joint3.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint3_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 00,  FENICS_ID = -1]
+Joint4 = [NAME = Joint4.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint4_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 00,  FENICS_ID = -1]
+
+[Initial Conditions]
+Angular Velocity = (1 : [0,10,0])
+

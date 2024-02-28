@@ -447,6 +447,8 @@ class Assembly():
 
         else: raise ValueError("ablation mode has to be Tetra or 0D")
 
+        self.distance_travelled = 0
+
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
         """

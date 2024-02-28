@@ -118,6 +118,8 @@ class Component():
             self.parent_id = parent_id
             self.parent_part = parent_part
 
+        self.photons = 0
+
     def compute_mass_properties(self, coords, elements, density):
         """
         Compute the inertia properties
