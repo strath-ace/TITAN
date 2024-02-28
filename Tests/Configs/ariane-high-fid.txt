@@ -23,7 +23,7 @@ Longitude = 0.000392813
 Heading_angle = 7.40723
 
 [Bloom]
-Flag =  True
+Flag =  False
 Layers = 15
 Spacing = 0.001
 Growth_Rate = 1.15
@@ -35,9 +35,9 @@ C = 100000
 [SU2]
 Solver = NEMO_EULER
 Conv_method = AUSM
-Adapt_iter = 1
-Num_cores = 1
-Num_iters = 10
+Adapt_iter = 4
+Num_cores = 20
+Num_iters = 10000
 Muscl = NO
 Cfl = 0.5
 
@@ -70,7 +70,7 @@ GRAM_Path = Executables/
 [Assembly]
 # Path for the geometry files
 Path = Tests/Mesh/Ariane/
-Connectivity = [[1,2,0],[1,0,3],[1,0,4]]
+Connectivity = [[1,0,2],[1,0,3]]
 Sideslip = 0.0
 Angle_of_attack = 0.0
 Roll = 0.0
@@ -92,7 +92,10 @@ Time_step = 0.05
 #Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
 #Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
 
-main_body  = [NAME = MainBody_M.stl,     TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1]
-upper_body = [NAME = UpperSection_M.stl, TYPE = Primitive, MATERIAL = Unittest_ariane, FENICS_ID = 1]
+
+main_body  = [NAME = ArianeFullBody_M.stl,     TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1]
+
+#main_body  = [NAME = MainBody_M.stl,     TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1]
+#upper_body = [NAME = UpperSection_M.stl, TYPE = Primitive, MATERIAL = Unittest_ariane, FENICS_ID = 1]
 RadialA    = [NAME = RadialA_M.stl,      TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1,TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90000]
 RadialB    = [NAME = RadialB_M.stl,      TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1,TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90000]
