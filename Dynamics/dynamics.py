@@ -222,7 +222,9 @@ def compute_cartesian_derivatives(assembly, options):
     R_B_ECEF = Rot.from_quat(q)
 
     Faero_I = R_B_ECEF.apply(np.array(assembly.body_force.force))
-    Fthrust_I = R_B_ECEF.apply(np.array(assembly.body_force.thrust))
+    T = np.array(assembly.body_force.thrust)
+    T = T.reshape((3,))
+    Fthrust_I = R_B_ECEF.apply(np.array(T))
     Fgrav_I = np.array([agrav_u,agrav_v,agrav_w])*assembly.mass
     Fcoreolis_I = -np.cross(np.array([0,0,wE]), np.cross(np.array([0,0,wE]), assembly.position))
     Fcentrif_I  = -2*np.cross(np.array([0,0,wE]), assembly.velocity)
