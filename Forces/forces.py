@@ -156,8 +156,8 @@ def compute_thrust_force(titan, options):
 
     thrust = np.zeros(3)
 
-    Tmax = 20000000
-    Tmin = 10000000
+    Tmax = 40000000
+    Tmin = 20000000
     t_linear = 5
 
     if titan.time <= titan.booster_t_trigger:

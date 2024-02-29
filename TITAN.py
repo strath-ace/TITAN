@@ -75,6 +75,15 @@ def loop(options = [], titan = []):
         else:
             options.dynamics.time_step = options.user_time
 
+        output.iteration(titan = titan, options = options)
+
+        i = 0
+        for assembly in titan.assembly:
+            print('Assembly:', i)
+            print('altitude:', assembly.trajectory.altitude)
+            i+=1
+            
+
         dynamics.integrate(titan = titan, options = options)
         #output.generate_surface_solution(titan = titan, options = options)
 
@@ -95,7 +104,7 @@ def loop(options = [], titan = []):
         if options.current_iter%options.output_freq == 0:
             output.generate_surface_solution(titan = titan, options = options)        
         
-        output.iteration(titan = titan, options = options)
+        #output.iteration(titan = titan, options = options)
 
         titan.iter += 1
         options.current_iter = titan.iter

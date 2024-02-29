@@ -233,6 +233,8 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
         Object of class Options
     """
 
+    print('compute_freestream')
+
     data, species_index = retrieve_atmosphere_data(model, altitude, assembly, options)
 
     temperature = data[1]
@@ -320,6 +322,12 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
     
         freestream.mfp = C1/freestream.density
         freestream.knudsen = freestream.mfp/lref
+
+    print('Freestream:')
+    print('Velocity:', freestream.velocity)
+    print('Mach:', freestream.mach)
+    print('Pressure:', freestream.pressure)
+    print('Temperature:', freestream.temperature)    
     
 def compute_stagnation(free, options):
     """

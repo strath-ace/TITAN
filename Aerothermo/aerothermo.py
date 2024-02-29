@@ -300,6 +300,7 @@ def compute_aerothermo(titan, options):
     options: Options
         Object of class Options
     """
+    print('compute_aerothermo')
 
     atmo_model = options.freestream.model
     
