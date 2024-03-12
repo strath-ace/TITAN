@@ -29,8 +29,10 @@ def postprocess(options, postprocess = "wind", filter_name = None):
 	data_obj = pd.read_csv(options.output_folder+'/Data/data_assembly.csv', index_col = False)
 
 	iter_interval = np.unique(data['Iter'].to_numpy())
+	print(iter_interval)
 	
-	for iter_value in range(0, max(iter_interval), options.output_freq):
+	for iter_value in range(0, max(iter_interval)+1, options.output_freq):
+		print(iter_value)
 		generate_visualization(options, data, iter_value, postprocess, filter_name, data_obj)
 
 def generate_visualization(options, data, iter_value, postprocess = "wind", filter_name = None, data_obj = None):

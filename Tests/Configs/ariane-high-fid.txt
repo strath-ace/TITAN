@@ -15,12 +15,12 @@ Ablation = False
 #Ablation_mode = Tetra
 
 [Trajectory]
-Altitude = 89938.2
-Velocity = 1655.86
-Flight_path_angle = 89.6754
-Latitude = 0.0032114
-Longitude = 0.000392813
-Heading_angle = 7.40723
+Altitude = 49931.3
+Velocity = 1910.83
+Flight_path_angle = 89.8182
+Latitude = 0.00105469
+Longitude = 0.000127043
+Heading_angle = 8.4593
 
 [Bloom]
 Flag =  False
@@ -30,16 +30,16 @@ Growth_Rate = 1.15
 
 [AMG]
 Flag = True
-C = 100000
+C = 300000
 
 [SU2]
 Solver = NEMO_EULER
 Conv_method = AUSM
-Adapt_iter = 4
-Num_cores = 20
+Adapt_iter = 3
+Num_cores = 40
 Num_iters = 10000
 Muscl = NO
-Cfl = 0.5
+Cfl = 0.1
 
 [Model]
 Planet = Earth
@@ -97,5 +97,5 @@ main_body  = [NAME = ArianeFullBody_M.stl,     TYPE = Primitive, MATERIAL = Unit
 
 #main_body  = [NAME = MainBody_M.stl,     TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1]
 #upper_body = [NAME = UpperSection_M.stl, TYPE = Primitive, MATERIAL = Unittest_ariane, FENICS_ID = 1]
-RadialA    = [NAME = RadialA_M.stl,      TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1,TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90000]
-RadialB    = [NAME = RadialB_M.stl,      TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1,TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90000]
+RadialA    = [NAME = RadialA_M.stl,      TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1,TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 50000]
+RadialB    = [NAME = RadialB_M.stl,      TYPE = Primitive, MATERIAL = Unittest_light, FENICS_ID = 1,TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 50000]
