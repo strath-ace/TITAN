@@ -30,7 +30,7 @@ def postprocess(options, postprocess = "wind", filter_name = None):
 
 	iter_interval = np.unique(data['Iter'].to_numpy())
 	
-	for iter_value in range(0, max(iter_interval), options.output_freq):
+	for iter_value in range(0, max(iter_interval)+1, options.output_freq):
 		generate_visualization(options, data, iter_value, postprocess, filter_name, data_obj)
 
 def generate_visualization(options, data, iter_value, postprocess = "wind", filter_name = None, data_obj = None):
