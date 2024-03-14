@@ -198,9 +198,10 @@ def black_body(wavelength, T):
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
-    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant 
+    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
+    Tref = 273 
 
-    exp = np.exp((h*c)/(k*wavelength*T))   
+    exp = np.exp((h*c)/(k*wavelength*(T-Tref)))   
 
     b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
 
