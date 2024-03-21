@@ -33,6 +33,10 @@ def compute_thermal_tetra(titan, options):
 
         #array that will contain facets and keys to delete tetras
         delete_array = []
+
+        #print('N_tetra 0:', np.shape(assembly.mesh.vol_elements))
+        #print('mapping:', assembly.mesh.index_surf_tetra)
+
         
         for obj in assembly.objects:
 
@@ -50,11 +54,26 @@ def compute_thermal_tetra(titan, options):
             #TODO missing plasma radiation
 
             # Retrieve key to map surf to tetra
+
+            #facet_COG of surface facets for the current object
             key = np.round(assembly.mesh.facet_COG[obj.facet_index],5).astype(str)
             key = np.char.add(np.char.add(key[:,0],key[:,1]),key[:,2])
 
-            # Retrieve tetras and respective properties
+            # Retrieve tetras corresponding to object surface facets
             tetra_array    = np.array([assembly.mesh.index_surf_tetra[k][0] for k in key])
+            ##print('tetra_array:', tetra_array)
+            ##print('tetra_array:',np.shape(tetra_array))
+
+            ##print('tetra_array:', assembly.mesh.vol_elements[tetra_array])
+            tetras_cat = assembly.mesh.vol_elements[tetra_array]
+            c0 = tetras_cat[:,0]
+            c1 = tetras_cat[:,1]
+            c2 = tetras_cat[:,2]
+            c3 = tetras_cat[:,3]
+            
+            ##for i in range(len(tetras_cat)):
+            ##    print('tetra ', i, ' coord:', assembly.mesh.vol_coords[c0[i]], assembly.mesh.vol_coords[c1[i]], assembly.mesh.vol_coords[c2[i]], assembly.mesh.vol_coords[c3[i]])
+            #exit()
 
             tag_id         = assembly.mesh.vol_tag == obj.id
             tetra_density  = assembly.mesh.vol_density[tetra_array]
@@ -64,6 +83,10 @@ def compute_thermal_tetra(titan, options):
             tetra_cp       = obj.material.specificHeatCapacity(tetra_T)
             tetra_mass     = tetra_density * tetra_vol
 
+            #tetra_heatflux has size of all volume tetras in the assembly
+            #assign heatflux only to tetras in tetra_array, equivalent to tetra_heatflux[tetra_array_indices] += Qin-Qrad
+            #if tetra show up more than once (example of corner tetra, connected to more than 1 facet), this contribution is
+            #added more than once too
             np.add.at(tetra_heatflux, tetra_array, Qin-Qrad)
 
             #Compute the heatflux that goes in for each tetra with faces at the surface
@@ -75,6 +98,9 @@ def compute_thermal_tetra(titan, options):
 
             for index in range(len(tetra_array)):
                 if tetra_T[index]+dT[index] > obj.material.meltingTemperature:
+                    #print('tetra_T[index]+dT[index]:', tetra_T[index]+dT[index])
+                    #print('obj.material.meltingTemperature:', obj.material.meltingTemperature)
+                    #print('Tetra should demise')
                     dT_melt = obj.material.meltingTemperature - tetra_T[index]
                     melt_Q = (tetra_mass[index]*tetra_cp[index])*(dT[index]-dT_melt)
                     dm[index] = -melt_Q/(obj.material.meltingHeat)
@@ -83,23 +109,43 @@ def compute_thermal_tetra(titan, options):
             #If the mass goes negative, we set it to 0. This means the tetra has ablated
             new_mass = tetra_mass + dm           
             new_mass[new_mass < 0] = 0
+            #print('new_mass:', new_mass)
 
             assembly.mesh.vol_T[tetra_array] += dT
 
             assembly.mesh.vol_density[tetra_array] *= new_mass/tetra_mass 
 
+            ##print('vol_density:', assembly.mesh.vol_density[tetra_array])
+
             #The are some densities that are NaN whe using multiple objects, need to check why
             assembly.mesh.vol_density[np.isnan(assembly.mesh.vol_density)] = 0
 
+            #to delete: index of surface tetras to delete
             index_delete = np.where(assembly.mesh.vol_density[tetra_array]<=0)[0]
+
+            ##print('index_delete:', index_delete)
+            #index_delete = [10, 15, 3, 11, 1, 14]
+            #print('index_delete:', index_delete)
 
             if len(index_delete) != 0:
                 for index in index_delete:
+                    #index - index of surface tetra to delete
+                    #tetra_array[index] - tetra to delete
+                    ##print('index:', index)
+                    ##print('tetra_array[index]:', tetra_array[index])
                     delete_array.append([index, tetra_array[index]])
-        
-        if delete_array:
-            mesh.remove_ablated_elements(assembly, delete_array)
 
+            #print('delete_array:', delete_array)        
+            
+        print('N tetras assembly:', len(assembly.mesh.vol_elements))
+        if delete_array:
+            #print('0 N facets assembly:', len(assembly.mesh.v0))
+            #print('N tetras assembly:', len(assembly.mesh.vol_elements))
+            print('Removing ablated elements')
+            mesh.remove_ablated_elements(assembly, delete_array)
+            #print('N facets assembly:', len(assembly.mesh.facets))
+            #print('N tetras assembly:', len(assembly.mesh.vol_elements))
+        
         #Map the tetra temperature to surface mesh
         COG = np.round(assembly.mesh.facet_COG,5).astype(str)
         COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])

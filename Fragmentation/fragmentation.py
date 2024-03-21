@@ -215,6 +215,9 @@ def check_breakup_v2(titan, options):
         tri_mesh.triangles = o3d.utility.Vector3iVector(assembly.mesh.facets)
         
         #Compute the surface clusters
+        #Function that clusters connected triangles, i.e., triangles that are connected via edges are assigned
+        #the same cluster index. This function returns an array that contains the cluster index per triangle,
+        #a second array contains the number of triangles per cluster, and a third vector contains the surface area per cluster.
         triangle_clusters, cluster_n_triangles, cluster_area = (tri_mesh.cluster_connected_triangles())
         triangle_clusters = np.asarray(triangle_clusters)
 
