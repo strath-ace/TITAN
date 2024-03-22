@@ -131,7 +131,7 @@ class Dynamics():
         self.manifold_correction = manifold_correction
 
 class CFD():
-    def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1):
+    def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1, cfd_restart = False, restart_grid = 0):
         
         #: [str] Name of the CFD solver
         self.solver = solver
@@ -153,6 +153,12 @@ class CFD():
 
         #: [int] Number of cores to run the CFD simulation
         self.cores = cores
+
+        #: [bool] Flag to restart from a CFD solution
+        self.cfd_restart = cfd_restart
+
+        #: [bool] Iteration of adaptated grid to be used at restart of a CFD simulation
+        self.restart_grid = restart_grid        
 
 class Bloom():
     def __init__(self, flag = False, layers = 20, spacing = 0.0006, growth_rate = 1.075):
@@ -800,6 +806,8 @@ def read_config_file(configParser, postprocess = ""):
         options.cfd.iters =       get_config_value(configParser, options.cfd.iters, 'SU2', 'Num_iters', 'int')
         options.cfd.muscl =       get_config_value(configParser, options.cfd.muscl, 'SU2', 'Muscl', 'str')
         options.cfd.cfl =         get_config_value(configParser, options.cfd.cfl, 'SU2', 'Cfl', 'float')
+        options.cfd.cfd_restart =     get_config_value(configParser, options.cfd.cfd_restart, 'SU2', 'Restart', 'boolean')
+        options.cfd.restart_grid=     get_config_value(configParser, options.cfd.restart_grid, 'SU2', 'Restart_grid', 'int')
 
         #Read Bloom conditions
         options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')

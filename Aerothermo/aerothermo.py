@@ -300,7 +300,6 @@ def compute_aerothermo(titan, options):
     options: Options
         Object of class Options
     """
-    print('compute_aerothermo')
 
     atmo_model = options.freestream.model
     
@@ -312,7 +311,8 @@ def compute_aerothermo(titan, options):
     if options.fidelity.lower() == 'low':
         compute_low_fidelity_aerothermo(titan.assembly, options)
     elif options.fidelity.lower() == 'high':
-        su2.compute_cfd_aerothermo(titan.assembly, options)
+        if options.cfd.cfd_restart: su2.restart_cfd_aerothermo(titan, options)
+        else: su2.compute_cfd_aerothermo(titan, options)
     elif options.fidelity.lower() == 'multi':
         switch.compute_aerothermo(titan, options)
     else:

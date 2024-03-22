@@ -56,14 +56,18 @@ def loop(options = [], titan = []):
         print("Structural dynamics selected: still requiring further validation")
     #    exit("Structural dynamics is currently under development")
 
+    #if restarting from a CFD solution, we are actually still in the previous iteration
+    if options.cfd.cfd_restart: titan.iter -= 1 
+
     options.current_iter = titan.iter
     options.user_time    = options.dynamics.time_step
 
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
-        titan.assembly[0].mass = options.vehicle.mass
+        titan.assembly[0].mass = options.vehicle.mass   
 
     while titan.iter < options.iters:
+        print('iter=', titan.iter)
         options.high_fidelity_flag = False                
 
         fragmentation.fragmentation(titan = titan, options = options)
@@ -77,13 +81,12 @@ def loop(options = [], titan = []):
 
         output.iteration(titan = titan, options = options)
 
-        i = 0
-        for assembly in titan.assembly:
-            print('Assembly:', i)
-            print('altitude:', assembly.trajectory.altitude)
-            i+=1
+        #i = 0
+        #for assembly in titan.assembly:
+        #    print('Assembly:', i)
+        #    print('altitude:', assembly.trajectory.altitude)
+        #    i+=1
             
-
         dynamics.integrate(titan = titan, options = options)
         #output.generate_surface_solution(titan = titan, options = options)
 
