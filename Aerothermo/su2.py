@@ -500,6 +500,8 @@ def split_aerothermo(total_aerothermo, assembly_list):
     for it in range(len(assembly_list)):
 
         #Create indexing between CFD_nodes and Assembly_nodes
+        print(np.shape(assembly_list[it].mesh.nodes))
+        print(np.shape(assembly_list[it].cfd_mesh.nodes))
         node_index, __ = Mesh.create_index(assembly_list[it].mesh.nodes, assembly_list[it].cfd_mesh.nodes)
         last_node += len(node_index)
 
@@ -931,6 +933,9 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
 
         assembly.cfd_mesh.xmin = np.min(assembly.cfd_mesh.nodes , axis = 0)
         assembly.cfd_mesh.xmax = np.max(assembly.cfd_mesh.nodes , axis = 0)
+
+    if options.current_iter%options.save_freq == 0:
+        options.save_state(titan, titan.iter, CFD = True)
 
     #Automatically generates the CFD domain
     input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'

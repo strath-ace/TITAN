@@ -131,7 +131,7 @@ class Dynamics():
         self.manifold_correction = manifold_correction
 
 class CFD():
-    def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1, cfd_restart = False, restart_grid = 0):
+    def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1, cfd_restart = False, restart_grid = 0, restart_iter = 0):
         
         #: [str] Name of the CFD solver
         self.solver = solver
@@ -158,7 +158,10 @@ class CFD():
         self.cfd_restart = cfd_restart
 
         #: [bool] Iteration of adaptated grid to be used at restart of a CFD simulation
-        self.restart_grid = restart_grid        
+        self.restart_grid = restart_grid   
+
+        #: [bool] TITAN iteration to be used for the restart of a CFD simulation
+        self.restart_iter = restart_iter                
 
 class Bloom():
     def __init__(self, flag = False, layers = 20, spacing = 0.0006, growth_rate = 1.075):
@@ -397,7 +400,7 @@ class Options():
         pickle.dump(titan, outfile)
         outfile.close() 
 
-    def save_state(self, titan, i = 0):
+    def save_state(self, titan, i = 0, CFD = False):
         """
         Saves the TITAN object state
 
@@ -418,12 +421,20 @@ class Options():
             for assembly in titan.assembly:
                 assembly.collision = None
 
+        print('saving state.....')
+        print(np.shape(titan.assembly[0].cfd_mesh.nodes))
+
         outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
         pickle.dump(titan, outfile)
         outfile.close()
-        #outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb')
-        #pickle.dump(titan, outfile)
-        #outfile.close()
+        outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb')
+        pickle.dump(titan, outfile)
+        outfile.close()
+
+        if CFD:
+            outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','wb')
+            pickle.dump(titan, outfile)
+            outfile.close()
 
         if self.collision.flag:
             for assembly in titan.assembly: collision.generate_collision_mesh(assembly, self)
@@ -436,7 +447,7 @@ class Options():
 
         return titan
 
-    def read_state(self):
+    def read_state(self, i = 0):
         """
         Load last state of the TITAN object
 
@@ -445,10 +456,14 @@ class Options():
         titan: Assembly_list
             Object of class Assembly_list
         """
-
-        infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
-        titan = pickle.load(infile)
-        infile.close()
+        if self.fidelity.lower() == 'high' and self.cfd.cfd_restart:
+            infile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','rb')
+            titan = pickle.load(infile)
+            infile.close()
+        else: 
+            infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
+            titan = pickle.load(infile)
+            infile.close()
 
         return titan
 
@@ -808,6 +823,7 @@ def read_config_file(configParser, postprocess = ""):
         options.cfd.cfl =         get_config_value(configParser, options.cfd.cfl, 'SU2', 'Cfl', 'float')
         options.cfd.cfd_restart =     get_config_value(configParser, options.cfd.cfd_restart, 'SU2', 'Restart', 'boolean')
         options.cfd.restart_grid=     get_config_value(configParser, options.cfd.restart_grid, 'SU2', 'Restart_grid', 'int')
+        options.cfd.restart_iter=     get_config_value(configParser, options.cfd.restart_iter, 'SU2', 'TITAN_iter', 'int')
 
         #Read Bloom conditions
         options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
@@ -836,7 +852,7 @@ def read_config_file(configParser, postprocess = ""):
     options.create_output_folders()
 
     if options.load_state:
-        titan = options.read_state()
+        titan = options.read_state(options.cfd.restart_iter)
 
     else:
         #Read the initial trajectory details
