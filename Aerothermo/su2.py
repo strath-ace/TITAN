@@ -242,15 +242,15 @@ class Solver_Input_Output():
         The class in the su2.py file is hardcoded to work with SU2.
     """
 
-    def __init__(self,it, iteration, output_folder, cluster_tag):
+    def __init__(self,it, iteration, output_folder, cluster_tag, input_grid):
         #: [str] Name of the mesh to be used in the simulation
-        self.mesh_filename = "MESH_FILENAME= "+output_folder+"/CFD_Grid/Domain_"+str(it)+".su2"
+        self.mesh_filename = "MESH_FILENAME= "+output_folder+"/CFD_Grid/"+input_grid
         
         #: [str] Mesh format (Default = SU2)
         self.mesh_format = "MESH_FORMAT= SU2"
 
         #: [str] Solution filename to write
-        self.solution_output = "SOLUTION_FILENAME= "+output_folder+"/CFD_sol/restart_flow_"+ str(it) + ".csv"
+        self.solution_input = "SOLUTION_FILENAME= "+output_folder+"/CFD_sol/restart_flow_" + str(iteration) + '_adapt_' + str(it) + ".csv"
 
         #: [str] Solution format
         self.tabular_format = "TABULAR_FORMAT= CSV"
@@ -259,13 +259,13 @@ class Solver_Input_Output():
         self.output_files = "OUTPUT_FILES= (RESTART_ASCII, PARAVIEW, SURFACE_PARAVIEW,SURFACE_PARAVIEW_ASCII )"
 
         #: [str] Solution filename to read
-        self.solution_input = "RESTART_FILENAME = "+output_folder+"/CFD_sol/restart_flow_"+ str(it) + ".csv"
+        self.solution_output = "RESTART_FILENAME = "+output_folder+"/CFD_sol/restart_flow_" + str(iteration) + '_adapt_' + str(it) + ".csv"
 
         #: [str] Name of the volume solution filename to write the simulation data
-        self.output_vol = "VOLUME_FILENAME= "+output_folder+"/CFD_sol/flow_"+ str(iteration) + '_' + str(it) + '_cluster_'+str(cluster_tag)
+        self.output_vol = "VOLUME_FILENAME= "+output_folder+"/CFD_sol/flow_"+ str(iteration) + '_adapt_' + str(it) + '_cluster_'+str(cluster_tag)
 
         #: [str] Name of the surface solution filename to write the simulation data
-        self.output_surf = "SURFACE_FILENAME= "+output_folder+"/CFD_sol/surface_flow_"+ str(iteration) + '_' + str(it) + '_cluster_'+str(cluster_tag)
+        self.output_surf = "SURFACE_FILENAME= "+output_folder+"/CFD_sol/surface_flow_"+ str(iteration) + '_adapt_' + str(it) + '_cluster_'+str(cluster_tag)
 
         #: [str] Frequency for the output file generation
         self.output_freq = "OUTPUT_WRT_FREQ= 500"
@@ -280,7 +280,7 @@ class SU2_Config():
         The class in the su2.py file is hardcoded to work with SU2.
     """
 
-    def __init__(self,freestream, assembly, restart, it, iteration, su2, options, cluster_tag):
+    def __init__(self,freestream, assembly, restart, it, iteration, su2, options, cluster_tag, input_grid):
         #: [str] Name of the configuration file
         self.name = "Config.cfg"
 
@@ -306,7 +306,7 @@ class SU2_Config():
         self.convergence = Solver_Convergence()
 
         #:[Solver_Input_Output] Object of class Solver_Input_Output
-        self.inout = Solver_Input_Output(it, iteration, options.output_folder, cluster_tag)
+        self.inout = Solver_Input_Output(it, iteration, options.output_folder, cluster_tag, input_grid)
 
 def write_SU2_config(freestream, assembly, restart, it, iteration, su2, options, cluster_tag, input_grid, output_grid = "", interpolation = False, bloom = False, interp_to_BL = False):
     """
@@ -339,7 +339,7 @@ def write_SU2_config(freestream, assembly, restart, it, iteration, su2, options,
     """
 
     #Creates an object of class SU2_Config
-    SU2_config = SU2_Config(freestream, assembly, restart, it, iteration,  su2, options, cluster_tag)
+    SU2_config = SU2_Config(freestream, assembly, restart, it, iteration,  su2, options, cluster_tag, input_grid)
 
     SU2_config.inout.mesh_filename = 'MESH_FILENAME= '+options.output_folder +'/CFD_Grid/'+input_grid
 
@@ -471,6 +471,7 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
     """
 
     aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
+    aerothermo.pressure -= freestream.pressure 
 
     try:
         aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray('Skin_Friction_Coefficient'))[idx_sim][idx_inv]
@@ -563,7 +564,7 @@ def generate_BL(assembly, options, it, cluster_tag):
     if options.bloom.flag:
         bloom.generate_BL(it, options, num_obj = len(assembly), bloom = options.bloom, input_grid ='Domain_'+str(it)+'_cluster_'+str(cluster_tag) , output_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
     
-def adapt_mesh(assembly, options, it, cluster_tag):
+def adapt_mesh(assembly, options, it, cluster_tag, iteration):
     """
     Anisotropically adapts the mesh
 
@@ -580,10 +581,11 @@ def adapt_mesh(assembly, options, it, cluster_tag):
     """
 
     if options.amg.flag:
-        amg.adapt_mesh(options.amg, options, j = it, num_obj = len(assembly),  input_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag), output_grid = 'Domain_'+str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
+        amg.adapt_mesh(options.amg, iteration, options, j = it, num_obj = len(assembly),  input_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it)+'_cluster_'+str(cluster_tag), output_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
 
 
-def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
+def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
+
     """
     Compute the aerothermodynamic properties using the CFD software
 
@@ -599,20 +601,16 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
     
     #TODO:
     # ---> size ref should also be in the options config file
+    assembly_list = titan.assembly
 
-    num_obj = len(assembly_list)
     iteration = options.current_iter
     su2 = options.cfd 
-    amg = options.amg 
-    bloom = options.bloom
-    free = options.freestream
 
     n = options.cfd.cores
     if options.amg.flag: 
         adapt_iter = options.cfd.adapt_iter
     else:
         adapt_iter = 0
-    aerothermo = []
 
     #Choose index of the object with lower altitude
     altitude = 1E10
@@ -646,65 +644,65 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
 
         mesh = trimesh.Trimesh(vertices = mesh.vertices, faces = mesh.faces[mask])
         
-        if options.ablation_mode == "tetra":
-            exit("CFD solver using tetra-ablation is curently now working, please use 0D option")
-            #mesh.show()
-            
-            tri_mesh = o3d.geometry.TriangleMesh()
-            tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices)
-            tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces)
-            mesh = tri_mesh
-            #o3d.visualization.draw_geometries([tri_mesh])
-
-            mesh.compute_vertex_normals()
-            pcd = mesh.sample_points_poisson_disk(1000)
-
-            o3d.visualization.draw_geometries([pcd])
-
-            print('run Poisson surface reconstruction')
-            with o3d.utility.VerbosityContextManager(
-                    o3d.utility.VerbosityLevel.Debug) as cm:
-                mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-                    pcd, depth=8)
-            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
-
-            #Removes the non-manifold_edges
-            mesh.remove_non_manifold_edges()
-
-            #Removes the isolated triangles  
-
-            voxel_size = max(mesh.get_max_bound() - mesh.get_min_bound()) / 32.0
-
-            mesh = mesh.simplify_vertex_clustering(voxel_size = voxel_size,
-                contraction=o3d.geometry.SimplificationContraction.Average)
-
-            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
-
-            #if num_smooth_iter != 0:
-            #    mesh = mesh.filter_smooth_taubin(number_of_iterations = num_smooth_iter)
-
-            #Check the triangle clustering, there shall only be one
-            cluster, number_tri, __ = mesh.cluster_connected_triangles()
-            mask = cluster!=np.argmax(number_tri)
-            mesh.remove_triangles_by_mask(mask)
-            mesh.remove_unreferenced_vertices()
-
-            #Removes the non-manifold_triangles
-            #non_man_vertex =  mesh.get_non_manifold_vertices()
-            #print(non_man_vertex)
-            #mesh.remove_vertices_by_index(non_man_vertex)
-            
-            #--> But is removing the triangle with smaller area: 
-            mesh.remove_non_manifold_edges()
-
-            #print(np.asarray(mesh.get_non_manifold_edges(allow_boundary_edges=True)))
-            #print(np.array(mesh.get_non_manifold_edges()))
-
-            #Pass the mesh to trimesh again
-            mesh = trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles))
-            #mesh.fill_holes()
-            #mesh.fix_normals()
-            #mesh.show()
+#        if options.ablation_mode == "tetra":
+#            exit("CFD solver using tetra-ablation is curently now working, please use 0D option")
+#            #mesh.show()
+#            
+#            tri_mesh = o3d.geometry.TriangleMesh()
+#            tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices)
+#            tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces)
+#            mesh = tri_mesh
+#            #o3d.visualization.draw_geometries([tri_mesh])
+#
+#            mesh.compute_vertex_normals()
+#            pcd = mesh.sample_points_poisson_disk(1000)
+#
+#            o3d.visualization.draw_geometries([pcd])
+#
+#            print('run Poisson surface reconstruction')
+#            with o3d.utility.VerbosityContextManager(
+#                    o3d.utility.VerbosityLevel.Debug) as cm:
+#                mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
+#                    pcd, depth=8)
+#            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
+#
+#            #Removes the non-manifold_edges
+#            mesh.remove_non_manifold_edges()
+#
+#            #Removes the isolated triangles  
+#
+#            voxel_size = max(mesh.get_max_bound() - mesh.get_min_bound()) / 32.0
+#
+#            mesh = mesh.simplify_vertex_clustering(voxel_size = voxel_size,
+#                contraction=o3d.geometry.SimplificationContraction.Average)
+#
+#            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
+#
+#            #if num_smooth_iter != 0:
+#            #    mesh = mesh.filter_smooth_taubin(number_of_iterations = num_smooth_iter)
+#
+#            #Check the triangle clustering, there shall only be one
+#            cluster, number_tri, __ = mesh.cluster_connected_triangles()
+#            mask = cluster!=np.argmax(number_tri)
+#            mesh.remove_triangles_by_mask(mask)
+#            mesh.remove_unreferenced_vertices()
+#
+#            #Removes the non-manifold_triangles
+#            #non_man_vertex =  mesh.get_non_manifold_vertices()
+#            #print(non_man_vertex)
+#            #mesh.remove_vertices_by_index(non_man_vertex)
+#            
+#            #--> But is removing the triangle with smaller area: 
+#            mesh.remove_non_manifold_edges()
+#
+#            #print(np.asarray(mesh.get_non_manifold_edges(allow_boundary_edges=True)))
+#            #print(np.array(mesh.get_non_manifold_edges()))
+#
+#            #Pass the mesh to trimesh again
+#            mesh = trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles))
+#            #mesh.fill_holes()
+#            #mesh.fix_normals()
+#            #mesh.show()
 
         assembly.cfd_mesh.nodes = mesh.vertices
         assembly.cfd_mesh.facets = mesh.faces
@@ -737,26 +735,102 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
         assembly.cfd_mesh.xmin = np.min(assembly.cfd_mesh.nodes , axis = 0)
         assembly.cfd_mesh.xmax = np.max(assembly.cfd_mesh.nodes , axis = 0)
 
+    if options.current_iter%options.save_freq == 0:
+        options.save_state(titan, titan.iter, CFD = True)        
+
     #Automatically generates the CFD domain
-    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = 'Domain_'+str(0)+'_cluster_'+str(cluster_tag)+'.su2', options = options)
+    input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
+    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
 
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)
 
     #Writes the configuration file
     it = 0
-    config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)+'.su2',bloom=False)
+    
+    config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = input_grid, bloom=False)
     
     #Runs SU2 simulaton
     run_SU2(n, options)
 
     #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
     if options.amg.flag:
-        for it in range(options.cfd.adapt_iter):
-            restart = True
-            adapt_mesh(assembly_list, options, it, cluster_tag)
-            config = write_SU2_config(free, assembly_list, restart, it+1, iteration, su2, options, cluster_tag, input_grid = 'Domain_'+str(it+1)+'_cluster_'+str(cluster_tag)+'.su2',bloom=False)
-            run_SU2(n, options)
+        run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)
+
+    post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free)
+
+
+def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
+    """
+    Compute the aerothermodynamic properties using the CFD software
+
+    Parameters
+    ----------
+    assembly_list: List_Assembly
+        Object of class List_Assembly
+    options: Options
+        Object of class Options
+    cluster_tag: int
+        Value of Cluster tag
+    """
+    
+    #TODO:
+    # ---> size ref should also be in the options config file
+    assembly_list = titan.assembly
+    iteration = options.current_iter
+    su2 = options.cfd 
+
+    n = options.cfd.cores
+    if options.amg.flag: 
+        adapt_iter = options.cfd.adapt_iter
+    else:
+        adapt_iter = 0
+
+    #Choose index of the object with lower altitude
+    altitude = 1E10
+
+    for index,assembly in enumerate(assembly_list):
+        if assembly.trajectory.altitude < altitude:
+            altitude = assembly.trajectory.altitude
+            it = index
+            lref = assembly.Lref
+    
+
+    free = assembly_list[it].freestream
+    #TODO options for ref_size_surf
+
+    #Number of iterations to smooth surface
+    num_smooth_iter = 0
+
+    restart_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(su2.restart_grid)+'_cluster_'+str(cluster_tag)+'.su2'
+
+    #Writes the configuration file
+    it = su2.restart_grid
+    restart = True
+    config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = restart_grid, bloom=False)
+    #Runs SU2 simulaton
+    run_SU2(n, options)
+
+    #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
+    if options.amg.flag:
+        run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)
+
+    post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free)
+
+    #This function is never called again, after initial restart from SU2 solution
+    options.cfd.cfd_restart = False
+
+
+def run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n):
+
+    for it in range(options.cfd.adapt_iter):
+        restart = True
+        adapt_mesh(assembly_list, options, it, cluster_tag, iteration)
+        config = write_SU2_config(free, assembly_list, restart, it+1, iteration, su2, options, cluster_tag, input_grid = 'Domain_iter_'+ str(iteration) + '_adapt_' +str(it+1) + '_cluster_'+str(cluster_tag)+'.su2',bloom=False)
+        run_SU2(n, options)  
+
+
+def post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free):
 
     assembly_nodes = np.array([])
     assembly_facets = np.array([], dtype = int)
@@ -771,5 +845,5 @@ def compute_cfd_aerothermo(assembly_list, options, cluster_tag = 0):
     assembly_nodes,idx_inv = np.unique(assembly_nodes, axis = 0, return_inverse = True)
     
     #Reads the solution file and stores into the different assemblies
-    total_aerothermo = read_vtk_from_su2_v2(options.output_folder+'/CFD_sol/surface_flow_'+str(iteration)+'_'+str(adapt_iter)+'_cluster_'+str(cluster_tag)+'.vtu', assembly_nodes, idx_inv, options, free)
-    split_aerothermo(total_aerothermo, assembly_list)
+    total_aerothermo = read_vtk_from_su2_v2(options.output_folder+'/CFD_sol/surface_flow_'+str(iteration)+'_adapt_'+str(adapt_iter)+'_cluster_'+str(cluster_tag)+'.vtu', assembly_nodes, idx_inv, options, free)
+    split_aerothermo(total_aerothermo, assembly_list)#        
