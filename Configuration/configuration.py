@@ -734,7 +734,7 @@ def read_config_file(configParser, postprocess = ""):
 
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
-    options.meshing.surf_size = get_config_value(configParser, 0.5, 'Mesh', 'Surf_size', 'float')
+    options.meshing.surf_size = get_config_value(configParser, 100, 'Mesh', 'Surf_size', 'float')
 
     #Read Freestream options
     options.freestream.model =  get_config_value(configParser, options.freestream.model, 'Freestream', 'Model', 'str')
