@@ -213,7 +213,7 @@ def generate_surface_solution(titan, options):
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
         vol_mesh_filepath = f"{folder_path}/solution_iter_{str(titan.iter).zfill(3)}.xdmf"
-        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+        meshio.write(vol_mesh_filepath, trimesh, file_format="vtk")
 
 #Generate volume for FENICS
 def generate_volume(titan, options):
@@ -231,8 +231,8 @@ def generate_volume(titan, options):
         folder_path = options.output_folder+'/Surface_solution/ID_'+str(assembly.id)
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
-        vol_mesh_filepath = f"{folder_path}/volume.xdmf"        
-        meshio.write(vol_mesh_filepath, trimesh, file_format = "xdmf")
+        vol_mesh_filepath = f"{folder_path}/volume.vtk"        
+        meshio.write(vol_mesh_filepath, trimesh, file_format = "vtk")
 
 # Show DIsplacement and Von Mises for 3D mesh (Not surface mesh)
 def generate_volume_solution(titan, options):

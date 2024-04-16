@@ -134,7 +134,7 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
 
     # Integrates the quaternion with respect to the angular velocities and the time-steo
     py_quat = pyquaternion.Quaternion(q[3],q[0],q[1],q[2])
-    
+   
     py_quat.integrate([angularDerivatives.droll, angularDerivatives.dpitch,angularDerivatives.dyaw], dt)
     assembly.quaternion = np.append(py_quat.vector, py_quat.real)
 

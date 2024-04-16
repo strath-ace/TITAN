@@ -53,7 +53,7 @@ def compute_aerodynamic_forces(titan, options):
             force = np.sum(force_facets, axis = 0)
             assembly.body_force.force = force
             assembly.body_force.force_facets = force_facets
-
+            print('\n\n FORCE:', force)
             q = assembly.quaternion
 
             R_W_NED = frames.R_W_NED(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)
@@ -169,32 +169,37 @@ def compute_thrust_force(titan, options):
 
     thrust = [T, 0, 0]
 
+    i = 0
+    for assembly in titan.assembly:
+        print('Assembly ID =', i, ', Thrust=', assembly.body_force.thrust, ', Moment=', assembly.body_force.thrust_moment)
+        i+=1    
+
     if titan.time == titan.booster_t_trigger:
 
         print('Booster separation occurring, applying lateral thrust in boosters');
 
-        lateral_boost  = 4000000
-        rotation_boost = 10000000
-        backward_boost = 0.65*lateral_boost
+        lateral_boost  = 1000000000 #4000000
+        rotation_boost = 0 #10000000
+        backward_boost = 0 #0.65*lateral_boost
 
         for assembly in titan.assembly:
-            if any(obj.name == 'Tests/Mesh/Ariane/UpperSection_M.stl' for obj in assembly.objects):
+            if any(obj.name == 'Tests/Mesh/Ariane/ArianeBody_Euler.stl' for obj in assembly.objects):
                 assembly.body_force.thrust = thrust
-            elif any(obj.name == 'Tests/Mesh/Ariane/RadialA_M.stl' for obj in assembly.objects):
+            elif any(obj.name == 'Tests/Mesh/Ariane/RadialA_Euler.stl' for obj in assembly.objects):
                 assembly.body_force.thrust = [-backward_boost,lateral_boost,0]
-                assembly.body_force.thrust_moment = [0,0,-rotation_boost]        
-            elif any(obj.name == 'Tests/Mesh/Ariane/RadialB_M.stl' for obj in assembly.objects):
+                assembly.body_force.thrust_moment = [0,0,-rotation_boost]
+            elif any(obj.name == 'Tests/Mesh/Ariane/RadialB_Euler.stl' for obj in assembly.objects):
                 assembly.body_force.thrust = [-backward_boost,-lateral_boost,0]
                 assembly.body_force.thrust_moment = [0,0,rotation_boost+0.75*rotation_boost]
     else:
 
         for assembly in titan.assembly:
-            if any(obj.name == 'Tests/Mesh/Ariane/UpperSection_M.stl' for obj in assembly.objects):
+            if any(obj.name == 'Tests/Mesh/Ariane/ArianeBody_Euler.stl' for obj in assembly.objects):
                 assembly.body_force.thrust = thrust
             else:
                 assembly.body_force.thrust        = np.zeros(3)
                 assembly.body_force.thrust_moment = np.zeros(3)
     i = 0
     for assembly in titan.assembly:
-        #print('Assembly ID =', i, ', Thrust=', assembly.body_force.thrust, ', Moment=', assembly.body_force.thrust_moment)
+        print('Assembly ID =', i, ', Thrust=', assembly.body_force.thrust, ', Moment=', assembly.body_force.thrust_moment)
         i+=1
