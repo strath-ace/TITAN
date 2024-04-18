@@ -471,8 +471,10 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
     """
 
     aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
+    print(aerothermo.pressure)
     aerothermo.pressure -= freestream.pressure
-
+    print(aerothermo.pressure)
+    exit()
     try:
         aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray('Skin_Friction_Coefficient'))[idx_sim][idx_inv]
         aerothermo.shear *= 0.5*freestream.density*freestream.velocity**2
