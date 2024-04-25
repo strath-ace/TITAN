@@ -37,6 +37,8 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 
 	index = data['Iter']==iter_value
 
+	print('\n\niteration:', iter_value)
+
 	assembly_ID = data[index]['Assembly_ID'].to_numpy()
 
 	if filter_name:
@@ -85,11 +87,13 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	#R_ECEF_W_0 = R_NED_W*R_ECEF_NED
 
 	#Read mesh information and surface quantities, place them on the ECEF
+	R_B_ECEF = Rot.from_quat(q[index_mass])
+
 	mesh = []
 	for i, _id in enumerate(assembly_ID):
 		mesh.append(meshio.read(options.output_folder+'/Surface_solution/ID_'+str(_id)+'/solution_iter_'+str(iter_value).zfill(3)+'.xdmf'))
 		
-		R_B_ECEF = Rot.from_quat(q[i])
+		#R_B_ECEF = Rot.from_quat(q[i])
 
 		#Apply Displacement due to the use of FEniCS
 		mesh[i].points += mesh[i].point_data['Displacement']
@@ -106,17 +110,32 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		mesh[i].points -= np.array([X[index_mass],Y[index_mass],Z[index_mass]])
 	
 	if postprocess.lower() == "wind": 
+
+		R_ECEF_NED = frames.R_NED_ECEF(lat = latitude[index_mass], lon = longitude[index_mass]).inv()
+		R_NED_W = frames.R_W_NED(ha = chi[index_mass], fpa = gamma[index_mass]).inv()
+		R_ECEF_W = R_NED_W*R_ECEF_NED
+
+		print('chi[index_mass]:', chi[index_mass]*180/np.pi)
+		print('gamma[index_mass]:', gamma[index_mass]*180/np.pi)
+
 		#Rotate ECEF -> wind_frame
 		for i, _id in enumerate(assembly_ID):
 
-			R_ECEF_NED = frames.R_NED_ECEF(lat = latitude[i], lon = longitude[i]).inv()
-			R_NED_W = frames.R_W_NED(ha = chi[i], fpa = gamma[i]).inv()
+			#print('\nassembly:', i)
+
+			##R_ECEF_NED = frames.R_NED_ECEF(lat = latitude[i], lon = longitude[i]).inv()
+			#print('\nR_ECEF_NED:', R_ECEF_NED.as_matrix())
+			#print('gamma:', gamma[i])
+			#print('chi:', chi[i])
+			##R_NED_W = frames.R_W_NED(ha = chi[i], fpa = gamma[i]).inv()
+			#print('\nR_NED_W:', R_NED_W.as_matrix())
 
 			#R_ECEF_B = Rot.from_quat(q[i]).inv()
 			#R_B_NED =   frames.R_B_NED(roll = roll[i], pitch = pitch[i], yaw = yaw[i]) 
 			#R_NED_W = frames.R_W_NED(ha = chi[i], fpa = gamma[i]).inv()
 			
-			R_ECEF_W = R_NED_W*R_ECEF_NED
+			##R_ECEF_W = R_NED_W*R_ECEF_NED
+			#print('\nR_ECEF_W:', R_ECEF_W.as_matrix())
 			mesh[i].points = (R_ECEF_W).apply(mesh[i].points)
 
 	#Create new mesh

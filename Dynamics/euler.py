@@ -114,6 +114,11 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
 
     gamma = np.arcsin(np.dot(assembly.position, assembly.velocity)/(np.linalg.norm(assembly.position)*np.linalg.norm(assembly.velocity)))
     assembly.trajectory.chi = np.arctan2(vEast,vNorth)
+
+    print('\nDynamics')
+    print('vEast:', vEast)
+    print('vNorth:', vNorth)
+    print('vUp:', vUp)
     
     R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
 

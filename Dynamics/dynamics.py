@@ -224,6 +224,7 @@ def compute_cartesian_derivatives(assembly, options):
     Faero_I = R_B_ECEF.apply(np.array(assembly.body_force.force))
     T = np.array(assembly.body_force.thrust)
     T = T.reshape((3,))
+    print('\n  JETTISON, Thrust B:', T, '\n')
     Fthrust_I = R_B_ECEF.apply(np.array(T))
     Fgrav_I = np.array([agrav_u,agrav_v,agrav_w])*assembly.mass
     Fcoreolis_I = -np.cross(np.array([0,0,wE]), np.cross(np.array([0,0,wE]), assembly.position))
@@ -233,6 +234,7 @@ def compute_cartesian_derivatives(assembly, options):
     #pymap3d has the functions we need
 
     dx = assembly.velocity
+    print('\n  JETTISON, Thrust I:', Fthrust_I, '\n')
     dv = (Faero_I + Fthrust_I +  Fgrav_I + Fcoreolis_I + Fcentrif_I) / assembly.mass
 
     return DerivativesCartesian(dx = dx[0], dy = dx[1], dz = dx[2], du = dv[0], dv = dv[1], dw = dv[2])

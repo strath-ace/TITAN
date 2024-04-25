@@ -192,6 +192,11 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].trajectory.gamma = np.arcsin(np.dot(titan.assembly[-1].position, titan.assembly[-1].velocity)/(np.linalg.norm(titan.assembly[-1].position)*np.linalg.norm(titan.assembly[-1].velocity)))
         titan.assembly[-1].trajectory.chi = np.arctan2(vEast,vNorth)
 
+        print('\nFragmentation')
+        print('vEast:', vEast)
+        print('vNorth:', vNorth)
+        print('vUp:', vUp)
+
         #ECEF_2_B
         [Vx_B, Vy_B, Vz_B] =  Rot.from_quat(titan.assembly[-1].quaternion).inv().apply(titan.assembly[-1].velocity)
         titan.assembly[-1].trajectory.velocity = np.linalg.norm([Vx_B, Vy_B, Vz_B])
