@@ -33,6 +33,7 @@ import os
 import trimesh
 import open3d as o3d
 import pandas as pd
+from Output import output
 
 class Solver():
     """ Class Solver
@@ -784,7 +785,8 @@ def adapt_mesh(assembly, options, it, cluster_tag, iteration):
 #    total_aerothermo = read_vtk_from_su2_v2(options.output_folder+'/CFD_sol/surface_flow_'+str(iteration)+'_'+str(adapt_iter)+'_cluster_'+str(cluster_tag)+'.vtu', assembly_nodes, idx_inv, options, free)
 #    split_aerothermo(total_aerothermo, assembly_list)#
 
-def compute_cfd_aerothermo_debug(titan, options, cluster_tag = 0):
+
+def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
 
     """
     Compute the aerothermodynamic properties using the CFD software
@@ -813,12 +815,10 @@ def compute_cfd_aerothermo_debug(titan, options, cluster_tag = 0):
         adapt_iter = 0
 
     #Choose index of the object with lower altitude
-    #altitude = 1E10
     altitude = 0
     restart = False
 
     for index,assembly in enumerate(assembly_list):
-        #if assembly.trajectory.altitude < altitude:
         if assembly.trajectory.altitude > altitude:
             altitude = assembly.trajectory.altitude
             it = index
@@ -917,172 +917,14 @@ def compute_cfd_aerothermo_debug(titan, options, cluster_tag = 0):
    # assembly_windframe = deepcopy(assembly_list)
 
     pos = assembly_list[it].position
-
-    print(' leading object Assembly:', it, ' position:', pos, '\n')
     
-    for i, assembly in enumerate(assembly_windframe):
+    #R_B_ECEF = Rot.from_quat(assembly_list[it].quaternion)
 
-        print('\ni:', i)
+    R_ECEF_NED = frames.R_NED_ECEF(lat = assembly_list[it].trajectory.latitude, lon = assembly_list[it].trajectory.longitude).inv()
+    R_NED_W = frames.R_W_NED(ha = assembly_list[it].trajectory.chi, fpa = assembly_list[it].trajectory.gamma).inv()
+    R_ECEF_W = R_NED_W*R_ECEF_NED 
 
-        R_B_ECEF = Rot.from_quat(assembly.quaternion)
 
-        assembly.cfd_mesh.nodes -= assembly.COG
-        print('COG:', assembly.COG)
-        assembly.cfd_mesh.nodes = R_B_ECEF.apply(assembly.cfd_mesh.nodes)
-
-        #Translate to the ECEF position
-        assembly.cfd_mesh.nodes += np.array(assembly.position-pos)        
-        print('position:', assembly.position)
-        print('pos:', pos)
-
-        R_ECEF_NED = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude).inv()
-        R_NED_W = frames.R_W_NED(ha = assembly.trajectory.chi, fpa = assembly.trajectory.gamma).inv()
-
-        R_ECEF_W = R_NED_W*R_ECEF_NED 
-        assembly.cfd_mesh.nodes = (R_ECEF_W).apply(assembly.cfd_mesh.nodes)
-
-        assembly.cfd_mesh.xmin = np.min(assembly.cfd_mesh.nodes , axis = 0)
-        assembly.cfd_mesh.xmax = np.max(assembly.cfd_mesh.nodes , axis = 0)
-
-    if options.current_iter%options.save_freq == 0:
-        options.save_state(titan, titan.iter, CFD = True)
-
-    #Automatically generates the CFD domain
-    input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.stl'
-    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
-
-def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
-
-    """
-    Compute the aerothermodynamic properties using the CFD software
-
-    Parameters
-    ----------
-    assembly_list: List_Assembly
-        Object of class List_Assembly
-    options: Options
-        Object of class Options
-    cluster_tag: int
-        Value of Cluster tag
-    """
-    
-    #TODO:
-    # ---> size ref should also be in the options config file
-    assembly_list = titan.assembly
-
-    iteration = options.current_iter
-    su2 = options.cfd 
-
-    n = options.cfd.cores
-    if options.amg.flag: 
-        adapt_iter = options.cfd.adapt_iter
-    else:
-        adapt_iter = 0
-
-    #Choose index of the object with lower altitude
-    altitude = 1E10
-    restart = False
-
-    for index,assembly in enumerate(assembly_list):
-        if assembly.trajectory.altitude < altitude:
-            altitude = assembly.trajectory.altitude
-            it = index
-            lref = assembly.Lref
-    
-
-    free = assembly_list[it].freestream
-    #TODO options for ref_size_surf
-
-    #Number of iterations to smooth surface
-    num_smooth_iter = 0
-
-    #Reconstruct the surface to be able to perform BL if ablation = Tetra
-    for i, assembly in enumerate(assembly_list):
-
-        mesh = trimesh.Trimesh()
-        for obj in assembly.objects:
-            mesh += trimesh.Trimesh(vertices = obj.mesh.nodes, faces = obj.mesh.facets) 
-
-        COG = np.round(np.sum(mesh.vertices[mesh.faces], axis = 1)/3,5)
-
-        faces_tuple = [tuple(f) for f in COG]
-        count_faces_dict = pd.Series(faces_tuple).value_counts()
-        mask = [count_faces_dict[f] == 1 for f in faces_tuple]
-
-        mesh = trimesh.Trimesh(vertices = mesh.vertices, faces = mesh.faces[mask])
-        
-#        if options.ablation_mode == "tetra":
-#            exit("CFD solver using tetra-ablation is curently now working, please use 0D option")
-#            #mesh.show()
-#            
-#            tri_mesh = o3d.geometry.TriangleMesh()
-#            tri_mesh.vertices = o3d.utility.Vector3dVector(mesh.vertices)
-#            tri_mesh.triangles = o3d.utility.Vector3iVector(mesh.faces)
-#            mesh = tri_mesh
-#            #o3d.visualization.draw_geometries([tri_mesh])
-#
-#            mesh.compute_vertex_normals()
-#            pcd = mesh.sample_points_poisson_disk(1000)
-#
-#            o3d.visualization.draw_geometries([pcd])
-#
-#            print('run Poisson surface reconstruction')
-#            with o3d.utility.VerbosityContextManager(
-#                    o3d.utility.VerbosityLevel.Debug) as cm:
-#                mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
-#                    pcd, depth=8)
-#            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
-#
-#            #Removes the non-manifold_edges
-#            mesh.remove_non_manifold_edges()
-#
-#            #Removes the isolated triangles  
-#
-#            voxel_size = max(mesh.get_max_bound() - mesh.get_min_bound()) / 32.0
-#
-#            mesh = mesh.simplify_vertex_clustering(voxel_size = voxel_size,
-#                contraction=o3d.geometry.SimplificationContraction.Average)
-#
-#            trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles)).show()
-#
-#            #if num_smooth_iter != 0:
-#            #    mesh = mesh.filter_smooth_taubin(number_of_iterations = num_smooth_iter)
-#
-#            #Check the triangle clustering, there shall only be one
-#            cluster, number_tri, __ = mesh.cluster_connected_triangles()
-#            mask = cluster!=np.argmax(number_tri)
-#            mesh.remove_triangles_by_mask(mask)
-#            mesh.remove_unreferenced_vertices()
-#
-#            #Removes the non-manifold_triangles
-#            #non_man_vertex =  mesh.get_non_manifold_vertices()
-#            #print(non_man_vertex)
-#            #mesh.remove_vertices_by_index(non_man_vertex)
-#            
-#            #--> But is removing the triangle with smaller area: 
-#            mesh.remove_non_manifold_edges()
-#
-#            #print(np.asarray(mesh.get_non_manifold_edges(allow_boundary_edges=True)))
-#            #print(np.array(mesh.get_non_manifold_edges()))
-#
-#            #Pass the mesh to trimesh again
-#            mesh = trimesh.Trimesh(vertices = np.asarray(mesh.vertices), faces = np.asarray(mesh.triangles))
-#            #mesh.fill_holes()
-#            #mesh.fix_normals()
-#            #mesh.show()
-
-        assembly.cfd_mesh.nodes = mesh.vertices
-        assembly.cfd_mesh.facets = mesh.faces
-        assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
-        #print(assembly.cfd_mesh.facets.shape)
-    
-    #Convert from Body->ECEF and ECEF-> Wind
-    #Translate the mesh to match the Center of Mass of the lowest assembly
-    assembly_windframe = Assembly.copy_assembly(assembly_list, options)
-   # assembly_windframe = deepcopy(assembly_list)
-
-    pos = assembly_list[it].position
-    
     for i, assembly in enumerate(assembly_windframe):
 
         R_B_ECEF = Rot.from_quat(assembly.quaternion)
@@ -1093,10 +935,6 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
         #Translate to the ECEF position
         assembly.cfd_mesh.nodes += np.array(assembly.position-pos)        
 
-        R_ECEF_NED = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude).inv()
-        R_NED_W = frames.R_W_NED(ha = assembly.trajectory.chi, fpa = assembly.trajectory.gamma).inv()
-
-        R_ECEF_W = R_NED_W*R_ECEF_NED 
         assembly.cfd_mesh.nodes = (R_ECEF_W).apply(assembly.cfd_mesh.nodes)
 
         assembly.cfd_mesh.xmin = np.min(assembly.cfd_mesh.nodes , axis = 0)

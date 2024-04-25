@@ -227,7 +227,7 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
     #gmsh.write(output_folder+'/CFD_Grid/'+'a.vtk')
     #gmsh.write('mesh.stl')
     #exit()
-    gmsh.write(output_grid)
+    gmsh.write(output_folder+'/CFD_Grid/'+output_grid)
     gmsh.finalize()
 
 def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface):

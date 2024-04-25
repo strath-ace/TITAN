@@ -87,13 +87,13 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	#R_ECEF_W_0 = R_NED_W*R_ECEF_NED
 
 	#Read mesh information and surface quantities, place them on the ECEF
-	R_B_ECEF = Rot.from_quat(q[index_mass])
+	#R_B_ECEF = Rot.from_quat(q[index_mass])
 
 	mesh = []
 	for i, _id in enumerate(assembly_ID):
 		mesh.append(meshio.read(options.output_folder+'/Surface_solution/ID_'+str(_id)+'/solution_iter_'+str(iter_value).zfill(3)+'.xdmf'))
 		
-		#R_B_ECEF = Rot.from_quat(q[i])
+		R_B_ECEF = Rot.from_quat(q[i])
 
 		#Apply Displacement due to the use of FEniCS
 		mesh[i].points += mesh[i].point_data['Displacement']

@@ -156,8 +156,8 @@ def compute_thrust_force(titan, options):
 
     thrust = np.zeros(3)
 
-    Tmax = 0#40000000
-    Tmin = 0#20000000
+    Tmax = 40000000
+    Tmin = 20000000
     t_linear = 5
 
     if titan.time <= titan.booster_t_trigger:
@@ -178,22 +178,19 @@ def compute_thrust_force(titan, options):
 
         print('Booster separation occurring, applying lateral thrust in boosters');
 
-        lateral_boost  = 10000000#4000000
-        rotation_boost = 0#10000000
-        backward_boost = 0#0.65*lateral_boost
+        lateral_boost  = 4000000
+        rotation_boost = 100000000
+        backward_boost = 0.65*lateral_boost
 
         for assembly in titan.assembly:
-            if any(obj.name == 'Tests/Mesh/Ariane/cubes/UpperSection_M.stl' for obj in assembly.objects):
-            #if any(obj.name == 'Tests/Mesh/Ariane/UpperSection_M.stl' for obj in assembly.objects):
+            if any(obj.name == 'Tests/Mesh/Ariane/UpperSection_M.stl' for obj in assembly.objects):
                 assembly.body_force.thrust = thrust
-            elif any(obj.name == 'Tests/Mesh/Ariane/cubes/RadialA_M.stl' for obj in assembly.objects):
-            #elif any(obj.name == 'Tests/Mesh/Ariane/RadialA_M.stl' for obj in assembly.objects):
+            elif any(obj.name == 'Tests/Mesh/Ariane/RadialA_M.stl' for obj in assembly.objects):
                 assembly.body_force.thrust = [-backward_boost,lateral_boost,0]
-                assembly.body_force.thrust_moment = [0,0,-rotation_boost]        
-            elif any(obj.name == 'Tests/Mesh/Ariane/cubes/RadialB_M.stl' for obj in assembly.objects):
-            #elif any(obj.name == 'Tests/Mesh/Ariane/RadialB_M.stl' for obj in assembly.objects):
+                assembly.body_force.thrust_moment = [0,0,rotation_boost]        
+            elif any(obj.name == 'Tests/Mesh/Ariane/RadialB_M.stl' for obj in assembly.objects):
                 assembly.body_force.thrust = [-backward_boost,-lateral_boost,0]
-                assembly.body_force.thrust_moment = [0,0,rotation_boost+0.75*rotation_boost]
+                assembly.body_force.thrust_moment = [0,0,0.01*rotation_boost]
     else:
 
         for assembly in titan.assembly:

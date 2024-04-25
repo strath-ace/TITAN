@@ -310,7 +310,6 @@ def compute_aerothermo(titan, options):
 
     if options.fidelity.lower() == 'low':
         compute_low_fidelity_aerothermo(titan.assembly, options)
-        #su2.compute_cfd_aerothermo_debug(titan, options)
     elif options.fidelity.lower() == 'high':
         if options.cfd.cfd_restart: su2.restart_cfd_aerothermo(titan, options)
         else: su2.compute_cfd_aerothermo(titan, options)
