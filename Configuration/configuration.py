@@ -421,7 +421,7 @@ class Options():
             for assembly in titan.assembly:
                 assembly.collision = None
 
-        print('saving state.....')
+        #print('saving state.....')
         print(np.shape(titan.assembly[0].cfd_mesh.nodes))
 
         outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
@@ -432,6 +432,7 @@ class Options():
         outfile.close()
 
         if CFD:
+            print('saving state.....CFD, i:', i)
             outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','wb')
             pickle.dump(titan, outfile)
             outfile.close()
@@ -457,6 +458,7 @@ class Options():
             Object of class Assembly_list
         """
         if self.fidelity.lower() == 'high' and self.cfd.cfd_restart:
+            print('reading state......CFD, i:', i)
             infile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','rb')
             titan = pickle.load(infile)
             infile.close()
