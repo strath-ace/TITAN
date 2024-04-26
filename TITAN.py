@@ -68,9 +68,6 @@ def loop(options = [], titan = []):
 
         #options.save_state(titan, -1)
 
-        print('iter=', titan.iter)
-        print('altitude=', titan.assembly[0].trajectory.altitude)
-        print('N assemblies:', len(titan.assembly))
         options.high_fidelity_flag = False                
 
         fragmentation.fragmentation(titan = titan, options = options)

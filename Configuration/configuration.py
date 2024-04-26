@@ -765,7 +765,7 @@ def read_config_file(configParser, postprocess = ""):
     options.aerothermo.subdivision_triangle = get_config_value(configParser, 0, 'Aerothermo', 'Level_division', 'int')
 
     #Read meshing options
-    options.meshing.far_size  = get_config_value(configParser, 5, 'Mesh', 'Far_size', 'float')
+    options.meshing.far_size  = get_config_value(configParser, 2, 'Mesh', 'Far_size', 'float')
     options.meshing.surf_size = get_config_value(configParser, 100, 'Mesh', 'Surf_size', 'float')
 
     #Read Freestream options

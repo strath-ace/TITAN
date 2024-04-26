@@ -135,12 +135,6 @@ def compute_quaternion(assembly):
     R_B_NED =   frames.R_B_NED(roll = assembly.roll, pitch = assembly.pitch, yaw = assembly.yaw) 
     R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
 
-    print('roll:', assembly.roll*180/np.pi)
-    print('pitch:', assembly.pitch*180/np.pi)
-    print('yaw:', assembly.yaw*180/np.pi)
-    print('lat:', assembly.trajectory.latitude*180/np.pi)
-    print('long:', assembly.trajectory.longitude*180/np.pi)
-
     R_B_ECEF = (R_NED_ECEF*R_B_NED)
 
     assembly.quaternion = R_B_ECEF.as_quat()
@@ -231,8 +225,6 @@ def compute_cartesian_derivatives(assembly, options):
     T = np.array(assembly.body_force.thrust)
     T = T.reshape((3,))
 
-    print('\n  JETTISON, Thrust B:', T, '\n')
-
     Fthrust_I = R_B_ECEF.apply(np.array(T))
     Fgrav_I = np.array([agrav_u,agrav_v,agrav_w])*assembly.mass
     Fcoreolis_I = -np.cross(np.array([0,0,wE]), np.cross(np.array([0,0,wE]), assembly.position))
@@ -241,10 +233,7 @@ def compute_cartesian_derivatives(assembly, options):
     #For ECI, we need to work with the epochs to convert from ECEF to ECI -> To obtain Latitude, Longitude and Altitude
     #pymap3d has the functions we need
 
-    print('Dynamics, Fthrust_I:', Fthrust_I)
-
     dx = assembly.velocity
-    print('\n  JETTISON, Thrust I:', Fthrust_I, '\n')
     dv = (Faero_I + Fthrust_I +  Fgrav_I + Fcoreolis_I + Fcentrif_I) / assembly.mass
 
     return DerivativesCartesian(dx = dx[0], dy = dx[1], dz = dx[2], du = dv[0], dv = dv[1], dw = dv[2])

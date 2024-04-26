@@ -37,8 +37,6 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 
 	index = data['Iter']==iter_value
 
-	print('\n\niteration:', iter_value)
-
 	assembly_ID = data[index]['Assembly_ID'].to_numpy()
 
 	if filter_name:
@@ -115,27 +113,9 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		R_NED_W = frames.R_W_NED(ha = chi[index_mass], fpa = gamma[index_mass]).inv()
 		R_ECEF_W = R_NED_W*R_ECEF_NED
 
-		print('chi[index_mass]:', chi[index_mass]*180/np.pi)
-		print('gamma[index_mass]:', gamma[index_mass]*180/np.pi)
-
 		#Rotate ECEF -> wind_frame
 		for i, _id in enumerate(assembly_ID):
 
-			#print('\nassembly:', i)
-
-			##R_ECEF_NED = frames.R_NED_ECEF(lat = latitude[i], lon = longitude[i]).inv()
-			#print('\nR_ECEF_NED:', R_ECEF_NED.as_matrix())
-			#print('gamma:', gamma[i])
-			#print('chi:', chi[i])
-			##R_NED_W = frames.R_W_NED(ha = chi[i], fpa = gamma[i]).inv()
-			#print('\nR_NED_W:', R_NED_W.as_matrix())
-
-			#R_ECEF_B = Rot.from_quat(q[i]).inv()
-			#R_B_NED =   frames.R_B_NED(roll = roll[i], pitch = pitch[i], yaw = yaw[i]) 
-			#R_NED_W = frames.R_W_NED(ha = chi[i], fpa = gamma[i]).inv()
-			
-			##R_ECEF_W = R_NED_W*R_ECEF_NED
-			#print('\nR_ECEF_W:', R_ECEF_W.as_matrix())
 			mesh[i].points = (R_ECEF_W).apply(mesh[i].points)
 
 	#Create new mesh

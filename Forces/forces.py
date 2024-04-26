@@ -53,7 +53,7 @@ def compute_aerodynamic_forces(titan, options):
             force = np.sum(force_facets, axis = 0)
             assembly.body_force.force = force
             assembly.body_force.force_facets = force_facets
-            print('\n\n FORCE:', force)
+            
             q = assembly.quaternion
 
             R_W_NED = frames.R_W_NED(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)

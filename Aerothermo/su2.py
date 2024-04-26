@@ -33,7 +33,6 @@ import os
 import trimesh
 import open3d as o3d
 import pandas as pd
-from Output import output
 
 class Solver():
     """ Class Solver
@@ -269,7 +268,7 @@ class Solver_Input_Output():
         self.output_surf = "SURFACE_FILENAME= "+output_folder+"/CFD_sol/surface_flow_"+ str(iteration) + '_adapt_' + str(it) + '_cluster_'+str(cluster_tag)
 
         #: [str] Frequency for the output file generation
-        self.output_freq = "OUTPUT_WRT_FREQ= 1"
+        self.output_freq = "OUTPUT_WRT_FREQ= 500"
 
         #: [str] Screen output
         self.screen = "SCREEN_OUTPUT= (INNER_ITER, WALL_TIME, FORCE_X, FORCE_Y, FORCE_Z, MOMENT_X, MOMENT_Y, MOMENT_Z)"
@@ -472,7 +471,7 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
     """
 
     aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
-    aerothermo.pressure -= freestream.pressure
+    #aerothermo.pressure -= freestream.pressure
 
     try:
         aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray('Skin_Friction_Coefficient'))[idx_sim][idx_inv]
@@ -502,8 +501,6 @@ def split_aerothermo(total_aerothermo, assembly_list):
     for it in range(len(assembly_list)):
 
         #Create indexing between CFD_nodes and Assembly_nodes
-        print(np.shape(assembly_list[it].mesh.nodes))
-        print(np.shape(assembly_list[it].cfd_mesh.nodes))
         node_index, __ = Mesh.create_index(assembly_list[it].mesh.nodes, assembly_list[it].cfd_mesh.nodes)
         last_node += len(node_index)
 
