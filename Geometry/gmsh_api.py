@@ -146,11 +146,12 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
    #     gmsh.model.mesh.generate(2)
    #     gmsh.write(output_folder +'/Volume/'+ '%s_%s_surf.vtk'%(output_filename, assembly.id))
 
-    if write:
-        gmsh.write(output_folder +'/Volume/'+'%s_%s.msh'%('mesh', assembly.id))
-
+    #if write:
+        #gmsh.write(output_folder +'/Volume/'+'%s_%s.msh'%('mesh', assembly.id))
+    #    gmsh.write(output_folder +'/Volume/'+'%s.msh'%('mesh'))
     gmsh.finalize()
     return coords, elements.astype(int), density_elem, tag_elem.astype(int)
+
 
 def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1, surf_ref = 1):
 
@@ -172,6 +173,9 @@ def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1
                                      np.sign(facet_edges[i,2])*(abs(facet_edges[i,2])+ edge_dev -1)], surf_ref)
 
         gmsh.model.geo.addPlaneSurface([surf_ref])
+        #surface = gmsh.model.geo.addPlaneSurface([surf_ref])
+        #gmsh.model.geo.addPhysicalGroup(2, [surface], tag = surf_ref, name = "top")
+        #gmsh.model.setPhysicalName(2, surf_ref, "top")
         surf_ref +=1
 
     return node_ref, edge_ref, surf_ref

@@ -362,6 +362,8 @@ class Options():
         self.pato = False
 
         self.post_fragment_tetra_ablation = False
+
+        self.assembly_path = ""
         
     def clean_up_folders(self):
         """
@@ -392,6 +394,17 @@ class Options():
                 Path(self.output_folder+'/CFD_Grid/Bloom/').mkdir(parents=True, exist_ok=True)
             if self.amg.flag:
                 Path(self.output_folder+'/CFD_Grid/Amg/').mkdir(parents=True, exist_ok=True)
+
+        if self.pato == True:
+            Path(self.output_folder+'/PATO/').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/verification/').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/constant/').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/constant/subMat1/').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/origin.0/').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/origin.0/subMat1').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/system/').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/system/subMat1').mkdir(parents=True, exist_ok=True)
 
     def save_mesh(self,titan):
         outfile = open(self.output_folder + '/Restart/'+'Mesh.p','wb')
@@ -589,6 +602,7 @@ def read_geometry(configParser, options):
 
     #Reads the path to the geometrical files
     path = get_config_value(configParser, '', 'Assembly', 'Path', 'str')
+    options.assembly_path = path
 
     #Initialization of the object of class Component_list to store the user-defined compoents
     objects = Component.Component_list()
