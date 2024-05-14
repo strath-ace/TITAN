@@ -445,7 +445,10 @@ class Assembly():
         elif options.ablation_mode.lower() == 'tetra':
             self.ablation_mode = 'tetra'
 
-        else: raise ValueError("ablation mode has to be Tetra or 0D")
+        elif options.ablation_mode.lower() == 'pato':
+            self.ablation_mode = 'PATO'            
+
+        else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
 
         self.distance_travelled = 0
 

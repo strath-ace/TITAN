@@ -86,8 +86,10 @@ def loop(options = [], titan = []):
                 thermal.compute_thermal_tetra(titan = titan, options = options)
             elif options.ablation_mode == "0d":
                 thermal.compute_thermal_0D(titan = titan, options = options)
+            elif options.ablation_mode == "pato":
+                thermal.compute_thermal_PATO(titan = titan, options = options)                
             else:
-                raise ValueError("Ablation Mode can only be 0D or Tetra")
+                raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
 
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO

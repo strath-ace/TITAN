@@ -359,6 +359,8 @@ class Options():
         #: [str] Ablation Model (0D, tetra)
         self.ablation_mode = "0D"
 
+        self.pato = False
+
         self.post_fragment_tetra_ablation = False
         
     def clean_up_folders(self):
@@ -728,6 +730,8 @@ def read_config_file(configParser, postprocess = ""):
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
     options.ablation       = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
     options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
+    if (options.ablation_mode == "pato"): options.pato = True
+
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
     options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
     options.time_counter   = 0
@@ -862,7 +866,7 @@ def read_config_file(configParser, postprocess = ""):
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
                 ### bc_ids = [obj.fenics_bc_id for obj in assembly.objects]
-                assembly.generate_inner_domain(write = False, output_folder = options.output_folder)
+                assembly.generate_inner_domain(write = options.pato, output_folder = options.output_folder)
                 assembly.compute_mass_properties()
 
             options.save_mesh(titan)

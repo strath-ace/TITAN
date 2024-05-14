@@ -146,6 +146,9 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
    #     gmsh.model.mesh.generate(2)
    #     gmsh.write(output_folder +'/Volume/'+ '%s_%s_surf.vtk'%(output_filename, assembly.id))
 
+    if write:
+        gmsh.write(output_folder +'/Volume/'+'%s_%s.msh'%('mesh', assembly.id))
+
     gmsh.finalize()
     return coords, elements.astype(int), density_elem, tag_elem.astype(int)
 

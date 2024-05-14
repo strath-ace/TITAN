@@ -135,12 +135,6 @@ def compute_quaternion(assembly):
     R_B_NED =   frames.R_B_NED(roll = assembly.roll, pitch = assembly.pitch, yaw = assembly.yaw) 
     R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
 
-    print('roll:', assembly.roll*180/np.pi)
-    print('pitch:', assembly.pitch*180/np.pi)
-    print('yaw:', assembly.yaw*180/np.pi)
-    print('lat:', assembly.trajectory.latitude*180/np.pi)
-    print('long:', assembly.trajectory.longitude*180/np.pi)
-
     R_B_ECEF = (R_NED_ECEF*R_B_NED)
 
     assembly.quaternion = R_B_ECEF.as_quat()
