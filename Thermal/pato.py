@@ -55,19 +55,19 @@ def setup_PATO_simulation(titan, options):
     if (titan.iter == 0):
 
         #write outputFolder + PATO/Allrun file
-        write_All_run(options)
+        write_All_run(options, titan.time - options.dynamics.time_step)
 
         write_constant_folder(options)
 
         write_origin_folder(options)
 
-        write_system_folder(options)
+        write_system_folder(options, titan.time - options.dynamics.time_step)
 
     # If not first TITAN iteration, restart PATO simulation
     #else:
     #    print('to be implemented 0')
 
-def write_All_run(options):
+def write_All_run(options, time):
     """
     Write the Allrun PATO file
 
@@ -80,6 +80,8 @@ def write_All_run(options):
     """
     geo_filename = "pato.geo"
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    end_time = time + options.dynamics.time_step
 
     with open(options.output_folder + '/PATO/Allrun', 'w') as f:
 
@@ -95,9 +97,15 @@ def write_All_run(options):
         f.write('cd ../.. \n')
         f.write('gmsh -3 -format msh2 verification/unstructured_gmsh/mesh.geo verification/unstructured_gmsh/mesh.msh \n')
         f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
-        f.write('mv constant/polyMesh constant/subMat1 \n')
-
+        f.write('mv constant/polyMesh constant/subMat1 \n')   
         f.write('PATOx \n')
+        f.write('TIME_STEP='+str(end_time)+' \n')
+        f.write('MAT_NAME=subMat1 \n')
+        f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
+        f.write('cp system/"$MAT_NAME"/fvSchemes  system/ \n')
+        f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
+        f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
+        f.write('foamToVTK -time '+str(end_time)+'\n')
 
     f.close()
 
@@ -302,7 +310,7 @@ def write_origin_folder(options):
     pass
 
 
-def write_system_folder(options):
+def write_system_folder(options, time):
     """
     Write the system/ PATO folder
 
@@ -313,6 +321,9 @@ def write_system_folder(options):
     options: Options
         Object of class Options
     """
+    start_time = time
+    end_time = time + options.dynamics.time_step
+    wrt_interval = end_time - start_time
 
     with open(options.output_folder + '/PATO/system/controlDict', 'w') as f:
 
@@ -335,17 +346,17 @@ def write_system_folder(options):
         f.write('\n')
         f.write('startFrom       startTime;\n')
         f.write('\n')
-        f.write('startTime       0;\n')
+        f.write('startTime       '+str(start_time)+';\n')
         f.write('\n')
         f.write('stopAt          endTime;\n')
         f.write('\n')
-        f.write('endTime         120;\n')
+        f.write('endTime         '+str(end_time)+';\n')
         f.write('\n')
         f.write('deltaT          0.1;\n')
         f.write('\n')
         f.write('writeControl    adjustableRunTime;\n')
         f.write('\n')
-        f.write('writeInterval   1;\n')
+        f.write('writeInterval   '+str(wrt_interval)+';\n')
         f.write('\n')
         f.write('purgeWrite      0;\n')
         f.write('\n')
