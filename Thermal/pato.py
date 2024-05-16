@@ -55,20 +55,18 @@ def setup_PATO_simulation(time, iteration, options, id):
     # If first TITAN iteration, initialize PATO simulation
     if (iteration == 0):
 
-        #write outputFolder + PATO/Allrun file
-        write_All_run(options, time - options.dynamics.time_step)
-
+        write_All_run(options, time - options.dynamics.time_step, restart = False)
         write_constant_folder(options)
-
         write_origin_folder(options)
-
         write_system_folder(options, time - options.dynamics.time_step)
 
     # If not first TITAN iteration, restart PATO simulation
-    #else:
-    #    print('to be implemented 0')
+    else:
+        write_All_run(options, time - options.dynamics.time_step, restart = True)
+        write_system_folder(options, time - options.dynamics.time_step)
 
-def write_All_run(options, time):
+
+def write_All_run(options, time, restart = False):
     """
     Write the Allrun PATO file
 
@@ -90,15 +88,17 @@ def write_All_run(options, time):
         f.write('cd ${0%/*} || exit 1 \n')
         f.write('. $PATO_DIR/src/applications/utilities/runFunctions/RunFunctions \n')
         f.write('pato_init \n')
-        f.write('if [ ! -d 0 ]; then \n')
-        f.write('    scp -r origin.0 0 \n')
-        f.write('fi \n')
-        f.write('cd verification/unstructured_gmsh/ \n')
-        f.write('ln -s ' + path + '/' + options.output_folder + '/Volume/mesh.msh \n')
-        f.write('cd ../.. \n')
-        f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
-        f.write('mv constant/polyMesh constant/subMat1 \n')   
+        if (not restart):
+            f.write('if [ ! -d 0 ]; then \n')
+            f.write('    scp -r origin.0 0 \n')
+            f.write('fi \n')
+            f.write('cd verification/unstructured_gmsh/ \n')
+            f.write('ln -s ' + path + '/' + options.output_folder + '/Volume/mesh.msh \n')
+            f.write('cd ../.. \n')
+            f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
+            f.write('mv constant/polyMesh constant/subMat1 \n')   
         f.write('PATOx \n')
+        if ((end_time).is_integer()): end_time = int(end_time)
         f.write('TIME_STEP='+str(end_time)+' \n')
         f.write('MAT_NAME=subMat1 \n')
         f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
@@ -610,10 +610,8 @@ def postprocess_PATO_solution(options, assembly):
         if file.endswith(".vtk"):
             filename = options.output_folder+"PATO/VTK/" + file
             print('PATO .vtk solution found.')
-            break
-        else:
-            print('PATO .vtk solution not found.'); exit(0);
-    
+
+    print('PATO solution filename:', filename)        
 
     #Open the VTK solution file
     reader = vtk.vtkUnstructuredGridReader()
