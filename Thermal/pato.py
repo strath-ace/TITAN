@@ -23,8 +23,9 @@ import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import subprocess
 import os
+from vtk import *
 
-def compute_thermal(titan, options):
+def compute_thermal(assembly, time, iteration, options):
 
     """
     Compute the aerothermodynamic properties using the CFD software
@@ -36,13 +37,13 @@ def compute_thermal(titan, options):
     options: Options
         Object of class Options
     """
-    setup_PATO_simulation(titan, options)
+    setup_PATO_simulation(time, iteration, options, assembly.id)
 
     run_PATO(options)
 
-    postprocess_PATO_solution()
+    postprocess_PATO_solution(options, assembly)
 
-def setup_PATO_simulation(titan, options):
+def setup_PATO_simulation(time, iteration, options, id):
     """
     Sets up the PATO simulation - creates PATO simulation folders and required input files
 
@@ -52,16 +53,16 @@ def setup_PATO_simulation(titan, options):
     """
 
     # If first TITAN iteration, initialize PATO simulation
-    if (titan.iter == 0):
+    if (iteration == 0):
 
         #write outputFolder + PATO/Allrun file
-        write_All_run(options, titan.time - options.dynamics.time_step)
+        write_All_run(options, time - options.dynamics.time_step)
 
         write_constant_folder(options)
 
         write_origin_folder(options)
 
-        write_system_folder(options, titan.time - options.dynamics.time_step)
+        write_system_folder(options, time - options.dynamics.time_step)
 
     # If not first TITAN iteration, restart PATO simulation
     #else:
@@ -81,7 +82,7 @@ def write_All_run(options, time):
     geo_filename = "pato.geo"
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    end_time = time + options.dynamics.time_step
+    end_time = 120#time + options.dynamics.time_step
 
     with open(options.output_folder + '/PATO/Allrun', 'w') as f:
 
@@ -93,9 +94,10 @@ def write_All_run(options, time):
         f.write('    scp -r origin.0 0 \n')
         f.write('fi \n')
         f.write('cd verification/unstructured_gmsh/ \n')
-        f.write('ln -s ' + path + '/' + options.assembly_path + geo_filename + ' mesh.geo \n')
+        #f.write('ln -s ' + path + '/' + options.assembly_path + geo_filename + ' mesh.geo \n')
+        f.write('ln -s ' + path + '/' + options.output_folder + '/Volume/mesh.msh \n')
         f.write('cd ../.. \n')
-        f.write('gmsh -3 -format msh2 verification/unstructured_gmsh/mesh.geo verification/unstructured_gmsh/mesh.msh \n')
+        #f.write('gmsh -3 -format msh2 verification/unstructured_gmsh/mesh.geo verification/unstructured_gmsh/mesh.msh \n')
         f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
         f.write('mv constant/polyMesh constant/subMat1 \n')   
         f.write('PATOx \n')
@@ -322,8 +324,8 @@ def write_system_folder(options, time):
         Object of class Options
     """
     start_time = time
-    end_time = time + options.dynamics.time_step
-    wrt_interval = end_time - start_time
+    end_time = 120#time + options.dynamics.time_step
+    wrt_interval = 120#end_time - start_time
 
     with open(options.output_folder + '/PATO/system/controlDict', 'w') as f:
 
@@ -463,7 +465,7 @@ def write_system_folder(options, time):
         f.write('    relTol           0.01;\n')
         f.write('    smoother         GaussSeidel;\n')
         f.write('    cacheAgglomeration true;\n')
-        f.write('    nCellsInCoarsestLevel 50;\n')
+        f.write('    nCellsInCoarsestLevel 2;\n')
         f.write('    agglomerator     faceAreaPair;\n')
         f.write('    mergeLevels      1;\n')
         f.write('  };\n')
@@ -596,7 +598,7 @@ def run_PATO(options):
     #subprocess.run([options.output_folder +'/PATO/Allrun'], text = True)
 
 
-def postprocess_PATO_solution():
+def postprocess_PATO_solution(options, assembly):
     """
     Postprocesses the PATO output
 
@@ -604,3 +606,41 @@ def postprocess_PATO_solution():
     ----------
 	?????????????????????????
     """        
+
+    #find PATO .vtk solution
+    for file in os.listdir(options.output_folder+"PATO/VTK/"):
+        if file.endswith(".vtk"):
+            filename = options.output_folder+"PATO/VTK/" + file
+            print('PATO .vtk solution found.')
+            break
+        else:
+            print('PATO .vtk solution not found.'); exit(0);
+    
+
+    #Open the VTK solution file
+    reader = vtk.vtkUnstructuredGridReader()
+    reader.SetFileName(filename)
+    reader.Update()
+    data = reader.GetOutput()
+
+    #Extract the volume temperature distribution (tetras)
+    cell_data = data.GetCellData()
+    temperature = cell_data.GetArray('Ta')
+    n_cells=data.GetNumberOfCells()
+    temperature_cell = [temperature.GetValue(i) for i in range(n_cells)]
+
+    #PATO .vtk to TITAN volume temperature distribution (tetras)
+    for i in range(n_cells):
+        assembly.mesh.vol_T[i] = temperature_cell[i]
+
+    #Map the tetra temperature to surface mesh
+    COG = np.round(assembly.mesh.facet_COG,5).astype(str)
+    COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
+
+    #Limit Tetras temperature so it does not go negative due to small mass
+    assembly.mesh.vol_T[assembly.mesh.vol_T<273] = 273
+
+    #from volume to surface temperature distribution
+    for index, COG in enumerate(COG):
+        assembly.aerothermo.temperature[index] = assembly.mesh.vol_T[assembly.mesh.index_surf_tetra[str(COG)][0]]
+

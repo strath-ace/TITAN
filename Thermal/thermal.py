@@ -257,7 +257,9 @@ def black_body(wavelength, T):
 
 def compute_thermal_PATO(titan, options):
 
-    pato.compute_thermal(titan, options)
+    for assembly in titan.assembly:
+
+        pato.compute_thermal(assembly, titan.time, titan.iter, options)
 
     return
 

@@ -95,7 +95,8 @@ def loop(options = [], titan = []):
             #TODO
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)
-
+        output.generate_volume_solution(titan = titan, options = options)
+            
         #output.generate_surface_solution(titan = titan, options = options)
         if options.current_iter%options.output_freq == 0:
             output.generate_surface_solution(titan = titan, options = options)         

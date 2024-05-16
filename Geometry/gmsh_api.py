@@ -39,6 +39,10 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     density_elem = []
     tag_elem = []
 
+    init_ref_surf = 1
+    surf_ref_init = 1
+    ref_phys_surface = 1
+
     #map_objects = dict()
     gmsh.model.mesh.createGeometry()
 
@@ -49,7 +53,12 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
         if obj.type.lower() == 'joint':
             ref[obj.node_index] = ref_joint
 
-    node_ref_init, edge_ref_init, surf_ref_init = object_grid(gmsh,mesh.nodes, mesh.edges, mesh.facet_edges,ref)
+    node_ref_init, edge_ref_init, surf_ref_init = object_grid(gmsh, mesh.nodes,                  mesh.edges,                  mesh.facet_edges,                  ref)
+    #node_ref, edge_ref, surf_ref =                object_grid(gmsh, assembly[it].cfd_mesh.nodes, assembly[it].cfd_mesh.edges, assembly[it].cfd_mesh.facet_edges, np.ones((len(assembly[it].cfd_mesh.nodes)))*ref, node_ref, edge_ref, surf_ref)
+
+    init_ref_surf, ref_phys_surface = object_physical_pato(gmsh, init_ref_surf, surf_ref_init, ref_phys_surface)
+
+
 
     if assembly:
         for i in range(len(assembly.objects)):
@@ -70,7 +79,7 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
             
             assembly.objects[i].vol_tag = vol_tag 
             ref_phys_volume = gmsh.model.geo.addPhysicalGroup(3, [vol_tag])
-            gmsh.model.setPhysicalName(3, ref_phys_volume, str(i+1))  
+            gmsh.model.setPhysicalName(3, ref_phys_volume, "body")  
 
             # map_objects.update({assembly.objects[i].name  : {}})
             # assembly.objects[i].vol_tag = vol_tag
@@ -148,10 +157,28 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
 
     #if write:
         #gmsh.write(output_folder +'/Volume/'+'%s_%s.msh'%('mesh', assembly.id))
-    #    gmsh.write(output_folder +'/Volume/'+'%s.msh'%('mesh'))
+    gmsh.option.setNumber("Mesh.MshFileVersion", 2.)
+    gmsh.write(output_folder +'/Volume/'+'%s.msh'%('mesh'))
     gmsh.finalize()
     return coords, elements.astype(int), density_elem, tag_elem.astype(int)
 
+def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface):
+    #Change here for every object in assembly give a different tag
+
+    gmsh.model.geo.addPhysicalGroup(2, range(init_ref_surf,end_ref_surf), ref_phys_surface)
+    gmsh.model.setPhysicalName(2, ref_phys_surface, "Body_"+str(ref_phys_surface))
+    ref_phys_surface +=1
+
+    return end_ref_surf, ref_phys_surface
+
+def object_physical_pato(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface):
+    #Change here for every object in assembly give a different tag
+
+    gmsh.model.geo.addPhysicalGroup(2, range(init_ref_surf,end_ref_surf), ref_phys_surface)
+    gmsh.model.setPhysicalName(2, ref_phys_surface, "top")
+    ref_phys_surface +=1
+
+    return end_ref_surf, ref_phys_surface    
 
 def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1, surf_ref = 1):
 
@@ -231,15 +258,6 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
     #gmsh.write(output_folder+'/CFD_Grid/'+'a.vtk')
     gmsh.write(output_folder+'/CFD_Grid/'+output_grid)
     gmsh.finalize()
-
-def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface):
-    #Change here for every object in assembly give a different tag
-
-    gmsh.model.geo.addPhysicalGroup(2, range(init_ref_surf,end_ref_surf), ref_phys_surface)
-    gmsh.model.setPhysicalName(2, ref_phys_surface, "Body_"+str(ref_phys_surface))
-    ref_phys_surface +=1
-
-    return end_ref_surf, ref_phys_surface
 
 def outer_surface(gmsh,ref,surf_ref, xmin,xmax, ref_phys_surface, options = None):
     
