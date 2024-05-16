@@ -53,12 +53,8 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
         if obj.type.lower() == 'joint':
             ref[obj.node_index] = ref_joint
 
-    node_ref_init, edge_ref_init, surf_ref_init = object_grid(gmsh, mesh.nodes,                  mesh.edges,                  mesh.facet_edges,                  ref)
-    #node_ref, edge_ref, surf_ref =                object_grid(gmsh, assembly[it].cfd_mesh.nodes, assembly[it].cfd_mesh.edges, assembly[it].cfd_mesh.facet_edges, np.ones((len(assembly[it].cfd_mesh.nodes)))*ref, node_ref, edge_ref, surf_ref)
-
-    init_ref_surf, ref_phys_surface = object_physical_pato(gmsh, init_ref_surf, surf_ref_init, ref_phys_surface)
-
-
+    node_ref_init, edge_ref_init, surf_ref_init = object_grid(gmsh, mesh.nodes, mesh.edges, mesh.facet_edges, ref)
+    init_ref_surf, ref_phys_surface = object_physical(gmsh, init_ref_surf, surf_ref_init, ref_phys_surface, 'top')
 
     if assembly:
         for i in range(len(assembly.objects)):
@@ -155,30 +151,21 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
    #     gmsh.model.mesh.generate(2)
    #     gmsh.write(output_folder +'/Volume/'+ '%s_%s_surf.vtk'%(output_filename, assembly.id))
 
-    #if write:
+    if write:
         #gmsh.write(output_folder +'/Volume/'+'%s_%s.msh'%('mesh', assembly.id))
-    gmsh.option.setNumber("Mesh.MshFileVersion", 2.)
-    gmsh.write(output_folder +'/Volume/'+'%s.msh'%('mesh'))
+        gmsh.option.setNumber("Mesh.MshFileVersion", 2.)
+        gmsh.write(output_folder +'/Volume/'+'%s.msh'%('mesh'))
     gmsh.finalize()
     return coords, elements.astype(int), density_elem, tag_elem.astype(int)
 
-def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface):
+def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name):
     #Change here for every object in assembly give a different tag
 
     gmsh.model.geo.addPhysicalGroup(2, range(init_ref_surf,end_ref_surf), ref_phys_surface)
-    gmsh.model.setPhysicalName(2, ref_phys_surface, "Body_"+str(ref_phys_surface))
+    gmsh.model.setPhysicalName(2, ref_phys_surface, name)
     ref_phys_surface +=1
 
-    return end_ref_surf, ref_phys_surface
-
-def object_physical_pato(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface):
-    #Change here for every object in assembly give a different tag
-
-    gmsh.model.geo.addPhysicalGroup(2, range(init_ref_surf,end_ref_surf), ref_phys_surface)
-    gmsh.model.setPhysicalName(2, ref_phys_surface, "top")
-    ref_phys_surface +=1
-
-    return end_ref_surf, ref_phys_surface    
+    return end_ref_surf, ref_phys_surface  
 
 def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1, surf_ref = 1):
 
@@ -241,7 +228,7 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
         if xmax[2] < assembly[it].cfd_mesh.xmax[2]: xmax[2] = assembly[it].cfd_mesh.xmax[2]
 
         node_ref, edge_ref, surf_ref = object_grid(gmsh,assembly[it].cfd_mesh.nodes,assembly[it].cfd_mesh.edges,assembly[it].cfd_mesh.facet_edges,np.ones((len(assembly[it].cfd_mesh.nodes)))*ref, node_ref, edge_ref, surf_ref)
-        init_ref_surf, ref_phys_surface = object_physical(gmsh, init_ref_surf, surf_ref, ref_phys_surface)
+        init_ref_surf, ref_phys_surface = object_physical(gmsh, init_ref_surf, surf_ref, ref_phys_surface, "Body_"+str(ref_phys_surface))
     
     outer_surface(gmsh,ref2, surf_ref-1, xmin, xmax, ref_phys_surface, options = None)
     

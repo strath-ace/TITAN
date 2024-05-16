@@ -82,7 +82,7 @@ def write_All_run(options, time):
     geo_filename = "pato.geo"
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    end_time = 120#time + options.dynamics.time_step
+    end_time = time + options.dynamics.time_step
 
     with open(options.output_folder + '/PATO/Allrun', 'w') as f:
 
@@ -94,10 +94,8 @@ def write_All_run(options, time):
         f.write('    scp -r origin.0 0 \n')
         f.write('fi \n')
         f.write('cd verification/unstructured_gmsh/ \n')
-        #f.write('ln -s ' + path + '/' + options.assembly_path + geo_filename + ' mesh.geo \n')
         f.write('ln -s ' + path + '/' + options.output_folder + '/Volume/mesh.msh \n')
         f.write('cd ../.. \n')
-        #f.write('gmsh -3 -format msh2 verification/unstructured_gmsh/mesh.geo verification/unstructured_gmsh/mesh.msh \n')
         f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
         f.write('mv constant/polyMesh constant/subMat1 \n')   
         f.write('PATOx \n')
@@ -112,7 +110,6 @@ def write_All_run(options, time):
     f.close()
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    #subprocess.run(['chmod +x ' + options.output_folder +'/PATO/Allrun'], text = True)
     os.system("chmod +x " + options.output_folder +'/PATO/Allrun' )
 
     pass
@@ -324,8 +321,8 @@ def write_system_folder(options, time):
         Object of class Options
     """
     start_time = time
-    end_time = 120#time + options.dynamics.time_step
-    wrt_interval = 120#end_time - start_time
+    end_time = time + options.dynamics.time_step
+    wrt_interval = end_time - start_time
 
     with open(options.output_folder + '/PATO/system/controlDict', 'w') as f:
 

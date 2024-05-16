@@ -419,10 +419,6 @@ class Assembly():
                 obj.node_index, obj.node_mask = Mesh.create_index(self.mesh.nodes, obj.mesh.nodes)
                 obj.facet_index, obj.facet_mask = Mesh.create_index(self.mesh.facet_COG, obj.mesh.facet_COG)
 
-            print('assembly nodes:', self.mesh.nodes)
-            print('object nodes:', obj.mesh.nodes)
-            print('obj.node_index:', obj.node_index)
-            print('obj.node_mask:', obj.node_mask )
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
             self.inside_shock = np.zeros(len(self.mesh.nodes))
 
