@@ -323,6 +323,7 @@ def write_system_folder(options, time):
     start_time = time
     end_time = time + options.dynamics.time_step
     wrt_interval = end_time - start_time
+    pato_time_step = options.thermal.pato_time_step
 
     with open(options.output_folder + '/PATO/system/controlDict', 'w') as f:
 
@@ -351,7 +352,7 @@ def write_system_folder(options, time):
         f.write('\n')
         f.write('endTime         '+str(end_time)+';\n')
         f.write('\n')
-        f.write('deltaT          0.1;\n')
+        f.write('deltaT          '+str(pato_time_step)+';\n')
         f.write('\n')
         f.write('writeControl    adjustableRunTime;\n')
         f.write('\n')

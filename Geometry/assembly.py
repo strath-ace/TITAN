@@ -433,7 +433,7 @@ class Assembly():
 
         self.collision = None
 
-        if options.ablation_mode.lower() == '0d':
+        if options.thermal.ablation_mode.lower() == '0d':
             if options.post_fragment_tetra_ablation:
                 if len(self.objects) > 1:
                     self.ablation_mode = '0d'
@@ -442,10 +442,10 @@ class Assembly():
             else:
                 self.ablation_mode = '0d'
 
-        elif options.ablation_mode.lower() == 'tetra':
+        elif options.thermal.ablation_mode.lower() == 'tetra':
             self.ablation_mode = 'tetra'
 
-        elif options.ablation_mode.lower() == 'pato':
+        elif options.thermal.ablation_mode.lower() == 'pato':
             self.ablation_mode = 'PATO'            
 
         else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")

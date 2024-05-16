@@ -304,7 +304,7 @@ def options_information(options):
         Maximum number of iterations: {options.iters}
         Fidelity level: {options.fidelity}
         Structural dynamics flag: {options.structural_dynamics}
-        Ablation flag: {options.ablation}  
+        Ablation flag: {options.thermal.ablation}  
         Time-step: {options.dynamics.time_step}
         Planet: {options.planet.name.upper()}
 

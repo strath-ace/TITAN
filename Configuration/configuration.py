@@ -196,6 +196,24 @@ class Amg():
         #: [str] Name of the sensor field to be used in the adaptation
         self.sensor = sensor
 
+
+class Thermal():
+    def __init__(self, ablation = False, ablation_mode = "0D", pato = False, pato_time_step = 0.1, post_fragment_tetra_ablation = False):
+
+        #: [boolean] Flag to perform ablation
+        self.ablation = False
+
+        #: [str] Ablation Model (0D, tetra)
+        self.ablation_mode = "0D"
+
+        #: [boolean] Flag to perform PATO simulation
+        self.pato = False
+
+        #: [boolean] Flag to perform PATO simulation
+        self.pato_time_step = pato_time_step        
+
+        self.post_fragment_tetra_ablation = False
+
 class Aerothermo():
     """ Aerothermo class
 
@@ -306,6 +324,7 @@ class Options():
 
         #: [:class:`.Dynamics`] Object of class Dynamics
         self.dynamics = Dynamics()
+        self.thermal = Thermal()
         self.cfd = CFD()
         self.bloom = Bloom()
         self.amg = Amg()
@@ -353,16 +372,6 @@ class Options():
         #: [str] Fidelity of the aerothermo calculation (Low - Default, High, Hybrid)
         self.fidelity = fidelity
 
-        #: [boolean] Flag to perform ablation
-        self.ablation = False
-
-        #: [str] Ablation Model (0D, tetra)
-        self.ablation_mode = "0D"
-
-        self.pato = False
-
-        self.post_fragment_tetra_ablation = False
-
         self.assembly_path = ""
         
     def clean_up_folders(self):
@@ -395,7 +404,7 @@ class Options():
             if self.amg.flag:
                 Path(self.output_folder+'/CFD_Grid/Amg/').mkdir(parents=True, exist_ok=True)
 
-        if self.pato == True:
+        if self.thermal.pato == True:
             Path(self.output_folder+'/PATO/').mkdir(parents=True, exist_ok=True)
             Path(self.output_folder+'/PATO/verification/').mkdir(parents=True, exist_ok=True)
             Path(self.output_folder+'/PATO/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)
@@ -742,13 +751,11 @@ def read_config_file(configParser, postprocess = ""):
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
     #options.SPARTA =       get_config_value(configParser, options.SPARTA, 'Options', 'SPARTA', 'boolean')
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
-    options.ablation       = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
-    options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
-    if (options.ablation_mode == "pato"): options.pato = True
 
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
     options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
     options.time_counter   = 0
+
 
     #Read FENICS options
     if options.structural_dynamics:
@@ -764,6 +771,14 @@ def read_config_file(configParser, postprocess = ""):
     #options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
     #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
     #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
+
+    #Read Thermal options
+    options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
+    options.thermal.ablation_mode  = get_config_value(configParser, "0D",  'Thermal', 'Ablation_mode', 'str').lower()
+    if (options.thermal.ablation_mode == "pato"):
+        options.thermal.pato = True
+        options.thermal.pato_time_step = get_config_value(configParser, 0.1, 'Thermal', 'PATO_time_step', 'float')
+        if ( options.dynamics.time_step%options.thermal.pato_time_step != 0 ): print('TITAN time-step divided by PATO time-step must give zero remainder.'); exit(0)
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
@@ -880,7 +895,7 @@ def read_config_file(configParser, postprocess = ""):
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
                 ### bc_ids = [obj.fenics_bc_id for obj in assembly.objects]
-                assembly.generate_inner_domain(write = options.pato, output_folder = options.output_folder)
+                assembly.generate_inner_domain(write = options.thermal.pato, output_folder = options.output_folder)
                 assembly.compute_mass_properties()
 
             options.save_mesh(titan)
