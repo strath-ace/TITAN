@@ -25,6 +25,9 @@ import open3d as o3d
 import trimesh
 from copy import deepcopy
 
+import sys
+np.set_printoptions(threshold=sys.maxsize)
+
 
 def read_mesh(filename):
 

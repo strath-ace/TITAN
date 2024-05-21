@@ -37,13 +37,13 @@ def compute_thermal(assembly, time, iteration, options):
     options: Options
         Object of class Options
     """
-    setup_PATO_simulation(time, iteration, options, assembly.id)
+    setup_PATO_simulation(assembly, time, iteration, options, assembly.id)
 
     run_PATO(options)
 
     postprocess_PATO_solution(options, assembly)
 
-def setup_PATO_simulation(time, iteration, options, id):
+def setup_PATO_simulation(assembly, time, iteration, options, id):
     """
     Sets up the PATO simulation - creates PATO simulation folders and required input files
 
@@ -51,20 +51,28 @@ def setup_PATO_simulation(time, iteration, options, id):
     ----------
 	?????????????????????????
     """
+    #Ta_bc = "fixed"
+    #Ta = 1644
+    Ta_bc = "qconv"
+    #Ta_bc = "ablation"
 
     # If first TITAN iteration, initialize PATO simulation
     if (iteration == 0):
 
+        if Ta_bc == "qconv" or Ta_bc == "ablation":
+            write_PATO_BC(options, assembly, Ta_bc, time)
         write_All_run(options, time - options.dynamics.time_step, restart = False)
         write_constant_folder(options)
-        write_origin_folder(options)
+        write_origin_folder(options, Ta_bc)
+
         write_system_folder(options, time - options.dynamics.time_step)
 
     # If not first TITAN iteration, restart PATO simulation
     else:
+        if Ta_bc == "qconv" or Ta_bc == "ablation":
+            write_PATO_BC(options, assembly, Ta_bc, time - options.dynamics.time_step)
         write_All_run(options, time - options.dynamics.time_step, restart = True)
         write_system_folder(options, time - options.dynamics.time_step)
-
 
 def write_All_run(options, time, restart = False):
     """
@@ -81,13 +89,17 @@ def write_All_run(options, time, restart = False):
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     end_time = time + options.dynamics.time_step
+    start_time = time
 
     with open(options.output_folder + '/PATO/Allrun', 'w') as f:
 
+        if ((end_time).is_integer()): end_time = int(end_time)
+        if ((start_time).is_integer()): start_time = int(start_time)
         f.write('#!/bin/bash \n')
         f.write('cd ${0%/*} || exit 1 \n')
         f.write('. $PATO_DIR/src/applications/utilities/runFunctions/RunFunctions \n')
         f.write('pato_init \n')
+        f.write('cp qconv/BC_'+str(end_time) + ' qconv/BC_' + str(start_time) + '\n')
         if (not restart):
             f.write('if [ ! -d 0 ]; then \n')
             f.write('    scp -r origin.0 0 \n')
@@ -98,7 +110,6 @@ def write_All_run(options, time, restart = False):
             f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
             f.write('mv constant/polyMesh constant/subMat1 \n')   
         f.write('PATOx \n')
-        if ((end_time).is_integer()): end_time = int(end_time)
         f.write('TIME_STEP='+str(end_time)+' \n')
         f.write('MAT_NAME=subMat1 \n')
         f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
@@ -217,7 +228,7 @@ def write_constant_folder(options):
 
     pass
 
-def write_origin_folder(options):
+def write_origin_folder(options, Ta_bc):
     """
     Write the origin.0/ PATO folder
 
@@ -285,19 +296,34 @@ def write_origin_folder(options):
         f.write('\n')
         f.write('dimensions      [0 0 0 1 0 0 0];\n')
         f.write('\n')
-        f.write('internalField   uniform 298;\n')
+        f.write('internalField   uniform 300;\n')
         f.write('\n')
         f.write('boundaryField {\n')
         f.write('  top\n')
         f.write('  {\n')
-        f.write('    type             uniformFixedValue;\n')
-        f.write('    uniformValue table\n')
-        f.write('    (\n')
-        f.write('        (0   298)\n')
-        f.write('        (0.1   298)\n')
-        f.write('        (0.2   1644)\n')
-        f.write('        (120 1644)\n')
-        f.write('    );\n')
+
+        if Ta_bc == "fixed":
+            f.write('    type             uniformFixedValue;\n')
+            f.write('    uniformValue table\n')
+            f.write('    (\n')
+            f.write('        (0   1644)\n')
+            f.write('        (0.1   1644)\n')
+            f.write('        (0.2   1644)\n')
+            f.write('        (120 1644)\n')
+            f.write('    );\n')
+        elif Ta_bc == "qconv":
+            f.write('type            HeatFlux;\n')
+            f.write('mappingType     "3D-tecplot";\n')
+            f.write('mappingFileName "$FOAM_CASE/qconv/BC";\n')
+            f.write('mappingFields   (\n')
+            f.write('    (qConvCFD "3")\n')
+            f.write(');\n')
+            f.write('p 101325;\n')
+            f.write('Tbackground 0;\n')
+            f.write('chemistryOn 1;\n')
+            f.write('qRad 0;\n')
+            f.write('value           uniform 300;\n')       
+    
         f.write('  }\n')
         f.write('}\n')
         f.write('\n')
@@ -308,6 +334,48 @@ def write_origin_folder(options):
 
     pass
 
+def write_PATO_BC(options, assembly, Ta_bc, time):
+
+    # write tecplot file with facet_COG coordinates and associated facet convective heating
+    if Ta_bc == "qconv":
+
+        x = np.array([])
+        y = np.array([])
+        z = np.array([])
+        q = np.array([])
+        n_data_points = len(assembly.mesh.facet_COG)
+        for i in range(n_data_points):
+            x = np.append(x, assembly.mesh.facet_COG[i,0])
+            y = np.append(y, assembly.mesh.facet_COG[i,1])
+            z = np.append(z, assembly.mesh.facet_COG[i,2])
+            q = np.append(q, 1000000)
+
+        if ((time).is_integer()): time = int(time)  
+
+        with open(options.output_folder + 'PATO/qconv/BC_' + str(time), 'w') as f:
+            f.write('TITLE     = "vol-for-blayer.fu"\n')
+            f.write('VARIABLES = \n')
+            f.write('"xw (m)"\n')
+            f.write('"yw (m)"\n')
+            f.write('"zw (m)"\n')
+            f.write('"qConvCFD (W/m^2)"\n')
+            f.write('ZONE T="zone 1"\n')
+            f.write(' STRANDID=0, SOLUTIONTIME=0\n')
+            f.write(' I=' + str(n_data_points) + ', J=1, K=1, ZONETYPE=Ordered\n')
+            f.write(' DATAPACKING=BLOCK\n')
+            f.write(' DT=(DOUBLE DOUBLE DOUBLE DOUBLE)   \n')
+            f.write(np.array2string(x)[1:-1])
+            f.write(np.array2string(y)[1:-1])
+            f.write(np.array2string(z)[1:-1])
+            f.write(np.array2string(q)[1:-1])
+
+        f.close()
+
+    elif Ta_bc == "ablation":
+        print("PATO ablation is not implemented yet."); exit(0);    
+
+
+    pass
 
 def write_system_folder(options, time):
     """

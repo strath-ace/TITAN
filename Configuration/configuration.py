@@ -414,6 +414,7 @@ class Options():
             Path(self.output_folder+'/PATO/origin.0/subMat1').mkdir(parents=True, exist_ok=True)
             Path(self.output_folder+'/PATO/system/').mkdir(parents=True, exist_ok=True)
             Path(self.output_folder+'/PATO/system/subMat1').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/qconv').mkdir(parents=True, exist_ok=True)
 
     def save_mesh(self,titan):
         outfile = open(self.output_folder + '/Restart/'+'Mesh.p','wb')
