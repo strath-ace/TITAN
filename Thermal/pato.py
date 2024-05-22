@@ -41,7 +41,7 @@ def compute_thermal(assembly, time, iteration, options):
 
     run_PATO(options)
 
-    postprocess_PATO_solution(options, assembly)
+    postprocess_PATO_solution(options, assembly, iteration)
 
 def setup_PATO_simulation(assembly, time, iteration, options, id):
     """
@@ -61,7 +61,7 @@ def setup_PATO_simulation(assembly, time, iteration, options, id):
 
         if Ta_bc == "qconv" or Ta_bc == "ablation":
             write_PATO_BC(options, assembly, Ta_bc, time)
-        write_All_run(options, time - options.dynamics.time_step, restart = False)
+        write_All_run(options, time - options.dynamics.time_step, iteration, restart = False)
         write_constant_folder(options)
         write_origin_folder(options, Ta_bc)
 
@@ -70,11 +70,11 @@ def setup_PATO_simulation(assembly, time, iteration, options, id):
     # If not first TITAN iteration, restart PATO simulation
     else:
         if Ta_bc == "qconv" or Ta_bc == "ablation":
-            write_PATO_BC(options, assembly, Ta_bc, time - options.dynamics.time_step)
-        write_All_run(options, time - options.dynamics.time_step, restart = True)
+            write_PATO_BC(options, assembly, Ta_bc, time)
+        write_All_run(options, time - options.dynamics.time_step, iteration, restart = True)
         write_system_folder(options, time - options.dynamics.time_step)
 
-def write_All_run(options, time, restart = False):
+def write_All_run(options, time, iteration, restart = False):
     """
     Write the Allrun PATO file
 
@@ -90,6 +90,8 @@ def write_All_run(options, time, restart = False):
 
     end_time = time + options.dynamics.time_step
     start_time = time
+
+    print('copying BC:', end_time, ' - ', start_time)
 
     with open(options.output_folder + '/PATO/Allrun', 'w') as f:
 
@@ -117,6 +119,7 @@ def write_All_run(options, time, restart = False):
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
         f.write('foamToVTK -time '+str(end_time)+'\n')
+        f.write('rm qconv/BC* \n')
 
     f.close()
 
@@ -353,6 +356,8 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
 
 
         if ((time).is_integer()): time = int(time)  
+
+        print('BC_', time)
 
         with open(options.output_folder + 'PATO/qconv/BC_' + str(time), 'w') as f:
             f.write('TITLE     = "vol-for-blayer.fu"\n')
@@ -666,22 +671,33 @@ def run_PATO(options):
     #subprocess.run([options.output_folder +'/PATO/Allrun'], text = True)
 
 
-def postprocess_PATO_solution(options, assembly):
+def postprocess_PATO_solution(options, assembly, iteration):
     """
     Postprocesses the PATO output
 
     Parameters
     ----------
 	?????????????????????????
-    """        
+    """ 
 
+    # extract file numbering       
+    #filenumbers = [f.split('_')[1] for f in os.listdir(options.output_folder+"PATO/VTK/") if f.endswith('.vtk')]
+    #filenumbers = [f.split('.')[0] for f in filenumbers]
+    #filenumbers = [float(i) for i in filenumbers]
+    #print(filenumbers);exit(0)
     #find PATO .vtk solution
-    for file in os.listdir(options.output_folder+"PATO/VTK/"):
-        if file.endswith(".vtk"):
-            filename = options.output_folder+"PATO/VTK/" + file
-            print('PATO .vtk solution found.')
+    print('iteration=', iteration)
+    filename = options.output_folder+"PATO/VTK/PATO_" + str(iteration+1) + ".vtk"
 
-    print('PATO solution filename:', filename)        
+
+    #for file in os.listdir(options.output_folder+"PATO/VTK/"):
+    #    if file.endswith(".vtk"):
+    #        filename = options.output_folder+"PATO/VTK/" + file
+    #        filecheck = ''.join(file)
+    #        iteration = [int(s) for s in filecheck.split() if s.isdigit()]
+    print('PATO .vtk solution found, iteration=', iteration)
+
+    print('\n PATO solution filename:', filename)       
 
     #Open the VTK solution file
     reader = vtk.vtkUnstructuredGridReader()

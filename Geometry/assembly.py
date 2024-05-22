@@ -434,7 +434,7 @@ class Assembly():
         self.collision = None
 
         if options.thermal.ablation_mode.lower() == '0d':
-            if options.post_fragment_tetra_ablation:
+            if options.thermal.post_fragment_tetra_ablation:
                 if len(self.objects) > 1:
                     self.ablation_mode = '0d'
                 else:

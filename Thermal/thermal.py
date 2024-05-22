@@ -219,7 +219,7 @@ def compute_thermal_0D(titan, options):
             assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
             assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
-            obj.photons = compute_radiance(obj.temperature, Atot, emissivity)
+            #obj.photons = compute_radiance(obj.temperature, Atot, emissivity)
 
         assembly.compute_mass_properties()
 
