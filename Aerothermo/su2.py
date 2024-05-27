@@ -564,7 +564,7 @@ def generate_BL(assembly, options, it, cluster_tag):
     """
 
     if options.bloom.flag:
-        bloom.generate_BL(it, options, num_obj = len(assembly), bloom = options.bloom, input_grid ='Domain_'+str(it)+'_cluster_'+str(cluster_tag) , output_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
+        bloom.generate_BL_CFD(it, options, num_obj = len(assembly), bloom = options.bloom, input_grid ='Domain_'+str(it)+'_cluster_'+str(cluster_tag) , output_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
     
 def adapt_mesh(assembly, options, it, cluster_tag, iteration):
     """

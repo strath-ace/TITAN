@@ -107,7 +107,7 @@ def write_All_run(options, time, iteration, restart = False):
             f.write('    scp -r origin.0 0 \n')
             f.write('fi \n')
             f.write('cd verification/unstructured_gmsh/ \n')
-            f.write('ln -s ' + path + '/' + options.output_folder + '/Volume/mesh.msh \n')
+            f.write('ln -s ' + path + '/' + options.output_folder + '/PATO/mesh/mesh.msh \n')
             f.write('cd ../.. \n')
             f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
             f.write('mv constant/polyMesh constant/subMat1 \n')   
@@ -352,8 +352,10 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
             x = np.append(x, assembly.mesh.facet_COG[i,0])
             y = np.append(y, assembly.mesh.facet_COG[i,1])
             z = np.append(z, assembly.mesh.facet_COG[i,2])
-            q = np.append(q, assembly.aerothermo.heatflux[i])
-
+            if (assembly.mesh.facet_COG[i,0] == 0):
+                q = np.append(q, 100000) #assembly.aerothermo.heatflux[i])
+            else:
+                q = np.append(q, 0)
 
         if ((time).is_integer()): time = int(time)  
 
@@ -380,7 +382,6 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
 
     elif Ta_bc == "ablation":
         print("PATO ablation is not implemented yet."); exit(0);    
-
 
     pass
 
@@ -680,49 +681,62 @@ def postprocess_PATO_solution(options, assembly, iteration):
 	?????????????????????????
     """ 
 
-    # extract file numbering       
-    #filenumbers = [f.split('_')[1] for f in os.listdir(options.output_folder+"PATO/VTK/") if f.endswith('.vtk')]
-    #filenumbers = [f.split('.')[0] for f in filenumbers]
-    #filenumbers = [float(i) for i in filenumbers]
-    #print(filenumbers);exit(0)
-    #find PATO .vtk solution
-    print('iteration=', iteration)
-    filename = options.output_folder+"PATO/VTK/PATO_" + str(iteration+1) + ".vtk"
-
-
-    #for file in os.listdir(options.output_folder+"PATO/VTK/"):
-    #    if file.endswith(".vtk"):
-    #        filename = options.output_folder+"PATO/VTK/" + file
-    #        filecheck = ''.join(file)
-    #        iteration = [int(s) for s in filecheck.split() if s.isdigit()]
-    print('PATO .vtk solution found, iteration=', iteration)
+    filename = options.output_folder+"PATO/VTK/top/top_" + str(iteration+1) + ".vtk"
 
     print('\n PATO solution filename:', filename)       
 
-    #Open the VTK solution file
-    reader = vtk.vtkUnstructuredGridReader()
-    reader.SetFileName(filename)
-    reader.Update()
-    data = reader.GetOutput()
+#    #Open the VTK solution file and extract volume data
+#    print('0')
+#    reader = vtk.vtkUnstructuredGridReader()
+#    print('1')
+#    reader.SetFileName(filename)
+#    print('2')
+#    reader.Update()
+#    print('3')
+#    data = reader.GetOutput()
+#    print('4')
 
-    #Extract the volume temperature distribution (tetras)
+    #Open the VTK solution file
+    #reader = vtk.vtkUnstructuredGridReader()
+    reader = vtk.vtkPolyDataReader()
+    reader.SetFileName(filename)
+
+    #reader.ReadAllVectorsOn()
+
+    #reader.ReadAllScalarsOn()
+
+    reader.Update()
+
+    data = reader.GetOutput()
+    #coords = vtk_to_numpy(data.GetPoints().GetData())
+    #exit(0)
+
+    # extract surface data
+    #extractSurface=vtk.vtkGeometryFilter()
+    #extractSurface.SetInputData(data)
+    #extractSurface.Update()
+    #data = extractSurface.GetOutput()
+
+    # extract temperature distribution (tetras)
     cell_data = data.GetCellData()
     temperature = cell_data.GetArray('Ta')
     n_cells=data.GetNumberOfCells()
     temperature_cell = [temperature.GetValue(i) for i in range(n_cells)]
 
-    #PATO .vtk to TITAN volume temperature distribution (tetras)
+    # sort vtk and TITAN surface mesh cell numbering
+
+    # get cell COG from vtk
+    vtk_cell_centers=vtk.vtkCellCenters()
+    vtk_cell_centers.SetInputData(data)
+    vtk_cell_centers.Update()
+    vtk_cell_centers_data = vtk_cell_centers.GetOutput()
+    vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
+    vtk_COG = np.round(vtk_COG, 3)
+
+    TITAN_COG = np.round(assembly.mesh.facet_COG,3)      
+
     for i in range(n_cells):
-        assembly.mesh.vol_T[i] = temperature_cell[i]
-
-    #Map the tetra temperature to surface mesh
-    COG = np.round(assembly.mesh.facet_COG,5).astype(str)
-    COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
-
-    #Limit Tetras temperature so it does not go negative due to small mass
-    assembly.mesh.vol_T[assembly.mesh.vol_T<273] = 273
-
-    #from volume to surface temperature distribution
-    for index, COG in enumerate(COG):
-        assembly.aerothermo.temperature[index] = assembly.mesh.vol_T[assembly.mesh.index_surf_tetra[str(COG)][0]]
-
+        for j in range(n_cells):
+            if (vtk_COG[i,0] == TITAN_COG[j,0] and vtk_COG[i,1] == TITAN_COG[j,1] and vtk_COG[i,2] == TITAN_COG[j,2]):
+                assembly.aerothermo.temperature[j] = temperature_cell[i]
+                break

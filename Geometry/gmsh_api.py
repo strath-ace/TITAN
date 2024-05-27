@@ -153,9 +153,10 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
 
     if write:
         #gmsh.write(output_folder +'/Volume/'+'%s_%s.msh'%('mesh', assembly.id))
-        gmsh.option.setNumber("Mesh.MshFileVersion", 2.)
-        gmsh.write(output_folder +'/Volume/'+'%s.msh'%('mesh'))
+        #gmsh.option.setNumber("Mesh.MshFileVersion", 2.)
+        gmsh.write(output_folder +'/PATO/mesh/'+'%s.su2'%('pato_mesh_'+str(assembly.id)))
     gmsh.finalize()
+
     return coords, elements.astype(int), density_elem, tag_elem.astype(int)
 
 def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name):

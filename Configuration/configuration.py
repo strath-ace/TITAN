@@ -415,6 +415,7 @@ class Options():
             Path(self.output_folder+'/PATO/system/').mkdir(parents=True, exist_ok=True)
             Path(self.output_folder+'/PATO/system/subMat1').mkdir(parents=True, exist_ok=True)
             Path(self.output_folder+'/PATO/qconv').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/PATO/mesh').mkdir(parents=True, exist_ok=True)
 
     def save_mesh(self,titan):
         outfile = open(self.output_folder + '/Restart/'+'Mesh.p','wb')
@@ -780,6 +781,11 @@ def read_config_file(configParser, postprocess = ""):
         options.thermal.pato = True
         options.thermal.pato_time_step = get_config_value(configParser, 0.1, 'Thermal', 'PATO_time_step', 'float')
         if ( options.dynamics.time_step%options.thermal.pato_time_step != 0 ): print('TITAN time-step divided by PATO time-step must give zero remainder.'); exit(0)
+        #Read Bloom conditions
+        options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
+        options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
+        options.bloom.spacing =     get_config_value(configParser,options.bloom.spacing,'Bloom', 'Spacing', 'float')
+        options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')

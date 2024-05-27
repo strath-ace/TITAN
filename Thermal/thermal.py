@@ -23,6 +23,7 @@ from scipy import integrate
 import pandas as pd
 import os
 from Thermal import pato
+from Aerothermo import bloom
 
 def compute_thermal_tetra(titan, options):
   
@@ -256,9 +257,15 @@ def black_body(wavelength, T):
 
 
 def compute_thermal_PATO(titan, options):
+    
+    num_obj = 1
 
     for assembly in titan.assembly:
-
+        if options.bloom.flag:
+            input_grid = "pato_mesh_"+str(assembly.id)
+            output_grid = "pato_mesh_hybrid_"+str(assembly.id)
+            bloom.generate_PATO_mesh(options, num_obj = num_obj, bloom = options.bloom, input_grid = input_grid , output_grid = output_grid) #grid name without .SU2
+            
         pato.compute_thermal(assembly, titan.time, titan.iter, options)
 
     return
