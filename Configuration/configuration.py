@@ -32,6 +32,7 @@ from Dynamics import dynamics
 from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
+from Aerothermo import bloom
 
 
 class Collision_options():
@@ -904,6 +905,12 @@ def read_config_file(configParser, postprocess = ""):
                 ### bc_ids = [obj.fenics_bc_id for obj in assembly.objects]
                 assembly.generate_inner_domain(write = options.thermal.pato, output_folder = options.output_folder)
                 assembly.compute_mass_properties()
+                if options.thermal.pato and options.bloom.flag:
+                    num_obj = 1
+                    input_grid = "pato_mesh_"+str(assembly.id)
+                    output_grid = "pato_mesh_hybrid_"+str(assembly.id)
+                    bloom.generate_PATO_mesh(options, num_obj = num_obj, bloom = options.bloom, input_grid = input_grid , output_grid = output_grid) #grid name without .SU2
+
 
             options.save_mesh(titan)
         

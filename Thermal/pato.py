@@ -352,10 +352,7 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
             x = np.append(x, assembly.mesh.facet_COG[i,0])
             y = np.append(y, assembly.mesh.facet_COG[i,1])
             z = np.append(z, assembly.mesh.facet_COG[i,2])
-            if (assembly.mesh.facet_COG[i,0] == 0):
-                q = np.append(q, 100000) #assembly.aerothermo.heatflux[i])
-            else:
-                q = np.append(q, 0)
+            q = np.append(q, assembly.aerothermo.heatflux[i])
 
         if ((time).is_integer()): time = int(time)  
 

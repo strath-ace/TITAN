@@ -192,8 +192,6 @@ def generate_surface_solution(titan, options):
         radius = assembly.mesh.facet_radius
         ellipse = assembly.inside_shock
         temperature  = assembly.aerothermo.temperature
-        for i in range(len(facets)):
-            cellID = np.append(cellID, i)
 
         
         cells = {"triangle": facets}
@@ -203,7 +201,6 @@ def generate_surface_solution(titan, options):
                       "Temperature": [temperature],
                       "Shear": [shear],
                       "Radius": [radius],
-                      "CellID": [cellID],
                     }
 
         point_data = { "Displacement": displacement,
