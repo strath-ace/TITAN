@@ -24,6 +24,8 @@ from vtk.util.numpy_support import vtk_to_numpy
 import subprocess
 import os
 from vtk import *
+import glob
+import os
 
 def compute_thermal(assembly, time, iteration, options):
 
@@ -55,6 +57,7 @@ def setup_PATO_simulation(assembly, time, iteration, options, id):
     #Ta = 1644
     Ta_bc = "qconv"
     #Ta_bc = "ablation"
+    Tfreestream = assembly.freestream.temperature
 
     # If first TITAN iteration, initialize PATO simulation
     if (iteration == 0):
@@ -63,7 +66,7 @@ def setup_PATO_simulation(assembly, time, iteration, options, id):
             write_PATO_BC(options, assembly, Ta_bc, time)
         write_All_run(options, time - options.dynamics.time_step, iteration, restart = False)
         write_constant_folder(options)
-        write_origin_folder(options, Ta_bc)
+        write_origin_folder(options, Ta_bc, Tfreestream)
 
         write_system_folder(options, time - options.dynamics.time_step)
 
@@ -220,18 +223,12 @@ def write_constant_folder(options):
         f.write('  MaterialPropertiesDirectory "$PATO_DIR/data/Materials/Fourier/FourierTemplate"; \n')
         f.write('}\n')
         f.write('/****************************** END MATERIAL PROPERTIES  ********************/\n')
-        f.write('\n')
-        f.write('/****************************** PYROLYSIS ************************/\n')
-        f.write('Pyrolysis {\n')
-        f.write('  PyrolysisType virgin;\n')
-        f.write('}\n')
-        f.write('/****************************** END PYROLYSIS ************************/\n')
 
     f.close()
 
     pass
 
-def write_origin_folder(options, Ta_bc):
+def write_origin_folder(options, Ta_bc, Tinf):
     """
     Write the origin.0/ PATO folder
 
@@ -279,6 +276,7 @@ def write_origin_folder(options, Ta_bc):
 
     f.close()
 
+
     with open(options.output_folder + '/PATO/origin.0/subMat1/Ta', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
@@ -322,7 +320,7 @@ def write_origin_folder(options, Ta_bc):
             f.write('    (qConvCFD "3")\n')
             f.write(');\n')
             f.write('p 101325;\n')
-            f.write('Tbackground 0;\n')
+            f.write('Tbackground ' + str(Tinf)';\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
             f.write('value           uniform 300;\n')       
@@ -678,41 +676,22 @@ def postprocess_PATO_solution(options, assembly, iteration):
 	?????????????????????????
     """ 
 
-    filename = options.output_folder+"PATO/VTK/top/top_" + str(iteration+1) + ".vtk"
+    iteration_to_read = int((iteration+1)*options.dynamics.time_step/options.thermal.pato_time_step)
+
+    filename = options.output_folder+"PATO/VTK/top/top_" + str(iteration_to_read) + ".vtk"
+
+
+    #list_of_files = glob.glob(options.output_folder+'PATO/VTK/top/*.vtk') # * means all if need specific format then *.csv
+    #filename = max(list_of_files, key=os.path.getctime)    
 
     print('\n PATO solution filename:', filename)       
 
-#    #Open the VTK solution file and extract volume data
-#    print('0')
-#    reader = vtk.vtkUnstructuredGridReader()
-#    print('1')
-#    reader.SetFileName(filename)
-#    print('2')
-#    reader.Update()
-#    print('3')
-#    data = reader.GetOutput()
-#    print('4')
-
     #Open the VTK solution file
-    #reader = vtk.vtkUnstructuredGridReader()
+
     reader = vtk.vtkPolyDataReader()
     reader.SetFileName(filename)
-
-    #reader.ReadAllVectorsOn()
-
-    #reader.ReadAllScalarsOn()
-
     reader.Update()
-
     data = reader.GetOutput()
-    #coords = vtk_to_numpy(data.GetPoints().GetData())
-    #exit(0)
-
-    # extract surface data
-    #extractSurface=vtk.vtkGeometryFilter()
-    #extractSurface.SetInputData(data)
-    #extractSurface.Update()
-    #data = extractSurface.GetOutput()
 
     # extract temperature distribution (tetras)
     cell_data = data.GetCellData()
@@ -728,9 +707,10 @@ def postprocess_PATO_solution(options, assembly, iteration):
     vtk_cell_centers.Update()
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
-    vtk_COG = np.round(vtk_COG, 3)
-
-    TITAN_COG = np.round(assembly.mesh.facet_COG,3)      
+    
+    round_number = 2
+    vtk_COG = np.round(vtk_COG, round_number)
+    TITAN_COG = np.round(assembly.mesh.facet_COG,round_number)      
 
     for i in range(n_cells):
         for j in range(n_cells):

@@ -66,6 +66,7 @@ def compute_Euler(titan, options):
         __, time_step = collision.check_collision(titan, options, time_step)
     
     titan.time += time_step
+    titan.time = round(titan.time, 5)
 
     # Loop over the assemblies and compute the dericatives
     for assembly in titan.assembly:
