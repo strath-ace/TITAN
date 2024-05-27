@@ -320,7 +320,7 @@ def write_origin_folder(options, Ta_bc, Tinf):
             f.write('    (qConvCFD "3")\n')
             f.write(');\n')
             f.write('p 101325;\n')
-            f.write('Tbackground ' + str(Tinf)';\n')
+            f.write('Tbackground ' + str(Tinf)+';\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
             f.write('value           uniform 300;\n')       
@@ -678,20 +678,38 @@ def postprocess_PATO_solution(options, assembly, iteration):
 
     iteration_to_read = int((iteration+1)*options.dynamics.time_step/options.thermal.pato_time_step)
 
-    filename = options.output_folder+"PATO/VTK/top/top_" + str(iteration_to_read) + ".vtk"
+    solution = 'surface'
 
+    if solution == 'surface':
 
-    #list_of_files = glob.glob(options.output_folder+'PATO/VTK/top/*.vtk') # * means all if need specific format then *.csv
-    #filename = max(list_of_files, key=os.path.getctime)    
+        filename = options.output_folder+"PATO/VTK/top/top_" + str(iteration_to_read) + ".vtk"
 
-    print('\n PATO solution filename:', filename)       
+        print('\n PATO solution filename:', filename)       
+    
+        #Open the VTK solution file
+    
+        reader = vtk.vtkPolyDataReader()
+        reader.SetFileName(filename)
+        reader.Update()
+        data = reader.GetOutput()
 
-    #Open the VTK solution file
+    elif solution == 'volume':
 
-    reader = vtk.vtkPolyDataReader()
-    reader.SetFileName(filename)
-    reader.Update()
-    data = reader.GetOutput()
+        filename = options.output_folder+"PATO/VTK/PATO_" + str(iteration_to_read) + ".vtk"
+
+        print('\n PATO solution filename:', filename)       
+
+        reader = vtk.vtkUnstructuredGridReader()
+        reader.SetFileName(filename)
+        reader.Update()
+        data = reader.GetOutput()
+
+        # extract surface data
+        extractSurface=vtk.vtkGeometryFilter()
+        extractSurface.SetInputData(data)
+        extractSurface.Update()
+        data = extractSurface.GetOutput()
+
 
     # extract temperature distribution (tetras)
     cell_data = data.GetCellData()
@@ -708,7 +726,7 @@ def postprocess_PATO_solution(options, assembly, iteration):
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
     
-    round_number = 2
+    round_number = 3
     vtk_COG = np.round(vtk_COG, round_number)
     TITAN_COG = np.round(assembly.mesh.facet_COG,round_number)      
 
