@@ -767,83 +767,20 @@ def postprocess_PATO_solution(options, assembly, iteration):
 
     n_proc = options.thermal.pato_cores
 
-    solution = 'surface'
-
-    filename = [''] * n_proc
-
-    # if surface, only need different surface solution files
-    if solution == 'surface':
-        
-        for n in range(n_proc):
-            filename[n] = path + "processor" + str(n) + "_top_" + str(iteration_to_read) + ".vtk"
-    
-    # if volume, need different volume files + surface boundaries between them
-    elif solution == 'volume':
-
-#        file_list = os.listdir(path)
-#        
-#        n_boundary_files = np.full(shape=n_proc,fill_value=0,dtype=int)
-#        boundary_proc    = [None] * n_proc
-#
-#        for n in range(n_proc):
-#            for name in file_list:
-#                if ("processor"+str(n)+"_procBoundary"+str(n)) in name:
-#                    print(name)
-#                    n_boundary_files[n] += 1
-#                    bound = re.findall(r'\d+', name)
-#                    boundary_proc[n] = np.append(boundary_proc[n], bound[2])
-#
-#        filename = [''] * (n_proc + (np.sum(n_boundary_files)).item())
-#
-        for n in range(n_proc):
-            filename[n] = path + "processor" + str(n) + "_processor" + str(n) + '_' + str(iteration_to_read) + ".vtk"
-#        adv = 0
-#        for n in range(n_proc):
-#            for m in range(n_boundary_files[n]):
-#                filename[n_proc + adv] = path + "processor" + str(n) + "_procBoundary" + str(n) + 'to' + str(boundary_proc[n][m+1]) + '_' + str(iteration_to_read) + ".vtk"
-#                adv += 1
-
-
-    print('\n PATO solution filenames:', filename) 
-
-    #Open the VTK solution files and merge them together into one dataset
-    appendFilter = vtkAppendFilter()
+    solution = 'volume'
 
     if solution == 'surface':
-        for f in range(n_proc):
-            file_data = vtk.vtkPolyDataReader()
-            file_data.SetFileName(filename[f])
-            file_data.Update()
-            file_data = file_data.GetOutput()
-            appendFilter.AddInputData(file_data)   
-      
-        appendFilter.SetMergePoints(True)
-        appendFilter.Update()
-        data = appendFilter.GetOutput()        
-
+        data = retrieve_surface_vtk_data(n_proc, path, iteration_to_read)
     elif solution == 'volume':
-        for f in range(n_proc):
-            file_data = vtk.vtkUnstructuredGridReader()
-            file_data.SetFileName(filename[f])
-            file_data.Update()
-            file_data = file_data.GetOutput()
-            appendFilter.AddInputData(file_data)   
-      
-        appendFilter.SetMergePoints(True)
-        appendFilter.Update()
-        data = appendFilter.GetOutput()
-
-        # extract surface data
-        extractSurface=vtk.vtkGeometryFilter()
-        extractSurface.SetInputData(data)
-        extractSurface.Update()
-        data = extractSurface.GetOutput()
+        data = retrieve_volume_vtk_data(n_proc, path, iteration_to_read)
 
     # extract temperature distribution (tetras)
     cell_data = data.GetCellData()
     temperature = cell_data.GetArray('Ta')
     n_cells=data.GetNumberOfCells()
     temperature_cell = [temperature.GetValue(i) for i in range(n_cells)]
+
+    # sort vtk and TITAN surface mesh cell numbering by checking facet COG
 
     # get cell COG from vtk
     vtk_cell_centers=vtk.vtkCellCenters()
@@ -862,3 +799,59 @@ def postprocess_PATO_solution(options, assembly, iteration):
             if (vtk_COG[i,0] == TITAN_COG[j,0] and vtk_COG[i,1] == TITAN_COG[j,1] and vtk_COG[i,2] == TITAN_COG[j,2]):
                 assembly.aerothermo.temperature[j] = temperature_cell[i]
                 break
+
+def retrieve_surface_vtk_data(n_proc, path, iteration):
+
+    filename = [''] * n_proc
+
+    for n in range(n_proc):
+        filename[n] = path + "processor" + str(n) + "_top_" + str(iteration) + ".vtk"
+
+    print('\n PATO solution filenames:', filename)
+
+    #Open the VTK solution files and merge them together into one dataset
+    appendFilter = vtkAppendFilter()
+
+    for f in range(n_proc):
+        file_data = vtk.vtkPolyDataReader()
+        file_data.SetFileName(filename[f])
+        file_data.Update()
+        file_data = file_data.GetOutput()
+        appendFilter.AddInputData(file_data)   
+  
+    appendFilter.SetMergePoints(True)
+    appendFilter.Update()
+    vtk_data = appendFilter.GetOutput()        
+
+    return vtk_data
+
+def retrieve_volume_vtk_data(n_proc, path, iteration):
+
+    filename = [''] * n_proc
+
+    for n in range(n_proc):
+        filename[n] = path + "processor" + str(n) + "_processor" + str(n) + '_' + str(iteration) + ".vtk"
+
+    print('\n PATO solution filenames:', filename)
+
+    #Open the VTK solution files and merge them together into one dataset
+    appendFilter = vtkAppendFilter()
+
+    for f in range(n_proc):
+        file_data = vtk.vtkUnstructuredGridReader()
+        file_data.SetFileName(filename[f])
+        file_data.Update()
+        file_data = file_data.GetOutput()
+        appendFilter.AddInputData(file_data)   
+  
+    appendFilter.SetMergePoints(True)
+    appendFilter.Update()
+    data = appendFilter.GetOutput()
+
+    # extract surface data
+    extractSurface=vtk.vtkGeometryFilter()
+    extractSurface.SetInputData(data)
+    extractSurface.Update()
+    vtk_data = extractSurface.GetOutput()    
+
+    return vtk_data
