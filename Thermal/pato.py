@@ -678,7 +678,7 @@ def postprocess_PATO_solution(options, assembly, iteration):
 
     iteration_to_read = int((iteration+1)*options.dynamics.time_step/options.thermal.pato_time_step)
 
-    solution = 'surface'
+    solution = 'volume'
 
     if solution == 'surface':
 
@@ -704,6 +704,11 @@ def postprocess_PATO_solution(options, assembly, iteration):
         reader.Update()
         data = reader.GetOutput()
 
+        #clean_grid = vtk.vtkCleanUnstructuredGrid()
+        #clean_grid.SetInputData(data)
+        #clean_grid.Update()
+        #data = clean_grid.GetOutput()
+
         # extract surface data
         extractSurface=vtk.vtkGeometryFilter()
         extractSurface.SetInputData(data)
@@ -717,17 +722,42 @@ def postprocess_PATO_solution(options, assembly, iteration):
     n_cells=data.GetNumberOfCells()
     temperature_cell = [temperature.GetValue(i) for i in range(n_cells)]
 
+    #cell_points = cell_data.GetCellPoints()
+    #cell_points = [cell_points.GetValue(i) for i in range(n_cells)]
+    #exit(0)
+    vtk_COG     = np.empty([n_cells, 3])
+    cell_points = np.empty([3, 3])
+
     # sort vtk and TITAN surface mesh cell numbering
 
     # get cell COG from vtk
-    vtk_cell_centers=vtk.vtkCellCenters()
-    vtk_cell_centers.SetInputData(data)
-    vtk_cell_centers.Update()
-    vtk_cell_centers_data = vtk_cell_centers.GetOutput()
-    vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
-    
-    round_number = 3
-    vtk_COG = np.round(vtk_COG, round_number)
+
+    round_number = 2
+
+    cellIds = vtkIdList() # cell ids store to
+    for cellIndex in range(n_cells): # for every cell
+        data.GetCellPoints(cellIndex, cellIds) # get ids of points of the given cell
+        for i in range(0, cellIds.GetNumberOfIds()): # for every points of the given cell
+            coord=data.GetPoint(cellIds.GetId(i)) # get coordinates of the given point of the given cell, type: class 'tuple'
+            x=coord[0] # get coordinates of the given point of the given cell, type: class 'float'
+            y=coord[1]
+            z=coord[2]
+            cell_points[i,0] = coord[0]
+            cell_points[i,1] = coord[1]
+            cell_points[i,2] = coord[2]
+        vtk_COG[cellIndex] = np.round(np.sum(cell_points, axis = 0)/3,round_number)
+
+#    # sort vtk and TITAN surface mesh cell numbering
+#
+#    # get cell COG from vtk
+#    vtk_cell_centers=vtk.vtkCellCenters()
+#    vtk_cell_centers.SetInputData(data)
+#    vtk_cell_centers.Update()
+#    vtk_cell_centers_data = vtk_cell_centers.GetOutput()
+#    vtk_COG_test = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
+#    print(vtk_COG_test); exit(0)
+
+
     TITAN_COG = np.round(assembly.mesh.facet_COG,round_number)      
 
     for i in range(n_cells):
@@ -735,3 +765,47 @@ def postprocess_PATO_solution(options, assembly, iteration):
             if (vtk_COG[i,0] == TITAN_COG[j,0] and vtk_COG[i,1] == TITAN_COG[j,1] and vtk_COG[i,2] == TITAN_COG[j,2]):
                 assembly.aerothermo.temperature[j] = temperature_cell[i]
                 break
+
+
+
+#    mesh = trimesh.Trimesh()
+#    for obj in assembly.objects:
+#        mesh += trimesh.Trimesh(vertices = obj.mesh.nodes, faces = obj.mesh.facets) 
+#
+#    COG = np.round(np.sum(mesh.vertices[mesh.faces], axis = 1)/3,5)
+#
+#    faces_tuple = [tuple(f) for f in COG]
+#    count_faces_dict = pd.Series(faces_tuple).value_counts()
+#    mask = [count_faces_dict[f] == 1 for f in faces_tuple]
+#
+#    mesh = trimesh.Trimesh(vertices = mesh.vertices, faces = mesh.faces[mask])
+#
+#
+#    assembly.cfd_mesh.nodes = mesh.vertices
+#    assembly.cfd_mesh.facets = mesh.faces
+#    assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
+#
+#
+#
+#    assembly_nodes = np.array([])
+#    assembly_facets = np.array([], dtype = int)
+#
+#    for assembly in assembly_list:
+#        nodes = assembly.cfd_mesh.nodes[assembly.cfd_mesh.edges]
+#        nodes.shape = (-1,3)
+#        nodes = np.unique(nodes, axis = 0)
+#        assembly_nodes = np.append(assembly_nodes,nodes)
+#
+#    assembly_nodes.shape = (-1,3)
+#    assembly_nodes,idx_inv = np.unique(assembly_nodes, axis = 0, return_inverse = True)
+#
+#
+#    coords = vtk_to_numpy(data.GetPoints().GetData())
+#
+#    #sorts the solution by the correspondent coordinates of the nodes
+#    coords_sorted , idx_sim= np.unique(coords, axis = 0, return_index = True)
+#
+#
+#
+#    aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
+#
