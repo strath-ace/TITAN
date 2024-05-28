@@ -26,6 +26,7 @@ import os
 from vtk import *
 import glob
 import os
+import re
 
 def compute_thermal(assembly, time, iteration, options):
 
@@ -67,7 +68,6 @@ def setup_PATO_simulation(assembly, time, iteration, options, id):
         write_All_run(options, time - options.dynamics.time_step, iteration, restart = False)
         write_constant_folder(options)
         write_origin_folder(options, Ta_bc, Tfreestream)
-
         write_system_folder(options, time - options.dynamics.time_step)
 
     # If not first TITAN iteration, restart PATO simulation
@@ -104,6 +104,30 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('cd ${0%/*} || exit 1 \n')
         f.write('. $PATO_DIR/src/applications/utilities/runFunctions/RunFunctions \n')
         f.write('pato_init \n')
+        f.write('if [ "$(uname)" = "Darwin" ]; then\n')
+        f.write('    source $FOAM_ETC/bashrc\n')
+        f.write('    source $PATO_DIR/bashrc\n')
+        f.write('fi\n')
+        f.write('\n')
+        f.write('if [ -z $1 ];\n')
+        f.write('then\n')
+        f.write('    echo "error: correct usage = ./Allrun_parallel <number_processors>"\n')
+        f.write('    exit 1\n')
+        f.write('fi\n')
+        f.write('re="^[0-9]+$"\n')
+        f.write('if ! [[ $1 =~ $re ]] ; then\n')
+        f.write('   echo "error: First argument is not a number" >&2\n')
+        f.write('   exit 1\n')
+        f.write('fi\n')
+        f.write('\n')
+        f.write('NPROCESSOR=$1\n')
+        f.write('\n')
+        f.write('if [ "$(uname)" = "Darwin" ]; then\n')
+        f.write('    sed_cmd=gsed\n')
+        f.write('else\n')
+        f.write('    sed_cmd=sed\n')
+        f.write('fi\n')
+        f.write('$sed_cmd -i "s/numberOfSubdomains \+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
         f.write('cp qconv/BC_'+str(end_time) + ' qconv/BC_' + str(start_time) + '\n')
         if (not restart):
             f.write('if [ ! -d 0 ]; then \n')
@@ -113,15 +137,25 @@ def write_All_run(options, time, iteration, restart = False):
             f.write('ln -s ' + path + '/' + options.output_folder + '/PATO/mesh/mesh.msh \n')
             f.write('cd ../.. \n')
             f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
-            f.write('mv constant/polyMesh constant/subMat1 \n')   
-        f.write('PATOx \n')
+            f.write('mv constant/polyMesh constant/subMat1 \n')
+            f.write('count=`ls -1 processor* 2>/dev/null | wc -l`\n')
+            f.write('if [ $count != 0 ];\n')
+            f.write('then\n')
+            f.write('    rm -rf processor*\n')
+            f.write('fi\n')                                                                                                                                                                                                                             
+            f.write('decomposePar -region subMat1\n')
+        f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
         f.write('TIME_STEP='+str(end_time)+' \n')
         f.write('MAT_NAME=subMat1 \n')
-        f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
+        for n in range(options.thermal.pato_cores):
+            f.write('cd processor' + str(n) + '/\n')
+            f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
+            f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
+            f.write('cd .. \n')
         f.write('cp system/"$MAT_NAME"/fvSchemes  system/ \n')
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
-        f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
-        f.write('foamToVTK -time '+str(end_time)+'\n')
+        f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
+        f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
         f.write('rm qconv/BC* \n')
 
     f.close()
@@ -650,6 +684,57 @@ def write_system_folder(options, time):
 
     f.close()
 
+    n_proc = options.thermal.pato_cores
+
+    coeff_0 = n_proc/2
+    coeff_1 = 2
+    coeff_2 = 1
+
+    with open(options.output_folder + '/PATO/system/subMat1/decomposeParDict', 'w') as f:
+
+        f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
+        f.write('| =========                 |                                                 | \n')
+        f.write('| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           | \n')
+        f.write('|  \\    /   O peration     | Version:  4.x                                   | \n')
+        f.write('|   \\  /    A nd           | Web:      www.OpenFOAM.org                      | \n')
+        f.write('|    \\/     M anipulation  |                                                 | \n')
+        f.write('\*---------------------------------------------------------------------------*/ \n')
+        f.write('FoamFile { \n')
+        f.write('  version     2.0; \n')
+        f.write('  format      ascii; \n')
+        f.write('  class       dictionary; \n')
+        f.write('  location    "system"; \n')
+        f.write('  object      decomposeParDict; \n')
+        f.write('} \n')
+        f.write('// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * // \n')
+        f.write(' \n')
+        f.write('numberOfSubdomains '+str(n_proc)+'; \n')
+        f.write(' \n')
+        f.write('method          scotch; \n')
+        f.write(' \n')
+        f.write('simpleCoeffs { \n')
+        f.write('  n           ('+str(coeff_0) + ' ' + str(coeff_1) + ' ' + str(coeff_2) + '); \n')
+        f.write('  delta       0.001; \n')
+        f.write('} \n')
+        f.write(' \n')
+        f.write('hierarchicalCoeffs { \n')
+        f.write('  n           ('+str(coeff_0) + ' ' + str(coeff_1) + ' ' + str(coeff_2) + '); \n')
+        f.write('  delta       0.001; \n')
+        f.write('  order       xyz; \n')
+        f.write('} \n')
+        f.write(' \n')
+        f.write('scotchCoeffs { \n')
+        f.write('} \n')
+        f.write(' \n')
+        f.write('manualCoeffs { \n')
+        f.write('  dataFile    "decompositionData"; \n')
+        f.write('} \n')
+        f.write(' \n')
+        f.write('// ************************************************************************* // \n')
+
+
+    f.close()
+
     pass
 
 
@@ -661,10 +746,10 @@ def run_PATO(options):
     ----------
 	?????????????????????????
     """
+    n_proc = options.thermal.pato_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([options.output_folder + '/PATO/Allrun'], text = True)
-    #subprocess.run([options.output_folder +'/PATO/Allrun'], text = True)
+    subprocess.run([options.output_folder + '/PATO/Allrun', str(n_proc)], text = True)
 
 
 def postprocess_PATO_solution(options, assembly, iteration):
@@ -676,38 +761,84 @@ def postprocess_PATO_solution(options, assembly, iteration):
 	?????????????????????????
     """ 
 
+    path = options.output_folder+"PATO/VTK/"
+
     iteration_to_read = int((iteration+1)*options.dynamics.time_step/options.thermal.pato_time_step)
+
+    n_proc = options.thermal.pato_cores
 
     solution = 'volume'
 
     if solution == 'surface':
-
-        filename = options.output_folder+"PATO/VTK/top/top_" + str(iteration_to_read) + ".vtk"
-
-        print('\n PATO solution filename:', filename)       
+        
+        filename = [''] * n_proc
+        
+        for n in len(filename):
+            filename[n] = path + "processor" + str(n) + "_top_" + str(iteration_to_read) + ".vtk"
     
-        #Open the VTK solution file
-    
-        reader = vtk.vtkPolyDataReader()
-        reader.SetFileName(filename)
-        reader.Update()
-        data = reader.GetOutput()
-
     elif solution == 'volume':
 
-        filename = options.output_folder+"PATO/VTK/PATO_" + str(iteration_to_read) + ".vtk"
+        file_list = os.listdir(path)
+        
+        n_boundary_files = np.full(shape=n_proc,fill_value=0,dtype=int)
+        boundary_proc    = [None] * n_proc
 
-        print('\n PATO solution filename:', filename)       
+        for n in range(n_proc):
+            for name in file_list:
+                if ("processor"+str(n)+"_procBoundary"+str(n)) in name:
+                    print(name)
+                    n_boundary_files[n] += 1
+                    bound = re.findall(r'\d+', name)
+                    boundary_proc[n] = np.append(boundary_proc[n], bound[2])
 
-        reader = vtk.vtkUnstructuredGridReader()
-        reader.SetFileName(filename)
-        reader.Update()
-        data = reader.GetOutput()
+        filename = [''] * (n_proc + (np.sum(n_boundary_files)).item())
 
-        #clean_grid = vtk.vtkCleanUnstructuredGrid()
-        #clean_grid.SetInputData(data)
-        #clean_grid.Update()
-        #data = clean_grid.GetOutput()
+        for n in range(n_proc):
+
+            filename[n] = path + "processor" + str(n) + "_processor" + str(n) + '_' + str(iteration_to_read) + ".vtk"
+        adv = 0
+        for n in range(n_proc):
+            for m in range(n_boundary_files[n]):
+                filename[n_proc + adv] = path + "processor" + str(n) + "_procBoundary" + str(n) + 'to' + str(boundary_proc[n][m+1]) + '_' + str(iteration_to_read) + ".vtk"
+                adv += 1
+
+    print('\n PATO solution filenames:', filename) 
+
+    #Open the VTK solution files
+
+    appendFilter = vtkAppendFilter()
+#    file_data = vtk.vtkUnstructuredGridReader()
+#    print('filename[0]:', filename[0])
+#    file_data.SetFileName(filename[0])
+#    file_data.Update()
+#    file_data = file_data.GetOutput()
+#
+#    exit(0)
+
+    for f in range(n_proc):
+        print('file: ', f)
+        print('file: ', filename[f])
+        file_data = vtk.vtkUnstructuredGridReader()
+        file_data.SetFileName(filename[f])
+        file_data.Update()
+        file_data = file_data.GetOutput()
+        appendFilter.AddInputData(file_data)   
+
+#    for f in range(n_proc, len(filename)):
+#        print('file: ', f)
+#        print('file: ', filename[f])
+#        file_data = vtk.vtkPolyDataReader()
+#        file_data.SetFileName(filename[f])
+#        file_data.Update()
+#        file_data = file_data.GetOutput()
+#        appendFilter.AddInputData(file_data)           
+
+    appendFilter.SetMergePoints(True)
+    #appendFilter.vtkMergeCells()
+    appendFilter.Update()
+    data = appendFilter.GetOutput()
+
+    if solution == 'volume':
 
         # extract surface data
         extractSurface=vtk.vtkGeometryFilter()
@@ -715,97 +846,53 @@ def postprocess_PATO_solution(options, assembly, iteration):
         extractSurface.Update()
         data = extractSurface.GetOutput()
 
-
     # extract temperature distribution (tetras)
     cell_data = data.GetCellData()
     temperature = cell_data.GetArray('Ta')
     n_cells=data.GetNumberOfCells()
     temperature_cell = [temperature.GetValue(i) for i in range(n_cells)]
 
-    #cell_points = cell_data.GetCellPoints()
-    #cell_points = [cell_points.GetValue(i) for i in range(n_cells)]
-    #exit(0)
-    vtk_COG     = np.empty([n_cells, 3])
-    cell_points = np.empty([3, 3])
-
-    # sort vtk and TITAN surface mesh cell numbering
-
-    # get cell COG from vtk
-
-    round_number = 2
-
-    cellIds = vtkIdList() # cell ids store to
-    for cellIndex in range(n_cells): # for every cell
-        data.GetCellPoints(cellIndex, cellIds) # get ids of points of the given cell
-        for i in range(0, cellIds.GetNumberOfIds()): # for every points of the given cell
-            coord=data.GetPoint(cellIds.GetId(i)) # get coordinates of the given point of the given cell, type: class 'tuple'
-            x=coord[0] # get coordinates of the given point of the given cell, type: class 'float'
-            y=coord[1]
-            z=coord[2]
-            cell_points[i,0] = coord[0]
-            cell_points[i,1] = coord[1]
-            cell_points[i,2] = coord[2]
-        vtk_COG[cellIndex] = np.round(np.sum(cell_points, axis = 0)/3,round_number)
-
+#    vtk_COG     = np.empty([n_cells, 3])
+#    cell_points = np.empty([3, 3])
+#
 #    # sort vtk and TITAN surface mesh cell numbering
 #
 #    # get cell COG from vtk
-#    vtk_cell_centers=vtk.vtkCellCenters()
-#    vtk_cell_centers.SetInputData(data)
-#    vtk_cell_centers.Update()
-#    vtk_cell_centers_data = vtk_cell_centers.GetOutput()
-#    vtk_COG_test = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
-#    print(vtk_COG_test); exit(0)
+#
+#    round_number = 2
+#
+#    cellIds = vtkIdList() # cell ids store to
+#    print('cellIds.GetNumberOfIds():', cellIds.GetNumberOfIds())
+#    for cellIndex in range(n_cells): # for every cell
+#        data.GetCellPoints(cellIndex, cellIds) # get ids of points of the given cell
+#        for i in range(0, cellIds.GetNumberOfIds()): # for every points of the given cell
+#            coord=data.GetPoint(cellIds.GetId(i)) # get coordinates of the given point of the given cell, type: class 'tuple'
+#            x=coord[0] # get coordinates of the given point of the given cell, type: class 'float'
+#            y=coord[1]
+#            z=coord[2]
+#            cell_points[i,0] = coord[0]
+#            cell_points[i,1] = coord[1]
+#            cell_points[i,2] = coord[2]
+#        vtk_COG[cellIndex] = np.round(np.sum(cell_points, axis = 0)/3,round_number)
 
+    # get cell COG from vtk
+    vtk_cell_centers=vtk.vtkCellCenters()
+    vtk_cell_centers.SetInputData(data)
+    vtk_cell_centers.Update()
+    vtk_cell_centers_data = vtk_cell_centers.GetOutput()
+    vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
 
-    TITAN_COG = np.round(assembly.mesh.facet_COG,round_number)      
+    round_number = 2
+
+    vtk_COG = np.round(vtk_COG, round_number)
+    TITAN_COG = np.round(assembly.mesh.facet_COG,round_number) 
+
+    print('n_cells:', n_cells)
+    print('vtk_COG n:', len(vtk_COG))
+    print('TITAN_COG n:', len(TITAN_COG))         
 
     for i in range(n_cells):
         for j in range(n_cells):
             if (vtk_COG[i,0] == TITAN_COG[j,0] and vtk_COG[i,1] == TITAN_COG[j,1] and vtk_COG[i,2] == TITAN_COG[j,2]):
                 assembly.aerothermo.temperature[j] = temperature_cell[i]
                 break
-
-
-
-#    mesh = trimesh.Trimesh()
-#    for obj in assembly.objects:
-#        mesh += trimesh.Trimesh(vertices = obj.mesh.nodes, faces = obj.mesh.facets) 
-#
-#    COG = np.round(np.sum(mesh.vertices[mesh.faces], axis = 1)/3,5)
-#
-#    faces_tuple = [tuple(f) for f in COG]
-#    count_faces_dict = pd.Series(faces_tuple).value_counts()
-#    mask = [count_faces_dict[f] == 1 for f in faces_tuple]
-#
-#    mesh = trimesh.Trimesh(vertices = mesh.vertices, faces = mesh.faces[mask])
-#
-#
-#    assembly.cfd_mesh.nodes = mesh.vertices
-#    assembly.cfd_mesh.facets = mesh.faces
-#    assembly.cfd_mesh.edges, assembly.cfd_mesh.facet_edges = Mesh.map_edges_connectivity(assembly.cfd_mesh.facets)
-#
-#
-#
-#    assembly_nodes = np.array([])
-#    assembly_facets = np.array([], dtype = int)
-#
-#    for assembly in assembly_list:
-#        nodes = assembly.cfd_mesh.nodes[assembly.cfd_mesh.edges]
-#        nodes.shape = (-1,3)
-#        nodes = np.unique(nodes, axis = 0)
-#        assembly_nodes = np.append(assembly_nodes,nodes)
-#
-#    assembly_nodes.shape = (-1,3)
-#    assembly_nodes,idx_inv = np.unique(assembly_nodes, axis = 0, return_inverse = True)
-#
-#
-#    coords = vtk_to_numpy(data.GetPoints().GetData())
-#
-#    #sorts the solution by the correspondent coordinates of the nodes
-#    coords_sorted , idx_sim= np.unique(coords, axis = 0, return_index = True)
-#
-#
-#
-#    aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
-#

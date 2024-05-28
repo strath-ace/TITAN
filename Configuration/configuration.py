@@ -199,7 +199,7 @@ class Amg():
 
 
 class Thermal():
-    def __init__(self, ablation = False, ablation_mode = "0D", pato = False, pato_time_step = 0.1, post_fragment_tetra_ablation = False):
+    def __init__(self, ablation = False, ablation_mode = "0D", pato = False, pato_time_step = 0.1, pato_cores = 6, post_fragment_tetra_ablation = False):
 
         #: [boolean] Flag to perform ablation
         self.ablation = False
@@ -211,7 +211,10 @@ class Thermal():
         self.pato = False
 
         #: [boolean] Flag to perform PATO simulation
-        self.pato_time_step = pato_time_step        
+        self.pato_time_step = pato_time_step  
+
+        #: [int] Number of cores to perform PATO simulation
+        self.pato_cores = pato_cores                
 
         self.post_fragment_tetra_ablation = False
 
@@ -782,6 +785,7 @@ def read_config_file(configParser, postprocess = ""):
         options.thermal.pato = True
         options.thermal.pato_time_step = get_config_value(configParser, 0.1, 'Thermal', 'PATO_time_step', 'float')
         if ( round(options.dynamics.time_step%options.thermal.pato_time_step,5) != 0 ): print('TITAN time-step divided by PATO time-step must give zero remainder.'); exit(0)
+        options.thermal.pato_cores = get_config_value(configParser, 6, 'Thermal', 'PATO_cores', 'int')
         #Read Bloom conditions
         options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
         options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
