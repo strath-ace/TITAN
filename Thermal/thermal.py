@@ -24,6 +24,7 @@ import pandas as pd
 import os
 from Thermal import pato
 from Aerothermo import aerothermo as Aerothermo
+import vg
 
 def compute_thermal(titan, options):
 
@@ -250,21 +251,42 @@ def compute_black_body_emissions(titan, options):
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
 
-#    phi   = np.linspace(options.thermalopt.phi_min,options.thermalopt.phi_max,options.thermalopt.phi_n_values)
-#    theta = np.linspace(options.thermalopt.theta_min,options.thermalopt.theta_max,options.thermalopt.theta_n_values)
-#    wavelength = np.linspace(options.thermalopt.wavelength_min,options.thermalopt.wavelength_max,options.thermalopt.wavelength_n_values)
-#
-#    for theta_i in range(len(theta)):
-#        for phi_i in range(len(phi)):
-#            for _assembly in assembly:
-#                for obj in _assembly.objects:
-#                    emissivity_obj = obj.material.emissivity(obj.temperature)
-#                    _assembly.emissivity[obj.facet_index] = emissivity_obj
-#                    _assembly.emissivity[obj.facet_index] = np.clip(_assembly.emissivity[obj.facet_index], 0, 1)
-#
-#                viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
-#
-#                Aerothermo.ray_trace(_assembly, viewpoint)
+    phi   = np.linspace(options.thermal.phi_min,options.thermal.phi_max,options.thermal.phi_n_values)
+    theta = np.linspace(options.thermal.theta_min,options.thermal.theta_max,options.thermal.theta_n_values)
+    wavelength = np.linspace(options.thermal.wavelength_min,options.thermal.wavelength_max,options.thermal.wavelength_n_values)
+
+    lamb = wavelength[0]
+
+    for theta_i in range(len(theta)):
+        for phi_i in range(len(phi)):
+            for assembly in titan.assembly:
+                for obj in assembly.objects:
+                    emissivity_obj = obj.material.emissivity(obj.temperature)
+                    assembly.emissivity[obj.facet_index] = emissivity_obj
+                    assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
+
+                #viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
+                viewpoint = np.array([np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i]), np.sin(theta[theta_i])*np.cos(phi[phi_i])])
+                print('viewpoint:', viewpoint)
+                index = Aerothermo.ray_trace(assembly, -viewpoint)
+                
+                facet_area = assembly.mesh.facet_area
+
+                vec1 = viewpoint
+                vec2 = np.array(assembly.mesh.facet_normal)
+                angle = vg.angle(vec1, vec2) #degrees
+                cosine = np.cos(angle*np.pi/180)
+
+                T = assembly.aerothermo.temperature
+
+                exp = np.exp((h*c)/(k*lamb*T))
+                planck = ((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)) # units W.sr−1.m−3
+                #planck.shape = (-1)
+
+                #emissivity = _assembly.emissivity.reshape(-1)
+
+                assembly.emissive_power[index] = assembly.emissivity[index]*planck[index]*cosine[index]*facet_area[index]
+
 
 def compute_radiance(temperature, area, emissivity):
 

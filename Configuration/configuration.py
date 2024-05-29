@@ -224,6 +224,16 @@ class Thermal():
         #: [boolean] Flag to compute particle emissions
         self.particle_emissions = particle_emissions
 
+        self.phi_min = 0
+        self.phi_max = 0
+        self.phi_n_values = 1
+        self.theta_min = 0
+        self.theta_max = 0
+        self.theta_n_values = 1
+        self.wavelength_min = 0
+        self.wavelength_max = 0
+        self.wavelength_n_values = 1
+
 class Aerothermo():
     """ Aerothermo class
 
@@ -802,6 +812,16 @@ def read_config_file(configParser, postprocess = ""):
             options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
             options.thermal.particle_emissions  = get_config_value(configParser, "False",  'Thermal', 'Particle_emissions', 'boolean')
 
+        if(options.thermal.black_body_emissions):
+            options.thermal.phi_min      =       get_config_value(configParser, options.thermal.phi_min, 'Thermal', 'Phi_min', 'custom', 'angle')
+            options.thermal.phi_max      =       get_config_value(configParser, options.thermal.phi_max, 'Thermal', 'Phi_max', 'custom', 'angle')
+            options.thermal.phi_n_values =       get_config_value(configParser, options.thermal.phi_n_values, 'Thermal', 'Phi_n_values', 'int')
+            options.thermal.theta_min     =      get_config_value(configParser, options.thermal.theta_min, 'Thermal', 'Theta_min', 'custom', 'angle')
+            options.thermal.theta_max     =      get_config_value(configParser, options.thermal.theta_max, 'Thermal', 'Theta_max', 'custom', 'angle')
+            options.thermal.theta_n_values=      get_config_value(configParser, options.thermal.theta_n_values, 'Thermal', 'Theta_n_values', 'int')
+            options.thermal.wavelength_min =     get_config_value(configParser, options.thermal.wavelength_min, 'Thermal', 'Wavelength_min', 'float')
+            options.thermal.wavelength_max =     get_config_value(configParser, options.thermal.wavelength_max, 'Thermal', 'Wavelength_max', 'float')
+            options.thermal.wavelength_n_values= get_config_value(configParser, options.thermal.wavelength_n_values, 'Thermal', 'Wavelength_n_values', 'int')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')

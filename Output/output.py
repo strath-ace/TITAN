@@ -180,6 +180,7 @@ def generate_surface_solution(titan, options):
     radius = np.array([])
     ellipse = np.array([])
     cellID = np.array([])
+    emissive_power = np.array([])
 
 
     for assembly in titan.assembly:
@@ -192,6 +193,7 @@ def generate_surface_solution(titan, options):
         radius = assembly.mesh.facet_radius
         ellipse = assembly.inside_shock
         temperature  = assembly.aerothermo.temperature
+        emissive_power = assembly.emissive_power
 
         for cellid in range(len(assembly.mesh.facets)):
             cellID = np.append(cellID, cellid)
@@ -205,6 +207,7 @@ def generate_surface_solution(titan, options):
                       "Shear": [shear],
                       "Radius": [radius],
                       "CellID": [cellID],
+                      "Emissive power": [emissive_power],
                     }
 
         point_data = { "Displacement": displacement,
