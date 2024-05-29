@@ -232,7 +232,6 @@ class Thermal():
         self.theta_n_values = 1
         self.wavelength_min = 0
         self.wavelength_max = 0
-        self.wavelength_n_values = 1
 
 class Aerothermo():
     """ Aerothermo class
@@ -821,7 +820,6 @@ def read_config_file(configParser, postprocess = ""):
             options.thermal.theta_n_values=      get_config_value(configParser, options.thermal.theta_n_values, 'Thermal', 'Theta_n_values', 'int')
             options.thermal.wavelength_min =     get_config_value(configParser, options.thermal.wavelength_min, 'Thermal', 'Wavelength_min', 'float')
             options.thermal.wavelength_max =     get_config_value(configParser, options.thermal.wavelength_max, 'Thermal', 'Wavelength_max', 'float')
-            options.thermal.wavelength_n_values= get_config_value(configParser, options.thermal.wavelength_n_values, 'Thermal', 'Wavelength_n_values', 'int')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')

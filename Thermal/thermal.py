@@ -25,6 +25,8 @@ import os
 from Thermal import pato
 from Aerothermo import aerothermo as Aerothermo
 import vg
+import sys
+np.set_printoptions(threshold=sys.maxsize)
 
 def compute_thermal(titan, options):
 
@@ -253,9 +255,9 @@ def compute_black_body_emissions(titan, options):
 
     phi   = np.linspace(options.thermal.phi_min,options.thermal.phi_max,options.thermal.phi_n_values)
     theta = np.linspace(options.thermal.theta_min,options.thermal.theta_max,options.thermal.theta_n_values)
-    wavelength = np.linspace(options.thermal.wavelength_min,options.thermal.wavelength_max,options.thermal.wavelength_n_values)
 
-    lamb = wavelength[0]
+    wavelength_min = options.thermal.wavelength_min
+    wavelength_max = options.thermal.wavelength_max
 
     for theta_i in range(len(theta)):
         for phi_i in range(len(phi)):
@@ -266,9 +268,13 @@ def compute_black_body_emissions(titan, options):
                     assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
 
                 #viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
+                
                 viewpoint = np.array([np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i]), np.sin(theta[theta_i])*np.cos(phi[phi_i])])
-                print('viewpoint:', viewpoint)
+                #print('phi:', phi[phi_i]*180/np.pi, 'theta:', theta[theta_i]*180/np.pi, 'viewpoint:', viewpoint)
+
                 index = Aerothermo.ray_trace(assembly, -viewpoint)
+
+                #print('index:', index)
                 
                 facet_area = assembly.mesh.facet_area
 
@@ -277,43 +283,82 @@ def compute_black_body_emissions(titan, options):
                 angle = vg.angle(vec1, vec2) #degrees
                 cosine = np.cos(angle*np.pi/180)
 
-                T = assembly.aerothermo.temperature
+                temperature = assembly.aerothermo.temperature
 
-                exp = np.exp((h*c)/(k*lamb*T))
-                planck = ((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)) # units W.sr−1.m−3
-                #planck.shape = (-1)
+                #exp = np.exp((h*c)/(k*lamb*T))
+                #planck = ((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)) # units W.sr−1.m−3 #Radiance in terms of wavelength
+                
 
-                #emissivity = _assembly.emissivity.reshape(-1)
+                planck_integral = np.zeros(len(assembly.mesh.facets))
 
-                assembly.emissive_power[index] = assembly.emissivity[index]*planck[index]*cosine[index]*facet_area[index]
+                for facet in range(len(assembly.mesh.facets)):
+                    planck_integral[facet] = integrate_planck(wavelength_min, wavelength_max, temperature[facet], assembly.freestream.temperature)
+
+                assembly.emissive_power[:] = 0
+                assembly.emissive_power[index] = assembly.emissivity[index]*planck_integral[index]*cosine[index]*facet_area[index] #Units: W.sr-1 (after integrating over wavelength range)
+
+                #print('assembly.emissive_power[index]:', assembly.emissive_power[index])
+
+                assembly.total_emissive_power = np.sum(assembly.emissive_power) # units W.sr−1.m−1
+
+                d = {'Phi': [phi[phi_i]*180/np.pi],
+                     'Theta': [theta[theta_i]*180/np.pi],
+                     'Spectral directional emissive power': [assembly.total_emissive_power],
+
+                    }
+
+                df = pd.DataFrame(data=d)
+
+                df.to_csv(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'.csv'), index = False)
+
+def integrate_planck(lambd_min, lambd_max, T, Tref):
 
 
-def compute_radiance(temperature, area, emissivity):
+    integral = integrate.quad(black_body, lambd_min, lambd_max,args=(T, Tref))[0]
 
-    wavelength_min = 0.000000500
-    wavelength_max = 0.000000502
+    return integral
 
-    L      = 1000000 #distance from fragment
-    r_aper = 1
-
-    integral = integrate.quad(black_body,wavelength_min,wavelength_max,args=(temperature))
-
-    bb = integral*area*emissivity #units: photons*s-1*sr-1
-
-    p = bb*(np.pi*r_aper*r_aper)/(4*np.pi*L*L) #units: photons*s-1
-
-    return p
-
-def black_body(wavelength, T):
+def black_body(wavelength, T, Tref):
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
-    Tref = 273 
 
     exp = np.exp((h*c)/(k*wavelength*(T-Tref)))   
 
-    b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
+    #b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
 
-    return b
+    b = ((2*h*c*c)/(np.power(wavelength, 5))) * (1/(exp-1)) # units W.sr−1.m−3 #Radiance in terms of wavelength
+
+    return b    
+
+
+#def compute_radiance(temperature, area, emissivity):
+#
+#    wavelength_min = 0.000000500
+#    wavelength_max = 0.000000502
+#
+#    L      = 1000000 #distance from fragment
+#    r_aper = 1
+#
+#    integral = integrate.quad(black_body,wavelength_min,wavelength_max,args=(temperature))
+#
+#    bb = integral*area*emissivity #units: photons*s-1*sr-1
+#
+#    p = bb*(np.pi*r_aper*r_aper)/(4*np.pi*L*L) #units: photons*s-1
+#
+#    return p
+#
+#def black_body(wavelength, T):
+#
+#    h = 6.62607015e-34 # m2.kg.s-1        planck constant
+#    c = 3e8            # m.s-1           light speed in vaccum
+#    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
+#    Tref = 273 
+#
+#    exp = np.exp((h*c)/(k*wavelength*(T-Tref)))   
+#
+#    b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
+#
+#    return b
 

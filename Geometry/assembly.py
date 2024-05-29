@@ -436,6 +436,7 @@ class Assembly():
 
         self.emissivity = np.zeros(len(self.mesh.facets))
         self.emissive_power = np.zeros(len(self.mesh.facets))
+        self.total_emissive_power = 0
 
         if options.thermal.ablation_mode.lower() == '0d':
             if options.thermal.post_fragment_tetra_ablation:
