@@ -800,6 +800,10 @@ def postprocess_PATO_solution(options, assembly, iteration):
                 assembly.aerothermo.temperature[j] = temperature_cell[i]
                 break
 
+    # may need to change when implementing > 1 objects
+    for obj in assembly.objects:
+        obj.temperature = assembly.aerothermo.temperature[obj.facet_index]
+
 def retrieve_surface_vtk_data(n_proc, path, iteration):
 
     filename = [''] * n_proc

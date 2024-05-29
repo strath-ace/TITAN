@@ -23,6 +23,7 @@ from scipy import integrate
 import pandas as pd
 import os
 from Thermal import pato
+from Aerothermo import aerothermo as Aerothermo
 
 def compute_thermal(titan, options):
 
@@ -253,11 +254,17 @@ def compute_black_body_emissions(titan, options):
 #    theta = np.linspace(options.thermalopt.theta_min,options.thermalopt.theta_max,options.thermalopt.theta_n_values)
 #    wavelength = np.linspace(options.thermalopt.wavelength_min,options.thermalopt.wavelength_max,options.thermalopt.wavelength_n_values)
 #
-#    for _assembly in assembly:
-#        for obj in _assembly.objects:
-#            emissivity_obj = obj.material.emissivity(obj.temperature)
-#            _assembly.emissivity[obj.facet_index] = emissivity_obj
-#            _assembly.emissivity[obj.facet_index] = np.clip(_assembly.emissivity[obj.facet_index], 0, 1)
+#    for theta_i in range(len(theta)):
+#        for phi_i in range(len(phi)):
+#            for _assembly in assembly:
+#                for obj in _assembly.objects:
+#                    emissivity_obj = obj.material.emissivity(obj.temperature)
+#                    _assembly.emissivity[obj.facet_index] = emissivity_obj
+#                    _assembly.emissivity[obj.facet_index] = np.clip(_assembly.emissivity[obj.facet_index], 0, 1)
+#
+#                viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
+#
+#                Aerothermo.ray_trace(_assembly, viewpoint)
 
 def compute_radiance(temperature, area, emissivity):
 
