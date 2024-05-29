@@ -82,14 +82,13 @@ def loop(options = [], titan = []):
         #output.generate_surface_solution(titan = titan, options = options)
 
         if options.thermal.ablation:
-            if options.thermal.ablation_mode == "tetra":
-                thermal.compute_thermal_tetra(titan = titan, options = options)
-            elif options.thermal.ablation_mode == "0d":
-                thermal.compute_thermal_0D(titan = titan, options = options)
-            elif options.thermal.ablation_mode == "pato":
-                thermal.compute_thermal_PATO(titan = titan, options = options)                
-            else:
-                raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
+            thermal.compute_thermal(titan = titan, options = options)
+
+        if options.thermal.black_body_emissions:
+            thermal.compute_black_body_emissions(titan = titan, options = options)
+
+        if options.thermal.particle_emissions and options.thermal.pato:
+            thermal.compute_particle_emissions(titan = titan, options = options)
 
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO

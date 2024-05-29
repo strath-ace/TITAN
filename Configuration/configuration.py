@@ -199,7 +199,7 @@ class Amg():
 
 
 class Thermal():
-    def __init__(self, ablation = False, ablation_mode = "0D", pato = False, pato_time_step = 0.1, pato_cores = 6, post_fragment_tetra_ablation = False):
+    def __init__(self, ablation = False, ablation_mode = "0D", pato = False, pato_time_step = 0.1, pato_cores = 6, post_fragment_tetra_ablation = False, black_body_emissions = False, particle_emissions = False):
 
         #: [boolean] Flag to perform ablation
         self.ablation = False
@@ -217,6 +217,12 @@ class Thermal():
         self.pato_cores = pato_cores                
 
         self.post_fragment_tetra_ablation = False
+
+        #: [boolean] Flag to compute black body emissions
+        self.black_body_emissions = black_body_emissions
+
+        #: [boolean] Flag to compute particle emissions
+        self.particle_emissions = particle_emissions
 
 class Aerothermo():
     """ Aerothermo class
@@ -781,6 +787,8 @@ def read_config_file(configParser, postprocess = ""):
     #Read Thermal options
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
     options.thermal.ablation_mode  = get_config_value(configParser, "0D",  'Thermal', 'Ablation_mode', 'str').lower()
+    options.thermal.black_body_emissions  = get_config_value(configParser, "False",  'Thermal', 'Black_body_emissions', 'boolean')
+    
     if (options.thermal.ablation_mode == "pato"):
         options.thermal.pato = True
         options.thermal.pato_time_step = get_config_value(configParser, 0.1, 'Thermal', 'PATO_time_step', 'float')
@@ -791,6 +799,8 @@ def read_config_file(configParser, postprocess = ""):
         options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
         options.bloom.spacing =     get_config_value(configParser,options.bloom.spacing,'Bloom', 'Spacing', 'float')
         options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
+        options.thermal.particle_emissions  = get_config_value(configParser, "False",  'Thermal', 'Particle_emissions', 'boolean')
+
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')

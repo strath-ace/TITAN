@@ -24,6 +24,70 @@ import pandas as pd
 import os
 from Thermal import pato
 
+def compute_thermal(titan, options):
+
+    if options.thermal.ablation_mode == "tetra":
+        compute_thermal_tetra(titan = titan, options = options)
+    elif options.thermal.ablation_mode == "0d":
+        compute_thermal_0D(titan = titan, options = options)
+    elif options.thermal.ablation_mode == "pato":
+        compute_thermal_PATO(titan = titan, options = options)                
+    else:
+        raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
+
+def compute_thermal_0D(titan, options):
+
+    dt = options.dynamics.time_step
+    Tref = 273
+
+    for assembly in titan.assembly:
+        if assembly.ablation_mode != '0d': continue
+
+        for obj in assembly.objects:
+
+            facet_area = np.linalg.norm(obj.mesh.facet_normal, ord = 2, axis = 1)
+            heatflux = assembly.aerothermo.heatflux[obj.facet_index]
+            Qin = np.sum(heatflux*facet_area)
+            
+            cp  = obj.material.specificHeatCapacity(obj.temperature)
+            emissivity = obj.material.emissivity(obj.temperature)
+
+            Atot = np.sum(facet_area)
+
+            # Estimating the radiation heat-flux
+            Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
+
+            # Computing temperature change
+            dT = (Qin-Qrad)*dt/(obj.mass*cp)
+
+            if obj.temperature+dT > obj.material.meltingTemperature:
+                dT_melt = obj.material.meltingTemperature - obj.temperature
+                melt_Q = (obj.mass*cp)*(dT-dT_melt)
+                dm = -melt_Q/(obj.material.meltingHeat)
+                dT = dT_melt
+            else:
+                dm = 0
+
+            new_mass = obj.mass + dm
+            new_T = obj.temperature + dT
+
+            obj.material.density *= new_mass/obj.mass
+            obj.mass = new_mass
+            obj.temperature = new_T
+
+            if obj.material.density < 0:
+                obj.material.density = 0
+                obj.mass = 0
+            
+            assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
+            assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+
+            #obj.photons = compute_radiance(obj.temperature, Atot, emissivity)
+
+        assembly.compute_mass_properties()
+
+    return
+
 def compute_thermal_tetra(titan, options):
   
     dt = options.dynamics.time_step
@@ -172,58 +236,28 @@ def compute_thermal_tetra(titan, options):
 
     return 
 
-def compute_thermal_0D(titan, options):
-
-    dt = options.dynamics.time_step
-    Tref = 273
-
-    for assembly in titan.assembly:
-        if assembly.ablation_mode != '0d': continue
-
-        for obj in assembly.objects:
-
-            facet_area = np.linalg.norm(obj.mesh.facet_normal, ord = 2, axis = 1)
-            heatflux = assembly.aerothermo.heatflux[obj.facet_index]
-            Qin = np.sum(heatflux*facet_area)
-            
-            cp  = obj.material.specificHeatCapacity(obj.temperature)
-            emissivity = obj.material.emissivity(obj.temperature)
-
-            Atot = np.sum(facet_area)
-
-            # Estimating the radiation heat-flux
-            Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
-
-            # Computing temperature change
-            dT = (Qin-Qrad)*dt/(obj.mass*cp)
-
-            if obj.temperature+dT > obj.material.meltingTemperature:
-                dT_melt = obj.material.meltingTemperature - obj.temperature
-                melt_Q = (obj.mass*cp)*(dT-dT_melt)
-                dm = -melt_Q/(obj.material.meltingHeat)
-                dT = dT_melt
-            else:
-                dm = 0
-
-            new_mass = obj.mass + dm
-            new_T = obj.temperature + dT
-
-            obj.material.density *= new_mass/obj.mass
-            obj.mass = new_mass
-            obj.temperature = new_T
-
-            if obj.material.density < 0:
-                obj.material.density = 0
-                obj.mass = 0
-            
-            assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
-            assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
-
-            #obj.photons = compute_radiance(obj.temperature, Atot, emissivity)
-
-        assembly.compute_mass_properties()
+def compute_thermal_PATO(titan, options):
+    
+    for assembly in titan.assembly:            
+        pato.compute_thermal(assembly, titan.time, titan.iter, options)
 
     return
+
+def compute_black_body_emissions(titan, options):
+
+    h = 6.62607015e-34 # m2.kg.s-1        planck constant
+    c = 3e8            # m.s-1           light speed in vaccum
+    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
+
+#    phi   = np.linspace(options.thermalopt.phi_min,options.thermalopt.phi_max,options.thermalopt.phi_n_values)
+#    theta = np.linspace(options.thermalopt.theta_min,options.thermalopt.theta_max,options.thermalopt.theta_n_values)
+#    wavelength = np.linspace(options.thermalopt.wavelength_min,options.thermalopt.wavelength_max,options.thermalopt.wavelength_n_values)
+#
+#    for _assembly in assembly:
+#        for obj in _assembly.objects:
+#            emissivity_obj = obj.material.emissivity(obj.temperature)
+#            _assembly.emissivity[obj.facet_index] = emissivity_obj
+#            _assembly.emissivity[obj.facet_index] = np.clip(_assembly.emissivity[obj.facet_index], 0, 1)
 
 def compute_radiance(temperature, area, emissivity):
 
@@ -253,13 +287,4 @@ def black_body(wavelength, T):
     b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
 
     return b
-
-
-def compute_thermal_PATO(titan, options):
-    
-    for assembly in titan.assembly:            
-        pato.compute_thermal(assembly, titan.time, titan.iter, options)
-
-    return
-
 
