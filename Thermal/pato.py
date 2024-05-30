@@ -254,7 +254,7 @@ def write_constant_folder(options):
         f.write('/****************************** MATERIAL PROPERTIES  ************************/\n')
         f.write('MaterialProperties {\n')
         f.write('  MaterialPropertiesType Fourier; \n')
-        f.write('  MaterialPropertiesDirectory "$PATO_DIR/data/Materials/Fourier/AL-7075-const"; \n')
+        f.write('  MaterialPropertiesDirectory "$PATO_DIR/data/Materials/Fourier/FourierTemplate"; \n')
         f.write('}\n')
         f.write('/****************************** END MATERIAL PROPERTIES  ********************/\n')
 
@@ -767,7 +767,7 @@ def postprocess_PATO_solution(options, assembly, iteration):
 
     n_proc = options.thermal.pato_cores
 
-    solution = 'volume'
+    solution = 'surface'
 
     if solution == 'surface':
         data = retrieve_surface_vtk_data(n_proc, path, iteration_to_read)
@@ -789,36 +789,39 @@ def postprocess_PATO_solution(options, assembly, iteration):
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
 
-    round_number = 5
+    round_number = 2
 
-    vtk_COG = (np.round(vtk_COG, round_number)).tolist()
-    TITAN_COG = (np.round(assembly.mesh.facet_COG,round_number)).tolist()   
+    vtk_COG = np.round(vtk_COG, round_number)
+    TITAN_COG = np.round(assembly.mesh.facet_COG,round_number)
 
-#    for i in range(n_cells):
-#        for j in range(n_cells):
-#            if (vtk_COG[i,0] == TITAN_COG[j,0] and vtk_COG[i,1] == TITAN_COG[j,1] and vtk_COG[i,2] == TITAN_COG[j,2]):
-#                assembly.aerothermo.temperature[j] = temperature_cell[i]
-#                break
+    for i in range(n_cells):
+        for j in range(n_cells):
+            if (vtk_COG[i,0] == TITAN_COG[j,0] and vtk_COG[i,1] == TITAN_COG[j,1] and vtk_COG[i,2] == TITAN_COG[j,2]):
+                assembly.aerothermo.temperature[j] = temperature_cell[i]
+                break
 
-    vtk_COG_sorted   = sorted(vtk_COG, key=lambda x:x[0] and x[1] and x[2])
-    TITAN_COG_sorted = sorted(TITAN_COG, key=lambda x:x[0] and x[1] and x[2])
-    
-    vtk_COG_sorted_index   = [vtk_COG.index(x) for x in vtk_COG_sorted[:]]
-    TITAN_COG_sorted_index = [TITAN_COG.index(x) for x in TITAN_COG_sorted[:]]
 
-    print('facets:', len(assembly.mesh.facets))
-    
-    vtk_COG_sorted_index = np.asarray(vtk_COG_sorted_index, dtype=int)
-
-    print('vtk_COG_sorted_index:', np.shape(vtk_COG_sorted_index))
-
-    print('temperature:', type(temperature_cell))
-
-    temperature_cell = np.asarray(temperature_cell, dtype=float)
-    
-    assembly.aerothermo.temperature = temperature_cell[vtk_COG_sorted_index]
-    
-    assembly.aerothermo.temperature = assembly.aerothermo.temperature[TITAN_COG_sorted_index]
+#    vtk_COG = (np.round(vtk_COG, round_number)).tolist()
+#    TITAN_COG = (np.round(assembly.mesh.facet_COG,round_number)).tolist()   
+#    vtk_COG_sorted   = sorted(vtk_COG, key=lambda x:x[0] and x[1] and x[2])
+#    TITAN_COG_sorted = sorted(TITAN_COG, key=lambda x:x[0] and x[1] and x[2])
+#    
+#    vtk_COG_sorted_index   = [vtk_COG.index(x) for x in vtk_COG_sorted[:]]
+#    TITAN_COG_sorted_index = [TITAN_COG.index(x) for x in TITAN_COG_sorted[:]]
+#
+#    print('facets:', len(assembly.mesh.facets))
+#    
+#    vtk_COG_sorted_index = np.asarray(vtk_COG_sorted_index, dtype=int)
+#
+#    print('vtk_COG_sorted_index:', np.shape(vtk_COG_sorted_index))
+#
+#    print('temperature:', type(temperature_cell))
+#
+#    temperature_cell = np.asarray(temperature_cell, dtype=float)
+#    
+#    assembly.aerothermo.temperature = temperature_cell[vtk_COG_sorted_index]
+#    
+#    assembly.aerothermo.temperature = assembly.aerothermo.temperature[TITAN_COG_sorted_index]
 
 
     # may need to change when implementing > 1 objects

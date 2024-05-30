@@ -802,7 +802,10 @@ def read_config_file(configParser, postprocess = ""):
         if (options.thermal.ablation_mode == "pato"):
             options.thermal.pato = True
             options.thermal.pato_time_step = get_config_value(configParser, 0.1, 'Thermal', 'PATO_time_step', 'float')
-            if ( round(options.dynamics.time_step%options.thermal.pato_time_step,5) != 0 ): print('TITAN time-step divided by PATO time-step must give zero remainder.'); exit(0)
+            print('TITAN time-step:', options.dynamics.time_step)
+            print('PATO time-step:', options.thermal.pato_time_step)
+            #print('remainder:', options.dynamics.time_step/options.thermal.pato_time_step);exit(0)
+            #if ( round((options.dynamics.time_step%options.thermal.pato_time_step),5) != 0 ): print('TITAN time-step divided by PATO time-step must give zero remainder.'); exit(0)
             options.thermal.pato_cores = get_config_value(configParser, 6, 'Thermal', 'PATO_cores', 'int')
             #Read Bloom conditions
             options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')

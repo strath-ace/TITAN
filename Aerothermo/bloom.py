@@ -90,7 +90,7 @@ def generate_PATO_mesh(options, num_obj, bloom, input_grid, output_grid):
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    path_folder = 'PATO/mesh/'
+    path_folder = '/PATO/mesh/'
 
     create_bloom_config(num_obj, bloom, options, path_folder)
     subprocess.run(['python3.8', path+'/Executables/su2_to_gmf.py', '-m' ,options.output_folder + path_folder +input_grid+'.su2','-o',options.output_folder+path_folder+input_grid])
