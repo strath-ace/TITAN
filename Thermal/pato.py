@@ -69,6 +69,7 @@ def setup_PATO_simulation(assembly, time, iteration, options, id):
         write_constant_folder(options)
         write_origin_folder(options, Ta_bc, Tfreestream)
         write_system_folder(options, time - options.dynamics.time_step)
+        write_material_properties(options)
 
     # If not first TITAN iteration, restart PATO simulation
     else:
@@ -76,6 +77,55 @@ def setup_PATO_simulation(assembly, time, iteration, options, id):
             write_PATO_BC(options, assembly, Ta_bc, time)
         write_All_run(options, time - options.dynamics.time_step, iteration, restart = True)
         write_system_folder(options, time - options.dynamics.time_step)
+
+def write_material_properties(options):
+
+    with open(options.output_folder + '/PATO/data/constantProperties', 'w') as f:
+
+        f.write('/*---------------------------------------------------------------------------*\\n')
+        f.write('Material properties for the substructure materials\n')
+        f.write('\*---------------------------------------------------------------------------*/\n')
+        f.write('\n')
+        f.write('FoamFile {\n')
+        f.write('  version     2.0;\n')
+        f.write('  format      ascii;\n')
+        f.write('  class       dictionary;\n')
+        f.write('  location    "constant/subMati/FourierProperties";\n')
+        f.write('  object      constantProperties;\n')
+        f.write('}\n')
+        f.write('// * * * * * *  Units * * * * * [kg m s K mol A cd] * * * * * * * * * * * * * //\n')
+        f.write('// e.g. W: kg m^2 s^{-3}    [1 2 -3 0 0 0 0]\n')
+        f.write('\n')
+        f.write('/***        Temperature dependent material properties   ***/\n')
+        f.write('/***        5 coefs - n0 + n1 T + n2 T² + n3 T³ + n4 T⁴ ***/\n')
+        f.write('// specific heat capacity - cp - [0 2 -2 -1 0 0 0]\n')
+        f.write('cp_sub_n[0] 1004.55;\n')
+        f.write('cp_sub_n[1] 0;\n')
+        f.write('cp_sub_n[2] 0;\n')
+        f.write('cp_sub_n[3] 0;\n')
+        f.write('cp_sub_n[4] 0;\n')
+        f.write('\n')
+        f.write('// isotropic conductivity  - k - [1 1 -3 -1 0 0 0]\n')
+        f.write('k_sub_n[0]  146.04;\n')
+        f.write('k_sub_n[1]  0;\n')
+        f.write('k_sub_n[2]  0;\n')
+        f.write('k_sub_n[3]  0;\n')
+        f.write('k_sub_n[4]  0;\n')
+        f.write('\n')
+        f.write('// density - rho - [1 -3 0 0 0 0 0]\n')
+        f.write('rho_sub_n[0]    2813;\n')
+        f.write('rho_sub_n[1]    0;\n')
+        f.write('rho_sub_n[2]    0;\n')
+        f.write('rho_sub_n[3]    0;\n')
+        f.write('rho_sub_n[4]    0;\n')
+        f.write('\n')
+        f.write('// emissivity - e - [0 0 0 0 0 0 0]\n')
+        f.write('e_sub_n[0]  0.0;\n')
+        f.write('e_sub_n[1]  0;\n')
+        f.write('e_sub_n[2]  0;\n')
+        f.write('e_sub_n[3]  0;\n')
+        f.write('e_sub_n[4]  0;        \n')
+    f.close()
 
 def write_All_run(options, time, iteration, restart = False):
     """
@@ -93,13 +143,17 @@ def write_All_run(options, time, iteration, restart = False):
 
     end_time = time + options.dynamics.time_step
     start_time = time
+    time_step_to_delete = time - options.dynamics.time_step
 
     print('copying BC:', end_time, ' - ', start_time)
+
+    iteration_to_delete = int((iteration)*options.dynamics.time_step/options.thermal.pato_time_step)
 
     with open(options.output_folder + '/PATO/Allrun', 'w') as f:
 
         if ((end_time).is_integer()): end_time = int(end_time)
         if ((start_time).is_integer()): start_time = int(start_time)
+        if ((time_step_to_delete).is_integer()): time_step_to_delete = int(time_step_to_delete)
         f.write('#!/bin/bash \n')
         f.write('cd ${0%/*} || exit 1 \n')
         f.write('. $PATO_DIR/src/applications/utilities/runFunctions/RunFunctions \n')
@@ -157,6 +211,12 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
         f.write('rm qconv/BC* \n')
+        f.write('rm mesh/*su2 \n')
+        f.write('rm mesh/*meshb \n')
+        for n in range(options.thermal.pato_cores):
+            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
     f.close()
 
@@ -254,7 +314,7 @@ def write_constant_folder(options):
         f.write('/****************************** MATERIAL PROPERTIES  ************************/\n')
         f.write('MaterialProperties {\n')
         f.write('  MaterialPropertiesType Fourier; \n')
-        f.write('  MaterialPropertiesDirectory "$PATO_DIR/data/Materials/Fourier/FourierTemplate"; \n')
+        f.write('  MaterialPropertiesDirectory "$FOAM_CASE/data"; \n')
         f.write('}\n')
         f.write('/****************************** END MATERIAL PROPERTIES  ********************/\n')
 
@@ -356,6 +416,7 @@ def write_origin_folder(options, Ta_bc, Tinf):
             f.write('p 101325;\n')
             f.write('Tbackground ' + str(Tinf)+';\n')
             f.write('chemistryOn 1;\n')
+            #f.write('emissivity 0.4;\n')
             f.write('qRad 0;\n')
             f.write('value           uniform 300;\n')       
     
