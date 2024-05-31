@@ -333,6 +333,9 @@ def black_body(wavelength, T, Tref):
     return b    
 
 
+def compute_particle_emissions(titan, options):
+    print('Function compute_particle_emissions not yet implemented')
+
 #def compute_radiance(temperature, area, emissivity):
 #
 #    wavelength_min = 0.000000500

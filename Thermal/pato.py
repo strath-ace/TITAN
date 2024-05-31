@@ -143,17 +143,13 @@ def write_All_run(options, time, iteration, restart = False):
 
     end_time = time + options.dynamics.time_step
     start_time = time
-    time_step_to_delete = time - options.dynamics.time_step
 
     print('copying BC:', end_time, ' - ', start_time)
-
-    iteration_to_delete = int((iteration)*options.dynamics.time_step/options.thermal.pato_time_step)
 
     with open(options.output_folder + '/PATO/Allrun', 'w') as f:
 
         if ((end_time).is_integer()): end_time = int(end_time)
         if ((start_time).is_integer()): start_time = int(start_time)
-        if ((time_step_to_delete).is_integer()): time_step_to_delete = int(time_step_to_delete)
         f.write('#!/bin/bash \n')
         f.write('cd ${0%/*} || exit 1 \n')
         f.write('. $PATO_DIR/src/applications/utilities/runFunctions/RunFunctions \n')
@@ -211,12 +207,6 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
         f.write('rm qconv/BC* \n')
-        f.write('rm mesh/*su2 \n')
-        f.write('rm mesh/*meshb \n')
-        for n in range(options.thermal.pato_cores):
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
-            f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
     f.close()
 
@@ -852,38 +842,37 @@ def postprocess_PATO_solution(options, assembly, iteration):
 
     round_number = 2
 
-    vtk_COG = np.round(vtk_COG, round_number)
-    TITAN_COG = np.round(assembly.mesh.facet_COG,round_number)
-
-    for i in range(n_cells):
-        for j in range(n_cells):
-            if (vtk_COG[i,0] == TITAN_COG[j,0] and vtk_COG[i,1] == TITAN_COG[j,1] and vtk_COG[i,2] == TITAN_COG[j,2]):
-                assembly.aerothermo.temperature[j] = temperature_cell[i]
-                break
-
-
-#    vtk_COG = (np.round(vtk_COG, round_number)).tolist()
-#    TITAN_COG = (np.round(assembly.mesh.facet_COG,round_number)).tolist()   
-#    vtk_COG_sorted   = sorted(vtk_COG, key=lambda x:x[0] and x[1] and x[2])
-#    TITAN_COG_sorted = sorted(TITAN_COG, key=lambda x:x[0] and x[1] and x[2])
-#    
-#    vtk_COG_sorted_index   = [vtk_COG.index(x) for x in vtk_COG_sorted[:]]
-#    TITAN_COG_sorted_index = [TITAN_COG.index(x) for x in TITAN_COG_sorted[:]]
+#    vtk_COG = np.round(vtk_COG, round_number)
+#    TITAN_COG = np.round(assembly.mesh.facet_COG,round_number)
 #
-#    print('facets:', len(assembly.mesh.facets))
-#    
-#    vtk_COG_sorted_index = np.asarray(vtk_COG_sorted_index, dtype=int)
+#    for i in range(n_cells):
+#        for j in range(n_cells):
+#            if (vtk_COG[i,0] == TITAN_COG[j,0] and vtk_COG[i,1] == TITAN_COG[j,1] and vtk_COG[i,2] == TITAN_COG[j,2]):
+#                assembly.aerothermo.temperature[j] = temperature_cell[i]
+#                break
 #
-#    print('vtk_COG_sorted_index:', np.shape(vtk_COG_sorted_index))
-#
-#    print('temperature:', type(temperature_cell))
-#
-#    temperature_cell = np.asarray(temperature_cell, dtype=float)
-#    
-#    assembly.aerothermo.temperature = temperature_cell[vtk_COG_sorted_index]
-#    
-#    assembly.aerothermo.temperature = assembly.aerothermo.temperature[TITAN_COG_sorted_index]
 
+    vtk_COG = (np.round(vtk_COG, round_number)).tolist()
+    TITAN_COG = (np.round(assembly.mesh.facet_COG,round_number)).tolist()   
+    
+    vtk_COG_sorted   = sorted(vtk_COG)
+    TITAN_COG_sorted = sorted(TITAN_COG)
+    
+    vtk_COG_sorted_index   = [vtk_COG.index(x) for x in vtk_COG_sorted[:]]
+    TITAN_COG_sorted_index = [TITAN_COG.index(x) for x in TITAN_COG_sorted[:]]
+    
+    vtk_COG_sorted_index = np.asarray(vtk_COG_sorted_index, dtype=int)
+    TITAN_COG_sorted_index = np.asarray(TITAN_COG_sorted_index, dtype=int)
+    
+    temperature_cell = np.asarray(temperature_cell, dtype=float)
+    
+    assembly.aerothermo.temperature = temperature_cell[vtk_COG_sorted_index]    
+
+    temperature_corr = np.zeros(n_cells)
+
+    temperature_corr[TITAN_COG_sorted_index[:]] = assembly.aerothermo.temperature[:]
+        
+    assembly.aerothermo.temperature = temperature_corr
 
     # may need to change when implementing > 1 objects
     for obj in assembly.objects:
