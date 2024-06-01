@@ -116,7 +116,7 @@ def compute_thermal_tetra(titan, options):
             Qin = heatflux*facet_area
             temperature = assembly.aerothermo.temperature[obj.facet_index]
             cp  = obj.material.specificHeatCapacity(temperature)
-            emissivity = 0 #obj.material.emissivity(temperature)
+            emissivity = obj.material.emissivity(temperature)
 
             # Estimating the radiation heat-flux
             Qrad = 5.670373e-8*emissivity*(temperature**4 - Tref**4)*facet_area
