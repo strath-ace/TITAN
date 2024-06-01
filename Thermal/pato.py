@@ -144,12 +144,16 @@ def write_All_run(options, time, iteration, restart = False):
     end_time = time + options.dynamics.time_step
     start_time = time
 
+    time_step_to_delete = time - options.dynamics.time_step
+    iteration_to_delete = int((iteration)*options.dynamics.time_step/options.thermal.pato_time_step)
+
     print('copying BC:', end_time, ' - ', start_time)
 
     with open(options.output_folder + '/PATO/Allrun', 'w') as f:
 
         if ((end_time).is_integer()): end_time = int(end_time)
         if ((start_time).is_integer()): start_time = int(start_time)
+        if ((time_step_to_delete).is_integer()): time_step_to_delete = int(time_step_to_delete)
         f.write('#!/bin/bash \n')
         f.write('cd ${0%/*} || exit 1 \n')
         f.write('. $PATO_DIR/src/applications/utilities/runFunctions/RunFunctions \n')
@@ -207,6 +211,12 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
         f.write('rm qconv/BC* \n')
+        f.write('rm mesh/*su2 \n')
+        f.write('rm mesh/*meshb \n')
+        for n in range(options.thermal.pato_cores):
+            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
     f.close()
 
