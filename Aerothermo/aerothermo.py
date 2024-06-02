@@ -427,8 +427,12 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         _assembly.aerothermo.pressure *= 0
         _assembly.aerothermo.shear    *= 0
 
+        #print('ECEF flow direction:', flow_direction)
+
         #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
+
+        _assembly.quaternion_prev = _assembly.quaternion
 
         index = ray_trace(_assembly, flow_direction, n)
 
