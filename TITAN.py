@@ -84,10 +84,10 @@ def loop(options = [], titan = []):
         if options.thermal.ablation:
             thermal.compute_thermal(titan = titan, options = options)
 
-        if options.thermal.black_body_emissions:
+        if options.thermal.ablation and options.thermal.black_body_emissions:
             thermal.compute_black_body_emissions(titan = titan, options = options)
 
-        if options.thermal.particle_emissions and options.thermal.pato:
+        if options.thermal.ablation and options.thermal.particle_emissions and options.thermal.pato:
             thermal.compute_particle_emissions(titan = titan, options = options)
 
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:

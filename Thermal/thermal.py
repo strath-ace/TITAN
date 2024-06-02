@@ -24,6 +24,7 @@ import pandas as pd
 import os
 from Thermal import pato
 from Aerothermo import aerothermo as Aerothermo
+from scipy.spatial.transform import Rotation as Rot
 import vg
 import sys
 np.set_printoptions(threshold=sys.maxsize)
@@ -71,6 +72,8 @@ def compute_thermal_0D(titan, options):
                 dT = dT_melt
             else:
                 dm = 0
+
+            print('dm:',dm)
 
             new_mass = obj.mass + dm
             new_T = obj.temperature + dT
@@ -267,35 +270,39 @@ def compute_black_body_emissions(titan, options):
                     assembly.emissivity[obj.facet_index] = emissivity_obj
                     assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
 
-                #viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
+                viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
                 
-                viewpoint = np.array([np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i]), np.sin(theta[theta_i])*np.cos(phi[phi_i])])
-                #print('phi:', phi[phi_i]*180/np.pi, 'theta:', theta[theta_i]*180/np.pi, 'viewpoint:', viewpoint)
+                #viewpoint = np.array([np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i]), np.sin(theta[theta_i])*np.cos(phi[phi_i])])
+                print('phi:', phi[phi_i]*180/np.pi, 'theta:', theta[theta_i]*180/np.pi, 'viewpoint:', viewpoint)
+
+                R_B_ECEF = Rot.from_quat(assembly.quaternion)
+            
+                viewpoint = R_B_ECEF.inv().apply(viewpoint)
 
                 index = Aerothermo.ray_trace(assembly, -viewpoint)
 
-                #print('index:', index)
-                
-                facet_area = assembly.mesh.facet_area
-
-                vec1 = viewpoint
-                vec2 = np.array(assembly.mesh.facet_normal)
-                angle = vg.angle(vec1, vec2) #degrees
-                cosine = np.cos(angle*np.pi/180)
-
-                temperature = assembly.aerothermo.temperature
-
-                #exp = np.exp((h*c)/(k*lamb*T))
-                #planck = ((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)) # units W.sr−1.m−3 #Radiance in terms of wavelength
-                
-
-                planck_integral = np.zeros(len(assembly.mesh.facets))
-
-                for facet in range(len(assembly.mesh.facets)):
-                    planck_integral[facet] = integrate_planck(wavelength_min, wavelength_max, temperature[facet], assembly.freestream.temperature)
+#                #print('index:', index)
+#                
+#                facet_area = assembly.mesh.facet_area
+#
+#                vec1 = viewpoint
+#                vec2 = np.array(assembly.mesh.facet_normal)
+#                angle = vg.angle(vec1, vec2) #degrees
+#                cosine = np.cos(angle*np.pi/180)
+#
+#                temperature = assembly.aerothermo.temperature
+#
+#                #exp = np.exp((h*c)/(k*lamb*T))
+#                #planck = ((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)) # units W.sr−1.m−3 #Radiance in terms of wavelength
+#                
+#
+#                planck_integral = np.zeros(len(assembly.mesh.facets))
+#
+#                for facet in range(len(assembly.mesh.facets)):
+#                    planck_integral[facet] = integrate_planck(wavelength_min, wavelength_max, temperature[facet], assembly.freestream.temperature)
 
                 assembly.emissive_power[:] = 0
-                assembly.emissive_power[index] = assembly.emissivity[index]*planck_integral[index]*cosine[index]*facet_area[index] #Units: W.sr-1 (after integrating over wavelength range)
+                assembly.emissive_power[index] = 100 #assembly.emissivity[index]*planck_integral[index]*cosine[index]*facet_area[index] #Units: W.sr-1 (after integrating over wavelength range)
 
                 #print('assembly.emissive_power[index]:', assembly.emissive_power[index])
 

@@ -948,7 +948,6 @@ def read_config_file(configParser, postprocess = ""):
                     output_grid = "pato_mesh_hybrid_"+str(assembly.id)
                     bloom.generate_PATO_mesh(options, num_obj = num_obj, bloom = options.bloom, input_grid = input_grid , output_grid = output_grid) #grid name without .SU2
 
-
             options.save_mesh(titan)
         
         #Computes the quaternion and cartesian for the initial position
