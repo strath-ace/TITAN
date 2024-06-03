@@ -84,7 +84,7 @@ def loop(options = [], titan = []):
         if options.thermal.ablation:
             thermal.compute_thermal(titan = titan, options = options)
 
-        if options.thermal.ablation and options.thermal.black_body_emissions and (options.current_iter%10 == 0):
+        if options.thermal.ablation and options.thermal.black_body_emissions and (options.current_iter%100 == 0):
             thermal.compute_black_body_emissions(titan = titan, options = options)
 
         if options.thermal.ablation and options.thermal.particle_emissions and options.thermal.pato:
