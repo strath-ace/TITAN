@@ -308,9 +308,9 @@ class Aerothermo():
 
         #: [np.array] Heatflux [W]
         self.heatflux = np.zeros((n_points))
-        self.wall_temperature = 300
+        self.wall_temperature = 340
 
-    def append(self, n_points = 0, temperature= 300):
+    def append(self, n_points = 0, temperature= 340):
         self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
         self.pressure = np.append(self.pressure, np.zeros(n_points))
         self.heatflux = np.append(self.heatflux, np.zeros(n_points))

@@ -391,7 +391,7 @@ def write_origin_folder(options, Ta_bc, Tinf):
         f.write('\n')
         f.write('dimensions      [0 0 0 1 0 0 0];\n')
         f.write('\n')
-        f.write('internalField   uniform 300;\n')
+        f.write('internalField   uniform 340;\n')
         f.write('\n')
         f.write('boundaryField {\n')
         f.write('  top\n')

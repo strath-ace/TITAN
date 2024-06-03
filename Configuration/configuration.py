@@ -676,7 +676,7 @@ def read_geometry(configParser, options):
                     try:
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
-                        temperature = 300
+                        temperature = 340
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
                         fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options)
@@ -709,7 +709,7 @@ def read_geometry(configParser, options):
                     try:
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
-                        temperature = 300
+                        temperature = 340
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 

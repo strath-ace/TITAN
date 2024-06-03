@@ -27,7 +27,6 @@ from Aerothermo import aerothermo as Aerothermo
 from scipy.spatial.transform import Rotation as Rot
 import vg
 import sys
-from Dynamics import euler, frames
 np.set_printoptions(threshold=sys.maxsize)
 
 def compute_thermal(titan, options):
@@ -65,6 +64,8 @@ def compute_thermal_0D(titan, options):
 
             # Computing temperature change
             dT = (Qin-Qrad)*dt/(obj.mass*cp)
+
+            print('dT:', dT)
 
             if obj.temperature+dT > obj.material.meltingTemperature:
                 dT_melt = obj.material.meltingTemperature - obj.temperature
@@ -279,7 +280,7 @@ def compute_black_body_emissions(titan, options):
                 
                 facet_area = assembly.mesh.facet_area
 
-                vec1 = viewpoint
+                vec1 = -viewpoint
                 vec2 = np.array(assembly.mesh.facet_normal)
                 angle = vg.angle(vec1, vec2) #degrees
                 cosine = np.cos(angle*np.pi/180)
