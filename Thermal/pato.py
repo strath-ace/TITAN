@@ -145,7 +145,7 @@ def write_All_run(options, time, iteration, restart = False):
     start_time = time
 
     time_step_to_delete = time - options.dynamics.time_step
-    iteration_to_delete = int((iteration)*options.dynamics.time_step/options.thermal.pato_time_step)
+    iteration_to_delete = int((iteration)*options.dynamics.time_step/options.pato.time_step)
 
     print('copying BC:', end_time, ' - ', start_time)
 
@@ -201,7 +201,7 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
         f.write('TIME_STEP='+str(end_time)+' \n')
         f.write('MAT_NAME=subMat1 \n')
-        for n in range(options.thermal.pato_cores):
+        for n in range(options.pato.n_cores):
             f.write('cd processor' + str(n) + '/\n')
             f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
             f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
@@ -213,7 +213,7 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
-        for n in range(options.thermal.pato_cores):
+        for n in range(options.pato.n_cores):
             f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
             f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
@@ -489,7 +489,7 @@ def write_system_folder(options, time):
     start_time = time
     end_time = time + options.dynamics.time_step
     wrt_interval = end_time - start_time
-    pato_time_step = options.thermal.pato_time_step
+    pato_time_step = options.pato.time_step
 
     with open(options.output_folder + '/PATO/system/controlDict', 'w') as f:
 
@@ -745,7 +745,7 @@ def write_system_folder(options, time):
 
     f.close()
 
-    n_proc = options.thermal.pato_cores
+    n_proc = options.pato.n_cores
 
     coeff_0 = n_proc/2
     coeff_1 = 2
@@ -807,7 +807,7 @@ def run_PATO(options):
     ----------
 	?????????????????????????
     """
-    n_proc = options.thermal.pato_cores
+    n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run([options.output_folder + '/PATO/Allrun', str(n_proc)], text = True)
@@ -824,9 +824,9 @@ def postprocess_PATO_solution(options, assembly, iteration):
 
     path = options.output_folder+"PATO/VTK/"
 
-    iteration_to_read = int((iteration+1)*options.dynamics.time_step/options.thermal.pato_time_step)
+    iteration_to_read = int((iteration+1)*options.dynamics.time_step/options.pato.time_step)
 
-    n_proc = options.thermal.pato_cores
+    n_proc = options.pato.n_cores
 
     solution = 'surface'
 

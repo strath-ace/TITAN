@@ -84,11 +84,11 @@ def loop(options = [], titan = []):
         if options.thermal.ablation:
             thermal.compute_thermal(titan = titan, options = options)
 
-            if options.thermal.black_body_emissions and (options.current_iter%100000 == 0):
+            if options.radiation.black_body_emissions and (options.current_iter%options.radiation.black_body_emissions_freq == 0):
                 thermal.compute_black_body_emissions(titan = titan, options = options)
-            if options.thermal.black_body_spectral_emissions and (options.current_iter%100 == 0):
+            if options.radiation.spectral and (options.current_iter%options.radiation.spectral_freq == 0):
                 thermal.compute_black_body_spectral_emissions(titan = titan, options = options)
-            if options.thermal.ablation and options.thermal.particle_emissions and options.thermal.pato:
+            if options.thermal.ablation and options.radiation.particle_emissions and options.thermal.pato and (options.current_iter%options.radiation.black_body_emissions_freq == 0):
                 thermal.compute_particle_emissions(titan = titan, options = options)
 
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:

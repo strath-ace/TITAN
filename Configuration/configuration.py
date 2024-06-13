@@ -199,9 +199,7 @@ class Amg():
 
 
 class Thermal():
-    def __init__(self, ablation = False, ablation_mode = "0D", pato = False, pato_time_step = 0.1,
-                 pato_cores = 6, post_fragment_tetra_ablation = False, black_body_emissions = False,
-                 black_body_spectral_emissions = False, particle_emissions = False):
+    def __init__(self, ablation = False, ablation_mode = "0D", post_fragment_tetra_ablation = False):
 
         #: [boolean] Flag to perform ablation
         self.ablation = False
@@ -209,25 +207,41 @@ class Thermal():
         #: [str] Ablation Model (0D, tetra)
         self.ablation_mode = "0D"
 
-        #: [boolean] Flag to perform PATO simulation
-        self.pato = False
+        self.post_fragment_tetra_ablation = False
+
+
+class PATO():
+    def __init__(self, flag = False, time_step = 0.1, n_cores = 6):
+
 
         #: [boolean] Flag to perform PATO simulation
-        self.pato_time_step = pato_time_step  
+        self.flag = False
+
+        #: [boolean] Flag to perform PATO simulation
+        self.time_step = time_step  
 
         #: [int] Number of cores to perform PATO simulation
-        self.pato_cores = pato_cores                
+        self.n_cores = n_cores                
 
-        self.post_fragment_tetra_ablation = False
+
+class Radiation():
+    def __init__(self, black_body_emissions = False, black_body_emissions_freq = 10000, particle_emissions = False,
+                 spectral = False, spectral_freq = 10000):
 
         #: [boolean] Flag to compute black body emissions
         self.black_body_emissions = black_body_emissions
 
-        #: [boolean] Flag to compute black body spectral emissions
-        self.black_body_spectral_emissions = black_body_spectral_emissions
+        #: [int] Frequency to compute black body emissions
+        self.black_body_emissions_freq = black_body_emissions_freq
 
         #: [boolean] Flag to compute particle emissions
         self.particle_emissions = particle_emissions
+
+        #: [boolean] Flag to compute spectral emissions
+        self.spectral = spectral  
+
+        #: [int] Frequency to compute spectral emissions
+        self.spectral_freq = spectral_freq                
 
         self.phi_min = 0
         self.phi_max = 0
@@ -236,7 +250,7 @@ class Thermal():
         self.theta_max = 0
         self.theta_n_values = 1
         self.wavelength_min = 0
-        self.wavelength_max = 0
+        self.wavelength_max = 0                
 
 class Aerothermo():
     """ Aerothermo class
@@ -349,6 +363,8 @@ class Options():
         #: [:class:`.Dynamics`] Object of class Dynamics
         self.dynamics = Dynamics()
         self.thermal = Thermal()
+        self.pato = PATO()
+        self.radiation = Radiation()
         self.cfd = CFD()
         self.bloom = Bloom()
         self.amg = Amg()
@@ -430,7 +446,7 @@ class Options():
             if self.amg.flag:
                 Path(self.output_folder+'/CFD_Grid/Amg/').mkdir(parents=True, exist_ok=True)
 
-        if self.thermal.pato == True:
+        if self.pato.flag == True:
             Path(self.output_folder+'/PATO/').mkdir(parents=True, exist_ok=True)
             Path(self.output_folder+'/PATO/verification/').mkdir(parents=True, exist_ok=True)
             Path(self.output_folder+'/PATO/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)
@@ -809,28 +825,31 @@ def read_config_file(configParser, postprocess = ""):
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
     if options.thermal.ablation:
         options.thermal.ablation_mode  = get_config_value(configParser, "0D",  'Thermal', 'Ablation_mode', 'str').lower()
-        options.thermal.black_body_emissions  = get_config_value(configParser, "False",  'Thermal', 'Black_body_emissions', 'boolean')
+        options.radiation.black_body_emissions  = get_config_value(configParser, "False",  'Radiation', 'Black_body_emissions', 'boolean')
         
         if (options.thermal.ablation_mode == "pato"):
-            options.thermal.pato = True
-            options.thermal.pato_time_step = get_config_value(configParser, 0.1, 'Thermal', 'PATO_time_step', 'float')
-            options.thermal.pato_cores = get_config_value(configParser, 6, 'Thermal', 'PATO_cores', 'int')
+            options.pato.flag = True
+            options.pato.time_step = get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
+            options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
             #Read Bloom conditions
             options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
             options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
             options.bloom.spacing =     get_config_value(configParser,options.bloom.spacing,'Bloom', 'Spacing', 'float')
             options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
-            options.thermal.particle_emissions  = get_config_value(configParser, "False",  'Thermal', 'Particle_emissions', 'boolean')
+            options.radiation.particle_emissions  = get_config_value(configParser, "False",  'Radiation', 'Particle_emissions', 'boolean')
 
-        if(options.thermal.black_body_emissions):
-            options.thermal.phi_min      =       get_config_value(configParser, options.thermal.phi_min, 'Thermal', 'Phi_min', 'custom', 'angle')
-            options.thermal.phi_max      =       get_config_value(configParser, options.thermal.phi_max, 'Thermal', 'Phi_max', 'custom', 'angle')
-            options.thermal.phi_n_values =       get_config_value(configParser, options.thermal.phi_n_values, 'Thermal', 'Phi_n_values', 'int')
-            options.thermal.theta_min     =      get_config_value(configParser, options.thermal.theta_min, 'Thermal', 'Theta_min', 'custom', 'angle')
-            options.thermal.theta_max     =      get_config_value(configParser, options.thermal.theta_max, 'Thermal', 'Theta_max', 'custom', 'angle')
-            options.thermal.theta_n_values=      get_config_value(configParser, options.thermal.theta_n_values, 'Thermal', 'Theta_n_values', 'int')
-            options.thermal.wavelength_min =     get_config_value(configParser, options.thermal.wavelength_min, 'Thermal', 'Wavelength_min', 'float')
-            options.thermal.wavelength_max =     get_config_value(configParser, options.thermal.wavelength_max, 'Thermal', 'Wavelength_max', 'float')
+        if(options.radiation.black_body_emissions):
+            options.radiation.black_body_emissions_freq     = get_config_value(configParser, options.radiation.black_body_emissions_freq, 'Radiation', 'Black_body_emissions_freq', 'int')
+            options.radiation.phi_min      =       get_config_value(configParser, options.radiation.phi_min, 'Radiation', 'Phi_min', 'custom', 'angle')
+            options.radiation.phi_max      =       get_config_value(configParser, options.radiation.phi_max, 'Radiation', 'Phi_max', 'custom', 'angle')
+            options.radiation.phi_n_values =       get_config_value(configParser, options.radiation.phi_n_values, 'Radiation', 'Phi_n_values', 'int')
+            options.radiation.theta_min     =      get_config_value(configParser, options.radiation.theta_min, 'Radiation', 'Theta_min', 'custom', 'angle')
+            options.radiation.theta_max     =      get_config_value(configParser, options.radiation.theta_max, 'Radiation', 'Theta_max', 'custom', 'angle')
+            options.radiation.theta_n_values=      get_config_value(configParser, options.radiation.theta_n_values, 'Radiation', 'Theta_n_values', 'int')
+            options.radiation.wavelength_min =     get_config_value(configParser, options.radiation.wavelength_min, 'Radiation', 'Wavelength_min', 'float')
+            options.radiation.wavelength_max =     get_config_value(configParser, options.radiation.wavelength_max, 'Radiation', 'Wavelength_max', 'float')
+            options.radiation.spectral           = get_config_value(configParser, "False",  'Radiation', 'Spectral', 'boolean')
+            options.radiation.spectral_freq     = get_config_value(configParser, options.radiation.spectral_freq, 'Radiation', 'Spectral_freq', 'int')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
@@ -947,9 +966,9 @@ def read_config_file(configParser, postprocess = ""):
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
                 ### bc_ids = [obj.fenics_bc_id for obj in assembly.objects]
-                assembly.generate_inner_domain(write = options.thermal.pato, output_folder = options.output_folder)
+                assembly.generate_inner_domain(write = options.pato.flag, output_folder = options.output_folder)
                 assembly.compute_mass_properties()
-                if options.thermal.pato and options.bloom.flag:
+                if options.pato.flag and options.bloom.flag:
                     num_obj = 1
                     input_grid = "pato_mesh_"+str(assembly.id)
                     output_grid = "pato_mesh_hybrid_"+str(assembly.id)

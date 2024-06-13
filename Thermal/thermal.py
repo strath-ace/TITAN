@@ -249,11 +249,11 @@ def compute_black_body_emissions(titan, options):
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
 
-    phi   = np.linspace(options.thermal.phi_min,options.thermal.phi_max,options.thermal.phi_n_values)
-    theta = np.linspace(options.thermal.theta_min,options.thermal.theta_max,options.thermal.theta_n_values)
+    phi   = np.linspace(options.radiation.phi_min,options.radiation.phi_max,options.radiation.phi_n_values)
+    theta = np.linspace(options.radiation.theta_min,options.radiation.theta_max,options.radiation.theta_n_values)
 
-    wavelength_min = options.thermal.wavelength_min
-    wavelength_max = options.thermal.wavelength_max
+    wavelength_min = options.radiation.wavelength_min
+    wavelength_max = options.radiation.wavelength_max
 
     for theta_i in range(len(theta)):
         for phi_i in range(len(phi)):
@@ -330,9 +330,9 @@ def compute_black_body_spectral_emissions(titan, options):
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
 
-    phi   = np.linspace(options.thermal.phi_min,options.thermal.phi_max,options.thermal.phi_n_values)
-    theta = np.linspace(options.thermal.theta_min,options.thermal.theta_max,options.thermal.theta_n_values)
-    wavelength = np.linspace(options.thermal.wavelength_min,options.thermal.wavelength_max,1000)
+    phi   = np.linspace(options.radiation.phi_min,options.radiation.phi_max,options.radiation.phi_n_values)
+    theta = np.linspace(options.radiation.theta_min,options.radiation.theta_max,options.radiation.theta_n_values)
+    wavelength = np.linspace(options.radiation.wavelength_min,options.radiation.wavelength_max,1000)
 
     for wavelength_i in range(len(wavelength)):
 
