@@ -199,7 +199,9 @@ class Amg():
 
 
 class Thermal():
-    def __init__(self, ablation = False, ablation_mode = "0D", pato = False, pato_time_step = 0.1, pato_cores = 6, post_fragment_tetra_ablation = False, black_body_emissions = False, particle_emissions = False):
+    def __init__(self, ablation = False, ablation_mode = "0D", pato = False, pato_time_step = 0.1,
+                 pato_cores = 6, post_fragment_tetra_ablation = False, black_body_emissions = False,
+                 black_body_spectral_emissions = False, particle_emissions = False):
 
         #: [boolean] Flag to perform ablation
         self.ablation = False
@@ -220,6 +222,9 @@ class Thermal():
 
         #: [boolean] Flag to compute black body emissions
         self.black_body_emissions = black_body_emissions
+
+        #: [boolean] Flag to compute black body spectral emissions
+        self.black_body_spectral_emissions = black_body_spectral_emissions
 
         #: [boolean] Flag to compute particle emissions
         self.particle_emissions = particle_emissions
@@ -638,6 +643,8 @@ def read_geometry(configParser, options):
     #Initialization of the object of class Component_list to store the user-defined compoents
     objects = Component.Component_list()
 
+    Twall = get_config_value(configParser, '', 'Assembly', 'Twall', 'float')
+
     #Loops through the user-defined components, checks if they are either Primitives or Joints 
     #and creates the object according to the specified parameters in the config file
     for section in configParser.sections():
@@ -676,7 +683,7 @@ def read_geometry(configParser, options):
                     try:
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
-                        temperature = 340
+                        temperature = Twall
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
                         fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options)
@@ -709,7 +716,7 @@ def read_geometry(configParser, options):
                     try:
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
-                        temperature = 340
+                        temperature = Twall
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 
@@ -803,10 +810,6 @@ def read_config_file(configParser, postprocess = ""):
         if (options.thermal.ablation_mode == "pato"):
             options.thermal.pato = True
             options.thermal.pato_time_step = get_config_value(configParser, 0.1, 'Thermal', 'PATO_time_step', 'float')
-            print('TITAN time-step:', options.dynamics.time_step)
-            print('PATO time-step:', options.thermal.pato_time_step)
-            #print('remainder:', options.dynamics.time_step/options.thermal.pato_time_step);exit(0)
-            #if ( round((options.dynamics.time_step%options.thermal.pato_time_step),5) != 0 ): print('TITAN time-step divided by PATO time-step must give zero remainder.'); exit(0)
             options.thermal.pato_cores = get_config_value(configParser, 6, 'Thermal', 'PATO_cores', 'int')
             #Read Bloom conditions
             options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')

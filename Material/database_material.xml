@@ -225,7 +225,7 @@
 			<values>293,1004.55;8000.0,1004.55;</values>
 		</specificHeatCapacity>
 		<meltingHeat>361500.0</meltingHeat>
-		<meltingTemperature>500.15</meltingTemperature>
+		<meltingTemperature>5000.15</meltingTemperature>
 		<emissivity>
 			<values>50.0,0.4;8000.0,0.4;</values>
 		</emissivity>

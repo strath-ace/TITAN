@@ -28,7 +28,7 @@ class Component_list():
         self.object = []
         self.id = 1
 
-    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 340, options = None):
+    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None):
         
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
@@ -41,7 +41,7 @@ class Component():
         Class to store the information of a singular component.
     """
     
-    def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 340,
+    def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
                  trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest', v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None):
 
         print("Generating Body: ", filename)

@@ -852,16 +852,6 @@ def postprocess_PATO_solution(options, assembly, iteration):
 
     round_number = 2
 
-#    vtk_COG = np.round(vtk_COG, round_number)
-#    TITAN_COG = np.round(assembly.mesh.facet_COG,round_number)
-#
-#    for i in range(n_cells):
-#        for j in range(n_cells):
-#            if (vtk_COG[i,0] == TITAN_COG[j,0] and vtk_COG[i,1] == TITAN_COG[j,1] and vtk_COG[i,2] == TITAN_COG[j,2]):
-#                assembly.aerothermo.temperature[j] = temperature_cell[i]
-#                break
-#
-
     vtk_COG = (np.round(vtk_COG, round_number)).tolist()
     TITAN_COG = (np.round(assembly.mesh.facet_COG,round_number)).tolist()   
     

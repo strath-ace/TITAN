@@ -430,7 +430,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
 
-        _assembly.quaternion_prev = _assembly.quaternion
+        _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
 
         index = ray_trace(_assembly, flow_direction, n)
 

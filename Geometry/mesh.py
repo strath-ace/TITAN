@@ -1013,7 +1013,7 @@ def remove_ablated_elements(assembly, delete_array):
 
     #Update aerothermo
     num_faces = len(mesh.v0)- old_num_faces
-    aerothermo.append(num_faces,300)
+    aerothermo.append(num_faces)
 
     #Delete the facets
     # - removes ablated facets from assembly mesh
