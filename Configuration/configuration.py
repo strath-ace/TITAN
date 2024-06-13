@@ -397,6 +397,8 @@ class Options():
         self.fidelity = fidelity
 
         self.assembly_path = ""
+
+        self.Twall = 300
         
     def clean_up_folders(self):
         """
@@ -643,7 +645,7 @@ def read_geometry(configParser, options):
     #Initialization of the object of class Component_list to store the user-defined compoents
     objects = Component.Component_list()
 
-    Twall = get_config_value(configParser, '', 'Assembly', 'Twall', 'float')
+    options.Twall = get_config_value(configParser, '', 'Assembly', 'Twall', 'float')
 
     #Loops through the user-defined components, checks if they are either Primitives or Joints 
     #and creates the object according to the specified parameters in the config file
@@ -680,10 +682,11 @@ def read_geometry(configParser, options):
                     except:
                         fenics_bc_id = None
 
-                    try:
-                        temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
-                    except:
-                        temperature = Twall
+                    #try:
+                    #    temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
+                    #except:
+                    #    temperature = options.Twall
+                    temperature = options.Twall
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
                         fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options)
@@ -713,10 +716,11 @@ def read_geometry(configParser, options):
                     except:
                         fenics_bc_id = None
 
-                    try:
-                        temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
-                    except:
-                        temperature = Twall
+                    #try:
+                    #    temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
+                    #except:
+                    #    temperature = options.Twall
+                    temperature = options.Twall
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 

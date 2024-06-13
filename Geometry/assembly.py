@@ -294,7 +294,7 @@ class Aerothermo():
         A class to store the surface quantities
     """
 
-    def __init__(self,n_points):
+    def __init__(self,n_points, Twall):
 
         self.density = np.zeros((n_points))      
         self.temperature = np.zeros((n_points))
@@ -308,9 +308,9 @@ class Aerothermo():
 
         #: [np.array] Heatflux [W]
         self.heatflux = np.zeros((n_points))
-        self.wall_temperature = 340
+        self.wall_temperature = Twall
 
-    def append(self, n_points = 0, temperature= 300):
+    def append(self, n_points = 0, temperature = 300):
         self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
         self.pressure = np.append(self.pressure, np.zeros(n_points))
         self.heatflux = np.append(self.heatflux, np.zeros(n_points))

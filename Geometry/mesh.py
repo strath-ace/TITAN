@@ -947,7 +947,7 @@ def map_surf_to_tetra(vol_coords, vol_elements):
 
     return map_facet_tetra
 
-def remove_ablated_elements(assembly, delete_array):
+def remove_ablated_elements(assembly, delete_array, Twall):
     """
     Function to remove ablated tetras from the object.
     Calls add_surface_facets to add the new exposed facets to the surface list
@@ -1013,7 +1013,7 @@ def remove_ablated_elements(assembly, delete_array):
 
     #Update aerothermo
     num_faces = len(mesh.v0)- old_num_faces
-    aerothermo.append(num_faces)
+    aerothermo.append(num_faces, Twall)
 
     #Delete the facets
     # - removes ablated facets from assembly mesh
