@@ -294,7 +294,7 @@ class Aerothermo():
         A class to store the surface quantities
     """
 
-    def __init__(self,n_points, Twall):
+    def __init__(self,n_points, Twall = 300):
 
         self.density = np.zeros((n_points))      
         self.temperature = np.zeros((n_points))
