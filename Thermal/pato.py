@@ -210,7 +210,7 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
-        f.write('rm qconv/BC* \n')
+        #f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
         for n in range(options.pato.n_cores):
@@ -391,7 +391,7 @@ def write_origin_folder(options, Ta_bc, Tinf):
         f.write('\n')
         f.write('dimensions      [0 0 0 1 0 0 0];\n')
         f.write('\n')
-        f.write('internalField   uniform 340;\n')
+        f.write('internalField   uniform '+str(options.Twall)+';\n')
         f.write('\n')
         f.write('boundaryField {\n')
         f.write('  top\n')
