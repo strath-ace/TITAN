@@ -216,7 +216,7 @@ def write_All_run(options, time, iteration, restart = False):
         for n in range(options.pato.n_cores):
             f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
+            #f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
     f.close()
 
@@ -463,10 +463,10 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
             f.write(' I=' + str(n_data_points) + ', J=1, K=1, ZONETYPE=Ordered\n')
             f.write(' DATAPACKING=BLOCK\n')
             f.write(' DT=(DOUBLE DOUBLE DOUBLE DOUBLE)   \n')
-            f.write(np.array2string(x)[1:-1])
-            f.write(np.array2string(y)[1:-1])
-            f.write(np.array2string(z)[1:-1])
-            f.write(np.array2string(q)[1:-1])
+            f.write(np.array2string(x)[1:-1]+' ')
+            f.write(np.array2string(y)[1:-1]+' ')
+            f.write(np.array2string(z)[1:-1]+' ')
+            f.write(np.array2string(q)[1:-1]+' ')
 
         f.close()
 
@@ -850,7 +850,7 @@ def postprocess_PATO_solution(options, assembly, iteration):
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
 
-    round_number = 2
+    round_number = 3
 
     vtk_COG = (np.round(vtk_COG, round_number)).tolist()
     TITAN_COG = (np.round(assembly.mesh.facet_COG,round_number)).tolist()   
