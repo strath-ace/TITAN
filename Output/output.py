@@ -206,7 +206,7 @@ def generate_surface_solution(titan, options):
                       "Temperature": [temperature],
                       "Shear": [shear],
                       "Radius": [radius],
-                      "CellID": [cellID],
+                      #"CellID": [cellID], #uncommenting this actually crashes the code
                       "Emissive power": [emissive_power],
                     }
 
