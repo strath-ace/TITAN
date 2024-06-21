@@ -826,7 +826,7 @@ def read_config_file(configParser, postprocess = ""):
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
     if options.thermal.ablation:
         options.thermal.ablation_mode  = get_config_value(configParser, "0D",  'Thermal', 'Ablation_mode', 'str').lower()
-        options.radiation.black_body_emissions  = get_config_value(configParser, "False",  'Radiation', 'Black_body_emissions', 'boolean')
+        options.radiation.black_body_emissions  = get_config_value(configParser, False,  'Radiation', 'Black_body_emissions', 'boolean')
         
         if (options.thermal.ablation_mode == "pato"):
             options.pato.flag = True
@@ -837,7 +837,7 @@ def read_config_file(configParser, postprocess = ""):
             options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
             options.bloom.spacing =     get_config_value(configParser,options.bloom.spacing,'Bloom', 'Spacing', 'float')
             options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
-            options.radiation.particle_emissions  = get_config_value(configParser, "False",  'Radiation', 'Particle_emissions', 'boolean')
+            options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
 
         if(options.radiation.black_body_emissions):
             options.radiation.black_body_emissions_freq     = get_config_value(configParser, options.radiation.black_body_emissions_freq, 'Radiation', 'Black_body_emissions_freq', 'int')
@@ -849,7 +849,7 @@ def read_config_file(configParser, postprocess = ""):
             options.radiation.theta_n_values=      get_config_value(configParser, options.radiation.theta_n_values, 'Radiation', 'Theta_n_values', 'int')
             options.radiation.wavelength_min =     get_config_value(configParser, options.radiation.wavelength_min, 'Radiation', 'Wavelength_min', 'float')
             options.radiation.wavelength_max =     get_config_value(configParser, options.radiation.wavelength_max, 'Radiation', 'Wavelength_max', 'float')
-            options.radiation.spectral           = get_config_value(configParser, "False",  'Radiation', 'Spectral', 'boolean')
+            options.radiation.spectral           = get_config_value(configParser, False,  'Radiation', 'Spectral', 'boolean')
             options.radiation.spectral_freq     = get_config_value(configParser, options.radiation.spectral_freq, 'Radiation', 'Spectral_freq', 'int')
 
     #Read Low-fidelity aerothermo options
