@@ -258,10 +258,10 @@ def compute_black_body_emissions(titan, options):
     for theta_i in range(len(theta)):
         for phi_i in range(len(phi)):
             for assembly in titan.assembly:
-                for obj in assembly.objects:
-                    emissivity_obj = obj.material.emissivity(obj.temperature)
-                    assembly.emissivity[obj.facet_index] = emissivity_obj
-                    assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
+                #for obj in assembly.objects:
+                    #emissivity_obj = obj.material.emissivity(obj.temperature)
+                    #assembly.emissivity[obj.facet_index] = emissivity_obj
+                    #assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
 
                 viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
                 

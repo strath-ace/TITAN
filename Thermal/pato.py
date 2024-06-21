@@ -210,7 +210,7 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
-        f.write('rm qconv/BC* \n')
+        #f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
         for n in range(options.pato.n_cores):
@@ -412,11 +412,11 @@ def write_origin_folder(options, Ta_bc, Tinf):
             f.write('mappingFileName "$FOAM_CASE/qconv/BC";\n')
             f.write('mappingFields   (\n')
             f.write('    (qConvCFD "3")\n')
+            f.write('    (emissivity "4")\n')
             f.write(');\n')
             f.write('p 101325;\n')
             f.write('Tbackground ' + str(Tinf)+';\n')
             f.write('chemistryOn 1;\n')
-            #f.write('emissivity 0.4;\n')
             f.write('qRad 0;\n')
             f.write('value           uniform 300;\n')       
     
@@ -435,10 +435,17 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
     # write tecplot file with facet_COG coordinates and associated facet convective heating
     if Ta_bc == "qconv":
 
+        for obj in assembly.objects:
+            obj.temperature = assembly.aerothermo.temperature[obj.facet_index]
+            emissivity_obj = obj.material.emissivity(obj.temperature)
+            assembly.emissivity[obj.facet_index] = emissivity_obj 
+            assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)     
+
         x = np.array([])
         y = np.array([])
         z = np.array([])
         q = np.array([])
+        e = np.array([])
 
         n_data_points = len(assembly.mesh.facet_COG)
         for i in range(n_data_points):
@@ -446,6 +453,7 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
             y = np.append(y, assembly.mesh.facet_COG[i,1])
             z = np.append(z, assembly.mesh.facet_COG[i,2])
             q = np.append(q, assembly.aerothermo.heatflux[i])
+            e = np.append(e, assembly.emissivity[i])
 
         if ((time).is_integer()): time = int(time)  
 
@@ -458,6 +466,7 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
             f.write('"yw (m)"\n')
             f.write('"zw (m)"\n')
             f.write('"qConvCFD (W/m^2)"\n')
+            f.write('"emissivity (-)"\n')
             f.write('ZONE T="zone 1"\n')
             f.write(' STRANDID=0, SOLUTIONTIME=0\n')
             f.write(' I=' + str(n_data_points) + ', J=1, K=1, ZONETYPE=Ordered\n')
@@ -467,6 +476,7 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
             f.write(np.array2string(y)[1:-1]+' ')
             f.write(np.array2string(z)[1:-1]+' ')
             f.write(np.array2string(q)[1:-1]+' ')
+            f.write(np.array2string(e)[1:-1]+' ')
 
         f.close()
 
