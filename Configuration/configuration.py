@@ -355,7 +355,8 @@ class Options():
                  fenics = False, FE_MPI = False, FE_MPI_cores = 12, FE_verbose = False,
                  case = 'benchmark', E = 68e9, output_folder = 'TITAN_sol', propagator = 'Euler', adapt_propagator=False,
                  assembly_rotation = [], manifold_correction = True, adapt_time_step = False, rerr_tol=1e-3, 
-                 num_joints= 0, frame_for_writing = 'W', max_time_step=0.5, save_displacement = False, save_vonMises = False):
+                 num_joints= 0, frame_for_writing = 'W', max_time_step=0.5, save_displacement = False, save_vonMises = False,
+                 Twall = 300):
 
         #: [:class:`.Fenics`] Object of class Fenics
         self.fenics = Fenics(fenics)
@@ -414,7 +415,7 @@ class Options():
 
         self.assembly_path = ""
 
-        self.Twall = 300
+        self.Twall = Twall
         
     def clean_up_folders(self):
         """
@@ -661,7 +662,7 @@ def read_geometry(configParser, options):
     #Initialization of the object of class Component_list to store the user-defined compoents
     objects = Component.Component_list()
 
-    options.Twall = get_config_value(configParser, '', 'Assembly', 'Twall', 'float')
+    options.Twall = get_config_value(configParser, options.Twall, 'Assembly', 'Twall', 'float')
 
     #Loops through the user-defined components, checks if they are either Primitives or Joints 
     #and creates the object according to the specified parameters in the config file
@@ -736,7 +737,7 @@ def read_geometry(configParser, options):
                     #    temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     #except:
                     #    temperature = options.Twall
-                    temperature = options.Twall
+                    temperature = options.Twall                    
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 
