@@ -1014,6 +1014,7 @@ def remove_ablated_elements(assembly, delete_array, Twall):
     #Update aerothermo
     num_faces = len(mesh.v0)- old_num_faces
     aerothermo.append(num_faces, Twall)
+    assembly.emissive_power = np.append(assembly.emissive_power, np.zeros(num_faces))
 
     #Delete the facets
     # - removes ablated facets from assembly mesh
@@ -1038,6 +1039,7 @@ def remove_ablated_elements(assembly, delete_array, Twall):
         obj.facet_index, obj.facet_mask = create_index(assembly.mesh.facet_COG, obj.mesh.facet_COG)
 
     aerothermo.delete(facets_index)
+    assembly.emissive_power = np.delete(assembly.emissive_power, facets_index)
 
     #at this point:
     # ASSEMBLY MESH: original surface + new surface facets + isolated facets
