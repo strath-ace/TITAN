@@ -471,10 +471,9 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
     """
 
     aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
-    print(aerothermo.pressure)
+
     aerothermo.pressure -= freestream.pressure
-    print(aerothermo.pressure)
-    exit()
+
     try:
         aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray('Skin_Friction_Coefficient'))[idx_sim][idx_inv]
         aerothermo.shear *= 0.5*freestream.density*freestream.velocity**2
@@ -545,7 +544,7 @@ def run_SU2(n, options):
 
     options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([path+'/Executables/mpirun_SU2','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    subprocess.run(['mpirun','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
 
 def generate_BL(assembly, options, it, cluster_tag):
     """
@@ -743,18 +742,18 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     #Automatically generates the CFD domain
     input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
     GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
-
+    print('hello 0')
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)
-
+    print('hello 1')
     #Writes the configuration file
     it = 0
     
     config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = input_grid, bloom=False)
-    
+    print('hello 2')
     #Runs SU2 simulaton
     run_SU2(n, options)
-
+    print('hello 3')
     #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
     if options.amg.flag:
         run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)

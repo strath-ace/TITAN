@@ -13,12 +13,11 @@ Fidelity = Low
 Output_folder = ATV-panel-ablation
 SPARTA = False
 Structural_dynamics = True
-Ablation = True
-Ablation_mode = 0D
 Material_file = ATV_material.xml
 #Density joints = 1000
-
 Save_freq = 5000
+
+[Thermal]
 
 [Model]
 Planet = Earth

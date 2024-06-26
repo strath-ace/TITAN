@@ -9,6 +9,7 @@ Fidelity = Low
 #High, Low or Hybrid
 Output_folder = Tests/Simulation
 FENICS = False
+Output_freq = 1
 
 [Trajectory]
 Altitude = 90000

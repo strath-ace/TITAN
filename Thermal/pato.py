@@ -210,9 +210,9 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
-        f.write('rm qconv/BC* \n')
+        #f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
-        f.write('rm mesh/*meshb \n')
+        #f.write('rm mesh/*meshb \n')
         for n in range(options.pato.n_cores):
             f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
@@ -448,6 +448,7 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
         e = np.array([])
 
         n_data_points = len(assembly.mesh.facet_COG)
+        print('n_data_points:', n_data_points)
         for i in range(n_data_points):
             x = np.append(x, assembly.mesh.facet_COG[i,0])
             y = np.append(y, assembly.mesh.facet_COG[i,1])
