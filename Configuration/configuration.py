@@ -33,6 +33,7 @@ from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
 from Aerothermo import bloom
+from Thermal import pato
 
 
 class Collision_options():
@@ -962,6 +963,7 @@ def read_config_file(configParser, postprocess = ""):
                     input_grid = "pato_mesh_"+str(assembly.id)
                     output_grid = "pato_mesh_hybrid_"+str(assembly.id)
                     bloom.generate_PATO_mesh(options, assembly.id, num_obj = num_obj, bloom = options.bloom, input_grid = input_grid , output_grid = output_grid) #grid name without .SU2
+                    pato.initialize(options, assembly.id)
 
             options.save_mesh(titan)
         

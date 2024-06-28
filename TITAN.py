@@ -26,7 +26,6 @@ from Dynamics import dynamics
 from Fragmentation import fragmentation
 from Postprocess import postprocess as pp
 from Thermal import thermal
-from Thermal import pato
 from Structural import structural
 from pathlib import Path
 
@@ -62,11 +61,7 @@ def loop(options = [], titan = []):
 
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
-        titan.assembly[0].mass = options.vehicle.mass
-
-    if options.thermal.ablation and options.pato.flag and titan.iter == 0:
-        for assembly in titan.assembly:
-            pato.initialize(options, assembly.id)    
+        titan.assembly[0].mass = options.vehicle.mass   
 
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
