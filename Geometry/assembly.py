@@ -22,6 +22,10 @@ from Geometry import gmsh_api as GMSH
 from Geometry.tetra import inertia_tetra, vol_tetra
 import numpy as np
 from copy import deepcopy
+from Thermal import pato
+from pathlib import Path
+import subprocess
+import os
 
 def create_assembly_flag(list_bodies, Flags):
     """
@@ -288,6 +292,31 @@ class Freestream():
         #:[?float?] Specific enthalpy at the stagnation point 
         self.h1_s = 0
 
+class PATO():
+    """ Class PATO
+    
+        A class to store the PATO simulation
+    """
+
+    def __init__(self, options, id = 0):
+
+        self.initial_temperature = options.Twall
+        self.Ta_bc = 'qconv'
+        
+        Path(options.output_folder+'/PATO_'+str(id)+'/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/verification/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/constant/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/constant/subMat1/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/origin.0/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/origin.0/subMat1').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/system/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/system/subMat1').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/qconv').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/mesh').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(id)+'/data').mkdir(parents=True, exist_ok=True)        
+
+
 class Aerothermo():
     """ Class Aerothermo
     
@@ -451,7 +480,8 @@ class Assembly():
             self.ablation_mode = 'tetra'
 
         elif options.thermal.ablation_mode.lower() == 'pato':
-            self.ablation_mode = 'PATO'            
+            self.ablation_mode = 'PATO'        
+            self.pato = PATO(options, self.id)
 
         else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
 

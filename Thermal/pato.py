@@ -42,7 +42,7 @@ def compute_thermal(assembly, time, iteration, options):
     """
     setup_PATO_simulation(assembly, time, iteration, options, assembly.id)
 
-    run_PATO(options)
+    run_PATO(options, assembly.id)
 
     postprocess_PATO_solution(options, assembly, iteration)
 
@@ -54,33 +54,15 @@ def setup_PATO_simulation(assembly, time, iteration, options, id):
     ----------
 	?????????????????????????
     """
-    #Ta_bc = "fixed"
-    #Ta = 1644
-    Ta_bc = "qconv"
-    #Ta_bc = "ablation"
     Tfreestream = assembly.freestream.temperature
 
-    # If first TITAN iteration, initialize PATO simulation
-    if (iteration == 0):
+    write_PATO_BC(options, assembly, time)
+    write_All_run(options, assembly.id, time - options.dynamics.time_step, iteration)
+    write_system_folder(options, assembly.id, time - options.dynamics.time_step)
 
-        if Ta_bc == "qconv" or Ta_bc == "ablation":
-            write_PATO_BC(options, assembly, Ta_bc, time)
-        write_All_run(options, time - options.dynamics.time_step, iteration, restart = False)
-        write_constant_folder(options)
-        write_origin_folder(options, Ta_bc, Tfreestream)
-        write_system_folder(options, time - options.dynamics.time_step)
-        write_material_properties(options)
+def write_material_properties(options, id):
 
-    # If not first TITAN iteration, restart PATO simulation
-    else:
-        if Ta_bc == "qconv" or Ta_bc == "ablation":
-            write_PATO_BC(options, assembly, Ta_bc, time)
-        write_All_run(options, time - options.dynamics.time_step, iteration, restart = True)
-        write_system_folder(options, time - options.dynamics.time_step)
-
-def write_material_properties(options):
-
-    with open(options.output_folder + '/PATO/data/constantProperties', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/data/constantProperties', 'w') as f:
 
         f.write('/*---------------------------------------------------------------------------*\\n')
         f.write('Material properties for the substructure materials\n')
@@ -127,7 +109,8 @@ def write_material_properties(options):
         f.write('e_sub_n[4]  0;        \n')
     f.close()
 
-def write_All_run(options, time, iteration, restart = False):
+
+def write_All_run_init(options, id):
     """
     Write the Allrun PATO file
 
@@ -138,7 +121,45 @@ def write_All_run(options, time, iteration, restart = False):
     options: Options
         Object of class Options
     """
-    geo_filename = "pato.geo"
+
+    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    with open(options.output_folder + '/PATO_'+str(id)+'/Allrun_init', 'w') as f:
+
+        f.write('#!/bin/bash \n')
+        f.write('cd ' + options.output_folder + '/PATO_'+str(id)+' \n')
+        f.write('cp -r origin.0 0 \n')
+        f.write('cd verification/unstructured_gmsh/ \n')
+        f.write('ln -s ' + path + '/' + options.output_folder + 'PATO_'+str(id)+'/mesh/mesh.msh \n')
+        f.write('cd ../.. \n')
+        f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
+        f.write('mv constant/polyMesh constant/subMat1 \n')
+        f.write('count=`ls -1 processor* 2>/dev/null | wc -l`\n')
+        f.write('if [ $count != 0 ];\n')
+        f.write('then\n')
+        f.write('    rm -rf processor*\n')
+        f.write('fi\n')                                                                                                                                                                                                                             
+        f.write('decomposePar -region subMat1\n')
+
+    f.close()
+
+    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    os.system("chmod +x " + options.output_folder +'/PATO_'+str(id)+'/Allrun_init' )
+
+    pass
+
+def write_All_run(options, id, time, iteration):
+    """
+    Write the Allrun PATO file
+
+    Generates an executable file to run a PATO simulation according to the state of the object and the user-defined parameters.
+
+    Parameters
+    ----------
+    options: Options
+        Object of class Options
+    """
+
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     end_time = time + options.dynamics.time_step
@@ -149,7 +170,7 @@ def write_All_run(options, time, iteration, restart = False):
 
     print('copying BC:', end_time, ' - ', start_time)
 
-    with open(options.output_folder + '/PATO/Allrun', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/Allrun', 'w') as f:
 
         if ((end_time).is_integer()): end_time = int(end_time)
         if ((start_time).is_integer()): start_time = int(start_time)
@@ -183,21 +204,6 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('fi\n')
         f.write('$sed_cmd -i "s/numberOfSubdomains \+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
         f.write('cp qconv/BC_'+str(end_time) + ' qconv/BC_' + str(start_time) + '\n')
-        if (not restart):
-            f.write('if [ ! -d 0 ]; then \n')
-            f.write('    scp -r origin.0 0 \n')
-            f.write('fi \n')
-            f.write('cd verification/unstructured_gmsh/ \n')
-            f.write('ln -s ' + path + '/' + options.output_folder + '/PATO/mesh/mesh.msh \n')
-            f.write('cd ../.. \n')
-            f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
-            f.write('mv constant/polyMesh constant/subMat1 \n')
-            f.write('count=`ls -1 processor* 2>/dev/null | wc -l`\n')
-            f.write('if [ $count != 0 ];\n')
-            f.write('then\n')
-            f.write('    rm -rf processor*\n')
-            f.write('fi\n')                                                                                                                                                                                                                             
-            f.write('decomposePar -region subMat1\n')
         f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
         f.write('TIME_STEP='+str(end_time)+' \n')
         f.write('MAT_NAME=subMat1 \n')
@@ -210,7 +216,7 @@ def write_All_run(options, time, iteration, restart = False):
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
-        #f.write('rm qconv/BC* \n')
+        f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         #f.write('rm mesh/*meshb \n')
         for n in range(options.pato.n_cores):
@@ -221,11 +227,11 @@ def write_All_run(options, time, iteration, restart = False):
     f.close()
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    os.system("chmod +x " + options.output_folder +'/PATO/Allrun' )
+    os.system("chmod +x " + options.output_folder +'/PATO_'+str(id)+'/Allrun' )
 
     pass
 
-def write_constant_folder(options):
+def write_constant_folder(options, id):
     """
     Write the constant/ PATO folder
 
@@ -237,7 +243,7 @@ def write_constant_folder(options):
         Object of class Options
     """
 
-    with open(options.output_folder + '/PATO/constant/regionProperties', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/constant/regionProperties', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 |\n')
@@ -264,7 +270,7 @@ def write_constant_folder(options):
 
     f.close()
 
-    with open(options.output_folder + '/PATO/constant/subMat1/subMat1Properties', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/constant/subMat1/subMat1Properties', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 |\n')
@@ -322,7 +328,7 @@ def write_constant_folder(options):
 
     pass
 
-def write_origin_folder(options, Ta_bc, Tinf):
+def write_origin_folder(options, id, Ta_bc):
     """
     Write the origin.0/ PATO folder
 
@@ -334,7 +340,7 @@ def write_origin_folder(options, Ta_bc, Tinf):
         Object of class Options
     """
 
-    with open(options.output_folder + '/PATO/origin.0/subMat1/p', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/origin.0/subMat1/p', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 |\n')
@@ -371,7 +377,7 @@ def write_origin_folder(options, Ta_bc, Tinf):
     f.close()
 
 
-    with open(options.output_folder + '/PATO/origin.0/subMat1/Ta', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/origin.0/subMat1/Ta', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 |\n')
@@ -415,7 +421,7 @@ def write_origin_folder(options, Ta_bc, Tinf):
             f.write('    (emissivity "4")\n')
             f.write(');\n')
             f.write('p 101325;\n')
-            f.write('Tbackground ' + str(Tinf)+';\n')
+            f.write('Tbackground 300;\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
             f.write('value           uniform 300;\n')       
@@ -430,10 +436,10 @@ def write_origin_folder(options, Ta_bc, Tinf):
 
     pass
 
-def write_PATO_BC(options, assembly, Ta_bc, time):
+def write_PATO_BC(options, assembly, time):
 
     # write tecplot file with facet_COG coordinates and associated facet convective heating
-    if Ta_bc == "qconv":
+    if options.pato.Ta_bc == "qconv":
 
         for obj in assembly.objects:
             obj.temperature = assembly.aerothermo.temperature[obj.facet_index]
@@ -448,7 +454,7 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
         e = np.array([])
 
         n_data_points = len(assembly.mesh.facet_COG)
-        print('n_data_points:', n_data_points)
+
         for i in range(n_data_points):
             x = np.append(x, assembly.mesh.facet_COG[i,0])
             y = np.append(y, assembly.mesh.facet_COG[i,1])
@@ -460,7 +466,7 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
 
         print('BC_', time)
 
-        with open(options.output_folder + 'PATO/qconv/BC_' + str(time), 'w') as f:
+        with open(options.output_folder + 'PATO_'+str(assembly.id)+'/qconv/BC_' + str(time), 'w') as f:
             f.write('TITLE     = "vol-for-blayer.fu"\n')
             f.write('VARIABLES = \n')
             f.write('"xw (m)"\n')
@@ -481,12 +487,12 @@ def write_PATO_BC(options, assembly, Ta_bc, time):
 
         f.close()
 
-    elif Ta_bc == "ablation":
+    elif options.pato.Ta_bc == "ablation":
         print("PATO ablation is not implemented yet."); exit(0);    
 
     pass
 
-def write_system_folder(options, time):
+def write_system_folder(options, id, time):
     """
     Write the system/ PATO folder
 
@@ -502,7 +508,7 @@ def write_system_folder(options, time):
     wrt_interval = end_time - start_time
     pato_time_step = options.pato.time_step
 
-    with open(options.output_folder + '/PATO/system/controlDict', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/system/controlDict', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 |\n')
@@ -564,7 +570,7 @@ def write_system_folder(options, time):
 
     f.close()
 
-    with open(options.output_folder + '/PATO/system/subMat1/fvSchemes', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/system/subMat1/fvSchemes', 'w') as f:
 
         f.write(' /*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 |\n')
@@ -615,7 +621,7 @@ def write_system_folder(options, time):
 
     f.close()
 
-    with open(options.output_folder + '/PATO/system/subMat1/fvSolution', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/system/subMat1/fvSolution', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 |\n')
@@ -651,7 +657,7 @@ def write_system_folder(options, time):
 
     f.close()
 
-    with open(options.output_folder + '/PATO/system/subMat1/plotDict', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/system/subMat1/plotDict', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 |\n')
@@ -706,7 +712,7 @@ def write_system_folder(options, time):
 
     f.close()
 
-    with open(options.output_folder + '/PATO/system/subMat1/surfacePatchDict', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/system/subMat1/surfacePatchDict', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 |\n')
@@ -762,7 +768,7 @@ def write_system_folder(options, time):
     coeff_1 = 2
     coeff_2 = 1
 
-    with open(options.output_folder + '/PATO/system/subMat1/decomposeParDict', 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(id)+'/system/subMat1/decomposeParDict', 'w') as f:
 
         f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
         f.write('| =========                 |                                                 | \n')
@@ -810,7 +816,26 @@ def write_system_folder(options, time):
     pass
 
 
-def run_PATO(options):
+def initialize(options, id):
+    """
+    Calls the PATO executable and run the simulation
+
+    Parameters
+    ----------
+    ?????????????????????????
+    """
+    write_All_run_init(options, id)
+    write_constant_folder(options, id)
+    write_origin_folder(options, id, options.pato.Ta_bc)
+    write_material_properties(options, id)
+    write_system_folder(options, id, 0)
+
+    n_proc = options.pato.n_cores
+
+    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    subprocess.run([options.output_folder + 'PATO_'+str(id)+'/Allrun_init', str(n_proc)], text = True)
+
+def run_PATO(options, id):
     """
     Calls the PATO executable and run the simulation
 
@@ -821,7 +846,7 @@ def run_PATO(options):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([options.output_folder + '/PATO/Allrun', str(n_proc)], text = True)
+    subprocess.run([options.output_folder + '/PATO_'+str(id)+'/Allrun', str(n_proc)], text = True)
 
 
 def postprocess_PATO_solution(options, assembly, iteration):
@@ -833,7 +858,7 @@ def postprocess_PATO_solution(options, assembly, iteration):
 	?????????????????????????
     """ 
 
-    path = options.output_folder+"PATO/VTK/"
+    path = options.output_folder+"PATO_"+str(assembly.id)+"/VTK/"
 
     iteration_to_read = int((iteration+1)*options.dynamics.time_step/options.pato.time_step)
 

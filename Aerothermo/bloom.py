@@ -86,11 +86,13 @@ def generate_BL_CFD(j, options, num_obj, bloom, input_grid, output_grid):
     subprocess.run([path+'/Executables/amg_bloom', '-in', options.output_folder+'/CFD_Grid/Bloom/'+input_grid+str(j)+'.meshb', '-bl-data',options.output_folder+'/CFD_Grid/Bloom/bloom', '-bl-hybrid', '-out', options.output_folder+'/CFD_Grid/Bloom/'+input_grid+str(j)+'_BL', '-hmsh'])
     subprocess.run(['python', path+'/Executables/su2io/su2gmf/gmf_to_su2.py', '-m', options.output_folder+'/CFD_Grid/Bloom/'+input_grid+str(j)+'_BL.meshb', '-b', options.output_folder +'/CFD_Grid/'+input_grid+'.su2', '-o', options.output_folder+'/CFD_Grid/'+output_grid])
 
-def generate_PATO_mesh(options, num_obj, bloom, input_grid, output_grid):
+def generate_PATO_mesh(options, id, num_obj, bloom, input_grid, output_grid):
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    path_folder = '/PATO/mesh/'
+    path_folder = '/PATO_'+str(id)+'/mesh/'
+
+    print('\n HERE path_folder:', path_folder)
 
     create_bloom_config(num_obj, bloom, options, path_folder)
     subprocess.run(['python3.8', path+'/Executables/su2_to_gmf.py', '-m' ,options.output_folder + path_folder +input_grid+'.su2','-o',options.output_folder+path_folder+input_grid])

@@ -221,7 +221,10 @@ class PATO():
         self.time_step = time_step  
 
         #: [int] Number of cores to perform PATO simulation
-        self.n_cores = n_cores                
+        self.n_cores = n_cores    
+
+        #: [int] String to define type of boundary condition used in the PATO simulation
+        self.Ta_bc = 'qconv'            
 
 
 class Radiation():
@@ -446,20 +449,6 @@ class Options():
                 Path(self.output_folder+'/CFD_Grid/Bloom/').mkdir(parents=True, exist_ok=True)
             if self.amg.flag:
                 Path(self.output_folder+'/CFD_Grid/Amg/').mkdir(parents=True, exist_ok=True)
-
-        if self.pato.flag == True:
-            Path(self.output_folder+'/PATO/').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/verification/').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/constant/').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/constant/subMat1/').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/origin.0/').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/origin.0/subMat1').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/system/').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/system/subMat1').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/qconv').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/mesh').mkdir(parents=True, exist_ok=True)
-            Path(self.output_folder+'/PATO/data').mkdir(parents=True, exist_ok=True)
 
     def save_mesh(self,titan):
         outfile = open(self.output_folder + '/Restart/'+'Mesh.p','wb')
@@ -963,7 +952,6 @@ def read_config_file(configParser, postprocess = ""):
             #Reads the user-defined geometries, properties and connectivity
             #to generate an assembly. The information is stored in the titan object
             titan = read_geometry(configParser, options)
-            
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
                 ### bc_ids = [obj.fenics_bc_id for obj in assembly.objects]
@@ -973,7 +961,7 @@ def read_config_file(configParser, postprocess = ""):
                     num_obj = 1
                     input_grid = "pato_mesh_"+str(assembly.id)
                     output_grid = "pato_mesh_hybrid_"+str(assembly.id)
-                    bloom.generate_PATO_mesh(options, num_obj = num_obj, bloom = options.bloom, input_grid = input_grid , output_grid = output_grid) #grid name without .SU2
+                    bloom.generate_PATO_mesh(options, assembly.id, num_obj = num_obj, bloom = options.bloom, input_grid = input_grid , output_grid = output_grid) #grid name without .SU2
 
             options.save_mesh(titan)
         
