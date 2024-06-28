@@ -419,9 +419,9 @@ def write_origin_folder(options, id, Ta_bc):
             f.write('mappingFields   (\n')
             f.write('    (qConvCFD "3")\n')
             f.write('    (emissivity "4")\n')
+            f.write('    (Tbackground "5")\n')
             f.write(');\n')
             f.write('p 101325;\n')
-            f.write('Tbackground 300;\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
             f.write('value           uniform 300;\n')       
@@ -447,11 +447,12 @@ def write_PATO_BC(options, assembly, time):
             assembly.emissivity[obj.facet_index] = emissivity_obj 
             assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)     
 
-        x = np.array([])
-        y = np.array([])
-        z = np.array([])
-        q = np.array([])
-        e = np.array([])
+        x    = np.array([])
+        y    = np.array([])
+        z    = np.array([])
+        q    = np.array([])
+        e    = np.array([])
+        Tinf = np.array([])
 
         n_data_points = len(assembly.mesh.facet_COG)
 
@@ -461,6 +462,7 @@ def write_PATO_BC(options, assembly, time):
             z = np.append(z, assembly.mesh.facet_COG[i,2])
             q = np.append(q, assembly.aerothermo.heatflux[i])
             e = np.append(e, assembly.emissivity[i])
+            Tinf = np.append(Tinf, assembly.freestream.temperature)
 
         if ((time).is_integer()): time = int(time)  
 
@@ -474,6 +476,7 @@ def write_PATO_BC(options, assembly, time):
             f.write('"zw (m)"\n')
             f.write('"qConvCFD (W/m^2)"\n')
             f.write('"emissivity (-)"\n')
+            f.write('"Tbackground (K)"\n')
             f.write('ZONE T="zone 1"\n')
             f.write(' STRANDID=0, SOLUTIONTIME=0\n')
             f.write(' I=' + str(n_data_points) + ', J=1, K=1, ZONETYPE=Ordered\n')
@@ -484,6 +487,7 @@ def write_PATO_BC(options, assembly, time):
             f.write(np.array2string(z)[1:-1]+' ')
             f.write(np.array2string(q)[1:-1]+' ')
             f.write(np.array2string(e)[1:-1]+' ')
+            f.write(np.array2string(Tinf)[1:-1]+' ')
 
         f.close()
 
