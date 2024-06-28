@@ -64,7 +64,7 @@ def loop(options = [], titan = []):
     if options.vehicle:
         titan.assembly[0].mass = options.vehicle.mass
 
-    if options.thermal.ablation and options.pato.flag:
+    if options.thermal.ablation and options.pato.flag and titan.iter == 0:
         for assembly in titan.assembly:
             pato.initialize(options, assembly.id)    
 
