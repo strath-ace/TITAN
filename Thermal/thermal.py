@@ -207,7 +207,7 @@ def compute_thermal_tetra(titan, options):
             #print('0 N facets assembly:', len(assembly.mesh.v0))
             #print('N tetras assembly:', len(assembly.mesh.vol_elements))
             print('Removing ablated elements')
-            mesh.remove_ablated_elements(assembly, delete_array, options.Twall)
+            mesh.remove_ablated_elements(assembly, delete_array)
             #print('N facets assembly:', len(assembly.mesh.facets))
             #print('N tetras assembly:', len(assembly.mesh.vol_elements))
         

@@ -151,13 +151,43 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
    #     gmsh.model.mesh.generate(2)
    #     gmsh.write(output_folder +'/Volume/'+ '%s_%s_surf.vtk'%(output_filename, assembly.id))
 
-    if write:
-        #gmsh.write(output_folder +'/Volume/'+'%s_%s.msh'%('mesh', assembly.id))
-        #gmsh.option.setNumber("Mesh.MshFileVersion", 2.)
-        gmsh.write(output_folder +'/PATO_'+str(assembly.id)+'/mesh/'+'%s.su2'%('pato_mesh_'+str(assembly.id)))
     gmsh.finalize()
 
     return coords, elements.astype(int), density_elem, tag_elem.astype(int)
+
+def generate_PATO_domain(obj, write = False, output_folder = '', output_filename = '', bc_ids = []):
+    
+    print('Generating PATO domain:', obj.name)
+
+    gmsh.initialize()
+    mesh_Settings(gmsh)
+
+    ref_objects = 1.0
+    ref_joint = 1.0
+    density_elem = []
+    tag_elem = []
+
+    init_ref_surf = 1
+    surf_ref_init = 1
+    ref_phys_surface = 1
+
+    #map_objects = dict()
+    gmsh.model.mesh.createGeometry()
+
+    #Change refs to refine joints as well
+
+    mesh = obj.mesh
+
+    ref = np.ones(len(mesh.nodes))*ref_objects
+
+    node_ref_init, edge_ref_init, surf_ref_init = object_grid(gmsh, mesh.nodes, mesh.edges, mesh.facet_edges, ref)
+    init_ref_surf, ref_phys_surface = object_physical(gmsh, init_ref_surf, surf_ref_init, ref_phys_surface, 'top')
+    
+    gmsh.model.geo.synchronize()
+    gmsh.model.mesh.generate(2)
+
+    gmsh.write(output_folder +'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/mesh/'+'%s.stl'%('mesh'))
+    gmsh.finalize()
 
 def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name):
     #Change here for every object in assembly give a different tag

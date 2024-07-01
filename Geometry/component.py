@@ -21,6 +21,7 @@ from Geometry import mesh as Mesh
 from Geometry.tetra import inertia_tetra, vol_tetra
 from Material.material import Material
 import numpy as np
+from pathlib import Path
 
 class Component_list():
     # A class with the purpose of storing the different components in a list
@@ -120,6 +121,10 @@ class Component():
 
         self.photons = 0
 
+
+        if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
+            self.pato = PATO(options, self.parent_id, self.id, self.temperature)        
+
     def compute_mass_properties(self, coords, elements, density):
         """
         Compute the inertia properties
@@ -146,3 +151,27 @@ class Component():
             self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*mass[:,None], axis = 0)/self.mass
         
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
+
+
+class PATO():
+    """ Class PATO
+    
+        A class to store the PATO simulation
+    """
+
+    def __init__(self, options, assembly_id = 0, object_id = 0, temperature = 300):
+
+        self.initial_temperature = temperature
+        
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/constant/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/constant/subMat1/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/origin.0/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/origin.0/subMat1').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/system/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/system/subMat1').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/qconv').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/mesh').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(assembly_id)+'_'+str(object_id)+'/data').mkdir(parents=True, exist_ok=True)        

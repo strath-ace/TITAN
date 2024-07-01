@@ -106,7 +106,7 @@ def compute_mesh(mesh, compute_radius = True):
     mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0,mesh.v1,mesh.v2)
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
     mesh.edges, mesh.facet_edges = map_edges_connectivity(mesh.facets)
-    
+
     if compute_radius: 
         mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
     else: 
@@ -947,7 +947,7 @@ def map_surf_to_tetra(vol_coords, vol_elements):
 
     return map_facet_tetra
 
-def remove_ablated_elements(assembly, delete_array, Twall):
+def remove_ablated_elements(assembly, delete_array):
     """
     Function to remove ablated tetras from the object.
     Calls add_surface_facets to add the new exposed facets to the surface list
@@ -1013,7 +1013,7 @@ def remove_ablated_elements(assembly, delete_array, Twall):
 
     #Update aerothermo
     num_faces = len(mesh.v0)- old_num_faces
-    aerothermo.append(num_faces, Twall)
+    aerothermo.append(num_faces, 300)
     assembly.emissive_power = np.append(assembly.emissive_power, np.zeros(num_faces))
 
     #Delete the facets
