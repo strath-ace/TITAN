@@ -238,8 +238,12 @@ def compute_thermal_tetra(titan, options):
 
 def compute_thermal_PATO(titan, options):
     
-    for assembly in titan.assembly:            
-        pato.compute_thermal(assembly, titan.time, titan.iter, options)
+    for assembly in titan.assembly: 
+        Tinf = assembly.freestream.temperature           
+        for obj in assembly.objects:
+            hf = assembly.aerothermo.heatflux[obj.facet_index]
+            pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
+            assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
     return
 

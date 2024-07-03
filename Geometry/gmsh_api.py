@@ -155,9 +155,10 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
 
     return coords, elements.astype(int), density_elem, tag_elem.astype(int)
 
-def generate_PATO_domain(obj, write = False, output_folder = '', output_filename = '', bc_ids = []):
+def generate_PATO_domain(obj, output_folder = ''):
     
-    print('Generating PATO domain:', obj.name)
+    print('Generating PATO domain, assembly:', obj.parent_id, ' object:', obj.id)
+    print('     ', obj.name)
 
     gmsh.initialize()
     mesh_Settings(gmsh)
@@ -182,11 +183,34 @@ def generate_PATO_domain(obj, write = False, output_folder = '', output_filename
 
     node_ref_init, edge_ref_init, surf_ref_init = object_grid(gmsh, mesh.nodes, mesh.edges, mesh.facet_edges, ref)
     init_ref_surf, ref_phys_surface = object_physical(gmsh, init_ref_surf, surf_ref_init, ref_phys_surface, 'top')
-    
-    gmsh.model.geo.synchronize()
-    gmsh.model.mesh.generate(2)
 
-    gmsh.write(output_folder +'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/mesh/'+'%s.stl'%('mesh'))
+    obj_facet_index = np.arange(len(obj.facet_index))
+
+    out = gmsh.model.geo.addSurfaceLoop(np.array(obj_facet_index)+1)
+    #out = gmsh.model.geo.addSurfaceLoop(np.array(obj.facet_index)+1)
+
+    if obj.inner_mesh:
+        ref = np.ones(len(obj.inner_mesh.nodes))*ref_objects
+        node_ref_end , edge_ref_end, surf_ref_end = object_grid(gmsh,obj.inner_mesh.nodes, obj.inner_mesh.edges, obj.inner_mesh.facet_edges, ref,node_ref_init, edge_ref_init, surf_ref_init)
+        #assembly.objects[i].inner_node_index = np.array(range(node_ref_init-1, node_ref_end-1))
+        hole = gmsh.model.geo.addSurfaceLoop(range(surf_ref_init, surf_ref_end))
+        vol_tag = gmsh.model.geo.addVolume([out,hole])
+        
+        node_ref_init = node_ref_end
+        edge_ref_init = edge_ref_end
+        surf_ref_init = surf_ref_end
+
+    else:
+        vol_tag = gmsh.model.geo.addVolume([out])
+    
+    obj.vol_tag = vol_tag 
+    ref_phys_volume = gmsh.model.geo.addPhysicalGroup(3, [vol_tag])
+    gmsh.model.setPhysicalName(3, ref_phys_volume, "body")  
+
+    gmsh.model.geo.synchronize()
+    gmsh.model.mesh.generate(3)
+
+    gmsh.write(output_folder +'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/mesh/'+'%s.su2'%('mesh'))
     gmsh.finalize()
 
 def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name):
@@ -219,6 +243,7 @@ def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1
 
         gmsh.model.geo.addPlaneSurface([surf_ref])
         #surface = gmsh.model.geo.addPlaneSurface([surf_ref])
+        #print('surface:', surface)
         #gmsh.model.geo.addPhysicalGroup(2, [surface], tag = surf_ref, name = "top")
         #gmsh.model.setPhysicalName(2, surf_ref, "top")
         surf_ref +=1

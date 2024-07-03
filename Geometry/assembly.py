@@ -24,6 +24,7 @@ import numpy as np
 from copy import deepcopy
 import subprocess
 import os
+from pathlib import Path
 
 def create_assembly_flag(list_bodies, Flags):
     """
@@ -397,6 +398,7 @@ class Assembly():
             #Loop the components that belong to the assembly, and append the surface mesh
             for obj in objects:
                 self.mesh = Mesh.append(self.mesh, obj.mesh)
+                obj.parent_id = self.id
 
             #Create the mapping between the facets and the vertex coordinates
             ___, self.mesh.facets = Mesh.map_facets_connectivity(self.mesh.v0, self.mesh.v1, self.mesh.v2) 
@@ -453,7 +455,21 @@ class Assembly():
             self.ablation_mode = 'tetra'
 
         elif options.thermal.ablation_mode.lower() == 'pato':
-            self.ablation_mode = 'PATO'        
+            self.ablation_mode = 'PATO'      
+            for obj in self.objects:
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/verification/').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/constant/').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/constant/subMat1/').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/origin.0/').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/origin.0/subMat1').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/system/').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/system/subMat1').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/qconv').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/mesh').mkdir(parents=True, exist_ok=True)
+                Path(options.output_folder+'/PATO_'+str(obj.parent_id)+'_'+str(obj.id)+'/data').mkdir(parents=True, exist_ok=True)        
+
 
         else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
 

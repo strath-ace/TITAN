@@ -19,7 +19,6 @@
 #
 import os
 import sys
-sys.setrecursionlimit(100000) 
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -950,18 +949,13 @@ def read_config_file(configParser, postprocess = ""):
             titan = read_geometry(configParser, options)
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
-                ### bc_ids = [obj.fenics_bc_id for obj in assembly.objects]
                 assembly.generate_inner_domain(write = options.pato.flag, output_folder = options.output_folder)
                 assembly.compute_mass_properties()
                 if options.pato.flag and options.bloom.flag:
                     for obj in assembly.objects:
-                        GMSH.generate_PATO_domain(obj, write = options.pato.flag, output_folder = options.output_folder)
-                    exit(0)
-                    num_obj = 1
-                    input_grid = "pato_mesh_"+str(assembly.id)
-                    output_grid = "pato_mesh_hybrid_"+str(assembly.id)
-                    bloom.generate_PATO_mesh(options, assembly.id, num_obj = num_obj, bloom = options.bloom, input_grid = input_grid , output_grid = output_grid) #grid name without .SU2
-                    pato.initialize(options, assembly.id)
+                        GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)
+                        bloom.generate_PATO_mesh(options, assembly.id, obj.id, bloom = options.bloom)
+                        pato.initialize(options, obj)
 
             options.save_mesh(titan)
         
