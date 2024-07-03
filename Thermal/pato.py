@@ -218,10 +218,10 @@ def write_All_run(options, obj, time, iteration):
         #f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
-        for n in range(options.pato.n_cores):
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
-            f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
+        #for n in range(options.pato.n_cores):
+            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+            #f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
     f.close()
 
@@ -883,30 +883,37 @@ def postprocess_PATO_solution(options, obj, iteration):
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
 
-    round_number = 3
+    for i in range(len(obj.pato.temperature)):
+        obj.pato.temperature[i] = interpolateNearestCOG(obj.mesh.facet_COG[i], vtk_COG, temperature_cell)
+    obj.temperature = obj.pato.temperature
+    
 
-    vtk_COG = (np.round(vtk_COG, round_number)).tolist()
-    TITAN_COG = (np.round(obj.mesh.facet_COG,round_number)).tolist()   
-    
-    vtk_COG_sorted   = sorted(vtk_COG)
-    TITAN_COG_sorted = sorted(TITAN_COG)
-    
-    vtk_COG_sorted_index   = [vtk_COG.index(x) for x in vtk_COG_sorted[:]]
-    TITAN_COG_sorted_index = [TITAN_COG.index(x) for x in TITAN_COG_sorted[:]]
-    
-    vtk_COG_sorted_index = np.asarray(vtk_COG_sorted_index, dtype=int)
-    TITAN_COG_sorted_index = np.asarray(TITAN_COG_sorted_index, dtype=int)
-    
-    temperature_cell = np.asarray(temperature_cell, dtype=float)
-    
-    obj.temperature = temperature_cell[vtk_COG_sorted_index]    
+def interpolateNearestCOG(facet_COG, input_COG, input_array):
 
-    temperature_corr = np.zeros(n_cells)
+    value = 0;
+  
+    distance_min = -1;
+    indexData = -1;
 
-    temperature_corr[TITAN_COG_sorted_index[:]] = obj.temperature[:]
-        
-    obj.temperature = temperature_corr
-    obj.pato.temperature = obj.temperature
+    xp = facet_COG[0]
+    yp = facet_COG[1]
+    zp = facet_COG[2]
+
+    for i in range(len(input_COG)):
+        x = input_COG[i,0]
+        y = input_COG[i,1]
+        z = input_COG[i,2]
+
+        dist = np.sqrt(pow(x - xp, 2) + pow(y - yp, 2) + pow(z - zp, 2))
+        if (distance_min < 0 or dist < distance_min):
+            distance_min = dist;
+            indexData = i;
+  
+
+    if (indexData >= 0):
+        value = input_array[indexData];
+
+    return value    
 
 def retrieve_surface_vtk_data(n_proc, path, iteration):
 
