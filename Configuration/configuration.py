@@ -652,6 +652,8 @@ def read_geometry(configParser, options):
 
     #Loops through the user-defined components, checks if they are either Primitives or Joints 
     #and creates the object according to the specified parameters in the config file
+    obj_global_ID = 0
+
     for section in configParser.sections():
         if section == 'Objects':
             for name, value in configParser.items(section):
@@ -691,7 +693,7 @@ def read_geometry(configParser, options):
                         temperature = 300
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
-                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options)
+                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options, global_ID = obj_global_ID)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -724,7 +726,9 @@ def read_geometry(configParser, options):
                         temperature = 300              
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
-                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 
+                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options, global_ID = obj_global_ID) 
+
+                obj_global_ID += 1
 
 
     # Creates a list of the different assemblies, where each assembly is a object with several linked components
@@ -954,7 +958,7 @@ def read_config_file(configParser, postprocess = ""):
                 if options.pato.flag and options.bloom.flag:
                     for obj in assembly.objects:
                         GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)
-                        bloom.generate_PATO_mesh(options, assembly.id, obj.id, bloom = options.bloom)
+                        bloom.generate_PATO_mesh(options, obj.global_ID, bloom = options.bloom)
                         pato.initialize(options, obj)
 
             options.save_mesh(titan)

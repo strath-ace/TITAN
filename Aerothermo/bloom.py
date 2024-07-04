@@ -86,11 +86,11 @@ def generate_BL_CFD(j, options, num_obj, bloom, input_grid, output_grid):
     subprocess.run([path+'/Executables/amg_bloom', '-in', options.output_folder+'/CFD_Grid/Bloom/'+input_grid+str(j)+'.meshb', '-bl-data',options.output_folder+'/CFD_Grid/Bloom/bloom', '-bl-hybrid', '-out', options.output_folder+'/CFD_Grid/Bloom/'+input_grid+str(j)+'_BL', '-hmsh'])
     subprocess.run(['python', path+'/Executables/su2io/su2gmf/gmf_to_su2.py', '-m', options.output_folder+'/CFD_Grid/Bloom/'+input_grid+str(j)+'_BL.meshb', '-b', options.output_folder +'/CFD_Grid/'+input_grid+'.su2', '-o', options.output_folder+'/CFD_Grid/'+output_grid])
 
-def generate_PATO_mesh(options, assembly_id, object_id, bloom):
+def generate_PATO_mesh(options, object_id, bloom):
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    path_folder = '/PATO_'+str(assembly_id)+'_'+str(object_id)+'/mesh/'
+    path_folder = '/PATO_'+str(object_id)+'/mesh/'
 
     input_grid = 'mesh'
     output_grid = 'hybrid_mesh'

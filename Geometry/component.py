@@ -21,6 +21,7 @@ from Geometry import mesh as Mesh
 from Geometry.tetra import inertia_tetra, vol_tetra
 from Material.material import Material
 import numpy as np
+from pathlib import Path
 
 class Component_list():
     # A class with the purpose of storing the different components in a list
@@ -28,11 +29,11 @@ class Component_list():
         self.object = []
         self.id = 1
 
-    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None):
+    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, global_ID = 0):
         
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
-                           trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, options = options))
+                           trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, options = options, global_ID = global_ID))
         self.id += 1
 
 class Component():
@@ -42,7 +43,8 @@ class Component():
     """
     
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
-                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest', v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None):
+                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest',
+                 v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0):
 
         print("Generating Body: ", filename)
         
@@ -62,6 +64,7 @@ class Component():
 
         #: [int] ID of the component
         self.id = id
+        self.global_ID = global_ID
         self.inner_mesh = False
 
         mesh = Mesh.Mesh(filename)
@@ -122,7 +125,7 @@ class Component():
 
 
         if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
-            self.pato = PATO(options, len(mesh.facets), self.parent_id, self.id, self.temperature)        
+            self.pato = PATO(options, len(mesh.facets), self.global_ID, self.temperature)        
 
     def compute_mass_properties(self, coords, elements, density):
         """
@@ -158,8 +161,21 @@ class PATO():
         A class to store the PATO simulation
     """
 
-    def __init__(self, options, len_facets, assembly_id = 0, object_id = 0, temperature = 300):
+    def __init__(self, options, len_facets, object_id = 0, temperature = 300):
 
         self.initial_temperature = temperature
         
         self.temperature = np.empty(len_facets); self.temperature.fill(temperature)
+
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/constant/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/constant/subMat1/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/origin.0/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/origin.0/subMat1').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/system/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/system/subMat1').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/qconv').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/mesh').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/data').mkdir(parents=True, exist_ok=True)        

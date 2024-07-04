@@ -156,7 +156,7 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		cell_data = {"Pressure": [pressure],
                   "Heatflux": [heatflux],
                   "temperature": [temperature],
-                  "Emissive power": emissive_power,
+                  "Emissive power": [emissive_power],
 				 }	
 
 	trimesh = meshio.Mesh(
