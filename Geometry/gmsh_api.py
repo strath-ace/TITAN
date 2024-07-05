@@ -146,7 +146,7 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     coords.shape= (-1 ,3)
 
    # if write: 
-   #     gmsh.write(output_folder +'/Volume/'+'%s_%s.vtk'%(output_filename, assembly.id))
+    gmsh.write(output_folder +'/Volume/'+'%s_%s.vtk'%(output_filename, assembly.id))
 
    #     gmsh.model.mesh.generate(2)
    #     gmsh.write(output_folder +'/Volume/'+ '%s_%s_surf.vtk'%(output_filename, assembly.id))

@@ -1,0 +1,73 @@
+[Options]
+Num_iters = 10
+Load_mesh = True
+Load_state = True
+Fidelity = Low
+Output_folder = Tests/ATV-joint-demise/
+Output_freq = 1
+Material_file = ATV_material.xml
+
+[Thermal]
+Ablation = True
+Ablation_mode = PATO
+
+[Bloom]
+Flag =  True
+Layers = 10
+Spacing = 0.001
+Growth_Rate = 5
+
+[Model]
+Planet = Earth
+
+[Time]
+Time_step = 0.5
+Propagator = Euler
+
+[Trajectory]
+Altitude = 120000
+Velocity = 7560
+Flight_path_angle = -1.45
+Heading_angle = 78
+Latitude = -40
+Longitude = 207
+ 
+[Freestream]
+Model = NRLMSISE00
+Method = Standard
+
+[Aerothermo]
+Heat_model = sc
+
+[Assembly]
+# Path for the geometry files
+Path = Tests/Mesh/ATV_pato/
+#Path = Tests/Mesh/ATV_simple_fenics_geometry/
+#Path = Tests/Mesh/Cubes/
+#Connectivity = [[1,2,0]]
+#Connectivity = [[1,2,0]]
+#Connectivity = [[1,2,6],[1,3,7],[1,4,8],[1,5,9]]
+Connectivity = [[1,2,3]]
+
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+
+ATV = [NAME = ATV.stl, TYPE = Primitive, MATERIAL = ATV_body, TEMPERATURE = 300, FENICS_ID = 1]
+
+Panel1 = [NAME = panel1.stl, TYPE = Primitive, MATERIAL = ATV_panel, TEMPERATURE = 300, FENICS_ID = 2]
+Panel2 = [NAME = panel2.stl, TYPE = Primitive, MATERIAL = ATV_panel, TEMPERATURE = 300, FENICS_ID = 2]
+Panel3 = [NAME = panel3.stl, TYPE = Primitive, MATERIAL = ATV_panel, TEMPERATURE = 300, FENICS_ID = 2]
+Panel4 = [NAME = panel4.stl, TYPE = Primitive, MATERIAL = ATV_panel, TEMPERATURE = 300, FENICS_ID = 2]
+
+
+Joint1 = [NAME = joint1.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 119900, FENICS_ID = -1]
+Joint2 = [NAME = joint2.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 119900, FENICS_ID = -1]
+Joint3 = [NAME = joint3.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 119900, FENICS_ID = -1]
+Joint4 = [NAME = joint4.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 119900, FENICS_ID = -1]
+
+
+[Initial Conditions]
+Angular Velocity = (1 : [0,10,0])
+
