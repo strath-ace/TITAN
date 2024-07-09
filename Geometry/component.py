@@ -126,6 +126,7 @@ class Component():
 
         if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
             self.pato = PATO(options, len(mesh.facets), self.global_ID, self.temperature)        
+            self.connectivity = np.array([], dtype = int)
 
     def compute_mass_properties(self, coords, elements, density):
         """
@@ -166,6 +167,8 @@ class PATO():
         self.initial_temperature = temperature
         
         self.temperature = np.empty(len_facets); self.temperature.fill(temperature)
+
+        self.hf_cond = np.zeros(len_facets)
 
         Path(options.output_folder+'/PATO_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)

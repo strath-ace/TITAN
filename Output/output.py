@@ -177,6 +177,7 @@ def generate_surface_solution(titan, options):
     pressure = np.array([])
     shear = np.array([])
     heatflux = np.array([])
+    hf_conv = np.array([])
     radius = np.array([])
     ellipse = np.array([])
     cellID = np.array([])
@@ -194,6 +195,7 @@ def generate_surface_solution(titan, options):
         ellipse = assembly.inside_shock
         temperature  = assembly.aerothermo.temperature
         emissive_power = assembly.emissive_power
+        hf_cond = assembly.hf_cond
 
         for cellid in range(len(assembly.mesh.facets)):
             cellID = np.append(cellID, cellid)
@@ -207,7 +209,8 @@ def generate_surface_solution(titan, options):
                       "Shear": [shear],
                       "Radius": [radius],
                       #"CellID": [cellID], #uncommenting this actually crashes the code
-                      "Emissive power": [emissive_power],
+                      #"Emissive power": [emissive_power],
+                      "Heat conduction": [hf_cond],
                     }
 
         point_data = { "Displacement": displacement,

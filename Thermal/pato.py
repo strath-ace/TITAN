@@ -969,3 +969,81 @@ def retrieve_volume_vtk_data(n_proc, path, iteration):
     vtk_data = extractSurface.GetOutput()    
 
     return vtk_data
+
+def compute_heat_conduction(assembly, L):
+
+    #for each object, define connectivity to connected objects
+    identify_object_connections(assembly)
+
+    objects = assembly.objects
+
+    assembly.hf_cond[:] = 0
+    for i in range(len(objects)):
+        #initialize conductive heat flux of every object
+        obj_A = objects[i]
+        obj_A.pato.hf_cond[:] = 0
+        #loop through each connection of each entry
+        for j in range(len(obj_A.connectivity)):
+            obj_B = objects[obj_A.connectivity[j]-1]
+            compute_heat_conduction_on_surface(obj_A, obj_B, L)
+        assembly.hf_cond[objects[i].facet_index] += obj_A.pato.hf_cond
+
+
+def identify_object_connections(assembly):
+
+    #create array where each entry correspond to an object I with obj.id
+    #each element of the entry will contain the object J obj.id connected to object I
+    n_obj = len(assembly.objects)
+
+    #loop through n objects
+    obj_id = 1
+    for obj in assembly.objects:
+        #loop through entries
+        for entry in range(len(assembly.connectivity)):
+            #if entry contains object
+            if obj_id in assembly.connectivity[entry]:
+                index = np.where(assembly.connectivity[entry] == obj_id)[0]
+                if index == 2: #joint
+                    obj.connectivity = np.append(obj.connectivity, assembly.connectivity[entry][0])
+                    obj.connectivity = np.append(obj.connectivity, assembly.connectivity[entry][1])
+                else: #not joint
+                    if assembly.connectivity[entry][2] == 0: #if objects are directly connected
+                        #if another object at the left
+                        if index == 0:
+                            obj.connectivity = np.append(obj.connectivity, assembly.connectivity[entry][1])
+                        #if another object at the right !=0
+                        if index == 1:
+                            obj.connectivity = np.append(obj.connectivity, assembly.connectivity[entry][0])
+                    else: #if objects are connected by joint
+                        obj.connectivity = np.append(obj.connectivity, assembly.connectivity[entry][2])
+        obj_id += 1
+
+
+def compute_heat_conduction_on_surface(obj_A, obj_B, L):
+
+    #identify adjacent facets
+    #obj_A_adjacent = index of adjacent facets in obj A
+    #obj_B_adjacent = index of adjacent facets in obj B
+    obj_A_adjacent, obj_B_adjacent = adjacent_facets(obj_A.mesh.facet_COG, obj_B.mesh.facet_COG)
+
+    #pick up k (per facet)
+    k_B = obj_B.material.heatConductivity(obj_B.pato.temperature[obj_B_adjacent])
+    T_A = obj_A.pato.temperature
+    T_B = obj_B.pato.temperature
+
+    #for the identified facets:
+    qcond_A = -k_B*(T_A[obj_A_adjacent]-T_B[obj_B_adjacent])/L #qcond_BA
+
+    #append hf_cond cause there will be contribution from different objects
+    obj_A.pato.hf_cond[obj_A_adjacent] += qcond_A
+
+
+def adjacent_facets(facet_COG_A, facet_COG_B):
+
+    #boolean array with len(longest array) to check if facet is in common, index for longer vector
+    index_A = (facet_COG_A[:, None] == facet_COG_B).all(-1).any(-1)
+    index_B = (facet_COG_B[:, None] == facet_COG_A).all(-1).any(-1)
+
+    return index_A, index_B
+
+
