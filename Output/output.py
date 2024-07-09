@@ -177,7 +177,7 @@ def generate_surface_solution(titan, options):
     pressure = np.array([])
     shear = np.array([])
     heatflux = np.array([])
-    hf_conv = np.array([])
+    hf_cond = np.array([])
     radius = np.array([])
     ellipse = np.array([])
     cellID = np.array([])

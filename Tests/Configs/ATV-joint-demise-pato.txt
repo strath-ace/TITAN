@@ -1,7 +1,7 @@
 [Options]
-Num_iters = 10
-Load_mesh = True
-Load_state = True
+Num_iters = 1
+Load_mesh = False
+Load_state = False
 Fidelity = Low
 Output_folder = Tests/ATV-joint-demise/
 Output_freq = 1
@@ -46,8 +46,8 @@ Path = Tests/Mesh/ATV_pato/
 #Path = Tests/Mesh/Cubes/
 #Connectivity = [[1,2,0]]
 #Connectivity = [[1,2,0]]
-#Connectivity = [[1,2,6],[1,3,7],[1,4,8],[1,5,9]]
-Connectivity = [[1,2,3]]
+Connectivity = [[1,2,6],[1,3,7],[1,4,8],[1,5,9]]
+#Connectivity = [[1,2,3]]
 
 [Objects]
 #Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
