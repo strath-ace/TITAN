@@ -1,5 +1,5 @@
 [Options]
-Num_iters = 1
+Num_iters = 10
 Load_mesh = False
 Load_state = False
 Fidelity = Low
