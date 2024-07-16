@@ -457,8 +457,6 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
 
         if ((time).is_integer()): time = int(time)  
 
-        print('BC_', time)
-
         with open(options.output_folder + 'PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:
             f.write('TITLE     = "vol-for-blayer.fu"\n')
             f.write('VARIABLES = \n')
@@ -992,8 +990,6 @@ def identify_object_connections(assembly):
     #each element of the entry will contain the object J obj.id connected to object I
     n_obj = len(assembly.objects)
 
-    print('assembly.connectivity:',assembly.connectivity)
-
     #loop through n objects
     obj_id = 1
     for obj in assembly.objects:
@@ -1016,7 +1012,6 @@ def identify_object_connections(assembly):
                             obj.connectivity = np.append(obj.connectivity, assembly.connectivity[entry][0])
                     else: #if objects are connected by joint
                         obj.connectivity = np.append(obj.connectivity, assembly.connectivity[entry][2])
-        print('obj.connectivity:',obj.connectivity)
         obj_id += 1
 
 
