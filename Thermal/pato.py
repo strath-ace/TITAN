@@ -972,9 +972,6 @@ def retrieve_volume_vtk_data(n_proc, path, iteration):
 
 def compute_heat_conduction(assembly, L):
 
-    #for each object, define connectivity to connected objects
-    identify_object_connections(assembly)
-
     objects = assembly.objects
 
     assembly.hf_cond[:] = 0
@@ -995,9 +992,12 @@ def identify_object_connections(assembly):
     #each element of the entry will contain the object J obj.id connected to object I
     n_obj = len(assembly.objects)
 
+    print('assembly.connectivity:',assembly.connectivity)
+
     #loop through n objects
     obj_id = 1
     for obj in assembly.objects:
+        obj.connectivity = np.array([], dtype = int)
         #loop through entries
         for entry in range(len(assembly.connectivity)):
             #if entry contains object
@@ -1016,6 +1016,7 @@ def identify_object_connections(assembly):
                             obj.connectivity = np.append(obj.connectivity, assembly.connectivity[entry][0])
                     else: #if objects are connected by joint
                         obj.connectivity = np.append(obj.connectivity, assembly.connectivity[entry][2])
+        print('obj.connectivity:',obj.connectivity)
         obj_id += 1
 
 

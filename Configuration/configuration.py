@@ -960,6 +960,8 @@ def read_config_file(configParser, postprocess = ""):
                         GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)
                         bloom.generate_PATO_mesh(options, obj.global_ID, bloom = options.bloom)
                         pato.initialize(options, obj)
+                    #for each object, define connectivity to connected objects for heat conduction between objects
+                    pato.identify_object_connections(assembly)
 
             options.save_mesh(titan)
         

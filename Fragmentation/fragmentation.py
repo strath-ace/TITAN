@@ -29,6 +29,7 @@ import trimesh
 from Geometry.component import Component
 from collections import defaultdict
 from Dynamics import collision
+from Thermal import pato
 
 def demise_components(titan, i, joints_id, options): 
     """
@@ -609,3 +610,8 @@ def fragmentation(titan, options):
                 options.time_counter = options.collision.post_fragmentation_iters
 
         output.generate_volume(titan = titan, options = options)
+
+    
+    if options.thermal.ablation and options.pato.flag:
+        for assembly in titan.assembly:
+            pato.identify_object_connections(assembly)

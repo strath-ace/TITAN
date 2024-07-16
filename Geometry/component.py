@@ -126,7 +126,6 @@ class Component():
 
         if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
             self.pato = PATO(options, len(mesh.facets), self.global_ID, self.temperature)        
-            self.connectivity = np.array([], dtype = int)
 
     def compute_mass_properties(self, coords, elements, density):
         """
