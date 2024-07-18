@@ -384,19 +384,19 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     # Heatflux calculation for Earth
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options, assembly)*StConst
-            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
+            assembly.aerothermo.heatflux[index] = 0#aerothermodynamics_module_continuum(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options, assembly)*StConst
+            assembly.aerothermo.heatflux[index] *= 0#assembly.aerothermo.partial_factor[index] 
 
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction, assembly.aerothermo.temperature)*StConst
-            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index]
+            assembly.aerothermo.heatflux[index] = 0#aerothermodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction, assembly.aerothermo.temperature)*StConst
+            assembly.aerothermo.heatflux[index] *= 0#assembly.aerothermo.partial_factor[index]
 
         else: 
             #atmospheric model for the aerothermodynamics bridging needs to be the NRLSMSISE00
             atmo_model = "NRLMSISE00"
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, assembly.Lref, assembly, options)*StConst
-            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
+            assembly.aerothermo.heatflux[index] = 0#aerothermodynamics_module_bridging(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, assembly.Lref, assembly, options)*StConst
+            assembly.aerothermo.heatflux[index] *= 0#assembly.aerothermo.partial_factor[index] 
 
 
     elif options.planet.name == "neptune" or options.planet.name == "uranus":

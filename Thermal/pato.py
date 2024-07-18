@@ -133,12 +133,12 @@ def write_All_run_init(options, object_id):
         f.write('cd ../.. \n')
         f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
         f.write('mv constant/polyMesh constant/subMat1 \n')
-        f.write('count=`ls -1 processor* 2>/dev/null | wc -l`\n')
-        f.write('if [ $count != 0 ];\n')
-        f.write('then\n')
-        f.write('    rm -rf processor*\n')
-        f.write('fi\n')                                                                                                                                                                                                                             
-        f.write('decomposePar -region subMat1\n')
+        #f.write('count=`ls -1 processor* 2>/dev/null | wc -l`\n')
+        #f.write('if [ $count != 0 ];\n')
+        #f.write('then\n')
+        #f.write('    rm -rf processor*\n')
+        #f.write('fi\n')                                                                                                                                                                                                                             
+        #f.write('decomposePar -region subMat1\n')
 
     f.close()
 
@@ -163,6 +163,7 @@ def write_All_run(options, obj, time, iteration):
 
     end_time = time + options.dynamics.time_step
     start_time = time
+    start_time = round(time,1)
 
     time_step_to_delete = time - options.dynamics.time_step
     iteration_to_delete = int((iteration)*options.dynamics.time_step/options.pato.time_step)
@@ -178,43 +179,47 @@ def write_All_run(options, obj, time, iteration):
         f.write('cd ${0%/*} || exit 1 \n')
         f.write('. $PATO_DIR/src/applications/utilities/runFunctions/RunFunctions \n')
         f.write('pato_init \n')
-        f.write('if [ "$(uname)" = "Darwin" ]; then\n')
-        f.write('    source $FOAM_ETC/bashrc\n')
-        f.write('    source $PATO_DIR/bashrc\n')
-        f.write('fi\n')
-        f.write('\n')
-        f.write('if [ -z $1 ];\n')
-        f.write('then\n')
-        f.write('    echo "error: correct usage = ./Allrun_parallel <number_processors>"\n')
-        f.write('    exit 1\n')
-        f.write('fi\n')
-        f.write('re="^[0-9]+$"\n')
-        f.write('if ! [[ $1 =~ $re ]] ; then\n')
-        f.write('   echo "error: First argument is not a number" >&2\n')
-        f.write('   exit 1\n')
-        f.write('fi\n')
-        f.write('\n')
-        f.write('NPROCESSOR=$1\n')
-        f.write('\n')
-        f.write('if [ "$(uname)" = "Darwin" ]; then\n')
-        f.write('    sed_cmd=gsed\n')
-        f.write('else\n')
-        f.write('    sed_cmd=sed\n')
-        f.write('fi\n')
-        f.write('$sed_cmd -i "s/numberOfSubdomains \+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
+        #f.write('if [ "$(uname)" = "Darwin" ]; then\n')
+        #f.write('    source $FOAM_ETC/bashrc\n')
+        #f.write('    source $PATO_DIR/bashrc\n')
+        #f.write('fi\n')
+        #f.write('\n')
+        #f.write('if [ -z $1 ];\n')
+        #f.write('then\n')
+        #f.write('    echo "error: correct usage = ./Allrun_parallel <number_processors>"\n')
+        #f.write('    exit 1\n')
+        #f.write('fi\n')
+        #f.write('re="^[0-9]+$"\n')
+        #f.write('if ! [[ $1 =~ $re ]] ; then\n')
+        #f.write('   echo "error: First argument is not a number" >&2\n')
+        #f.write('   exit 1\n')
+        #f.write('fi\n')
+        #f.write('\n')
+        #f.write('NPROCESSOR=$1\n')
+        #f.write('\n')
+        #f.write('if [ "$(uname)" = "Darwin" ]; then\n')
+        #f.write('    sed_cmd=gsed\n')
+        #f.write('else\n')
+        #f.write('    sed_cmd=sed\n')
+        #f.write('fi\n')
+        #f.write('$sed_cmd -i "s/numberOfSubdomains \+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
         f.write('cp qconv/BC_'+str(end_time) + ' qconv/BC_' + str(start_time) + '\n')
-        f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
+        #f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
+        f.write('PATOx\n')
         f.write('TIME_STEP='+str(end_time)+' \n')
         f.write('MAT_NAME=subMat1 \n')
-        for n in range(options.pato.n_cores):
-            f.write('cd processor' + str(n) + '/\n')
-            f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
-            f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
-            f.write('cd .. \n')
+        #for n in range(options.pato.n_cores):
+        #    f.write('cd processor' + str(n) + '/\n')
+        #    f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
+        #    f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
+        #    f.write('cd .. \n')
+        f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
+        f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')        
         f.write('cp system/"$MAT_NAME"/fvSchemes  system/ \n')
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
-        f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
+        #f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
+        f.write('foamToVTK -time '+str(end_time)+'\n')
         f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
@@ -498,7 +503,8 @@ def write_system_folder(options, object_id, time):
     """
     start_time = time
     end_time = time + options.dynamics.time_step
-    wrt_interval = end_time - start_time
+    #wrt_interval = end_time - start_time
+    wrt_interval = options.pato.wrt
     pato_time_step = options.pato.time_step
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/system/controlDict', 'w') as f:
@@ -841,7 +847,8 @@ def run_PATO(options, object_id):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
+    #subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
+    subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun'], text = True)
 
 def postprocess_PATO_solution(options, obj, iteration):
     """
@@ -917,8 +924,9 @@ def retrieve_surface_vtk_data(n_proc, path, iteration):
     filename = [''] * n_proc
 
     for n in range(n_proc):
-        filename[n] = path + "processor" + str(n) + "_top_" + str(iteration) + ".vtk"
-
+        #filename[n] = path + "processor" + str(n) + "_top_" + str(iteration) + ".vtk"
+        filename[n] = path + "top/top_" + str(iteration) + ".vtk"
+        
     print('\n PATO solution filenames:', filename)
 
     #Open the VTK solution files and merge them together into one dataset

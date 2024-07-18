@@ -69,7 +69,7 @@ def loop(options = [], titan = []):
         #if options.current_iter%options.output_freq == 0:
         #    output.generate_surface_solution(titan = titan, options = options)
 
-        fragmentation.fragmentation(titan = titan, options = options)
+        #fragmentation.fragmentation(titan = titan, options = options)
         if not titan.assembly: return
 
         if options.time_counter>0:
