@@ -244,10 +244,13 @@ def compute_thermal_PATO(titan, options):
         pato.compute_heat_conduction(assembly, length)
         Tinf = assembly.freestream.temperature           
         for obj in assembly.objects:
-            hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
-            hf = assembly.aerothermo.heatflux[obj.facet_index]
-            pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
-            assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+            if obj.global_ID == 0 or obj.global_ID == 2:
+                hf = np.zeros(len(obj.mesh.facets))
+            elif obj.global_ID == 1:
+                hf = obj.pato.hf_cond #+ assembly.aerothermo.heatflux[obj.facet_index]
+                #hf = assembly.aerothermo.heatflux[obj.facet_index]
+                pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
+                assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
     return
 

@@ -820,6 +820,7 @@ def read_config_file(configParser, postprocess = ""):
             options.pato.flag = True
             options.pato.time_step = get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
             options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
+            options.pato.wrt = get_config_value(configParser, 0.1, 'PATO', 'wrt', 'float')
             #Read Bloom conditions
             options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
             options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')

@@ -69,7 +69,7 @@ def loop(options = [], titan = []):
         #if options.current_iter%options.output_freq == 0:
         #    output.generate_surface_solution(titan = titan, options = options)
 
-        fragmentation.fragmentation(titan = titan, options = options)
+        #fragmentation.fragmentation(titan = titan, options = options)
         if not titan.assembly: return
 
         if options.time_counter>0:
@@ -78,7 +78,14 @@ def loop(options = [], titan = []):
         else:
             options.dynamics.time_step = options.user_time
 
-        dynamics.integrate(titan = titan, options = options)
+        #dynamics.integrate(titan = titan, options = options)
+        print('titan.time=', titan.time)
+        titan.time += options.dynamics.time_step
+        print('titan.time=', titan.time)
+        titan.time = round(titan.time, 1)
+        print('titan.time=', titan.time)
+
+        
         #output.generate_surface_solution(titan = titan, options = options)
 
         if options.thermal.ablation:
