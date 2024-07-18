@@ -723,6 +723,10 @@ def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_t
     K = 0.1
     Stc = Stc*(K + (1-K)* np.sin(Theta)) #Lees laminar heat transfer distribution 
 
+    Theta_test = Theta.reshape(len(Theta), -1)
+    Theta_test = Theta_test.transpose()
+
+    Stc[Theta_test == 0] = 0
     Stc[Stc < 0] = 0
     Stc.shape = (-1)
 

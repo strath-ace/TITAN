@@ -78,8 +78,13 @@ def loop(options = [], titan = []):
         else:
             options.dynamics.time_step = options.user_time
 
-        dynamics.integrate(titan = titan, options = options)
+        #dynamics.integrate(titan = titan, options = options)
         #output.generate_surface_solution(titan = titan, options = options)
+        print('titan.time=', titan.time)
+        titan.time += options.dynamics.time_step
+        print('titan.time=', titan.time)
+        titan.time = round(titan.time, 1)
+        print('titan.time=', titan.time)
 
         if options.thermal.ablation:
             thermal.compute_thermal(titan = titan, options = options)

@@ -72,7 +72,7 @@ def compute_Euler(titan, options):
     for assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)
-        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step)
+        #update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step)
         
 def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step):
     """
