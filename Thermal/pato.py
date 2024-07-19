@@ -457,8 +457,6 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
 
         if ((time).is_integer()): time = int(time)  
 
-        print('BC_', time)
-
         with open(options.output_folder + 'PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:
             f.write('TITLE     = "vol-for-blayer.fu"\n')
             f.write('VARIABLES = \n')
@@ -972,9 +970,6 @@ def retrieve_volume_vtk_data(n_proc, path, iteration):
 
 def compute_heat_conduction(assembly, L):
 
-    #for each object, define connectivity to connected objects
-    identify_object_connections(assembly)
-
     objects = assembly.objects
 
     assembly.hf_cond[:] = 0
@@ -998,6 +993,7 @@ def identify_object_connections(assembly):
     #loop through n objects
     obj_id = 1
     for obj in assembly.objects:
+        obj.connectivity = np.array([], dtype = int)
         #loop through entries
         for entry in range(len(assembly.connectivity)):
             #if entry contains object
