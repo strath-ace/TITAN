@@ -1040,10 +1040,20 @@ def compute_heat_conduction_on_surface(obj_A, obj_B, L):
 
 def adjacent_facets(facet_COG_A, facet_COG_B):
 
-    #boolean array with len(longest array) to check if facet is in common, index for longer vector
-    index_A = (facet_COG_A[:, None] == facet_COG_B).all(-1).any(-1)
-    index_B = (facet_COG_B[:, None] == facet_COG_A).all(-1).any(-1)
+    COG_A = np.round(facet_COG_A, 5)
+    COG_B = np.round(facet_COG_B, 5) 
 
+    # Create dictionaries to store row-index mappings
+    dict_A = {tuple(row): index for index, row in enumerate(COG_A)}
+    dict_B = {tuple(row): index for index, row in enumerate(COG_B)}
+    
+    # Find common rows
+    common_rows = set(dict_A.keys()) & set(dict_B.keys())
+    
+    # Create vectors C and D with the indexes
+    index_A = [dict_A[row] for row in common_rows]
+    index_B = [dict_B[row] for row in common_rows]
+    
     return index_A, index_B
 
 

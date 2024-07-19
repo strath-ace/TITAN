@@ -27,6 +27,33 @@
 	</metalMaterial>
 
 	<metalMaterial>
+		<name>Unittest_PATO</name>
+		<density>2813.0</density>
+		<specificHeatCapacity>
+			<values>293,1004.55;1000,1004.55;</values>
+		</specificHeatCapacity>
+		<meltingHeat>361500.0</meltingHeat>
+		<meltingTemperature>906.15</meltingTemperature>
+		<emissivity>
+			<values>250.0,0.0;1000,0.0;</values>
+		</emissivity>
+		<heatConductivity>
+			<values>293,146.04;1000,146.04;</values>
+		</heatConductivity>
+		<oxideActivationTemperature>0.0</oxideActivationTemperature>
+		<oxideEmissivity>
+		</oxideEmissivity>
+		<oxideHeatOfFormation>0.0</oxideHeatOfFormation>
+		<oxideReactionProbability>0.0</oxideReactionProbability>
+		<youngModulus>
+			<values>297.15,68E9;473.15,59E9;573.15,47E9;773.15,12E9;1000.0,12E9;</values>
+		</youngModulus>
+		<yieldStress>
+			<values>297.15,295E6;473.15,240E6;573.15, 95E6; 773.15,8E6; 1000,8E6;</values>
+		</yieldStress>
+	</metalMaterial>	
+
+	<metalMaterial>
 		<name>Unittest_light</name>
 		<density>100.0</density>
 		<specificHeatCapacity>
