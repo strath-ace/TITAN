@@ -220,7 +220,7 @@ def write_All_run(options, obj, time, iteration):
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
         for n in range(options.pato.n_cores):
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
             f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
@@ -993,7 +993,6 @@ def retrieve_volume_vtk_data(n_proc, path, iteration):
 def compute_heat_conduction(assembly, L):
 
     objects = assembly.objects
-
     assembly.hf_cond[:] = 0
     for i in range(len(objects)):
         #initialize conductive heat flux of every object
@@ -1003,7 +1002,7 @@ def compute_heat_conduction(assembly, L):
         for j in range(len(obj_A.connectivity)):
             obj_B = objects[obj_A.connectivity[j]-1]
             compute_heat_conduction_on_surface(obj_A, obj_B, L)
-        assembly.hf_cond[objects[i].facet_index] += obj_A.pato.hf_cond
+        #assembly.hf_cond[objects[i].facet_index] += obj_A.pato.hf_cond
 
 
 def identify_object_connections(assembly):

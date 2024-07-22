@@ -195,7 +195,7 @@ def generate_surface_solution(titan, options):
         ellipse = assembly.inside_shock
         temperature  = assembly.aerothermo.temperature
         emissive_power = assembly.emissive_power
-        hf_cond = assembly.hf_cond
+        #hf_cond = assembly.hf_cond
 
         for cellid in range(len(assembly.mesh.facets)):
             cellID = np.append(cellID, cellid)
@@ -210,7 +210,7 @@ def generate_surface_solution(titan, options):
                       #"Radius": [radius],
                       #"CellID": [cellID], #uncommenting this actually crashes the code
                       "Emissive power": [emissive_power],
-                      "Heat conduction": [hf_cond],
+                      #"Heat conduction": [hf_cond],
                     }
 
         point_data = { "Displacement": displacement,
