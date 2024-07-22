@@ -27,6 +27,7 @@ from vtk import *
 import glob
 import os
 import re
+from scipy.spatial import KDTree
 
 def compute_thermal(obj, time, iteration, options, hf, Tinf):
 
@@ -227,6 +228,9 @@ def write_All_run(options, obj, time, iteration):
         #    f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
         #    f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
         #    f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
+        f.write('rm VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
+        #if (iteration_to_delete%500 != 0):
+        #    f.write('rm -rf VTK/PATO_'+str(obj.global_ID)+'_'+str(iteration_to_delete)+'* \n')
 
     f.close()
 
@@ -453,6 +457,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
         n_data_points = len(obj.mesh.facet_COG)
 
         for i in range(n_data_points):
+            #print('i:', i, ' conv_heatflux[i]:', conv_heatflux[i])
             x = np.append(x, obj.mesh.facet_COG[i,0])
             y = np.append(y, obj.mesh.facet_COG[i,1])
             z = np.append(z, obj.mesh.facet_COG[i,2])
@@ -861,7 +866,8 @@ def postprocess_PATO_solution(options, obj, iteration):
 
     path = options.output_folder+"PATO_"+str(obj.global_ID)+"/VTK/"
 
-    iteration_to_read = int((iteration+1)*options.dynamics.time_step/options.pato.time_step)
+    iteration_to_read = int(round((iteration+1)*options.dynamics.time_step/options.pato.time_step))
+
 
     n_proc = options.pato.n_cores
 
@@ -887,8 +893,13 @@ def postprocess_PATO_solution(options, obj, iteration):
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
 
-    for i in range(len(obj.pato.temperature)):
-        obj.pato.temperature[i] = interpolateNearestCOG(obj.mesh.facet_COG[i], vtk_COG, temperature_cell)
+    #print('hey 1')
+    temperature_cell = np.array(temperature_cell)
+    mapping = mapping_facetCOG_TITAN_PATO(obj.mesh.facet_COG, vtk_COG)
+    obj.pato.temperature = temperature_cell[mapping]
+    #exit()
+    #for i in range(len(obj.pato.temperature)):
+    #    obj.pato.temperature[i] = interpolateNearestCOG(obj.mesh.facet_COG[i], vtk_COG, temperature_cell)
     obj.temperature = obj.pato.temperature
     
 
@@ -917,7 +928,28 @@ def interpolateNearestCOG(facet_COG, input_COG, input_array):
     if (indexData >= 0):
         value = input_array[indexData];
 
-    return value    
+    return value   
+
+def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
+
+    A = facet_COG
+    B = vtk_COG
+
+    tree = KDTree(B)
+    
+    # Find the nearest point in B for each point in A
+    distances, indices = tree.query(A)
+        
+    # If you need the indices as a list
+    mapping = list(indices)
+    #print("Mapping of points from A to B:", mapping)
+
+    mapping = np.array(mapping)
+
+    #print(type(mapping))
+    #print(mapping)
+
+    return mapping
 
 def retrieve_surface_vtk_data(n_proc, path, iteration):
 
@@ -926,7 +958,7 @@ def retrieve_surface_vtk_data(n_proc, path, iteration):
     for n in range(n_proc):
         #filename[n] = path + "processor" + str(n) + "_top_" + str(iteration) + ".vtk"
         filename[n] = path + "top/top_" + str(iteration) + ".vtk"
-        
+
     print('\n PATO solution filenames:', filename)
 
     #Open the VTK solution files and merge them together into one dataset
@@ -978,6 +1010,8 @@ def retrieve_volume_vtk_data(n_proc, path, iteration):
 
 def compute_heat_conduction(assembly, L):
 
+    print('compute_heat_conduction')
+
     objects = assembly.objects
 
     assembly.hf_cond[:] = 0
@@ -990,7 +1024,12 @@ def compute_heat_conduction(assembly, L):
             obj_B = objects[obj_A.connectivity[j]-1]
             compute_heat_conduction_on_surface(obj_A, obj_B, L)
         assembly.hf_cond[objects[i].facet_index] += obj_A.pato.hf_cond
-        print('obj_A.pato.hf_cond:', obj_A.pato.hf_cond)
+        #print('obj_A.pato.hf_cond:', obj_A.pato.hf_cond)
+        #print('here 1 assembly.hf_cond:', assembly.hf_cond)
+
+    #print('here 1.5 assembly.hf_cond:', assembly.hf_cond)#; exit()
+
+    
 
 
 def identify_object_connections(assembly):
@@ -1042,13 +1081,34 @@ def compute_heat_conduction_on_surface(obj_A, obj_B, L):
     #append hf_cond cause there will be contribution from different objects
     obj_A.pato.hf_cond[obj_A_adjacent] += qcond_A
 
+#    print('\nobj ID:', obj_A.global_ID)
+#    for facet in range(len(obj_A_adjacent)):
+#        print('k_B:', k_B[facet])
+#        print('\nfacet:', facet)
+#        print('facet A:', obj_A_adjacent[facet])
+#        print('facet B:', obj_B_adjacent[facet])
+#        print('TA:', T_A[obj_A_adjacent[facet]])
+#        print('TB:', T_B[obj_B_adjacent[facet]])
+#        print('qcond_A:', obj_A.pato.hf_cond[obj_A_adjacent[facet]])
+
+    return obj_A_adjacent
+
 
 def adjacent_facets(facet_COG_A, facet_COG_B):
 
-    #boolean array with len(longest array) to check if facet is in common, index for longer vector
-    index_A = (facet_COG_A[:, None] == facet_COG_B).all(-1).any(-1)
-    index_B = (facet_COG_B[:, None] == facet_COG_A).all(-1).any(-1)
+    COG_A = np.round(facet_COG_A, 5)
+    COG_B = np.round(facet_COG_B, 5) 
 
+    # Create dictionaries to store row-index mappings
+    dict_A = {tuple(row): index for index, row in enumerate(COG_A)}
+    dict_B = {tuple(row): index for index, row in enumerate(COG_B)}
+    
+    # Find common rows
+    common_rows = set(dict_A.keys()) & set(dict_B.keys())
+    
+    # Create vectors C and D with the indexes
+    index_A = [dict_A[row] for row in common_rows]
+    index_B = [dict_B[row] for row in common_rows]
+    
     return index_A, index_B
-
 

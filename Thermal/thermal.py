@@ -240,12 +240,17 @@ def compute_thermal_PATO(titan, options):
     
     length = options.bloom.spacing/2
 
+    print('\n iteration:', titan.iter)
+
     for assembly in titan.assembly: 
         pato.compute_heat_conduction(assembly, length)
         Tinf = assembly.freestream.temperature           
         for obj in assembly.objects:
             hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
-            hf = assembly.aerothermo.heatflux[obj.facet_index]
+            #if titan.iter == 0:
+            #    hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
+            #else: hf = np.zeros(len(obj.mesh.facets))
+            #hf = assembly.aerothermo.heatflux[obj.facet_index]
             pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
             assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
