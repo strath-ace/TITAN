@@ -28,6 +28,7 @@ import glob
 import os
 import re
 from scipy.spatial import KDTree
+from Material import material as Material
 
 def compute_thermal(obj, time, iteration, options, hf, Tinf):
 
@@ -60,7 +61,15 @@ def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
     write_All_run(options, obj, time - options.dynamics.time_step, iteration)
     write_system_folder(options, obj.global_ID, time - options.dynamics.time_step)
 
-def write_material_properties(options, object_id):
+def write_material_properties(options, obj):
+
+    #emissivity_coeffs = obj.material.material_emissivity_polynomial()
+    emissivity_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'emissivity')
+    cp_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'specificHeatCapacity')
+    k_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'heatConductivity')
+    density = obj.material.density
+
+    object_id = obj.global_ID
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/data/constantProperties', 'w') as f:
 
@@ -81,34 +90,33 @@ def write_material_properties(options, object_id):
         f.write('/***        Temperature dependent material properties   ***/\n')
         f.write('/***        5 coefs - n0 + n1 T + n2 T² + n3 T³ + n4 T⁴ ***/\n')
         f.write('// specific heat capacity - cp - [0 2 -2 -1 0 0 0]\n')
-        f.write('cp_sub_n[0] 1004.55;\n')
-        f.write('cp_sub_n[1] 0;\n')
-        f.write('cp_sub_n[2] 0;\n')
-        f.write('cp_sub_n[3] 0;\n')
-        f.write('cp_sub_n[4] 0;\n')
+        f.write('cp_sub_n[0] '+str(cp_coeffs[0])+';\n')
+        f.write('cp_sub_n[1] '+str(cp_coeffs[1])+';\n')
+        f.write('cp_sub_n[2] '+str(cp_coeffs[2])+';\n')
+        f.write('cp_sub_n[3] '+str(cp_coeffs[3])+';\n')
+        f.write('cp_sub_n[4] '+str(cp_coeffs[4])+';\n')
         f.write('\n')
         f.write('// isotropic conductivity  - k - [1 1 -3 -1 0 0 0]\n')
-        f.write('k_sub_n[0]  146.04;\n')
-        f.write('k_sub_n[1]  0;\n')
-        f.write('k_sub_n[2]  0;\n')
-        f.write('k_sub_n[3]  0;\n')
-        f.write('k_sub_n[4]  0;\n')
+        f.write('k_sub_n[0]  '+str(k_coeffs[0])+';\n')
+        f.write('k_sub_n[1]  '+str(k_coeffs[1])+';\n')
+        f.write('k_sub_n[2]  '+str(k_coeffs[2])+';\n')
+        f.write('k_sub_n[3]  '+str(k_coeffs[3])+';\n')
+        f.write('k_sub_n[4]  '+str(k_coeffs[4])+';\n')
         f.write('\n')
         f.write('// density - rho - [1 -3 0 0 0 0 0]\n')
-        f.write('rho_sub_n[0]    2813;\n')
+        f.write('rho_sub_n[0]    '+str(density)+';\n')
         f.write('rho_sub_n[1]    0;\n')
         f.write('rho_sub_n[2]    0;\n')
         f.write('rho_sub_n[3]    0;\n')
         f.write('rho_sub_n[4]    0;\n')
         f.write('\n')
         f.write('// emissivity - e - [0 0 0 0 0 0 0]\n')
-        f.write('e_sub_n[0]  0.0;\n')
-        f.write('e_sub_n[1]  0;\n')
-        f.write('e_sub_n[2]  0;\n')
-        f.write('e_sub_n[3]  0;\n')
-        f.write('e_sub_n[4]  0;        \n')
+        f.write('e_sub_n[0]  '+str(emissivity_coeffs[0])+';\n')
+        f.write('e_sub_n[1]  '+str(emissivity_coeffs[1])+';\n')
+        f.write('e_sub_n[2]  '+str(emissivity_coeffs[2])+';\n')
+        f.write('e_sub_n[3]  '+str(emissivity_coeffs[3])+';\n')
+        f.write('e_sub_n[4]  '+str(emissivity_coeffs[4])+';        \n')
     f.close()
-
 
 def write_All_run_init(options, object_id):
     """
@@ -220,7 +228,7 @@ def write_All_run(options, obj, time, iteration):
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
         for n in range(options.pato.n_cores):
-            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
             f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
@@ -823,7 +831,7 @@ def initialize(options, obj):
     write_All_run_init(options,object_id)
     write_constant_folder(options, object_id)
     write_origin_folder(options, obj, options.pato.Ta_bc)
-    write_material_properties(options, object_id)
+    write_material_properties(options, obj)
     write_system_folder(options, object_id, 0)
 
     n_proc = options.pato.n_cores

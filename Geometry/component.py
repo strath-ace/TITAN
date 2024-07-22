@@ -88,6 +88,8 @@ class Component():
         #: [Material] Object of class Material to store the material properties
         self.material = Material(material, options)
 
+        self.material_name = material
+
         #: [K] Temperature
         self.temperature = temperature
 
