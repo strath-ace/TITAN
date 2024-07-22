@@ -241,7 +241,7 @@ def compute_thermal_PATO(titan, options):
     length = options.bloom.spacing/2
 
     for assembly in titan.assembly: 
-        #pato.compute_heat_conduction(assembly, length)
+        pato.compute_heat_conduction(assembly, length)
         Tinf = assembly.freestream.temperature           
         for obj in assembly.objects:
             hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]

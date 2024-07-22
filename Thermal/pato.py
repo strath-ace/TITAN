@@ -27,6 +27,7 @@ from vtk import *
 import glob
 import os
 import re
+from scipy.spatial import KDTree
 
 def compute_thermal(obj, time, iteration, options, hf, Tinf):
 
@@ -219,7 +220,7 @@ def write_All_run(options, obj, time, iteration):
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
         for n in range(options.pato.n_cores):
-            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
             f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
@@ -880,9 +881,30 @@ def postprocess_PATO_solution(options, obj, iteration):
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
 
-    for i in range(len(obj.pato.temperature)):
-        obj.pato.temperature[i] = interpolateNearestCOG(obj.mesh.facet_COG[i], vtk_COG, temperature_cell)
+    #for i in range(len(obj.pato.temperature)):
+    #    obj.pato.temperature[i] = interpolateNearestCOG(obj.mesh.facet_COG[i], vtk_COG, temperature_cell)
+    
+    temperature_cell = np.array(temperature_cell)
+    mapping = mapping_facetCOG_TITAN_PATO(obj.mesh.facet_COG, vtk_COG)
+    obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
+
+def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
+
+    A = facet_COG
+    B = vtk_COG
+
+    tree = KDTree(B)
+    
+    # Find the nearest point in B for each point in A
+    distances, indices = tree.query(A)
+        
+    # If you need the indices as a list
+    mapping = list(indices)
+
+    mapping = np.array(mapping)
+
+    return mapping
     
 
 def interpolateNearestCOG(facet_COG, input_COG, input_array):

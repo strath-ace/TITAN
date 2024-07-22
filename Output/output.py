@@ -207,9 +207,9 @@ def generate_surface_solution(titan, options):
                       "Heatflux": [heatflux],
                       "Temperature": [temperature],
                       "Shear": [shear],
-                      "Radius": [radius],
+                      #"Radius": [radius],
                       #"CellID": [cellID], #uncommenting this actually crashes the code
-                      #"Emissive power": [emissive_power],
+                      "Emissive power": [emissive_power],
                       "Heat conduction": [hf_cond],
                     }
 
