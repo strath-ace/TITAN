@@ -219,7 +219,7 @@ def write_All_run(options, obj, time, iteration):
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
         for n in range(options.pato.n_cores):
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
             f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
@@ -854,7 +854,7 @@ def postprocess_PATO_solution(options, obj, iteration):
 
     path = options.output_folder+"PATO_"+str(obj.global_ID)+"/VTK/"
 
-    iteration_to_read = int((iteration+1)*options.dynamics.time_step/options.pato.time_step)
+    iteration_to_read = int(round((iteration+1)*options.dynamics.time_step/options.pato.time_step))
 
     n_proc = options.pato.n_cores
 
