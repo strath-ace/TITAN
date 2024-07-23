@@ -164,6 +164,9 @@ def write_All_run(options, obj, time, iteration):
     end_time = time + options.dynamics.time_step
     start_time = round(time,1)
 
+    prev_time = time - options.dynamics.time_step
+    prev_time = round(prev_time,1)    
+
     time_step_to_delete = time - options.dynamics.time_step
     iteration_to_delete = int((iteration)*options.dynamics.time_step/options.pato.time_step)
 
@@ -173,6 +176,7 @@ def write_All_run(options, obj, time, iteration):
 
         if ((end_time).is_integer()): end_time = int(end_time)
         if ((start_time).is_integer()): start_time = int(start_time)
+        if ((prev_time).is_integer()): prev_time = int(prev_time)
         if ((time_step_to_delete).is_integer()): time_step_to_delete = int(time_step_to_delete)
         f.write('#!/bin/bash \n')
         f.write('cd ${0%/*} || exit 1 \n')
@@ -222,10 +226,15 @@ def write_All_run(options, obj, time, iteration):
         #f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
+        f.write('rm VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
+        f.write('rm -rf '+str(prev_time)+' \n')       
         #for n in range(options.pato.n_cores):
             #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
             #f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
+        if (iteration_to_delete%500 != 0):
+            f.write('rm -rf VTK/PATO_'+str(obj.global_ID)+'_'+str(iteration_to_delete+1)+'* \n')
+
 
     f.close()
 
@@ -987,22 +996,22 @@ def compute_heat_conduction(assembly, L):
 
     assembly.hf_cond[:] = 0
     for i in range(len(objects)):
-        print('i:', i)
+        #print('i:', i)
         #initialize conductive heat flux of every object
         obj_A = objects[i]
         obj_A.pato.hf_cond[:] = 0
         if objects[i].global_ID == 1:
         #loop through each connection of each entry
-            print('obj_A.connectivity:', obj_A.connectivity)
+            #print('obj_A.connectivity:', obj_A.connectivity)
             for j in range(len(obj_A.connectivity)):
                 print('j:', j)
                 obj_B = objects[obj_A.connectivity[j]-1]
                 compute_heat_conduction_on_surface(obj_A, obj_B, L)
         assembly.hf_cond[objects[i].facet_index] += obj_A.pato.hf_cond
 
-    for obj in objects:
-        print('\nobj.temperature:', obj.pato.temperature)
-        #print('\nassembly.temperature[obj.facet_index]:', assembly.aerothermo.temperature[obj.facet_index], '\n')
+    #for obj in objects:
+    #    print('\nobj.temperature:', obj.pato.temperature)
+    #    #print('\nassembly.temperature[obj.facet_index]:', assembly.aerothermo.temperature[obj.facet_index], '\n')
 
 
 def identify_object_connections(assembly):
@@ -1049,10 +1058,10 @@ def compute_heat_conduction_on_surface(obj_A, obj_B, L):
     T_B = obj_B.pato.temperature
 
     #for the identified facets:
-    qcond_A = -k_B*(T_A[obj_A_adjacent]-T_B[obj_B_adjacent])/L #qcond_BA
-    print('T_A[obj_A_adjacent]:', T_A[obj_A_adjacent])
-    print('T_B[obj_B_adjacent]:', T_B[obj_B_adjacent])
-    print('qcond_A:', qcond_A)
+    qcond_A = -k_B*(T_A[obj_A_adjacent]-T_B[obj_B_adjacent])/(2*L) #qcond_BA
+    #print('T_A[obj_A_adjacent]:', T_A[obj_A_adjacent])
+    #print('T_B[obj_B_adjacent]:', T_B[obj_B_adjacent])
+    #print('qcond_A:', qcond_A)
 
     #append hf_cond cause there will be contribution from different objects
     obj_A.pato.hf_cond[obj_A_adjacent] += qcond_A
