@@ -64,9 +64,9 @@ def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
 def write_material_properties(options, obj):
 
     #emissivity_coeffs = obj.material.material_emissivity_polynomial()
-    emissivity_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'emissivity')
-    cp_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'specificHeatCapacity')
-    k_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'heatConductivity')
+    emissivity_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'emissivity', 1)
+    cp_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'specificHeatCapacity', 4)
+    k_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'heatConductivity', 4)
     density = obj.material.density
 
     object_id = obj.global_ID
@@ -113,9 +113,9 @@ def write_material_properties(options, obj):
         f.write('// emissivity - e - [0 0 0 0 0 0 0]\n')
         f.write('e_sub_n[0]  '+str(emissivity_coeffs[0])+';\n')
         f.write('e_sub_n[1]  '+str(emissivity_coeffs[1])+';\n')
-        f.write('e_sub_n[2]  '+str(emissivity_coeffs[2])+';\n')
-        f.write('e_sub_n[3]  '+str(emissivity_coeffs[3])+';\n')
-        f.write('e_sub_n[4]  '+str(emissivity_coeffs[4])+';        \n')
+        f.write('e_sub_n[2]  0;\n')
+        f.write('e_sub_n[3]  0;\n')
+        f.write('e_sub_n[4]  0;\n')
     f.close()
 
 def write_All_run_init(options, object_id):
@@ -1010,8 +1010,6 @@ def compute_heat_conduction(assembly, L):
         for j in range(len(obj_A.connectivity)):
             obj_B = objects[obj_A.connectivity[j]-1]
             compute_heat_conduction_on_surface(obj_A, obj_B, L)
-        #assembly.hf_cond[objects[i].facet_index] += obj_A.pato.hf_cond
-
 
 def identify_object_connections(assembly):
 
@@ -1057,7 +1055,7 @@ def compute_heat_conduction_on_surface(obj_A, obj_B, L):
     T_B = obj_B.pato.temperature
 
     #for the identified facets:
-    qcond_A = -k_B*(T_A[obj_A_adjacent]-T_B[obj_B_adjacent])/L #qcond_BA
+    qcond_A = -k_B*(T_A[obj_A_adjacent]-T_B[obj_B_adjacent])/(2*L) #qcond_BA
 
     #append hf_cond cause there will be contribution from different objects
     obj_A.pato.hf_cond[obj_A_adjacent] += qcond_A

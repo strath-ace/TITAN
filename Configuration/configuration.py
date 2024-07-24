@@ -820,13 +820,14 @@ def read_config_file(configParser, postprocess = ""):
             options.pato.flag = True
             options.pato.time_step = get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
             options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
+            if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
             #Read Bloom conditions
             options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
             options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
             options.bloom.spacing =     get_config_value(configParser,options.bloom.spacing,'Bloom', 'Spacing', 'float')
             options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
             options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
-
+            if not options.bloom.flag: print('Error: PATO requires BLOOM for mesh generation.'); exit()
         if(options.radiation.black_body_emissions):
             options.radiation.black_body_emissions_freq     = get_config_value(configParser, options.radiation.black_body_emissions_freq, 'Radiation', 'Black_body_emissions_freq', 'int')
             options.radiation.phi_min      =       get_config_value(configParser, options.radiation.phi_min, 'Radiation', 'Phi_min', 'custom', 'angle')

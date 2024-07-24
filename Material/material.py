@@ -343,7 +343,7 @@ class Material():
 
 		return interpolate.interp1d(values_T, values_Y, fill_value='extrapolate')	
 
-def polynomial_fit(material, name, properties):
+def polynomial_fit(material, name, properties, order):
 	"""
 	Function to retrieve polynomial fit coefficient for a given material property
 	
@@ -352,6 +352,8 @@ def polynomial_fit(material, name, properties):
 	coefficients: float array
 		Return coefficients value
 	"""
+
+	print('properties:', properties)
 
 	values = np.array(material.metalMaterial.find(properties).find('values').get_text().replace(',',';').split(';'))[:-1].astype(float)
 	values.shape = (-1,2)
@@ -362,9 +364,8 @@ def polynomial_fit(material, name, properties):
 	print('values_T:', values_T)
 	print('values_Y:', values_Y)
 
-	degree = 4  # Choose the degree of the polynomial
-	coefficients = np.polyfit(values_T, values_Y, degree)
+	coefficients = np.polyfit(values_T, values_Y, order)
 
 	coefficients = np.flip(coefficients)
-	
+	print('coefficients:')	
 	return coefficients

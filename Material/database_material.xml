@@ -1,5 +1,29 @@
 <materialList>
 	<metalMaterial>
+		<name>drama-AA7075</name>
+		<comment>Class example for aluminium alloys, values from ESTIMATE, calibrated in MADRE activity</comment>
+		<catalycity>1.0</catalycity>
+		<density>2813.0</density>
+		<specificHeatCapacity>
+			<values>293,877.5;313,885.5;333,893.5;353,901.5;373,911.5;393,923.5;413,936.6;433,947.6;453,965.6;473,1002.6;493,1068.6;513,1106.6;533,1084.6;553,1049.6;573,1042.6;593,1079.6;613,1120.6;633,1159.6;653,1198.7;673,1233.7;693,1259.7;713,1257.7;733,1102.7;753,1069.7;773,1069.7;793,1077.7;813,1086.4;833,1096.1;850.0,1131.6;</values>
+		</specificHeatCapacity>
+		<meltingHeat>400000.0</meltingHeat>
+		<meltingTemperature>850.0</meltingTemperature>
+		<emissivity>
+			<values>50.0,0.4;900.0,0.4;</values>
+		</emissivity>
+		<heatConductivity>
+			<values>293,163.89;313,164.95;333,166.53;353,168.46;373,170.61;393,172.84;413,175.05;433,177.10;453,178.92;473,180.43;493,181.58;513,182.31;533,182.60;553,182.44;573,181.84;593,180.83;613,179.45;633,177.78;653,175.93;673,173.97;693,172.06;713,170.36;733,169.08;753,168.39;773,168.54;793,169.05;813,162.63;833,145.74;850.0,128.19;</values>
+		</heatConductivity>
+		<oxideActivationTemperature>0.0</oxideActivationTemperature>
+		<oxideEmissivity>
+			<values>50.0,0.8;</values>
+		</oxideEmissivity>
+		<oxideHeatOfFormation>0.0</oxideHeatOfFormation>
+		<oxideReactionProbability>0.0</oxideReactionProbability>
+	</metalMaterial>
+
+	<metalMaterial>
 		<name>Unittest</name>
 		<density>1000.0</density>
 		<specificHeatCapacity>
