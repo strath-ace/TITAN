@@ -256,8 +256,15 @@ def compute_black_body_emissions(titan, options):
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
 
-    phi   = np.linspace(options.radiation.phi_min,options.radiation.phi_max,options.radiation.phi_n_values)
-    theta = np.linspace(options.radiation.theta_min,options.radiation.theta_max,options.radiation.theta_n_values)
+    phi_min = options.radiation.phi_min
+    phi_max = options.radiation.phi_max
+    phi_n_values = options.radiation.phi_n_values
+    theta_min = 0 #options.radiation.theta_min
+    theta_max = 360*np.pi/180.0 #options.radiation.theta_max
+    theta_n_values = 36 #options.radiation.theta_n_values
+
+    phi   = np.linspace(phi_min, phi_max, phi_n_values)
+    theta = np.linspace(theta_min, theta_max, theta_n_values)
 
     wavelength_min = options.radiation.wavelength_min
     wavelength_max = options.radiation.wavelength_max
@@ -308,7 +315,7 @@ def compute_black_body_emissions(titan, options):
 def integrate_planck(lambd_min, lambd_max, T, Tref):
 
 
-    integral = integrate.quad(black_body, lambd_min, lambd_max,args=(T, Tref))[0]
+    integral, error = integrate.quad(black_body, lambd_min, lambd_max,args=(T, Tref), epsabs=1.0e-4, epsrel=1.0e-4 )
 
     return integral
 
@@ -318,7 +325,7 @@ def black_body(wavelength, T, Tref):
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
 
-    exp = np.exp((h*c)/(k*wavelength*(T-Tref)))   
+    exp = np.exp((h*c)/(k*wavelength*T))   
 
     #b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
 
@@ -339,7 +346,7 @@ def compute_black_body_spectral_emissions(titan, options):
 
     phi   = np.linspace(options.radiation.phi_min,options.radiation.phi_max,options.radiation.phi_n_values)
     theta = np.linspace(options.radiation.theta_min,options.radiation.theta_max,options.radiation.theta_n_values)
-    wavelength = np.linspace(options.radiation.wavelength_min,options.radiation.wavelength_max,1000)
+    wavelength = np.linspace(options.radiation.wavelength_min,options.radiation.wavelength_max,100)
 
     for wavelength_i in range(len(wavelength)):
 

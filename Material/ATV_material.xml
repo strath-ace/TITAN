@@ -164,6 +164,33 @@
 		</yieldStress>
 	</metalMaterial>
 
+	<metalMaterial>
+		<name>ATV_panel_coverglass</name>
+		<density>2200</density>
+		<specificHeatCapacity>
+			<values>773,750;1273,840</values>
+		</specificHeatCapacity>
+		<meltingHeat>361500.0</meltingHeat>
+		<meltingTemperature>906.15</meltingTemperature>
+		<emissivity>
+			<values>250.0,0.85;1273,0.95;</values>
+		</emissivity>
+		<heatConductivity>
+			<values>373,1.38;773,1.3;1273,1.2;</values>
+		</heatConductivity>
+		<oxideActivationTemperature>0.0</oxideActivationTemperature>
+		<oxideEmissivity>
+		</oxideEmissivity>
+		<oxideHeatOfFormation>0.0</oxideHeatOfFormation>
+		<oxideReactionProbability>0.0</oxideReactionProbability>
+		<youngModulus>
+			<values>297.15,68E9;473.15,59E9;573.15,47E9;773.15,12E9;1000.0,12E9;</values>
+		</youngModulus>
+		<yieldStress>
+			<values>297.15,295E6;473.15,240E6;573.15, 95E6; 773.15,8E6; 1000,8E6;</values>
+		</yieldStress>
+	</metalMaterial>	
+
 
 	<metalMaterial>
 		<name>ATV_joint</name>
