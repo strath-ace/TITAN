@@ -295,7 +295,7 @@ def compute_black_body_emissions(titan, options):
                 planck_integral = np.zeros(len(assembly.mesh.facets))
 
                 for facet in range(len(assembly.mesh.facets)):
-                    planck_integral[facet] = integrate_planck(wavelength_min, wavelength_max, temperature[facet], assembly.freestream.temperature)
+                    planck_integral[facet] = integrate_planck(wavelength_min, wavelength_max, temperature[facet])
 
                 assembly.emissive_power[:] = 0
                 assembly.emissive_power[index] = assembly.emissivity[index]*planck_integral[index]*cosine[index]*facet_area[index] #Units: W.sr-1 (after integrating over wavelength range)
@@ -312,14 +312,13 @@ def compute_black_body_emissions(titan, options):
 
                 df.to_csv(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'.csv'), index = False)
 
-def integrate_planck(lambd_min, lambd_max, T, Tref):
+def integrate_planck(lambd_min, lambd_max, T):
 
-
-    integral, error = integrate.quad(black_body, lambd_min, lambd_max,args=(T, Tref), epsabs=1.0e-4, epsrel=1.0e-4 )
+    integral, error = integrate.quad(black_body, lambd_min, lambd_max,args=(T), epsabs=1.0e-4, epsrel=1.0e-4 )
 
     return integral
 
-def black_body(wavelength, T, Tref):
+def black_body(wavelength, T):
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum

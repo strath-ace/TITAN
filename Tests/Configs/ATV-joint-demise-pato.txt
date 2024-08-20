@@ -12,6 +12,9 @@ Ablation = True
 Ablation_mode = PATO
 PATO_time_step = 0.1
 
+[PATO]
+N_cores = 16
+
 [Radiation]
 Black_body_emissions = True
 Black_body_emissions_freq = 10
