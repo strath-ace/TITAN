@@ -34,8 +34,9 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     gmsh.initialize()
     mesh_Settings(gmsh)
 
-    ref_objects = 1.0
-    ref_joint = 1.0
+    ref_objects = 0.15
+    ref_joint = 0.5
+    ref_panel = 0.05
     density_elem = []
     tag_elem = []
 
@@ -52,6 +53,8 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     for obj in assembly.objects:
         if obj.type.lower() == 'joint':
             ref[obj.node_index] = ref_joint
+        if "panel" in obj.name:
+            ref[obj.node_index] = ref_panel
 
     node_ref_init, edge_ref_init, surf_ref_init = object_grid(gmsh, mesh.nodes, mesh.edges, mesh.facet_edges, ref)
     init_ref_surf, ref_phys_surface = object_physical(gmsh, init_ref_surf, surf_ref_init, ref_phys_surface, 'top')
@@ -163,7 +166,7 @@ def generate_PATO_domain(obj, output_folder = ''):
     gmsh.initialize()
     mesh_Settings(gmsh)
 
-    ref_objects = 1.0
+    ref_objects = 0.1
     ref_joint = 1.0
     density_elem = []
     tag_elem = []

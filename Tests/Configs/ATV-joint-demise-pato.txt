@@ -1,22 +1,23 @@
 [Options]
-Num_iters = 30000
-Load_mesh = False
-Load_state = False
+Num_iters = 3000
+Load_mesh = True
+Load_state = True
 Fidelity = Low
-Output_folder = Tests/ATV-joint-demise/
+Output_folder = Tests/ATV-joint-demise-refined-joints-noCond-noRad-again3-again/
 Output_freq = 1
 #Material_file = ATV_material.xml
+Save_freq = 10
 
 [Thermal]
 Ablation = True
 Ablation_mode = PATO
-PATO_time_step = 0.1
 
 [PATO]
 N_cores = 16
+Time_step = 0.0001
 
 [Radiation]
-Black_body_emissions = True
+#Black_body_emissions = True
 Black_body_emissions_freq = 10
 Particle_emissions = False
 Wavelength_min = 10e-9
@@ -27,21 +28,25 @@ Phi_n_values = 1
 Theta_min = 90
 Theta_max = 90
 Theta_n_values = 1
-Spectral = True
+#Spectral = True
 Spectral_freq = 10
 
 
 [Bloom]
+#Flag =  True
+#Layers = 10
+#Spacing = 0.001
+#Growth_Rate = 5
 Flag =  True
-Layers = 10
-Spacing = 0.001
-Growth_Rate = 5
+Layers = 500
+Spacing = 0.01
+Growth_Rate = 1.5
 
 [Model]
 Planet = Earth
 
 [Time]
-Time_step = 0.5
+Time_step = 0.1
 Propagator = Euler
 
 [Trajectory]
@@ -61,7 +66,9 @@ Heat_model = sc
 
 [Assembly]
 # Path for the geometry files
-Path = Tests/Mesh/ATV_pato/
+#Path = Tests/Mesh/ATV_pato/
+#Path = Tests/Mesh/ATV_test/
+Path = Tests/Mesh/ATV_full_fine/
 #Path = Tests/Mesh/ATV_simple_fenics_geometry/
 #Path = Tests/Mesh/Cubes/
 #Connectivity = [[1,2,0]]

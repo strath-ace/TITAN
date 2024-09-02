@@ -691,9 +691,17 @@ def read_geometry(configParser, options):
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
                         temperature = 300
+
+                    try:                        
+                        for s in value:
+                            if 'bloom' in s.lower():
+                                bloom = s.split('=')[1].strip('()').split(';')  
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]              
+                    except:
+                        bloom = None                        
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
-                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options, global_ID = obj_global_ID)
+                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -723,10 +731,18 @@ def read_geometry(configParser, options):
                     try:
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
-                        temperature = 300              
+                        temperature = 300   
+
+                    try:                        
+                        for s in value:
+                            if 'bloom' in s.lower():
+                                bloom = s.split('=')[1].strip('()').split(';')  
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]              
+                    except:
+                        bloom = None              
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
-                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options, global_ID = obj_global_ID) 
+                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom) 
 
                 obj_global_ID += 1
 
@@ -822,12 +838,12 @@ def read_config_file(configParser, postprocess = ""):
             options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
             if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
             #Read Bloom conditions
-            options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
-            options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
-            options.bloom.spacing =     get_config_value(configParser,options.bloom.spacing,'Bloom', 'Spacing', 'float')
-            options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
+            #options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
+            #options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
+            #options.bloom.spacing =     get_config_value(configParser,options.bloom.spacing,'Bloom', 'Spacing', 'float')
+            #options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
             options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
-            if not options.bloom.flag: print('Error: PATO requires BLOOM for mesh generation.'); exit()
+            #if not options.bloom.flag: print('Error: PATO requires BLOOM for mesh generation.'); exit()
         if(options.radiation.black_body_emissions):
             options.radiation.black_body_emissions_freq     = get_config_value(configParser, options.radiation.black_body_emissions_freq, 'Radiation', 'Black_body_emissions_freq', 'int')
             options.radiation.phi_min      =       get_config_value(configParser, options.radiation.phi_min, 'Radiation', 'Phi_min', 'custom', 'angle')
@@ -956,16 +972,17 @@ def read_config_file(configParser, postprocess = ""):
             for assembly in titan.assembly:
                 assembly.generate_inner_domain(write = options.pato.flag, output_folder = options.output_folder)
                 assembly.compute_mass_properties()
-                if options.pato.flag and options.bloom.flag:
+                if options.pato.flag:
                     for obj in assembly.objects:
-                        GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)
-                        bloom.generate_PATO_mesh(options, obj.global_ID, bloom = options.bloom)
-                        pato.initialize(options, obj)
-                    #for each object, define connectivity to connected objects for heat conduction between objects
-                    pato.identify_object_connections(assembly)
 
+                        if not ("_joint" in obj.name):
+                            GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)                          
+                            bloom.generate_PATO_mesh(options, obj.global_ID, bloom = obj.bloom)
+                            pato.initialize(options, obj)
+                    #for each object, define connectivity to connected objects for heat conduction between objects
+                    #pato.identify_object_connections(assembly)
             options.save_mesh(titan)
-        
+
         #Computes the quaternion and cartesian for the initial position
         for assembly in titan.assembly:
             assembly.trajectory = copy.deepcopy(trajectory)

@@ -353,19 +353,14 @@ def polynomial_fit(material, name, properties, order):
 		Return coefficients value
 	"""
 
-	print('properties:', properties)
-
 	values = np.array(material.metalMaterial.find(properties).find('values').get_text().replace(',',';').split(';'))[:-1].astype(float)
 	values.shape = (-1,2)
 
 	values_T = values[:,0]
 	values_Y = values[:,1]
 
-	print('values_T:', values_T)
-	print('values_Y:', values_Y)
-
 	coefficients = np.polyfit(values_T, values_Y, order)
 
 	coefficients = np.flip(coefficients)
-	print('coefficients:')	
+
 	return coefficients
