@@ -29,11 +29,11 @@ class Component_list():
         self.object = []
         self.id = 1
 
-    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, global_ID = 0):
-        
+    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, global_ID = 0, bloom_config = []):
+
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
-                           trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, options = options, global_ID = global_ID))
+                           trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, options = options, global_ID = global_ID, bloom_config = bloom_config))
         self.id += 1
 
 class Component():
@@ -44,7 +44,7 @@ class Component():
     
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
                  trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest',
-                 v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0):
+                 v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0, bloom_config = []):
 
         print("Generating Body: ", filename)
         
@@ -126,8 +126,9 @@ class Component():
         self.photons = 0
 
 
-        if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
-            self.pato = PATO(options, len(mesh.facets), self.global_ID, self.temperature)        
+        if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato' and (not ("_joint" in self.name)):      
+            self.pato = PATO(options, len(mesh.facets), self.global_ID, self.temperature)
+            self.bloom = bloom(bloom_config)        
 
     def compute_mass_properties(self, coords, elements, density):
         """
@@ -181,5 +182,21 @@ class PATO():
         Path(options.output_folder+'/PATO_'+str(object_id)+'/system/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/system/subMat1').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/qconv').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/qconv-bkp').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/mesh').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/data').mkdir(parents=True, exist_ok=True)        
+
+class bloom():
+    def __init__(self, bloom_config):
+
+        #: [bool] Flag value indicating the use of Bloom to generate the boundary layer mesh
+        self.flag = bloom_config[0]
+
+        #: [int] Number of Layers in the boundary layer
+        self.layers = int(bloom_config[1])
+
+        #: [float] Value of spacing of the first element in the boundary layer
+        self.spacing = bloom_config[2]
+
+        #: [float] Value of the growth rate, starting at the first element
+        self.growth_rate = bloom_config[3]

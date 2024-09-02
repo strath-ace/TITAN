@@ -177,8 +177,6 @@ def compute_cartesian(assembly, options):
     #Account with the displacement of body COG and the origin of the body reference frame
     assembly.position += Rot.from_quat(assembly.quaternion).apply(assembly.COG)
 
-
-
 def compute_cartesian_derivatives(assembly, options):
     """
     Computation of the cartesian derivatives

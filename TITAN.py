@@ -70,7 +70,7 @@ def loop(options = [], titan = []):
         #    output.generate_surface_solution(titan = titan, options = options)
 
         fragmentation.fragmentation(titan = titan, options = options)
-        if not titan.assembly: return
+        if not titan.assembly: return      
 
         if options.time_counter>0:
             options.dynamics.time_step = options.collision.post_fragmentation_timestep
@@ -107,9 +107,9 @@ def loop(options = [], titan = []):
         if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
             options.save_state(titan, options.current_iter)
 
-    options.save_state(titan)
+   # options.save_state(titan)
 
-def main(filename = "", postprocess = "", filter_name = None):
+def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     """TITAN main function
 
     Parameters
@@ -163,6 +163,11 @@ if __name__ == "__main__":
                         type=str,
                         help="filter postprocess (name of the ovject)",
                         metavar="filtername")
+    parser.add_argument("-em", "--emissions",
+                        dest="emissions",
+                        type=str,
+                        help="simulation emissions (spectral, polar)",
+                        metavar="emissions")
     
     args=parser.parse_args()
 
@@ -172,7 +177,10 @@ if __name__ == "__main__":
     filename = args.configfilename
     postprocess = args.postprocess
     filter_name = args.filtername
+    emissions = args.emissions
     if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef"):
         raise Exception("Postprocess can only be WIND or ECEF")
+    if emissions and (emissions.lower()!="spectral" and emissions.lower()!="polar"):
+        raise Exception("Postprocessing emissions can only be SPECTRAL or POLAR")
 
-    main(filename = filename, postprocess = postprocess, filter_name = filter_name)
+    main(filename = filename, postprocess = postprocess, filter_name = filter_name, emissions = emissions)

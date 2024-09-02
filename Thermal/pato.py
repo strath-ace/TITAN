@@ -42,11 +42,11 @@ def compute_thermal(obj, time, iteration, options, hf, Tinf):
     options: Options
         Object of class Options
     """
-    setup_PATO_simulation(obj, time, iteration, options, hf, Tinf)
+    time_to_postprocess = setup_PATO_simulation(obj, time, iteration, options, hf, Tinf)
 
     run_PATO(options, obj.global_ID)
 
-    postprocess_PATO_solution(options, obj, iteration)
+    postprocess_PATO_solution(options, obj, time_to_postprocess)
 
 def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
     """
@@ -58,8 +58,10 @@ def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
     """
 
     write_PATO_BC(options, obj, time, hf, Tinf)
-    write_All_run(options, obj, time - options.dynamics.time_step, iteration)
+    time_to_postprocess = write_All_run(options, obj, time - options.dynamics.time_step, iteration)
     write_system_folder(options, obj.global_ID, time - options.dynamics.time_step)
+
+    return time_to_postprocess
 
 def write_material_properties(options, obj):
 
@@ -173,8 +175,8 @@ def write_All_run(options, obj, time, iteration):
     end_time = time + options.dynamics.time_step
     start_time = time
 
-    time_step_to_delete = time - options.dynamics.time_step
-    iteration_to_delete = int((iteration)*options.dynamics.time_step/options.pato.time_step)
+    time_step_to_delete = time - 2*options.dynamics.time_step
+    iteration_to_delete = int((iteration-1)*options.dynamics.time_step/options.pato.time_step)
 
     print('copying BC:', end_time, ' - ', start_time)
 
@@ -223,21 +225,27 @@ def write_All_run(options, obj, time, iteration):
         f.write('cp system/"$MAT_NAME"/fvSchemes  system/ \n')
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
-        f.write('foamJob -p -s foamToVTK -time '+str(end_time)+'\n')
+        f.write('foamJob -p -s foamToVTK -time '+str(end_time)+' -useTimeName\n')
+        f.write('cp qconv/BC* qconv-bkp/ \n')
         f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
-        f.write('rm mesh/*meshb \n')
+        #f.write('rm mesh/*meshb \n')
         for n in range(options.pato.n_cores):
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
-            f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
+            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+             if time_step_to_delete/options.dynamics.time_step != options.save_freq:
+                f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+                print('delete time_step_to_delete:', time_step_to_delete)
+            #if options.current_iter%options.save_freq != 0:
+            #    f.write('rm -rf processor'+str(n)+'/'+str(end_time)+' \n')
+            #f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
 
     f.close()
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.system("chmod +x " + options.output_folder +'/PATO_'+str(obj.global_ID)+'/Allrun' )
 
-    pass
+    return end_time
 
 def write_constant_folder(options, object_id):
     """
@@ -766,7 +774,7 @@ def write_system_folder(options, object_id, time):
 
     n_proc = options.pato.n_cores
 
-    coeff_0 = n_proc/2
+    coeff_0 = 1#n_proc/2
     coeff_1 = 2
     coeff_2 = 1
 
@@ -852,7 +860,7 @@ def run_PATO(options, object_id):
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
 
-def postprocess_PATO_solution(options, obj, iteration):
+def postprocess_PATO_solution(options, obj, time_to_read):
     """
     Postprocesses the PATO output
 
@@ -861,18 +869,18 @@ def postprocess_PATO_solution(options, obj, iteration):
 	?????????????????????????
     """ 
 
-    path = options.output_folder+"PATO_"+str(obj.global_ID)+"/VTK/"
+    path = options.output_folder+"PATO_"+str(obj.global_ID)+"/"
 
-    iteration_to_read = int(round((iteration+1)*options.dynamics.time_step/options.pato.time_step))
+    #iteration_to_read = int(round((iteration+1)*options.dynamics.time_step/options.pato.time_step))
 
     n_proc = options.pato.n_cores
 
     solution = 'surface'
 
     if solution == 'surface':
-        data = retrieve_surface_vtk_data(n_proc, path, iteration_to_read)
+        data = retrieve_surface_vtk_data(n_proc, path, time_to_read)
     elif solution == 'volume':
-        data = retrieve_volume_vtk_data(n_proc, path, iteration_to_read)
+        data = retrieve_volume_vtk_data(n_proc, path, time_to_read)
 
     # extract temperature distribution (tetras)
     cell_data = data.GetCellData()
@@ -942,12 +950,12 @@ def interpolateNearestCOG(facet_COG, input_COG, input_array):
 
     return value    
 
-def retrieve_surface_vtk_data(n_proc, path, iteration):
+def retrieve_surface_vtk_data(n_proc, path, time_to_read):
 
     filename = [''] * n_proc
 
     for n in range(n_proc):
-        filename[n] = path + "processor" + str(n) + "_top_" + str(iteration) + ".vtk"
+        filename[n] = path + "processor" + str(n) + "/VTK/top/" +  "top_" + str(time_to_read) + ".vtk"
 
     print('\n PATO solution filenames:', filename)
 
@@ -967,12 +975,12 @@ def retrieve_surface_vtk_data(n_proc, path, iteration):
 
     return vtk_data
 
-def retrieve_volume_vtk_data(n_proc, path, iteration):
+def retrieve_volume_vtk_data(n_proc, path, time_to_read):
 
     filename = [''] * n_proc
 
     for n in range(n_proc):
-        filename[n] = path + "processor" + str(n) + "_processor" + str(n) + '_' + str(iteration) + ".vtk"
+        filename[n] = path + "processor" + str(n) + "/VTK/" + "processor" + str(n) + "_" + str(time_to_read) + ".vtk"
 
     print('\n PATO solution filenames:', filename)
 
