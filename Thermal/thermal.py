@@ -56,6 +56,8 @@ def compute_thermal_0D(titan, options):
             cp  = obj.material.specificHeatCapacity(obj.temperature)
             emissivity = obj.material.emissivity(obj.temperature)
 
+            Atot = np.sum(facet_area)
+
             # Estimating the radiation heat-flux
             Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
 
@@ -302,7 +304,6 @@ def compute_black_body_emissions(titan, options, q = []):
 
                 for facet in range(len(assembly.mesh.facets)):
                     planck_integral[facet] = integrate_planck(wavelength_min, wavelength_max, temperature[facet])
-                #exit()
 
                 assembly.emissive_power[:] = 0
                 assembly.emissive_power[index] = assembly.emissivity[index]*planck_integral[index]*cosine[index]*facet_area[index] #Units: W.sr-1 (after integrating over wavelength range)

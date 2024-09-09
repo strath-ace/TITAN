@@ -797,9 +797,7 @@ def read_config_file(configParser, postprocess = ""):
     options = Options()
     
     #Read Options Conditions
-    print('here')
     options.output_folder = get_config_value(configParser, options.output_folder, 'Options', 'output_folder', 'str')
-    print(options.output_folder)
     options.output_freq     = get_config_value(configParser, options.output_freq, 'Options', 'Output_freq', 'int')
     if postprocess: return options, None
 
