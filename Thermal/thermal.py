@@ -36,7 +36,6 @@ def compute_thermal(titan, options):
         compute_thermal_0D(titan = titan, options = options)
     elif options.thermal.ablation_mode == "pato":
         compute_thermal_PATO(titan = titan, options = options)
-        #compute_thermal_0D(titan = titan, options = options)                
     else:
         raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
 
@@ -50,18 +49,12 @@ def compute_thermal_0D(titan, options):
 
         for obj in assembly.objects:
 
-            #if "_joint" in obj.name:
-
-                #print('obj.name:', obj.name)
-
             facet_area = np.linalg.norm(obj.mesh.facet_normal, ord = 2, axis = 1)
             heatflux = assembly.aerothermo.heatflux[obj.facet_index]
             Qin = np.sum(heatflux*facet_area)
             
             cp  = obj.material.specificHeatCapacity(obj.temperature)
             emissivity = obj.material.emissivity(obj.temperature)
-
-            Atot = np.sum(facet_area)
 
             # Estimating the radiation heat-flux
             Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
@@ -80,8 +73,6 @@ def compute_thermal_0D(titan, options):
             new_mass = obj.mass + dm
             new_T = obj.temperature + dT
 
-            print('dm:', dm)
-
             obj.material.density *= new_mass/obj.mass
             obj.mass = new_mass
             obj.temperature = new_T
@@ -94,7 +85,7 @@ def compute_thermal_0D(titan, options):
             assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
             assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
     
-                #obj.photons = compute_radiance(obj.temperature, Atot, emissivity)
+            #obj.photons = compute_radiance(obj.temperature, Atot, emissivity)
 
         assembly.compute_mass_properties()
 

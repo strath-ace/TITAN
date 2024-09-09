@@ -28,7 +28,7 @@ class Component_list():
     def __init__(self):
         self.object = []
         self.id = 1
-
+        
     def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, global_ID = 0, bloom_config = [False, 0, 0, 0]):
 
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
@@ -124,9 +124,6 @@ class Component():
             self.parent_part = parent_part
 
         self.photons = 0
-
-        print('bloom_config:', bloom_config)
-
 
         #if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato' and (not ("_joint" in self.name)):
         if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
