@@ -692,13 +692,14 @@ def read_geometry(configParser, options):
                     except:
                         temperature = 300
 
+                    bloom = [False, 0, 0, 0]
                     try:                        
                         for s in value:
                             if 'bloom' in s.lower():
                                 bloom = s.split('=')[1].strip('()').split(';')  
-                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]              
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]       
                     except:
-                        bloom = None                        
+                        bloom = [False, 0, 0, 0]               
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
                         fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom)
@@ -733,13 +734,15 @@ def read_geometry(configParser, options):
                     except:
                         temperature = 300   
 
+                    bloom = [False, 0, 0, 0]
+
                     try:                        
                         for s in value:
                             if 'bloom' in s.lower():
                                 bloom = s.split('=')[1].strip('()').split(';')  
                                 bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]              
                     except:
-                        bloom = None              
+                        bloom = [False, 0, 0, 0]              
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom) 
@@ -794,7 +797,9 @@ def read_config_file(configParser, postprocess = ""):
     options = Options()
     
     #Read Options Conditions
+    print('here')
     options.output_folder = get_config_value(configParser, options.output_folder, 'Options', 'output_folder', 'str')
+    print(options.output_folder)
     options.output_freq     = get_config_value(configParser, options.output_freq, 'Options', 'Output_freq', 'int')
     if postprocess: return options, None
 
@@ -974,11 +979,11 @@ def read_config_file(configParser, postprocess = ""):
                 assembly.compute_mass_properties()
                 if options.pato.flag:
                     for obj in assembly.objects:
-
-                        if not ("_joint" in obj.name):
+                        if obj.pato.flag:
                             GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)                          
                             bloom.generate_PATO_mesh(options, obj.global_ID, bloom = obj.bloom)
                             pato.initialize(options, obj)
+
                     #for each object, define connectivity to connected objects for heat conduction between objects
                     #pato.identify_object_connections(assembly)
             options.save_mesh(titan)

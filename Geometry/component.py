@@ -29,7 +29,7 @@ class Component_list():
         self.object = []
         self.id = 1
 
-    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, global_ID = 0, bloom_config = []):
+    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, global_ID = 0, bloom_config = [False, 0, 0, 0]):
 
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
@@ -44,7 +44,7 @@ class Component():
     
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
                  trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest',
-                 v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0, bloom_config = []):
+                 v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0, bloom_config = [False, 0, 0, 0]):
 
         print("Generating Body: ", filename)
         
@@ -125,9 +125,12 @@ class Component():
 
         self.photons = 0
 
+        print('bloom_config:', bloom_config)
 
-        if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato' and (not ("_joint" in self.name)):      
-            self.pato = PATO(options, len(mesh.facets), self.global_ID, self.temperature)
+
+        #if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato' and (not ("_joint" in self.name)):
+        if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
+            self.pato = PATO(options, len(mesh.facets), bloom_config, self.global_ID, self.temperature)
             self.bloom = bloom(bloom_config)        
 
     def compute_mass_properties(self, coords, elements, density):
@@ -164,13 +167,16 @@ class PATO():
         A class to store the PATO simulation
     """
 
-    def __init__(self, options, len_facets, object_id = 0, temperature = 300):
+    def __init__(self, options, len_facets, bloom_config, object_id = 0, temperature = 300):
 
         self.initial_temperature = temperature
         
         self.temperature = np.empty(len_facets); self.temperature.fill(temperature)
 
         self.hf_cond = np.zeros(len_facets)
+
+        #: [bool] Flag value indicating the use of PATO for the thermal model
+        self.flag = bloom_config[0]
 
         Path(options.output_folder+'/PATO_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)

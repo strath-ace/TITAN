@@ -117,6 +117,12 @@ def write_output_data(titan, options):
         df['Quat_y']   = [assembly.quaternion[1]]
         df['Quat_z']   = [assembly.quaternion[2]]
 
+        #Quaternion Body -> ECEF frame of the previous iteration, for emissions post-processing   
+        df['Quat_prev_w']   = [assembly.quaternion_prev[3]]
+        df['Quat_prev_x']   = [assembly.quaternion_prev[0]]
+        df['Quat_prev_y']   = [assembly.quaternion_prev[1]]
+        df['Quat_prev_z']   = [assembly.quaternion_prev[2]]
+
         #Freestream properties
         df['Mach'] = [assembly.freestream.mach]
         df['Speedsound'] = [assembly.freestream.sound]
@@ -171,7 +177,7 @@ def write_output_data(titan, options):
             df = df.round(decimals = 6)
             df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
 
-def generate_surface_solution(titan, options):
+def generate_surface_solution(titan, options, folder = 'Surface_solution'):
     points = np.array([])
     facets = np.array([])
     pressure = np.array([])
@@ -222,7 +228,7 @@ def generate_surface_solution(titan, options):
                               point_data = point_data,
                               cell_data = cell_data)
 
-        folder_path = options.output_folder+'/Surface_solution/ID_'+str(assembly.id)
+        folder_path = options.output_folder+'/' + folder + '/ID_'+str(assembly.id)
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
         vol_mesh_filepath = f"{folder_path}/solution_iter_{str(titan.iter).zfill(3)}.xdmf"

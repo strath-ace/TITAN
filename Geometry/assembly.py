@@ -461,6 +461,8 @@ class Assembly():
 
         self.distance_travelled = 0
 
+        self.quaternion_prev = np.array([])
+
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
         """

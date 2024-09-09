@@ -25,6 +25,7 @@ from Output import output
 from Dynamics import dynamics
 from Fragmentation import fragmentation
 from Postprocess import postprocess as pp
+from Postprocess import postprocess_emissions as pp_emissions
 from Thermal import thermal
 from Structural import structural
 from pathlib import Path
@@ -130,7 +131,7 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     options.filepath = filename
 
     #Initialization of the simulation
-    if not postprocess:
+    if (not postprocess) and (not emissions):
         loop(options, titan)
         print("Finished simulation")
         return options, titan
@@ -140,6 +141,9 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     if postprocess:
         Path(options.output_folder+'/Postprocess/').mkdir(parents=True, exist_ok=True)
         pp.postprocess(options, postprocess, filter_name)
+    if emissions:
+        Path(options.output_folder+'/Postprocess_emissions/').mkdir(parents=True, exist_ok=True)
+        pp_emissions.postprocess_emissions(options)
     
 if __name__ == "__main__":
 
@@ -161,7 +165,7 @@ if __name__ == "__main__":
     parser.add_argument("-flt", "--filter",
                         dest="filtername",
                         type=str,
-                        help="filter postprocess (name of the ovject)",
+                        help="filter postprocess (name of the object)",
                         metavar="filtername")
     parser.add_argument("-em", "--emissions",
                         dest="emissions",

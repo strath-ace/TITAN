@@ -36,7 +36,7 @@ def compute_thermal(titan, options):
         compute_thermal_0D(titan = titan, options = options)
     elif options.thermal.ablation_mode == "pato":
         compute_thermal_PATO(titan = titan, options = options)
-        compute_thermal_0D(titan = titan, options = options)                
+        #compute_thermal_0D(titan = titan, options = options)                
     else:
         raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
 
@@ -50,46 +50,49 @@ def compute_thermal_0D(titan, options):
 
         for obj in assembly.objects:
 
-            if "_joint" in obj.name:
+            #if "_joint" in obj.name:
 
                 #print('obj.name:', obj.name)
 
-                facet_area = np.linalg.norm(obj.mesh.facet_normal, ord = 2, axis = 1)
-                heatflux = assembly.aerothermo.heatflux[obj.facet_index]
-                Qin = np.sum(heatflux*facet_area)
-                
-                cp  = obj.material.specificHeatCapacity(obj.temperature)
-                emissivity = obj.material.emissivity(obj.temperature)
-    
-                Atot = np.sum(facet_area)
-    
-                # Estimating the radiation heat-flux
-                Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
-    
-                # Computing temperature change
-                dT = (Qin-Qrad)*dt/(obj.mass*cp)
-    
-                if obj.temperature+dT > obj.material.meltingTemperature:
-                    dT_melt = obj.material.meltingTemperature - obj.temperature
-                    melt_Q = (obj.mass*cp)*(dT-dT_melt)
-                    dm = -melt_Q/(obj.material.meltingHeat)
-                    dT = dT_melt
-                else:
-                    dm = 0
-    
-                new_mass = obj.mass + dm
-                new_T = obj.temperature + dT
-    
-                obj.material.density *= new_mass/obj.mass
-                obj.mass = new_mass
-                obj.temperature = new_T
-    
-                if obj.material.density < 0:
-                    obj.material.density = 0
-                    obj.mass = 0
-                
-                assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
-                assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+            facet_area = np.linalg.norm(obj.mesh.facet_normal, ord = 2, axis = 1)
+            heatflux = assembly.aerothermo.heatflux[obj.facet_index]
+            Qin = np.sum(heatflux*facet_area)
+            
+            cp  = obj.material.specificHeatCapacity(obj.temperature)
+            emissivity = obj.material.emissivity(obj.temperature)
+
+            Atot = np.sum(facet_area)
+
+            # Estimating the radiation heat-flux
+            Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
+
+            # Computing temperature change
+            dT = (Qin-Qrad)*dt/(obj.mass*cp)
+
+            if obj.temperature+dT > obj.material.meltingTemperature:
+                dT_melt = obj.material.meltingTemperature - obj.temperature
+                melt_Q = (obj.mass*cp)*(dT-dT_melt)
+                dm = -melt_Q/(obj.material.meltingHeat)
+                dT = dT_melt
+            else:
+                dm = 0
+
+            new_mass = obj.mass + dm
+            new_T = obj.temperature + dT
+
+            print('dm:', dm)
+
+            obj.material.density *= new_mass/obj.mass
+            obj.mass = new_mass
+            obj.temperature = new_T
+            #obj.pato.temperature[:] = obj.temperature
+
+            if obj.material.density < 0:
+                obj.material.density = 0
+                obj.mass = 0
+            
+            assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
+            assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
     
                 #obj.photons = compute_radiance(obj.temperature, Atot, emissivity)
 
@@ -249,14 +252,16 @@ def compute_thermal_PATO(titan, options):
         #pato.compute_heat_conduction(assembly, length)
         Tinf = assembly.freestream.temperature           
         for obj in assembly.objects:
-            if not ("_joint" in obj.name): 
+            if obj.pato.flag: 
                 hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
                 pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
     return
 
-def compute_black_body_emissions(titan, options):
+def compute_black_body_emissions(titan, options, q = []):
+
+    print('Computing polar emissions ...')
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
@@ -277,15 +282,19 @@ def compute_black_body_emissions(titan, options):
 
     for theta_i in range(len(theta)):
         for phi_i in range(len(phi)):
-            for assembly in titan.assembly:
+            for assembly_id, assembly in enumerate(titan.assembly):
                 for obj in assembly.objects:
                     emissivity_obj = obj.material.emissivity(obj.temperature)
                     assembly.emissivity[obj.facet_index] = emissivity_obj
                     assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
 
                 viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
-                
-                viewpoint = -Rot.from_quat(assembly.quaternion_prev).inv().apply(viewpoint)/np.linalg.norm(viewpoint)
+
+                if len(q) == 0: quat = assembly.quaternion_prev
+                else: 
+                    quat = q[assembly_id]
+
+                viewpoint = -Rot.from_quat(quat).inv().apply(viewpoint)/np.linalg.norm(viewpoint)
 
                 index = Aerothermo.ray_trace(assembly, viewpoint)
                 
@@ -302,6 +311,7 @@ def compute_black_body_emissions(titan, options):
 
                 for facet in range(len(assembly.mesh.facets)):
                     planck_integral[facet] = integrate_planck(wavelength_min, wavelength_max, temperature[facet])
+                #exit()
 
                 assembly.emissive_power[:] = 0
                 assembly.emissive_power[index] = assembly.emissivity[index]*planck_integral[index]*cosine[index]*facet_area[index] #Units: W.sr-1 (after integrating over wavelength range)
@@ -316,7 +326,7 @@ def compute_black_body_emissions(titan, options):
 
                 df = pd.DataFrame(data=d)
 
-                df.to_csv(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'.csv'), index = False)
+                df.to_csv(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'_'+str(assembly.id)+'.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'_'+str(assembly.id)+'.csv'), index = False)
 
 def integrate_planck(lambd_min, lambd_max, T):
 
@@ -330,7 +340,7 @@ def black_body(wavelength, T):
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
 
-    exp = np.exp((h*c)/(k*wavelength*T))   
+    exp = np.exp((h*c)/(k*wavelength*T))
 
     #b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
 
@@ -343,7 +353,7 @@ def compute_particle_emissions(titan, options):
     print('Function compute_particle_emissions not yet implemented')
 
 
-def compute_black_body_spectral_emissions(titan, options):
+def compute_black_body_spectral_emissions(titan, options, q = []):
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
@@ -353,23 +363,28 @@ def compute_black_body_spectral_emissions(titan, options):
     theta = np.linspace(options.radiation.theta_min,options.radiation.theta_max,options.radiation.theta_n_values)
     wavelength = np.linspace(options.radiation.wavelength_min,options.radiation.wavelength_max,100)
 
+    print('1')
+
+    print('Computing spectral emissions ...')
+
     for wavelength_i in range(len(wavelength)):
 
         lamb = wavelength[wavelength_i]
 
         for theta_i in range(len(theta)):
             for phi_i in range(len(phi)):
-                for assembly in titan.assembly:
+                for assembly_id, assembly in enumerate(titan.assembly):
                     for obj in assembly.objects:
                         emissivity_obj = obj.material.emissivity(obj.temperature)
                         assembly.emissivity[obj.facet_index] = emissivity_obj
                         assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
     
                     viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
-                    
-                    print('phi:', phi[phi_i]*180/np.pi, 'theta:', theta[theta_i]*180/np.pi, 'viewpoint:', viewpoint)
+
+                    if len(q) == 0: quat = assembly.quaternion_prev
+                    else: quat = q[assembly_id]
     
-                    viewpoint = -Rot.from_quat(assembly.quaternion_prev).inv().apply(viewpoint)/np.linalg.norm(viewpoint)
+                    viewpoint = -Rot.from_quat(quat).inv().apply(viewpoint)/np.linalg.norm(viewpoint)
     
                     index = Aerothermo.ray_trace(assembly, viewpoint)
                     
@@ -402,7 +417,7 @@ def compute_black_body_spectral_emissions(titan, options):
     
                     df = pd.DataFrame(data=d)
     
-                    df.to_csv(options.output_folder + '/Data/'+ 'thermal_signature_lamb_'+str(titan.iter)+'.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/'+ 'thermal_signature_lamb_'+str(titan.iter)+'.csv'), index = False)
+                    df.to_csv(options.output_folder + '/Data/'+ 'thermal_signature_lamb_'+str(titan.iter)+'_'+str(assembly.id)+'.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/'+ 'thermal_signature_lamb_'+str(titan.iter)+'_'+str(assembly.id)+'.csv'), index = False)
 
 #def compute_radiance(temperature, area, emissivity):
 #

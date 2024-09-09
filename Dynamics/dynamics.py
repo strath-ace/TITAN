@@ -138,6 +138,7 @@ def compute_quaternion(assembly):
     R_B_ECEF = (R_NED_ECEF*R_B_NED)
 
     assembly.quaternion = R_B_ECEF.as_quat()
+    assembly.quaternion_prev = assembly.quaternion
 
     return
 
