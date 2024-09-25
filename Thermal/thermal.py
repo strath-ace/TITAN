@@ -238,15 +238,14 @@ def compute_thermal_tetra(titan, options):
     return 
 
 def compute_thermal_PATO(titan, options):
-    
-    length = options.bloom.spacing/2
 
     for assembly in titan.assembly: 
-        #pato.compute_heat_conduction(assembly, length)
+        pato.compute_heat_conduction(assembly)
         Tinf = assembly.freestream.temperature           
         for obj in assembly.objects:
             if obj.pato.flag: 
                 hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
+                assembly.aerothermo.heatflux[obj.facet_index] = obj.pato.hf_cond
                 pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 

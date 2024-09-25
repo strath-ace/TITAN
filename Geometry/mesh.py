@@ -24,7 +24,7 @@ from trimesh.viewer.windowed import SceneViewer
 import open3d as o3d
 import trimesh
 from copy import deepcopy
-
+from scipy.spatial import KDTree
 import sys
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -741,7 +741,18 @@ def remove_repeated_facets(assembly_mesh):
         else: i+=1
 
     return idx
+
+def create_index_mapping(body_atr, obj_atr):
+    # Build KDTree for body_atr (larger mesh)
+    body_tree = KDTree(body_atr)
     
+    # Query the tree with obj_atr (smaller mesh)
+    # `query` returns two arrays: distances and indices of the nearest neighbors
+    distances, indices = body_tree.query(obj_atr)
+    
+    # Return the indices of the nearest neighbors in body_atr
+    return indices
+
 
 def create_index(body_atr, obj_atr, round_value = None):
 

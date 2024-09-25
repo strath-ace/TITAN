@@ -983,7 +983,7 @@ def read_config_file(configParser, postprocess = ""):
                             pato.initialize(options, obj)
 
                     #for each object, define connectivity to connected objects for heat conduction between objects
-                    #pato.identify_object_connections(assembly)
+                    pato.identify_object_connections(assembly)
             options.save_mesh(titan)
 
         #Computes the quaternion and cartesian for the initial position

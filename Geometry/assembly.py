@@ -420,8 +420,10 @@ class Assembly():
 
             #Create mapping between the nodes and facets of the singular component and the assembly
             for obj in objects:
-                obj.node_index, obj.node_mask = Mesh.create_index(self.mesh.nodes, obj.mesh.nodes)
-                obj.facet_index, obj.facet_mask = Mesh.create_index(self.mesh.facet_COG, obj.mesh.facet_COG)
+                #obj.node_index, obj.node_mask = Mesh.create_index(self.mesh.nodes, obj.mesh.nodes)
+                #obj.facet_index, obj.facet_mask = Mesh.create_index_facet(self.mesh.facet_COG, obj.mesh.facet_COG)
+                obj.node_index  = Mesh.create_index_mapping(self.mesh.nodes, obj.mesh.nodes)
+                obj.facet_index = Mesh.create_index_mapping(self.mesh.facet_COG, obj.mesh.facet_COG)
 
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
             self.inside_shock = np.zeros(len(self.mesh.nodes))

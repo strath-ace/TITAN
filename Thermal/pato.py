@@ -71,6 +71,10 @@ def write_material_properties(options, obj):
     k_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'heatConductivity', 4)
     density = obj.material.density
 
+    cp = obj.material.specificHeatCapacity(300+(obj.material.meltingTemperature-300)/2)
+    em = obj.material.emissivity(300+(obj.material.meltingTemperature-300)/2)
+    tc = obj.material.heatConductivity(300+(obj.material.meltingTemperature-300)/2)
+
     object_id = obj.global_ID
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/data/constantProperties', 'w') as f:
@@ -91,19 +95,20 @@ def write_material_properties(options, obj):
         f.write('\n')
         f.write('/***        Temperature dependent material properties   ***/\n')
         f.write('/***        5 coefs - n0 + n1 T + n2 T² + n3 T³ + n4 T⁴ ***/\n')
+        f.write('Tmax ' + str(obj.material.meltingTemperature) + ';\n')
         f.write('// specific heat capacity - cp - [0 2 -2 -1 0 0 0]\n')
-        f.write('cp_sub_n[0] '+str(cp_coeffs[0])+';\n')
-        f.write('cp_sub_n[1] '+str(cp_coeffs[1])+';\n')
-        f.write('cp_sub_n[2] '+str(cp_coeffs[2])+';\n')
-        f.write('cp_sub_n[3] '+str(cp_coeffs[3])+';\n')
-        f.write('cp_sub_n[4] '+str(cp_coeffs[4])+';\n')
+        f.write('cp_sub_n[0] '+str(cp)+';\n')
+        f.write('cp_sub_n[1] 0;\n')
+        f.write('cp_sub_n[2] 0;\n')
+        f.write('cp_sub_n[3] 0;\n')
+        f.write('cp_sub_n[4] 0;\n')
         f.write('\n')
         f.write('// isotropic conductivity  - k - [1 1 -3 -1 0 0 0]\n')
-        f.write('k_sub_n[0]  '+str(k_coeffs[0])+';\n')
-        f.write('k_sub_n[1]  '+str(k_coeffs[1])+';\n')
-        f.write('k_sub_n[2]  '+str(k_coeffs[2])+';\n')
-        f.write('k_sub_n[3]  '+str(k_coeffs[3])+';\n')
-        f.write('k_sub_n[4]  '+str(k_coeffs[4])+';\n')
+        f.write('k_sub_n[0]  '+str(tc)+';\n')
+        f.write('k_sub_n[1]  0;\n')
+        f.write('k_sub_n[2]  0;\n')
+        f.write('k_sub_n[3]  0;\n')
+        f.write('k_sub_n[4]  0;\n')
         f.write('\n')
         f.write('// density - rho - [1 -3 0 0 0 0 0]\n')
         f.write('rho_sub_n[0]    '+str(density)+';\n')
@@ -113,8 +118,8 @@ def write_material_properties(options, obj):
         f.write('rho_sub_n[4]    0;\n')
         f.write('\n')
         f.write('// emissivity - e - [0 0 0 0 0 0 0]\n')
-        f.write('e_sub_n[0]  '+str(emissivity_coeffs[0])+';\n')
-        f.write('e_sub_n[1]  '+str(emissivity_coeffs[1])+';\n')
+        f.write('e_sub_n[0]  '+str(em)+';\n')
+        f.write('e_sub_n[1]  0;\n')
         f.write('e_sub_n[2]  0;\n')
         f.write('e_sub_n[3]  0;\n')
         f.write('e_sub_n[4]  0;\n')
@@ -175,7 +180,7 @@ def write_All_run(options, obj, time, iteration):
     end_time = time + options.dynamics.time_step
     start_time = time
 
-    time_step_to_delete = time - 2*options.dynamics.time_step
+    time_step_to_delete = time - options.dynamics.time_step
     iteration_to_delete = int((iteration-1)*options.dynamics.time_step/options.pato.time_step)
 
     print('copying BC:', end_time, ' - ', start_time)
@@ -230,15 +235,23 @@ def write_All_run(options, obj, time, iteration):
         f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         #f.write('rm mesh/*meshb \n')
+        print('time_step_to_delete:', time_step_to_delete)
+        print('end_time:', end_time)
+        print('start_time:', start_time)
         for n in range(options.pato.n_cores):
             #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            #f.write('rm -rf processor'+str(n)+'/restart/* \n')
+            if options.current_iter%options.save_freq == 0:
+                f.write('rm -rf processor'+str(n)+'/restart/* \n')
+                f.write('cp -r  processor'+str(n)+'/'+str(start_time)+'/ processor'+str(n)+'/restart/ \n')
+            f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
             #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-             if time_step_to_delete/options.dynamics.time_step != options.save_freq:
-                f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-                print('delete time_step_to_delete:', time_step_to_delete)
+            #if time_step_to_delete/options.dynamics.time_step != options.save_freq:
+                #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+                #print('delete time_step_to_delete:', time_step_to_delete)
             #if options.current_iter%options.save_freq != 0:
             #    f.write('rm -rf processor'+str(n)+'/'+str(end_time)+' \n')
-            #f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
+            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
 
     f.close()
 
@@ -902,6 +915,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     
     temperature_cell = np.array(temperature_cell)
     mapping = mapping_facetCOG_TITAN_PATO(obj.mesh.facet_COG, vtk_COG)
+
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
 
@@ -921,7 +935,6 @@ def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
     mapping = np.array(mapping)
 
     return mapping
-    
 
 def interpolateNearestCOG(facet_COG, input_COG, input_array):
 
@@ -1006,7 +1019,7 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
 
     return vtk_data
 
-def compute_heat_conduction(assembly, L):
+def compute_heat_conduction(assembly):
 
     objects = assembly.objects
     assembly.hf_cond[:] = 0
@@ -1017,7 +1030,7 @@ def compute_heat_conduction(assembly, L):
         #loop through each connection of each entry
         for j in range(len(obj_A.connectivity)):
             obj_B = objects[obj_A.connectivity[j]-1]
-            compute_heat_conduction_on_surface(obj_A, obj_B, L)
+            compute_heat_conduction_on_surface(obj_A, obj_B)
 
 def identify_object_connections(assembly):
 
@@ -1050,7 +1063,7 @@ def identify_object_connections(assembly):
         obj_id += 1
 
 
-def compute_heat_conduction_on_surface(obj_A, obj_B, L):
+def compute_heat_conduction_on_surface(obj_A, obj_B):
 
     #identify adjacent facets
     #obj_A_adjacent = index of adjacent facets in obj A
@@ -1062,8 +1075,11 @@ def compute_heat_conduction_on_surface(obj_A, obj_B, L):
     T_A = obj_A.pato.temperature
     T_B = obj_B.pato.temperature
 
+    L = obj_A.bloom.spacing/2 + obj_B.bloom.spacing/2
+    #L = 2*0.0005
+
     #for the identified facets:
-    qcond_A = -k_B*(T_A[obj_A_adjacent]-T_B[obj_B_adjacent])/(2*L) #qcond_BA
+    qcond_A = -k_B*(T_A[obj_A_adjacent]-T_B[obj_B_adjacent])/(L) #qcond_BA
 
     #append hf_cond cause there will be contribution from different objects
     obj_A.pato.hf_cond[obj_A_adjacent] += qcond_A
