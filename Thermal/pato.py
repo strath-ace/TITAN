@@ -239,7 +239,7 @@ def write_All_run(options, obj, time, iteration):
         print('end_time:', end_time)
         print('start_time:', start_time)
         for n in range(options.pato.n_cores):
-            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             #f.write('rm -rf processor'+str(n)+'/restart/* \n')
             if options.current_iter%options.save_freq == 0:
                 f.write('rm -rf processor'+str(n)+'/restart/* \n')
@@ -1076,7 +1076,6 @@ def compute_heat_conduction_on_surface(obj_A, obj_B):
     T_B = obj_B.pato.temperature
 
     L = obj_A.bloom.spacing/2 + obj_B.bloom.spacing/2
-    #L = 2*0.0005
 
     #for the identified facets:
     qcond_A = -k_B*(T_A[obj_A_adjacent]-T_B[obj_B_adjacent])/(L) #qcond_BA
