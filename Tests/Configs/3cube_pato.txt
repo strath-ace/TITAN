@@ -1,0 +1,50 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 50000
+Load_mesh = True
+Load_state = True
+Fidelity = Low
+Output_folder = Tests/3-cube-pato/
+Output_freq = 1
+
+[Trajectory]
+Altitude = 100000
+Velocity = 5000
+Flight_path_angle = 0
+Heading_angle = 0
+Latitude = 0
+Longitude = 0
+
+[Thermal]
+Ablation = True
+Ablation_mode = PATO
+
+[PATO]
+Time_step = 0.5
+N_cores = 1
+wrt = 0.5
+
+[Bloom]
+Flag =  True
+Layers = 40
+Spacing = 0.001
+Growth_Rate = 3
+
+[Time]
+Time_step = 0.5
+Propagator = Euler
+
+[Assembly]
+# Path for the geometry files
+Path = Tests/Mesh/Cubes-pato/3cubes/
+Connectivity = [[1,2,0],[2,3,0]]
+
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+Cube_A = [NAME = CubeA.stl,         TYPE = Primitive,   MATERIAL = Unittest_PATO,   TEMPERATURE = 300, FENICS_ID = 1]]
+Cube_B = [NAME = CubeB.stl,         TYPE = Primitive,   MATERIAL = Unittest_PATO,   TEMPERATURE = 600, FENICS_ID = 1]]
+Cube_C = [NAME = CubeC.stl,         TYPE = Primitive,   MATERIAL = Unittest_PATO,   TEMPERATURE = 900, FENICS_ID = 1]]
