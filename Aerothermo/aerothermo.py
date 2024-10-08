@@ -26,23 +26,27 @@ from Aerothermo import su2, switch
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
 import trimesh
+from scipy.optimize import root
+from scipy.optimize import fsolve
 try:
     import mutationpp as mpp
 except:
     exit("Mutationpp library not set up")
 
-def mixture_mpp():
+def mixture_mpp(mixture = "air5"):
     """
     Retrieve the mixture object of the Mutation++ library
     With the chemical reactions for air5
     """
 
-    opts = mpp.MixtureOptions("air_5")
+    opts = mpp.MixtureOptions(mixture)
     opts.setThermodynamicDatabase("RRHO")
     opts.setStateModel("ChemNonEq1T")
     opts.setViscosityAlgorithm("Gupta-Yos")
 
     mix = mpp.Mixture(opts)
+
+    print("Mixture:", mixture)
     
     return mix
 
@@ -57,7 +61,13 @@ def stagnation_T(T, gamma, M):
 
 ### Normal Shock Equations
 def normal_shock_P(P, gamma, M):
+
+    print('M:', M)
+    print('gamma:', gamma)
+    print('P:', P)
     P_post = P*((2.0 * gamma * (M**2)) - (gamma - 1.0)) / (gamma + 1.0)
+    print('P_post:', P_post)
+
     return P_post
 
 def normal_shock_T(T, gamma, M):
@@ -91,14 +101,14 @@ def energy_loop(mix, T_eq, P_eq, h_ref):
 
     return mix
 
-class flow_helper():
+class stagnation_line():
     """
     Class to store the flow conditions at freestream, stagnation, BLE and wall
     """
 
     def __init__(self, Tfree, Pfree, Mfree, Twall, mix = None):
 
-        if mix == None: self.mix = mixture_mpp()
+        if mix == None: self.mix = mixture_mpp("air5")
         else: self.mix = mix
 
         self.Tfree = Tfree
@@ -119,6 +129,7 @@ class flow_helper():
         
         self.T0_free = stagnation_T(self.Tfree, self.gammafree, self.Mfree)
         self.P0_free = stagnation_P(self.Pfree, self.gammafree, self.Mfree)
+        #Total enthalpy at freestream
         self.H0_free = self.mix.mixtureHMass() + (self.Mfree*self.mix.frozenSoundSpeed())**2/2.0
 
         #Post-shock conditions:
@@ -342,17 +353,17 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
     #Pressure calculation only if Drag model is False
     if (not options.vehicle) or (options.vehicle and not options.vehicle.Cd):
         if  (assembly.freestream.knudsen <= Kn_cont_pressure):
-            assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction)
+            assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly, index, flow_direction)
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
 
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream , index, flow_direction, assembly.aerothermo.temperature)
+            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly, index, flow_direction)
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
             assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
         else: 
             aerobridge = bridging(assembly.freestream, Kn_cont_pressure, Kn_free )
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_bridging(assembly.mesh.facet_normal, assembly.freestream, index, aerobridge, flow_direction, assembly.aerothermo.temperature)
+            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_bridging(assembly, index, aerobridge, flow_direction)
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
             assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
@@ -384,18 +395,18 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     # Heatflux calculation for Earth
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, options, assembly)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly, index, flow_direction, options)*StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
 
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly.mesh.facet_normal, assembly.freestream, index, flow_direction, assembly.aerothermo.temperature)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly, index, flow_direction)*StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index]
 
         else: 
             #atmospheric model for the aerothermodynamics bridging needs to be the NRLSMSISE00
             atmo_model = "NRLMSISE00"
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly.mesh.facet_normal, assembly.mesh.facet_radius, assembly.freestream, index, assembly.aerothermo.temperature, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, assembly.Lref, assembly, options)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)*StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
 
 
@@ -436,6 +447,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
+        compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture)
 
 
 def edge_subdivision(v0,v1,v2, n):
@@ -495,7 +507,391 @@ def ray_trace(assembly, direction, n = 0):
 
     return index_ray_trace
 
-def aerodynamics_module_continuum(facet_normal,free, p, flow_direction):
+
+def compute_equilibrium_chemistry(assembly, mixture):
+
+    free = assembly.freestream
+    Twall = assembly.aerothermo.temperature
+
+    print('chemistry mixture:', mixture)
+
+    mix = mixture_mpp('air5')
+
+    # Freestream conditions
+    Tfree = free.temperature
+    Pfree = free.pressure
+    Mfree = free.mach
+    rhofree = free.density
+    cfree_i = free.percent_mass
+
+    #N O NO N2 O2
+    cfree_i = np.array([0, 0, 0, cfree_i[0,0], cfree_i[0,1]])
+    rhosfree = cfree_i*rhofree
+
+    mix.setState(rhosfree, Tfree, 1)
+
+    gammafree = mix.mixtureFrozenGamma()
+    H0_free = mix.mixtureHMass() + (Mfree*mix.frozenSoundSpeed())**2/2.0
+
+    #Frozen chemistry post-shock conditions for facets facing the flow:
+    beta = np.zeros(len(Twall))
+    theta = assembly.aerothermo.theta
+    p = np.where(theta > 1e-3)[0]
+    beta = shock_angle(Mfree, theta[p], gammafree)
+
+    # Normal component of Mach number for each surface
+    Mn1 = Mfree * np.sin(beta)
+
+    #Frozen chemistry normal post-shock relations with Mn1:
+    T_post_frozen = normal_shock_T(Tfree, gammafree, Mn1)
+    P_post_frozen = normal_shock_P(Pfree, gammafree, Mn1)
+    rho_post_frozen = normal_shock_rho(rhofree, gammafree, Mn1)
+    Mn2_frozen    = normal_shock_M(gammafree, Mn1)
+    M_post_frozen = Mn2_frozen / np.sin(beta - theta[p])
+
+    beta_high = np.pi / 2  # Upper bound is 90 degrees (in radians)    
+
+    # Then apply the condition: if (beta - theta) <= 0, this is the case of a normal shock, set M_post_frozen[p] = Mn2_frozen
+    M_post_frozen = np.where(beta >= 89.9*np.pi/180, Mn2_frozen, M_post_frozen)
+    u_post_frozen = M_post_frozen*mix.frozenSoundSpeed()
+    H_post_frozen = np.full(len(beta), H0_free) - u_post_frozen**2/2.0
+
+    #BLE conditions (approximated to frozen post-shock)
+    ue = np.zeros(len(Twall))
+    rhoe = np.zeros(len(Twall))
+    He = np.zeros(len(Twall))
+    ce_i = np.zeros((len(Twall), mix.nSpecies()))
+    xe_i = np.zeros((len(Twall), mix.nSpecies()))
+
+    ue[p] = u_post_frozen
+    rhoe[p] = rho_post_frozen
+    He[p] = H_post_frozen
+
+
+
+
+#def compute_equilibrium_chemistry(assembly, mixture):
+#
+#    free = assembly.freestream
+#    Twall = assembly.aerothermo.temperature
+#
+#    print('chemistry mixture:', mixture)
+#
+#    mix = mixture_mpp('air5')
+#
+#    # Freestream conditions
+#    Tfree = free.temperature
+#    Pfree = free.pressure
+#    Mfree = free.mach
+#    rhofree = free.density
+#    ce_i_free = free.percent_mass
+#
+#    print('free.percent_mass:', free.percent_mass)
+#
+#    #N O NO N2 O2
+#    ce_i_free = np.array([0, 0, 0, ce_i_free[0,0], ce_i_free[0,1]])
+#    print('ce_i:', ce_i_free)
+#
+#    rhosfree = ce_i_free*rhofree
+#
+#    print('rhos_free:', rhosfree)
+#    exit()
+#
+#    mix.setState(rhosfree, Tfree, 1)
+#
+#    exit()
+#
+#    mix.equilibrate(Tfree, Pfree)        
+#    gammafree = mix.mixtureFrozenGamma()
+#    c_i_free = mix.Y()
+#    hfree = mix.mixtureHMass()
+#    h0_free = hfree + (Mfree*mix.frozenSoundSpeed())**2/2.0
+#
+#    #Frozen chemistry post-shock/BLE conditions for facets facing the flow:
+#    beta = np.zeros(len(Twall))
+#    theta = assembly.aerothermo.theta
+#    p = np.where(theta > 1e-3)[0]
+#    beta = shock_angle(Mfree, theta[p], gammafree)
+#
+#    # Normal component of Mach number for each surface
+#    Mn1 = Mfree * np.sin(beta)
+#
+#    #Frozen chemistry normal post-shock relations with Mn1:
+#    T_post_frozen = normal_shock_T(Tfree, gammafree, Mn1)
+#    P_post_frozen = normal_shock_P(Pfree, gammafree, Mn1)
+#    rho_post_frozen = normal_shock_rho(rhofree, gammafree, Mn1)
+#    Mn2_frozen    = normal_shock_M(gammafree, Mn1)
+#    M_post_frozen = Mn2_frozen / np.sin(beta - theta[p])
+#
+#    beta_high = np.pi / 2  # Upper bound is 90 degrees (in radians)    
+#
+#    # Then apply the condition: if (beta - theta) <= 0, this is the case of a normal shock, set M_post_frozen[p] = Mn2_frozen
+#    M_post_frozen = np.where(beta >= 89.9*np.pi/180, Mn2_frozen, M_post_frozen)
+#    
+#    u_post_frozen = M_post_frozen*mix.frozenSoundSpeed()
+#
+#    H0_post_frozen = np.zeros(len(beta))
+#    ce_i = np.zeros((len(beta), mix.nSpecies()))
+#    xe_i = np.zeros((len(beta), mix.nSpecies()))
+#
+#    for facet in range(len(beta)):
+#        mix.equilibrate(T_post_frozen[facet], P_post_frozen[facet])
+#        H0_post_frozen[facet] = mix.mixtureHMass() + (M_post_frozen[facet]*np.sqrt((gammafree*P_post_frozen[facet])/rho_post_frozen[facet]))**2/2.0
+#        ce_i[facet] = mix.Y()
+#        xe_i[facet] = mix.X()
+#    
+#    print('T_post_frozen:',T_post_frozen)
+#    print('ce_i:',ce_i)
+#    print('H0_post_frozen:',H0_post_frozen)
+#
+#    exit()
+
+#    ue = np.zeros(len(Twall))
+#    Te = np.zeros(len(Twall))
+#    Pe = np.zeros(len(Twall))
+#    rhoe = np.zeros(len(Twall))
+#    He = np.zeros(len(Twall))
+#    He_0 = np.zeros(len(Twall))
+#    ce_i = np.zeros((len(Twall), mix.nSpecies()))
+#    xe_i = np.zeros((len(Twall), mix.nSpecies()))
+#
+#    #Initialize BLE/equilibrium state to post-shock frozen state
+#    Te[p] = T_post_frozen
+#    Pe[p] = P_post_frozen
+#
+#    #Equilibrium chemistry oblique post-shock/BLE conditions
+#    for facet in range(len(beta)):
+#        print('facet:', facet)
+#        mix, ue[facet] = post_shock_equilibrium(mix, h0_free, T_post_frozen[facet], P_post_frozen[facet], rho_post_frozen[facet], u_post_frozen[facet])
+#        exit()
+#        Te[facet] = mix.T()
+#        Pe[facet] = mix.P()
+#        rhoe[facet] = mix.density()
+#        He[facet] = mix.mixtureHMass()
+#        ce_i[facet] = mix.Y()
+#        xe_i[facet] = mix.X()
+#
+#    print('Te:',Te)
+#    print('ce_i:',ce_i)
+#    exit()
+
+
+    #Post-shock/BLE conditions for facets not facing the flow:
+    # == freestream
+
+#def post_shock_equilibrium(mix, h0_ref, T_frozen, P_frozen, rho_frozen, u_frozen):
+#
+#    tol = 1e-4
+#
+#    T_eq = T_frozen
+#    P_eq = P_frozen
+#    h0_eq = 0
+#    difference = 1
+#
+#    i = 0
+#
+#    print('\n')
+#
+#    print('rho_frozen:', rho_frozen)
+#    print('u_frozen:', u_frozen)
+#    print('P_frozen:', P_frozen)
+#    print('T_frozen:', T_frozen)
+#    print('h0_ref:', h0_ref)
+#
+#    #while abs(h0_ref-h0_eq)>tol:
+#    while abs(difference)>tol:
+#
+#        #print('0 T_eq:',T_eq)
+#
+#        mix.equilibrate(T_eq, P_eq)
+#
+#        h_eq = mix.mixtureHMass()
+#        rho_eq = mix.density()
+#
+#
+#
+#        #print('rho_eq:', rho_eq)
+#
+#        u_eq = (rho_frozen*u_frozen)/rho_eq
+#
+##        h0_eq = h_eq + u_eq**2/2.0
+##
+#        print('h_eq:', h_eq)
+##
+##        #u_eq = np.sqrt(2 * (h0_ref - h_eq))
+##
+#        print('rho_eq:', rho_eq)
+#        print('u_eq:', u_eq)
+##
+##        #h0_eq = h_eq + 0.5 * u_eq**2
+##
+##        print('h0_eq:', h0_eq)
+##
+##        cp_eq = mix.mixtureEquilibriumCpMass()
+##
+##        dT = (h0_ref - h0_eq)/cp_eq
+##        T_eq = T_eq - dT*0.1
+##
+#        print('T_eq:',T_eq)
+#
+#        kineticEnergy = 0.5 * u_eq * u_eq;  #// m^2/s^2 = J/kg
+#
+#        h0 = h_eq + kineticEnergy
+#
+#        targetStaticEnthalpy = h0_ref - kineticEnergy;
+#
+#        difference = targetStaticEnthalpy - h_eq;
+#
+#        print('difference:', difference)
+#
+#        print('targetStaticEnthalpy:', targetStaticEnthalpy)
+#
+#        #T_eq += 100*difference / targetStaticEnthalpy; #Adjust step size as needed
+#        #print('dT:', difference / targetStaticEnthalpy)
+#        i += 1
+#
+#        cp_eq = mix.mixtureEquilibriumCpMass()
+#
+#        dT = (h0_ref-h0)/cp_eq
+#
+#        T_eq = T_eq - dT*0.01
+#
+#        print('T_eq:',T_eq)
+#        #exit()
+#        print('i:', i)
+#
+#        #if (i == 3): exit()
+#
+#    exit()
+#
+#        
+#
+#        #mix.equilibrate(T_eq, P_eq)
+#
+#        #P_eq = mix.P()
+#    print('T_eq:', T_eq)
+#    print('u_eq:', u_eq)
+#    print('h0_ref:', h0_ref)
+#    print('h_ref:', h_ref)
+#    print('h0_eq:', h0_eq)
+#    print('h_eq:', h_eq)
+#
+#    return mix, u_eq
+
+#def residuals(variables, mix, h0_ref, P_frozen):
+#    """
+#    Residuals function for Newton's method.
+#    :param variables: Array [u_eq, T_eq]
+#    :param mix: Mutation++ gas mixture
+#    :param h0_ref: Reference total enthalpy
+#    :param P_frozen: Frozen pressure
+#    :return: Residuals for velocity and temperature
+#    """
+#    u_eq, T_eq = variables  # Unknowns: velocity and temperature
+#
+#    mix.equilibrate(T_eq, P_frozen)
+#    
+#    # Get current internal enthalpy
+#    h_eq = mix.mixtureHMass()
+#    
+#    # Compute total enthalpy
+#    h0_eq = h_eq + 0.5 * u_eq**2
+#    
+#    # Residual 1: Total energy mismatch
+#    res1 = h0_ref - h0_eq
+#    
+#    # Residual 2: Temperature internal energy mismatch (you can add another constraint here if necessary)
+#    res2 = h0_ref - h_eq - 0.5 * u_eq**2  # Based on energy conservation
+#    
+#    return [res1, res2]
+#
+#def post_shock_equilibrium_newton(mix, h0_ref, T_frozen, P_frozen):
+#    print('h0_ref', h0_ref)
+#    # Initial guesses for velocity and temperature
+#    u_init = 0.0  # Start assuming velocity is zero
+#    T_init = T_frozen * 0.5  # Start with a lower guess for temperature
+#    
+#    # Use Newton's method to solve for u_eq and T_eq
+#    solution = root(residuals, [u_init, T_init], args=(mix, h0_ref, P_frozen))
+#
+#    print('solution.x:', solution.x)
+#    
+#    if solution.success:
+#        u_eq, T_eq = solution.x
+#        return u_eq, T_eq
+#    else:
+#        raise ValueError("Newton's method failed to converge")
+
+#def shock_angle(M, theta, gamma):
+#
+#    print('\nSHOCK ANGLE')
+#
+#    print('M:', M)
+#    print('theta:', theta)
+#    print('gamma:', gamma)
+#
+#
+#    # Mach angle approximation for strong shock wave
+#    beta_low = np.arcsin(1 / M) # Lower bound of shock angle (in radians)
+#    beta_high = np.pi / 2  # Upper bound is 90 degrees (in radians)
+#
+#    def theta_beta_m_relation(M, beta, gamma):
+#        tan_theta = 2 * (M**2 * (np.sin(beta))**2 - 1) / \
+#                    (M**2 * (gamma + np.cos(2 * beta)) + 2)
+#        return tan_theta
+#
+#    # Use bisection method to solve for shock angle (beta)
+#    beta_mid = (beta_low + beta_high) / 2
+#    while (beta_high - beta_low).max() > 1e-6:
+#        tan_theta_mid = theta_beta_m_relation(M, beta_mid, gamma)
+#        beta_low = np.where(np.tan(theta) > tan_theta_mid, beta_mid, beta_low)
+#        beta_high = np.where(np.tan(theta) <= tan_theta_mid, beta_mid, beta_high)
+#        beta_mid = (beta_low + beta_high) / 2
+#
+#    beta_mid = np.where(np.abs(theta) <1e-3, 0.0, beta_mid)
+#
+#    return beta_mid
+
+def shock_angle(M, theta_array, gamma):
+    """
+    Calculates the shock wave angle beta for an oblique shock for an array of flow turn angles.
+    
+    Parameters:
+    M : float
+        Freestream Mach number.
+    gamma : float
+        Specific heat ratio.
+    theta_deg_array : array-like
+        Array of flow turn angles (theta) in degrees.
+    
+    Returns:
+    beta_deg_array : array-like
+        Array of shock wave angles (beta) in degrees.
+    """
+    
+    # Define the equation for the shock wave angle beta
+    def equation(beta, theta):
+        return np.tan(theta) - 2 * (1 / np.tan(beta)) * ((M**2 * np.sin(beta)**2 - 1) / 
+                                                         (M**2 * (gamma + np.cos(2 * beta)) + 2))
+
+    # Array to store the resulting beta angles
+    beta_deg_array = []
+
+    # Loop over each theta and solve for beta
+    for theta in theta_array:
+        # Initial guess for beta (in radians), typically starts just above theta
+        beta_initial_guess = theta + np.radians(5)  # A guess slightly larger than theta
+        
+        # Solve the equation for beta
+        beta_solution = fsolve(equation, beta_initial_guess, args=(theta))[0]
+        
+        # Convert beta to degrees and append to the result list
+        beta_deg_array.append(beta_solution)
+
+    return np.array(beta_deg_array)
+
+
+def aerodynamics_module_continuum(assembly, p, flow_direction):
     """
     Pressure computation for continuum regime
 
@@ -518,17 +914,21 @@ def aerodynamics_module_continuum(facet_normal,free, p, flow_direction):
         Vector with pressure values
     """
 
+    facet_normal = assembly.mesh.facet_normal
+    free = assembly.freestream
+
     length_normal = np.linalg.norm(facet_normal, axis = 1, ord = 2)
 
     p = p*(length_normal[p] != 0)
 
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
-
+    assembly.aerothermo.theta[p] =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
     P0_s = free.P1_s
     Cpmax= (2.0/(free.gamma*free.mach**2.0))*((P0_s/free.pressure-1.0))
 
     #TODO
     if free.mach <= 1.0: Cpmax = 1
+
+    Theta = assembly.aerothermo.theta[p]
 
     Cp = Cpmax*np.sin(Theta)**2
     Cp[Theta < 0] = 0
@@ -566,7 +966,9 @@ def aerothermodynamics_module_ice_giants(assembly, index, flow_direction, option
 
     length_normal = np.linalg.norm(assembly.mesh.facet_normal, axis = 1, ord = 2)
     index = index*(length_normal[index] != 0)
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * assembly.mesh.facet_normal[index]/length_normal[index,None] , axis = 1), -1.0, 1.0))
+    assembly.aerothermo.theta[index] =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * assembly.mesh.facet_normal[index]/length_normal[index,None] , axis = 1), -1.0, 1.0))
+
+    Theta = assembly.aerothermo.theta[index]
 
     if options.vehicle:
         nose_radius = options.vehicle.noseRadius
@@ -585,7 +987,7 @@ def aerothermodynamics_module_ice_giants(assembly, index, flow_direction, option
 
     return Q
 
-def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_temperature, flow_direction, options, assembly):
+def aerothermodynamics_module_continuum(assembly, p, flow_direction, options):
     """
     Heatflux computation for continuum regime
 
@@ -613,6 +1015,12 @@ def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_t
     Stc: np.array
         Vector with Stanton number
     """
+
+    facet_normal = assembly.mesh.facet_normal
+    facet_radius = assembly.mesh.facet_radius
+    free = assembly.freestream
+    body_temperature = assembly.aerothermo.temperature
+
 
     def FR(flow, vel_grad):
         q = 0.94*(flow.rhow*flow.muw)**0.1*(flow.rhoe*flow.mue)**0.4*(flow.He - flow.Hw)*np.sqrt(vel_grad)
@@ -664,7 +1072,9 @@ def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_t
     length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
     p = p*(length_normal[p] != 0)
 
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+    assembly.aerothermo.theta[p] = np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+
+    Theta = assembly.aerothermo.theta[p]
 
     T0s  = free.T1_s
     P02  = free.P1_s
@@ -693,29 +1103,29 @@ def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_t
         Stc = 0.763*(Pr**(-0.6))*(rhos*mu_T0s)**0.5*np.sqrt(dudx[p])*(h0s-free.cp*body_temperature[p])/StConst 
 
     if hf_model == 'fr': #Fay Riddell
-        mix = mixture_mpp()
-        flow_ble = flow_helper(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+        mix = mixture_mpp(options.aerothermo.mixture)
+        flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
         vel_grad = velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
         q = general_eq(flow_ble, vel_grad, 'fr')
         Stc = q/StConst
 
     if hf_model == 'fr_noncat': #Fay Riddell
-        mix = mixture_mpp()
-        flow_ble = flow_helper(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+        mix = mixture_mpp(options.aerothermo.mixture)
+        flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
         vel_grad = velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
         q = general_eq(flow_ble, vel_grad, 'fr_noncat')        
         Stc = q/StConst
 
     if hf_model == 'fr_parcat': #Fay Riddell
-        mix = mixture_mpp()
-        flow_ble = flow_helper(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+        mix = mixture_mpp(options.aerothermo.mixture)
+        flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
         vel_grad = velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
         q = general_eq(flow_ble, vel_grad, 'fr_parcat', cat_rate)       
         Stc = q/StConst
 
     if hf_model == 'sg': #Sutton_graves
-        mix = mixture_mpp()
-        flow_ble = flow_helper(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+        mix = mixture_mpp(options.aerothermo.mixture)
+        flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
         vel_grad = velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
         q = general_eq(flow_ble, vel_grad, 'sg')
         Stc = q/StConst
@@ -728,7 +1138,7 @@ def aerothermodynamics_module_continuum(facet_normal,facet_radius, free,p,body_t
 
     return Stc
 
-def aerothermodynamics_module_freemolecular(facet_normal, free, p, flow_direction, Wall_Temperature):
+def aerothermodynamics_module_freemolecular(assembly, p, flow_direction):
     """
     Heatflux computation for free-molecular regime
 
@@ -755,13 +1165,19 @@ def aerothermodynamics_module_freemolecular(facet_normal, free, p, flow_directio
         Vector with Stanton number
     """
 
+    facet_normal = assembly.mesh.facet_normal
+    free = assembly.freestream
+    Wall_Temperature = assembly.aerothermo.temperature
+
     StConst = free.density*free.velocity**3 / 2.0
     if StConst<0.05: StConst = 0.05 # Neglect Cooling effect (as in Fostrad)
 
     length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
     p = p*(length_normal[p] != 0)
 
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+    assembly.aerothermo.theta[p] =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+
+    Theta = assembly.aerothermo.theta[p]
 
     AccCoeff = 1.0 #TODO Wall molecular diffusive accomodation coefficient
     SR = np.sqrt(0.5*free.gamma)*free.mach
@@ -776,7 +1192,7 @@ def aerothermodynamics_module_freemolecular(facet_normal, free, p, flow_directio
 
     return Stfm
 
-def aerodynamics_module_freemolecular(facet_normal,free,p, flow_direction, body_temperature):
+def aerodynamics_module_freemolecular(assembly, p, flow_direction):
     """
     Pressure computation for Free-molecular regime
 
@@ -802,8 +1218,15 @@ def aerodynamics_module_freemolecular(facet_normal,free,p, flow_direction, body_
         Vector with skin friction values
     """
 
+    facet_normal = assembly.mesh.facet_normal
+    free = assembly.freestream
+    body_temperature = assembly.aerothermo.temperature
+
+
     length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
-    Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+    assembly.aerothermo.theta[p] =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
+
+    Theta = assembly.aerothermo.theta[p]
 
     SR = np.sqrt(0.5*free.gamma)*free.mach
     SN = 1.0 #TODO 0.93
@@ -864,7 +1287,7 @@ def bridging(free, Kn_cont, Kn_free):
     AeroBridge = (1+special.erf(Kn_trans_R*4-2.0))/2.0*BridgeCF
     return AeroBridge
 
-def aerodynamics_module_bridging(facet_normal,free,p,aerobridge, flow_direction, wall_temperature):
+def aerodynamics_module_bridging(assembly, p, aerobridge, flow_direction):
     """
     Pressure computation for Transitional regime
 
@@ -890,15 +1313,21 @@ def aerodynamics_module_bridging(facet_normal,free,p,aerobridge, flow_direction,
         Vector with skin friction values
     """
 
-    Pcont = aerodynamics_module_continuum(facet_normal,free,p,flow_direction)
-    Pfree, Sfree = aerodynamics_module_freemolecular(facet_normal,free, p, flow_direction, wall_temperature)
+    facet_normal = assembly.mesh.facet_normal
+    free = assembly.freestream
+    wall_temperature = assembly.aerothermo.temperature
+
+
+
+    Pcont = aerodynamics_module_continuum(assembly, p, flow_direction)
+    Pfree, Sfree = aerodynamics_module_freemolecular(assembly, p, flow_direction)
 
     Pressure = Pcont + (Pfree - Pcont)* aerobridge
     Shear = 0 + (Sfree - 0)* aerobridge
 
     return Pressure, Shear
 
-def aerothermodynamics_module_bridging(facet_normal, facet_radius,free,p, wall_temperature, flow_direction, atm_data, Kn_cont, Kn_free, lref, assembly, options):
+def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn_cont, Kn_free, options):
     """
     Heatflux computation for the heat-flux regime
 
@@ -934,6 +1363,11 @@ def aerothermodynamics_module_bridging(facet_normal, facet_radius,free,p, wall_t
     St: np.array
         Vector with Stanton number
     """
+
+    lref = assembly.Lref
+    free = assembly.freestream
+    facet_radius = assembly.mesh.facet_radius
+    facet_normal = assembly.mesh.facet_normal
 
     #Computes the altitude of which the transition between flow regimes occur
     alt_cont, alt_free = bridging_altitudes(atm_data, Kn_cont, Kn_free, lref)
@@ -1049,8 +1483,8 @@ def aerothermodynamics_module_bridging(facet_normal, facet_radius,free,p, wall_t
     mix_properties.compute_stagnation(free_free, options.freestream)
 
     #Compute the Stanton number for both regimes, in the transition altitudes
-    Stc = aerothermodynamics_module_continuum(facet_normal, facet_radius,free_cont,p, wall_temperature, flow_direction, options, assembly)
-    Stfm = aerothermodynamics_module_freemolecular(facet_normal,free_free,p, flow_direction, wall_temperature)
+    Stc = aerothermodynamics_module_continuum(assembly, p, flow_direction, options)
+    Stfm = aerothermodynamics_module_freemolecular(assembly, p, flow_direction)
 
     St = Stc + (Stfm - Stc) * BridgeReq[p]
 

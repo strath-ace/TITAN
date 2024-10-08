@@ -225,7 +225,7 @@ class PATO():
         self.n_cores = n_cores    
 
         #: [int] String to define type of boundary condition used in the PATO simulation
-        self.Ta_bc = 'qconv'            
+        self.Ta_bc = "ablation" #'fixed', 'qconv' or 'ablation'            
 
 
 class Radiation():
@@ -262,7 +262,7 @@ class Aerothermo():
         A class to store the user-defined aerothemo model options
     """
 
-    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100):
+    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100, mixture = "air5"):
 
         #: [str] Name of the heatflux model to be used
         self.heat_model = heat_model
@@ -275,6 +275,9 @@ class Aerothermo():
 
         #: [float] Value of the free-molecular knudsen
         self.knf = knf
+
+        #: [str] Mixture file name
+        self.mixture = mixture
 
 class Freestream():
     """ Freestream class
@@ -867,6 +870,7 @@ def read_config_file(configParser, postprocess = ""):
     options.aerothermo.cat_method = get_config_value(configParser, 'constant', 'Aerothermo', 'Catalicity_method', 'str')
     options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
     options.aerothermo.subdivision_triangle = get_config_value(configParser, 0, 'Aerothermo', 'Level_division', 'int')
+    options.aerothermo.mixture = get_config_value(configParser, options.aerothermo.mixture, 'Aerothermo', 'Mixture', 'str')
 
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
