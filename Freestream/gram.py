@@ -25,6 +25,8 @@ import numpy as np
 def generate_script(assembly, options):
 	with open(options.output_folder+"/GRAM/gram_config_"+str(assembly.id), 'w') as f:
 
+		print('options.gram.spicePath:', options.gram.spicePath)
+
 		f.write(" $INPUT \n")
 		f.write("  SpicePath      = '"+options.gram.spicePath+"'\n")                                         
 		f.write("  DataPath       = '"+options.gram.gramPath+"/Earth/data'\n")

@@ -883,7 +883,7 @@ def read_config_file(configParser, postprocess = ""):
     if options.freestream.model.lower() == "gram":
         options.gram = GRAM()
         options.gram.gramPath = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'GRAM_Path', 'str')
-        options.gram.spicePath = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'SPICE_Path', 'str') 
+        options.gram.spicePath = get_config_value(configParser, options.gram.spicePath, 'GRAM', 'SPICE_Path', 'str') 
         options.gram.MinMaxFactor = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'MinMaxFactor', 'str')
         options.gram.ComputeMinMaxFactor = get_config_value(configParser, options.gram.ComputeMinMaxFactor, 'GRAM', 'ComputeMinMaxFactor', 'str')
 
