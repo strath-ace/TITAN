@@ -443,7 +443,8 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
-        compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture)
+        if options.pato: compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture)
+        #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
 
 
 def edge_subdivision(v0,v1,v2, n):
@@ -509,8 +510,6 @@ def compute_frozen_chemistry(assembly, mixture):
     free = assembly.freestream
     Twall = assembly.aerothermo.temperature
 
-    print('chemistry mixture:', mixture)
-
     mix = mixture_mpp('air5')
 
     # Freestream conditions
@@ -538,7 +537,7 @@ def compute_frozen_chemistry(assembly, mixture):
     beta = shock_angle(Mfree, theta[p], gammafree)
 
     # Normal component of Mach number for each surface
-    Mn1 = Mfree * np.sin(beta)
+    Mn1 = np.where((theta[p]*180/np.pi > 1e-3) & (theta[p]*180/np.pi < 90), Mfree * np.sin(beta), Mfree)
 
     #Frozen chemistry normal post-shock relations with Mn1:
     T_post_frozen = normal_shock_T(Tfree, gammafree, Mn1)
@@ -564,6 +563,7 @@ def compute_frozen_chemistry(assembly, mixture):
     ue[p] = u_post_frozen
     rhoe[p] = rho_post_frozen
     He[p] = H_post_frozen
+    ce_i[p] = cfree_i
 
 def compute_equilibrium_chemistry(assembly, mixture):
 
@@ -573,6 +573,8 @@ def compute_equilibrium_chemistry(assembly, mixture):
     print('chemistry mixture:', mixture)
 
     mix = mixture_mpp('air5')
+
+    nSpecies = mix.nSpecies()
 
     # Freestream conditions
     Tfree = free.temperature
@@ -589,9 +591,6 @@ def compute_equilibrium_chemistry(assembly, mixture):
     mix.setState(rhosfree, Tfree, 1)
 
     gammafree = mix.mixtureFrozenGamma()
-    print('gammafree:', gammafree)
-    print('Mfree:', Mfree)
-    print('Tfree:', Tfree)
     Hfree = mix.mixtureHMass()
     H0_free = Hfree + (Mfree*mix.frozenSoundSpeed())**2/2.0
 
@@ -601,15 +600,8 @@ def compute_equilibrium_chemistry(assembly, mixture):
     p = np.where(theta*180/np.pi > 1e-3)[0]
     beta = shock_angle(Mfree, theta[p], gammafree)
 
-    print('theta:', theta[p]*180/np.pi)
-    print('beta:', beta*180/np.pi)
-
     # Normal component of Mach number for each surface
-    #Mn1 = Mfree * np.sin(beta)
     Mn1 = np.where((theta[p]*180/np.pi > 1e-3) & (theta[p]*180/np.pi < 90), Mfree * np.sin(beta), Mfree)
-
-    print('Mn1:', Mn1)
-
 
     #Frozen chemistry normal post-shock relations with Mn1:
     T_post_frozen = normal_shock_T(Tfree, gammafree, Mn1)
@@ -625,25 +617,52 @@ def compute_equilibrium_chemistry(assembly, mixture):
     u_post_frozen = M_post_frozen*mix.frozenSoundSpeed()
     H_post_frozen = np.full(len(beta), H0_free) - u_post_frozen**2/2.0
 
-    post_shock_equilibrium(T_post_frozen[0], P_post_frozen[0], H_post_frozen[0], rhofree, Pfree, ufree, Hfree, mix)
+    #BLE conditions (equilibrium post-shock)
+    Ue = np.zeros(len(beta))
+    rhoe = np.zeros(len(beta))
+    He = np.zeros(len(beta))
+    Te = np.zeros(len(beta))
+    Pe = np.zeros(len(beta))
+    ce_i = np.zeros((len(beta), mix.nSpecies()))
+    cwall_i = np.zeros((len(beta), mix.nSpecies()))
+    Tfluid_wall = assembly.aerothermo.temperature[p]
+
+    for facet in range(len(beta)):
+        Te[facet], Pe[facet], He[facet], rhoe[facet], Ue[facet], ce_i[facet] = post_shock_equilibrium(T_post_frozen[facet], P_post_frozen[facet], H_post_frozen[facet], rhofree, Pfree, ufree, Hfree, mix)
+        #Tfluid_wall[facet] = fluid_wall_temperature(Te[facet], Pe[facet], H0_free, mix)
+        #mix.equilibrate(Tfluid_wall[facet], Pe[facet])
+        mix.equilibrate(Tfluid_wall[facet], Pe[facet])
+        cwall_i[facet] = mix.Y()
+
+def fluid_wall_temperature(Teq, Peq, H0_free, mix):
+
+    Pwall = Peq
+    Twall = Teq
+
+    hwall = 0
+    tol = 1
+
+    #Assuming zero velocity at the wall: Hwall = H0_free
+
+    while abs(H0_free-hwall)>tol:
+        mix.equilibrate(Twall, Pwall)
+
+        hwall = mix.mixtureHMass()
+        cp_eq = mix.mixtureFrozenCpMass()
+
+        dT = (hwall-H0_free)/cp_eq
+        Twall = Twall - dT*0.1
+
+    return Twall
 
 def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
-
-    print('rho1:', rho1)
-    print('p1:', p1)
-    print('h1:', h1)
-
-    print('T_frozen:', T_frozen)
-    print('P_frozen:', P_frozen)
 
     Peq = P_frozen
     Teq = T_frozen
     h2_eq = H_frozen
+
     h2 = 0
-
-    tol = 1e-3
-
-    i=0
+    tol = 1
 
     while abs(h2_eq-h2)>tol:
         mix.equilibrate(Teq, Peq)
@@ -651,470 +670,17 @@ def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
         h2_eq = mix.mixtureHMass()
         cp_eq = mix.mixtureFrozenCpMass()
 
-
-        #print('h2_eq:', h2_eq)
-
         h2 = h1 + u1**2/2.0 * (1 - (rho1/rho2)**2) 
-
-        #print('h2:', h2)
 
         dT = (h2_eq-h2)/cp_eq
 
         Teq = Teq - dT*0.1
         Peq = p1 + rho1*u1**2*(1-rho1/rho2)
 
-        i+=1
+    u2 = rho1*u1/rho2
+    ceq = mix.Y()
 
-        
-    print('i:', i)
-    print('Teq:', Teq)
-
-    exit()
-
-
-
-#def compute_equilibrium_chemistry(assembly, mixture):
-#
-#    free = assembly.freestream
-#    Twall = assembly.aerothermo.temperature
-#
-#    print('chemistry mixture:', mixture)
-#
-#    mix = mixture_mpp('air5')
-#
-#    # Freestream conditions
-#    T1 = free.temperature
-#    P1 = free.pressure
-#    M1 = free.mach
-#    rho1 = free.density
-#    c1_i = free.percent_mass
-#    u1 = free.velocity
-#
-#    #N O NO N2 O2
-#    c1_i = np.array([0, 0, 0, c1_i[0,0], c1_i[0,1]])
-#    rhos1 = c1_i*rho1
-#
-#    mix.setState(rhos1, T1, 1)
-#
-#    gamma1 = mix.mixtureFrozenGamma()
-#    h1 = mix.mixtureHMass()
-#
-#    #Frozen chemistry post-shock conditions for facets facing the flow:
-#    beta = np.zeros(len(Twall))
-#    theta = assembly.aerothermo.theta
-#    p = np.where(theta > 1e-3)[0]
-#    beta = shock_angle(M1, theta[p], gamma1)
-#
-#    # Normal component of Mach number for each surface
-#    Mn1 = M1 * np.sin(beta)
-#    un1 = u1 * np.sin(beta)
-#    ut1 = u1 * np.cos(beta)
-#
-#    p2 = np.zeros(len(beta))
-#    rho2 = np.zeros(len(beta))
-#    h2 = np.zeros(len(beta))
-#
-#    print('rho1:', rho1)
-#
-#    for facet in range(len(beta)):
-#
-#        vn1 = un1[facet]
-#
-#        #Iterative algorithm for algebraically solve equilibrium flows,
-#        #based on conservation equations take from Anderson, Chapter 14
-#    
-#        #Initial guess
-#        rho1_rho2 = 0.00054
-#    
-#        i = 0
-#    
-#        while True:
-#    
-#            print('i:', i)
-#    
-#            p2[facet] = rho1*(vn1**2)
-#        
-#            h2[facet] = h1 + vn1**2/2.0 * (1 - (rho1_rho2)**2)
-#    
-#            rho2[facet] = rho1/rho1_rho2
-#        
-#            Y = np.log(rho2[facet]/1.292)
-#            X = np.log(p2[facet]/1.013e5)
-#            Z = X - Y
-#    
-#            coeffs = get_coefficients(Y,Z)
-#
-#            print('rho2:', rho2[facet])
-#    
-#            print('Y:', Y)
-#            print('X:', X)
-#            print('Z:', Z)
-#        
-#            c1 = coeffs[0]
-#            c2 = coeffs[1]
-#            c3 = coeffs[2]
-#            c4 = coeffs[3]
-#            c5 = coeffs[4]
-#            c6 = coeffs[5]
-#            c7 = coeffs[6]
-#            c8 = coeffs[7]
-#            c9 = coeffs[8]
-#            c10 = coeffs[9]
-#            c11 = coeffs[10]
-#        
-#            gamma_ = c1 + c2*Y + c3*Z + c4*Y*Z + ((c5+c6*Y+c7*Z+c8*Y*Z)/(1 + np.exp(c9*(X+c10*Y+c11))))
-#        
-#            rho2[facet] = p2[facet]/h2[facet] * (gamma_/(gamma_ - 1))
-#        
-#            error = rho1_rho2 - rho1/rho2[facet]
-#
-#            print('error:', error)
-#        
-#            if abs(error) < 1e-3: break
-#    
-#            rho1_rho2 = rho1/rho2[facet]
-#
-#            print('rho1_rho2:', rho1_rho2)
-#    
-#            i += 1
-#
-#            #exit()
-#    
-#        exit()
-#
-#def get_coefficients(Y, Z):
-#
-#    #taken from Anderson table 11.3 h=h(p,rho)
-#
-#    # Coefficients based on Y and Z ranges
-#    coefficients = [
-#        {
-#            'Y_range': (-0.5, float('inf')),  # Y > -0.5
-#            'Z_ranges': [
-#                {'Z_range': (-float('inf'), 0.30), 'c': [1.4000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
-#                {'Z_range': (0.30, 1.15), 'c': [1.42598, 0.000918, -0.092209, -0.002226, 0.019772, -0.036600, -0.077469, 0.043878, -15.0, -1.0, -1.040]},
-#                {'Z_range': (1.15, 1.60), 'c': [1.64689, -0.062133, -0.334994, 0.063612, -0.038332, -0.014468, 0.073421, -0.002442, -15.0, -1.0, -1.360]},
-#                {'Z_range': (1.60, float('inf')), 'c': [1.48558, -0.453562, 0.152096, 0.303350, -0.459282, 0.448395, 0.220546, -0.292293, -10.0, -1.0, -1.600]},
-#            ]
-#        },
-#        {
-#            'Y_range': (-4.5, -0.5),  # -4.5 < Y <= -0.5
-#            'Z_ranges': [
-#                {'Z_range': (-float('inf'), 0.30), 'c': [1.4000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
-#                {'Z_range': (0.30, 0.98), 'c': [1.42176, -0.000366, -0.083614, 0.000675, 0.005272, -0.115853, -0.007363, 0.146179, -20.0, -1.0, -0.860]},
-#                {'Z_range': (0.98, 1.38), 'c': [1.74436, -0.035354, -0.415045, 0.061921, 0.018536, 0.043582, 0.044353, -0.049750, -20.0, -1.04, -1.336]},
-#                {'Z_range': (1.38, 2.04), 'c': [1.49674, -0.021583, -0.197008, 0.030886, -0.157738, -0.009158, 0.123213, -0.006553, -10.0, -1.05, -1.895]},
-#                {'Z_range': (2.04, float('inf')), 'c': [1.10421, -0.033664, 0.031768, 0.024335, -0.178802, -0.017456,0.080373, 0.002511, -15.0, -1.08, -2.650]},
-#            ]
-#        },
-#        {
-#            'Y_range': (-7, -4.5),  # -7 <= Y <= -4.5
-#            'Z_ranges': [
-#                {'Z_range': (-float('inf'), 0.398), 'c': [1.4000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]},
-#                {'Z_range': (0.398, 0.87), 'c': [1.47003, 0.007939, -0.244205, -0.025607, 0.872248, 0.049452, -0.764158, 0.000147, -20.0, -1.0, -0.742]},
-#                {'Z_range': (0.87, 1.27), 'c':  [3.18652, 0.137930, -1.89529, -0.103490, -2.14572, -0.272717, 2.06586, -0.223046, -15.0, -1.0, -1.041]},
-#                {'Z_range': (1.27, 1.863), 'c': [1.63963, -0.001004, -0.303549, 0.016464, -0.852169, -0.101237, 0.503123, 0.043580, -10.0, -1.0, -1.544]},
-#                {'Z_range': (1.863, float('inf')), 'c': [1.55889, 0.055932, -0.211764, -0.023548, -0.549041, -0.101758, 0.276732, 0.046031, -15.0, -1.0, -2.250]},
-#            ]
-#        },
-#    ]
-#
-#    # Find the matching Y range
-#    for entry in coefficients:
-#        Y_min, Y_max = entry['Y_range']
-#        if Y_min < Y <= Y_max:
-#            # Within Y range, now find the Z range
-#            for Z_entry in entry['Z_ranges']:
-#                Z_min, Z_max = Z_entry['Z_range']
-#                if Z_min <= Z <= Z_max:
-#                    # Return the coefficients for this Y and Z range
-#                    return Z_entry['c']
-#    
-#    # If no matching range is found
-#    return None
-#
-#
-#def compute_equilibrium_chemistry(assembly, mixture):
-#
-#    free = assembly.freestream
-#    Twall = assembly.aerothermo.temperature
-#
-#    print('chemistry mixture:', mixture)
-#
-#    mix = mixture_mpp('air5')
-#
-#    # Freestream conditions
-#    Tfree = free.temperature
-#    Pfree = free.pressure
-#    Mfree = free.mach
-#    rhofree = free.density
-#    ce_i_free = free.percent_mass
-#
-#    print('free.percent_mass:', free.percent_mass)
-#
-#    #N O NO N2 O2
-#    ce_i_free = np.array([0, 0, 0, ce_i_free[0,0], ce_i_free[0,1]])
-#    print('ce_i:', ce_i_free)
-#
-#    rhosfree = ce_i_free*rhofree
-#
-#    print('rhos_free:', rhosfree)
-#    exit()
-#
-#    mix.setState(rhosfree, Tfree, 1)
-#
-#    exit()
-#
-#    mix.equilibrate(Tfree, Pfree)        
-#    gammafree = mix.mixtureFrozenGamma()
-#    c_i_free = mix.Y()
-#    hfree = mix.mixtureHMass()
-#    h0_free = hfree + (Mfree*mix.frozenSoundSpeed())**2/2.0
-#
-#    #Frozen chemistry post-shock/BLE conditions for facets facing the flow:
-#    beta = np.zeros(len(Twall))
-#    theta = assembly.aerothermo.theta
-#    p = np.where(theta > 1e-3)[0]
-#    beta = shock_angle(Mfree, theta[p], gammafree)
-#
-#    # Normal component of Mach number for each surface
-#    Mn1 = Mfree * np.sin(beta)
-#
-#    #Frozen chemistry normal post-shock relations with Mn1:
-#    T_post_frozen = normal_shock_T(Tfree, gammafree, Mn1)
-#    P_post_frozen = normal_shock_P(Pfree, gammafree, Mn1)
-#    rho_post_frozen = normal_shock_rho(rhofree, gammafree, Mn1)
-#    Mn2_frozen    = normal_shock_M(gammafree, Mn1)
-#    M_post_frozen = Mn2_frozen / np.sin(beta - theta[p])
-#
-#    beta_high = np.pi / 2  # Upper bound is 90 degrees (in radians)    
-#
-#    # Then apply the condition: if (beta - theta) <= 0, this is the case of a normal shock, set M_post_frozen[p] = Mn2_frozen
-#    M_post_frozen = np.where(beta >= 89.9*np.pi/180, Mn2_frozen, M_post_frozen)
-#    
-#    u_post_frozen = M_post_frozen*mix.frozenSoundSpeed()
-#
-#    H0_post_frozen = np.zeros(len(beta))
-#    ce_i = np.zeros((len(beta), mix.nSpecies()))
-#    xe_i = np.zeros((len(beta), mix.nSpecies()))
-#
-#    for facet in range(len(beta)):
-#        mix.equilibrate(T_post_frozen[facet], P_post_frozen[facet])
-#        H0_post_frozen[facet] = mix.mixtureHMass() + (M_post_frozen[facet]*np.sqrt((gammafree*P_post_frozen[facet])/rho_post_frozen[facet]))**2/2.0
-#        ce_i[facet] = mix.Y()
-#        xe_i[facet] = mix.X()
-#    
-#    print('T_post_frozen:',T_post_frozen)
-#    print('ce_i:',ce_i)
-#    print('H0_post_frozen:',H0_post_frozen)
-#
-#    exit()
-
-#    ue = np.zeros(len(Twall))
-#    Te = np.zeros(len(Twall))
-#    Pe = np.zeros(len(Twall))
-#    rhoe = np.zeros(len(Twall))
-#    He = np.zeros(len(Twall))
-#    He_0 = np.zeros(len(Twall))
-#    ce_i = np.zeros((len(Twall), mix.nSpecies()))
-#    xe_i = np.zeros((len(Twall), mix.nSpecies()))
-#
-#    #Initialize BLE/equilibrium state to post-shock frozen state
-#    Te[p] = T_post_frozen
-#    Pe[p] = P_post_frozen
-#
-#    #Equilibrium chemistry oblique post-shock/BLE conditions
-#    for facet in range(len(beta)):
-#        print('facet:', facet)
-#        mix, ue[facet] = post_shock_equilibrium(mix, h0_free, T_post_frozen[facet], P_post_frozen[facet], rho_post_frozen[facet], u_post_frozen[facet])
-#        exit()
-#        Te[facet] = mix.T()
-#        Pe[facet] = mix.P()
-#        rhoe[facet] = mix.density()
-#        He[facet] = mix.mixtureHMass()
-#        ce_i[facet] = mix.Y()
-#        xe_i[facet] = mix.X()
-#
-#    print('Te:',Te)
-#    print('ce_i:',ce_i)
-#    exit()
-
-
-    #Post-shock/BLE conditions for facets not facing the flow:
-    # == freestream
-
-#def post_shock_equilibrium(mix, h0_ref, T_frozen, P_frozen, rho_frozen, u_frozen):
-#
-#    tol = 1e-4
-#
-#    T_eq = T_frozen
-#    P_eq = P_frozen
-#    h0_eq = 0
-#    difference = 1
-#
-#    i = 0
-#
-#    print('\n')
-#
-#    print('rho_frozen:', rho_frozen)
-#    print('u_frozen:', u_frozen)
-#    print('P_frozen:', P_frozen)
-#    print('T_frozen:', T_frozen)
-#    print('h0_ref:', h0_ref)
-#
-#    #while abs(h0_ref-h0_eq)>tol:
-#    while abs(difference)>tol:
-#
-#        #print('0 T_eq:',T_eq)
-#
-#        mix.equilibrate(T_eq, P_eq)
-#
-#        h_eq = mix.mixtureHMass()
-#        rho_eq = mix.density()
-#
-#
-#
-#        #print('rho_eq:', rho_eq)
-#
-#        u_eq = (rho_frozen*u_frozen)/rho_eq
-#
-##        h0_eq = h_eq + u_eq**2/2.0
-##
-#        print('h_eq:', h_eq)
-##
-##        #u_eq = np.sqrt(2 * (h0_ref - h_eq))
-##
-#        print('rho_eq:', rho_eq)
-#        print('u_eq:', u_eq)
-##
-##        #h0_eq = h_eq + 0.5 * u_eq**2
-##
-##        print('h0_eq:', h0_eq)
-##
-##        cp_eq = mix.mixtureEquilibriumCpMass()
-##
-##        dT = (h0_ref - h0_eq)/cp_eq
-##        T_eq = T_eq - dT*0.1
-##
-#        print('T_eq:',T_eq)
-#
-#        kineticEnergy = 0.5 * u_eq * u_eq;  #// m^2/s^2 = J/kg
-#
-#        h0 = h_eq + kineticEnergy
-#
-#        targetStaticEnthalpy = h0_ref - kineticEnergy;
-#
-#        difference = targetStaticEnthalpy - h_eq;
-#
-#        print('difference:', difference)
-#
-#        print('targetStaticEnthalpy:', targetStaticEnthalpy)
-#
-#        #T_eq += 100*difference / targetStaticEnthalpy; #Adjust step size as needed
-#        #print('dT:', difference / targetStaticEnthalpy)
-#        i += 1
-#
-#        cp_eq = mix.mixtureEquilibriumCpMass()
-#
-#        dT = (h0_ref-h0)/cp_eq
-#
-#        T_eq = T_eq - dT*0.01
-#
-#        print('T_eq:',T_eq)
-#        #exit()
-#        print('i:', i)
-#
-#        #if (i == 3): exit()
-#
-#    exit()
-#
-#        
-#
-#        #mix.equilibrate(T_eq, P_eq)
-#
-#        #P_eq = mix.P()
-#    print('T_eq:', T_eq)
-#    print('u_eq:', u_eq)
-#    print('h0_ref:', h0_ref)
-#    print('h_ref:', h_ref)
-#    print('h0_eq:', h0_eq)
-#    print('h_eq:', h_eq)
-#
-#    return mix, u_eq
-
-#def residuals(variables, mix, h0_ref, P_frozen):
-#    """
-#    Residuals function for Newton's method.
-#    :param variables: Array [u_eq, T_eq]
-#    :param mix: Mutation++ gas mixture
-#    :param h0_ref: Reference total enthalpy
-#    :param P_frozen: Frozen pressure
-#    :return: Residuals for velocity and temperature
-#    """
-#    u_eq, T_eq = variables  # Unknowns: velocity and temperature
-#
-#    mix.equilibrate(T_eq, P_frozen)
-#    
-#    # Get current internal enthalpy
-#    h_eq = mix.mixtureHMass()
-#    
-#    # Compute total enthalpy
-#    h0_eq = h_eq + 0.5 * u_eq**2
-#    
-#    # Residual 1: Total energy mismatch
-#    res1 = h0_ref - h0_eq
-#    
-#    # Residual 2: Temperature internal energy mismatch (you can add another constraint here if necessary)
-#    res2 = h0_ref - h_eq - 0.5 * u_eq**2  # Based on energy conservation
-#    
-#    return [res1, res2]
-#
-#def post_shock_equilibrium_newton(mix, h0_ref, T_frozen, P_frozen):
-#    print('h0_ref', h0_ref)
-#    # Initial guesses for velocity and temperature
-#    u_init = 0.0  # Start assuming velocity is zero
-#    T_init = T_frozen * 0.5  # Start with a lower guess for temperature
-#    
-#    # Use Newton's method to solve for u_eq and T_eq
-#    solution = root(residuals, [u_init, T_init], args=(mix, h0_ref, P_frozen))
-#
-#    print('solution.x:', solution.x)
-#    
-#    if solution.success:
-#        u_eq, T_eq = solution.x
-#        return u_eq, T_eq
-#    else:
-#        raise ValueError("Newton's method failed to converge")
-
-#def shock_angle(M, theta, gamma):
-#
-#    print('\nSHOCK ANGLE')
-#
-#    print('M:', M)
-#    print('theta:', theta)
-#    print('gamma:', gamma)
-#
-#
-#    # Mach angle approximation for strong shock wave
-#    beta_low = np.arcsin(1 / M) # Lower bound of shock angle (in radians)
-#    beta_high = np.pi / 2  # Upper bound is 90 degrees (in radians)
-#
-#    def theta_beta_m_relation(M, beta, gamma):
-#        tan_theta = 2 * (M**2 * (np.sin(beta))**2 - 1) / \
-#                    (M**2 * (gamma + np.cos(2 * beta)) + 2)
-#        return tan_theta
-#
-#    # Use bisection method to solve for shock angle (beta)
-#    beta_mid = (beta_low + beta_high) / 2
-#    while (beta_high - beta_low).max() > 1e-6:
-#        tan_theta_mid = theta_beta_m_relation(M, beta_mid, gamma)
-#        beta_low = np.where(np.tan(theta) > tan_theta_mid, beta_mid, beta_low)
-#        beta_high = np.where(np.tan(theta) <= tan_theta_mid, beta_mid, beta_high)
-#        beta_mid = (beta_low + beta_high) / 2
-#
-#    beta_mid = np.where(np.abs(theta) <1e-3, 0.0, beta_mid)
-#
-#    return beta_mid
+    return Teq, Peq, h2_eq, rho2, u2, ceq
 
 def shock_angle(M, theta_array, gamma):
     """
