@@ -188,6 +188,10 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
     ellipse = np.array([])
     cellID = np.array([])
     emissive_power = np.array([])
+    theta = np.array([])
+    he = np.array([])
+    hw = np.array([])
+    Te = np.array([])
 
 
     for assembly in titan.assembly:
@@ -201,6 +205,10 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
         ellipse = assembly.inside_shock
         temperature  = assembly.aerothermo.temperature
         emissive_power = assembly.emissive_power
+        theta = assembly.aerothermo.theta
+        he = assembly.aerothermo.he
+        hw = assembly.aerothermo.hw
+        Te = assembly.aerothermo.Te
         #hf_cond = assembly.hf_cond
 
         for cellid in range(len(assembly.mesh.facets)):
@@ -212,11 +220,15 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
         cell_data = { "Pressure": [pressure],
                       "Heatflux": [heatflux],
                       "Temperature": [temperature],
-                      "Shear": [shear],
+                      #"Shear": [shear],
                       #"Radius": [radius],
                       #"CellID": [cellID], #uncommenting this actually crashes the code
                       "Emissive power": [emissive_power],
                       #"Heat conduction": [hf_cond],
+                      "Theta": [theta],
+                      "He": [he],
+                      "Hw": [hw],
+                      "Te": [Te],
                     }
 
         point_data = { "Displacement": displacement,

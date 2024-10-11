@@ -212,7 +212,7 @@ class Thermal():
 
 
 class PATO():
-    def __init__(self, flag = False, time_step = 0.1, n_cores = 6):
+    def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv'):
 
 
         #: [boolean] Flag to perform PATO simulation
@@ -225,7 +225,7 @@ class PATO():
         self.n_cores = n_cores    
 
         #: [int] String to define type of boundary condition used in the PATO simulation
-        self.Ta_bc = "ablation" #'fixed', 'qconv' or 'ablation'            
+        self.Ta_bc = pato_mode #'fixed', 'qconv' or 'ablation'            
 
 
 class Radiation():
@@ -840,6 +840,7 @@ def read_config_file(configParser, postprocess = ""):
         
         if (options.thermal.ablation_mode == "pato"):
             options.pato.flag = True
+            options.pato.Ta_bc  = get_config_value(configParser, options.pato.Ta_bc,  'PATO', 'PATO_mode', 'str').lower()
             options.pato.time_step = get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
             options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
             if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()

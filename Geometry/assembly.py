@@ -313,6 +313,11 @@ class Aerothermo():
         self.wall_temperature = wall_temperature
 
         self.theta = np.zeros((n_points))
+        self.he = np.zeros((n_points))
+        self.hw = np.zeros((n_points))
+        self.Te = np.zeros((n_points))
+        self.rhoe = np.zeros((n_points))
+        self.ue = np.zeros((n_points))
 
     def append(self, n_points = 0, temperature = 300):
         self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
@@ -320,6 +325,11 @@ class Aerothermo():
         self.heatflux = np.append(self.heatflux, np.zeros(n_points))
         self.shear = np.append(self.shear, np.zeros((n_points,3)), axis = 0)
         self.theta = np.append(self.theta, np.zeros(n_points))
+        self.Te = np.append(self.Te, np.zeros(n_points))
+        self.he = np.append(self.he, np.zeros(n_points))
+        self.hw = np.append(self.hw, np.zeros(n_points))
+        self.rhoe = np.append(self.rhoe, np.zeros(n_points))
+        self.ue = np.append(self.ue, np.zeros(n_points))
 
     def delete(self, index):
         self.temperature = np.delete(self.temperature, index)
@@ -327,6 +337,11 @@ class Aerothermo():
         self.heatflux = np.delete(self.heatflux, index)
         self.shear = np.delete(self.shear, index, axis = 0)
         self.theta = np.delete(self.theta, index)
+        self.Te = np.delete(self.Te, index)
+        self.he = np.delete(self.he, index)
+        self.hw = np.delete(self.hw, index)
+        self.rhoe = np.delete(self.rhoe, index)
+        self.ue = np.delete(self.ue, index)
 
 
 class Assembly():

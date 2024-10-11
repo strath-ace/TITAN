@@ -245,7 +245,12 @@ def compute_thermal_PATO(titan, options):
         for obj in assembly.objects:
             if obj.pato.flag: 
                 hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
-                pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
+                he = assembly.aerothermo.he[obj.facet_index]
+                hw = assembly.aerothermo.hw[obj.facet_index]
+                rhoe = assembly.aerothermo.rhoe[obj.facet_index]
+                ue = assembly.aerothermo.ue[obj.facet_index]
+                pw = assembly.aerothermo.pressure[obj.facet_index]
+                pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf, he, hw, rhoe, ue, pw)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
     return

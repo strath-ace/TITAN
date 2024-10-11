@@ -626,13 +626,26 @@ def compute_equilibrium_chemistry(assembly, mixture):
     ce_i = np.zeros((len(beta), mix.nSpecies()))
     cwall_i = np.zeros((len(beta), mix.nSpecies()))
     Tfluid_wall = assembly.aerothermo.temperature[p]
-
+    print('Tfluid_wall:', Tfluid_wall)
+    Hw = np.zeros(len(beta))
+    print('hello')
     for facet in range(len(beta)):
+        print('facet:', facet)
         Te[facet], Pe[facet], He[facet], rhoe[facet], Ue[facet], ce_i[facet] = post_shock_equilibrium(T_post_frozen[facet], P_post_frozen[facet], H_post_frozen[facet], rhofree, Pfree, ufree, Hfree, mix)
         #Tfluid_wall[facet] = fluid_wall_temperature(Te[facet], Pe[facet], H0_free, mix)
         #mix.equilibrate(Tfluid_wall[facet], Pe[facet])
+        print('Tfluid_wall:', Tfluid_wall[facet])
+        print('Pe:', Pe[facet])
         mix.equilibrate(Tfluid_wall[facet], Pe[facet])
+        print('after equilibrating wall')
         cwall_i[facet] = mix.Y()
+        Hw[facet] = mix.mixtureHMass()
+
+    assembly.aerothermo.he[p] = He
+    assembly.aerothermo.hw[p] = Hw
+    assembly.aerothermo.Te[p] = Te
+    assembly.aerothermo.rhoe[p] = rhoe
+    assembly.aerothermo.ue[p] = Ue
 
 def fluid_wall_temperature(Teq, Peq, H0_free, mix):
 
@@ -665,6 +678,7 @@ def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
     tol = 1
 
     while abs(h2_eq-h2)>tol:
+
         mix.equilibrate(Teq, Peq)
         rho2 = mix.density()
         h2_eq = mix.mixtureHMass()
@@ -698,7 +712,7 @@ def shock_angle(M, theta_array, gamma):
     beta_deg_array : array-like
         Array of shock wave angles (beta) in degrees.
     """
-    
+
     # Define the equation for the shock wave angle beta
     def equation(beta, theta):
         return np.tan(theta) - 2 * (1 / np.tan(beta)) * ((M**2 * np.sin(beta)**2 - 1) / 
@@ -711,7 +725,7 @@ def shock_angle(M, theta_array, gamma):
     for theta in theta_array:
         # Initial guess for beta (in radians), typically starts just above theta
         beta_initial_guess = theta + np.radians(5)  # A guess slightly larger than theta
-        
+
         # Solve the equation for beta
         beta_solution = fsolve(equation, beta_initial_guess, args=(theta))[0]
         

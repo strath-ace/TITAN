@@ -30,7 +30,7 @@ import re
 from scipy.spatial import KDTree
 from Material import material as Material
 
-def compute_thermal(obj, time, iteration, options, hf, Tinf):
+def compute_thermal(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, pw):
 
     """
     Compute the aerothermodynamic properties using the CFD software
@@ -42,13 +42,13 @@ def compute_thermal(obj, time, iteration, options, hf, Tinf):
     options: Options
         Object of class Options
     """
-    time_to_postprocess = setup_PATO_simulation(obj, time, iteration, options, hf, Tinf)
+    time_to_postprocess = setup_PATO_simulation(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, pw)
 
     run_PATO(options, obj.global_ID)
 
     postprocess_PATO_solution(options, obj, time_to_postprocess)
 
-def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
+def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, pw):
     """
     Sets up the PATO simulation - creates PATO simulation folders and required input files
 
@@ -57,7 +57,7 @@ def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
 	?????????????????????????
     """
 
-    write_PATO_BC(options, obj, time, hf, Tinf)
+    write_PATO_BC(options, obj, time, hf, Tinf, he, hw, rhoe, ue, pw)
     time_to_postprocess = write_All_run(options, obj, time - options.dynamics.time_step, iteration)
     write_system_folder(options, obj.global_ID, time - options.dynamics.time_step)
 
@@ -299,68 +299,122 @@ def write_constant_folder(options, object_id):
 
     f.close()
 
-    with open(options.output_folder + '/PATO_'+str(object_id)+'/constant/subMat1/subMat1Properties', 'w') as f:
+    if options.pato.Ta_bc == 'qconv':
 
-        f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
-        f.write('| =========                 |                                                 |\n')
-        f.write('| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n')
-        f.write('|  \\    /   O peration     | Version:  5.0                                   |\n')
-        f.write('|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |\n')
-        f.write('|    \\/     M anipulation  |                                                 |\n')
-        f.write('\*---------------------------------------------------------------------------*/\n')
-        f.write('FoamFile {\n')
-        f.write('  version     4.0;\n')
-        f.write('  format      ascii;\n')
-        f.write('  class       dictionary;\n')
-        f.write('  location    "constant/subMat1";\n')
-        f.write('  object      subMat1Properties;\n')
-        f.write('}\n')
-        f.write('\n')
-        f.write('// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n')
-        f.write('\n')
-        f.write('/****************************** GENERAL ************************************/\n')
-        f.write('//debug yes;\n')
-        f.write('movingMesh      yes;\n')
-        f.write('/****************************** end GENERAL ********************************/\n')
-        f.write('\n')
-        f.write('/****************************** IO *****************************************/\n')
-        f.write('IO {\n')
-        f.write('  writeFields(); // write fields in the time folders\n')
-        f.write('}\n')
-        f.write('/****************************** END IO ************************************/\n')
-        f.write('\n')
-        f.write('/****************************** MASS, ENERGY, PYROLYSIS **************************************/\n')
-        f.write('MaterialProperties {\n')
-        f.write('  MaterialPropertiesType Fourier; \n')
-        #f.write('  MaterialPropertiesDirectory "$FOAM_CASE/data"; \n')
-        f.write('  MaterialPropertiesDirectory "$PATO_DIR/data/Materials/Fourier/FourierTemplate"; \n')
-        f.write('}\n')
-        f.write('Mass {\n')
-        f.write('  MassType no; // Solve the semi implicit pressure equation\n')
-        f.write('  createFields ((p volScalarField) (mDotG volVectorField) (mDotGw volScalarField));\n')
-        f.write('}\n')
-        f.write('Energy {\n')
-        f.write('  EnergyType PureConduction; // Solve the temperature equation\n')
-        f.write('}\n')
-        f.write('/****************************** MASS, ENERGY, PYROLYSIS **********************************/\n')
-        f.write('\n')
-        f.write('/****************************** GAS PROPERTIES  ************************************/\n')
-        f.write('GasProperties {\n')
-        f.write('  GasPropertiesType no; // tabulated gas properties\n')
-        f.write('  createFields ((h_g volScalarField));\n')
-        f.write('}\n')
-        f.write('/****************************** END GAS PROPERTIES **************************/\n')
-        f.write('\n')
-        f.write('/****************************** TIME CONTROL  **********************************/\n')
-        f.write('TimeControl {\n')
-        f.write('  TimeControlType no; // change the integration time step in function of the gradient of the pressure and the species mass fractions\n')
-        f.write('  chemTransEulerStepLimiter no;\n')
-        f.write('}\n')
-        f.write('/****************************** END TIME CONTROL  ******************************/\n')
+        with open(options.output_folder + '/PATO_'+str(object_id)+'/constant/subMat1/subMat1Properties', 'w') as f:
+    
+            f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
+            f.write('| =========                 |                                                 |\n')
+            f.write('| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n')
+            f.write('|  \\    /   O peration     | Version:  5.0                                   |\n')
+            f.write('|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |\n')
+            f.write('|    \\/     M anipulation  |                                                 |\n')
+            f.write('\*---------------------------------------------------------------------------*/\n')
+            f.write('FoamFile {\n')
+            f.write('  version     4.0;\n')
+            f.write('  format      ascii;\n')
+            f.write('  class       dictionary;\n')
+            f.write('  location    "constant/subMat1";\n')
+            f.write('  object      subMat1Properties;\n')
+            f.write('}\n')
+            f.write('\n')
+            f.write('// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n')
+            f.write('\n')
+            f.write('/****************************** GENERAL ************************************/\n')
+            f.write('//debug yes;\n')
+            f.write('movingMesh      no;\n')
+            f.write('/****************************** end GENERAL ********************************/\n')
+            f.write('\n')
+            f.write('/****************************** IO *****************************************/\n')
+            f.write('IO {\n')
+            f.write('  writeFields(); // write fields in the time folders\n')
+            f.write('}\n')
+            f.write('/****************************** END IO ************************************/\n')
+            f.write('\n')
+            f.write('/****************************** MASS **************************************/\n')
+            f.write('Mass {\n')
+            f.write('  createFields ((p volScalarField)); // read pressure [Pa]\n')
+            f.write('}\n')
+            f.write('/****************************** END MASS **********************************/\n')
+            f.write('\n')
+            f.write('/****************************** ENERGY ************************************/\n')
+            f.write('Energy {\n')
+            f.write('  EnergyType PureConduction; // Solve the temperature equation\n')
+            f.write('}\n')
+            f.write('/****************************** END ENERGY ********************************/\n')
+            f.write('\n')
+            f.write('/****************************** MATERIAL PROPERTIES  ************************/\n')
+            f.write('MaterialProperties {\n')
+            f.write('  MaterialPropertiesType Fourier; \n')
+            f.write('  MaterialPropertiesDirectory "$FOAM_CASE/data"; \n')
+            f.write('}\n')
+            f.write('/****************************** END MATERIAL PROPERTIES  ********************/\n')
+    
+        f.close()
 
-    f.close()
 
     if options.pato.Ta_bc == 'ablation':
+
+        with open(options.output_folder + '/PATO_'+str(object_id)+'/constant/subMat1/subMat1Properties', 'w') as f:
+    
+            f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
+            f.write('| =========                 |                                                 |\n')
+            f.write('| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |\n')
+            f.write('|  \\    /   O peration     | Version:  5.0                                   |\n')
+            f.write('|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |\n')
+            f.write('|    \\/     M anipulation  |                                                 |\n')
+            f.write('\*---------------------------------------------------------------------------*/\n')
+            f.write('FoamFile {\n')
+            f.write('  version     4.0;\n')
+            f.write('  format      ascii;\n')
+            f.write('  class       dictionary;\n')
+            f.write('  location    "constant/subMat1";\n')
+            f.write('  object      subMat1Properties;\n')
+            f.write('}\n')
+            f.write('\n')
+            f.write('// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //\n')
+            f.write('\n')
+            f.write('/****************************** GENERAL ************************************/\n')
+            f.write('//debug yes;\n')
+            f.write('movingMesh      yes;\n')
+            f.write('/****************************** end GENERAL ********************************/\n')
+            f.write('\n')
+            f.write('/****************************** IO *****************************************/\n')
+            f.write('IO {\n')
+            f.write('  writeFields(); // write fields in the time folders\n')
+            f.write('}\n')
+            f.write('/****************************** END IO ************************************/\n')
+            f.write('\n')
+            f.write('/****************************** MASS, ENERGY, PYROLYSIS **************************************/\n')
+            f.write('MaterialProperties {\n')
+            f.write('  MaterialPropertiesType Fourier; \n')
+            #f.write('  MaterialPropertiesDirectory "$FOAM_CASE/data"; \n')
+            f.write('  MaterialPropertiesDirectory "$PATO_DIR/data/Materials/Fourier/FourierTemplate"; \n')
+            f.write('}\n')
+            f.write('Mass {\n')
+            f.write('  MassType no; // Solve the semi implicit pressure equation\n')
+            f.write('  createFields ((p volScalarField) (mDotG volVectorField) (mDotGw volScalarField));\n')
+            f.write('}\n')
+            f.write('Energy {\n')
+            f.write('  EnergyType PureConduction; // Solve the temperature equation\n')
+            f.write('}\n')
+            f.write('/****************************** MASS, ENERGY, PYROLYSIS **********************************/\n')
+            f.write('\n')
+            f.write('/****************************** GAS PROPERTIES  ************************************/\n')
+            f.write('GasProperties {\n')
+            f.write('  GasPropertiesType no; // tabulated gas properties\n')
+            f.write('  createFields ((h_g volScalarField));\n')
+            f.write('}\n')
+            f.write('/****************************** END GAS PROPERTIES **************************/\n')
+            f.write('\n')
+            f.write('/****************************** TIME CONTROL  **********************************/\n')
+            f.write('TimeControl {\n')
+            f.write('  TimeControlType no; // change the integration time step in function of the gradient of the pressure and the species mass fractions\n')
+            f.write('  chemTransEulerStepLimiter no;\n')
+            f.write('}\n')
+            f.write('/****************************** END TIME CONTROL  ******************************/\n')
+    
+        f.close()
 
         with open(options.output_folder + '/PATO_'+str(object_id)+'/constant/subMat1/dynamicMeshDict', 'w') as f:
     
@@ -515,18 +569,20 @@ def write_origin_folder(options, obj):
             f.write('mixtureMutationBprime '+(mix_file)+';\n')
             f.write('environmentDirectory "$PATO_DIR/data/Environments/RawData/Earth";\n')
             f.write('movingMesh yes;\n')
-            f.write('mappingType constant;\n')
-            f.write('mappingFileName "constant/subMat1/BoundaryConditions";\n')
+            f.write('mappingType "3D-tecplot";\n')
+            f.write('mappingFileName "$FOAM_CASE/qconv/BC";\n')
             f.write('mappingFields\n')
             f.write('(\n')
-            f.write('    (p "1")\n')
-            f.write('    (rhoeUeCH "2")\n')
-            f.write('    (h_r "3")\n')
-            f.write('    (chemistryOn "4")\n')
+            f.write('    (p "3")\n')
+            f.write('    (rhoeUeCH "4")\n')
+            f.write('    (h_r "5")\n')
+            f.write('    (emissivity "6")\n')
+            f.write('    (Tbackground "7")\n')
+            f.write('    (h_w "8")\n')
             f.write(');\n')
+            f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
             f.write('lambda 0.5;\n')
-            f.write('Tbackground 300;\n')
             f.write('Tedge 300;\n')
             f.write('hconv 0;\n')
             f.write('value uniform 300;\n')
@@ -785,34 +841,28 @@ def write_origin_folder(options, obj):
 
     pass
 
-def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
+def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he, hw, rhoe, ue, pw):
 
-    # write tecplot file with facet_COG coordinates and associated facet convective heating
-    if options.pato.Ta_bc == "qconv":
+    # write tecplot file with facet_COG coordinates and associated facet quantities
 
-        emissivity = obj.material.emissivity(obj.pato.temperature)
-        emissivity = np.clip(emissivity, 0, 1)    
+    emissivity = obj.material.emissivity(obj.pato.temperature)
+    emissivity = np.clip(emissivity, 0, 1)  
 
-        x    = np.array([])
-        y    = np.array([])
-        z    = np.array([])
-        q    = np.array([])
-        e    = np.array([])
-        Tinf = np.array([])
+    emissivity[:] = 0  
 
-        n_data_points = len(obj.mesh.facet_COG)
+    n_data_points = len(obj.mesh.facet_COG)
 
-        for i in range(n_data_points):
-            x = np.append(x, obj.mesh.facet_COG[i,0])
-            y = np.append(y, obj.mesh.facet_COG[i,1])
-            z = np.append(z, obj.mesh.facet_COG[i,2])
-            q = np.append(q, conv_heatflux[i])
-            e = np.append(e, emissivity[i])
-            Tinf = np.append(Tinf, freestream_temperature)
+    x = obj.mesh.facet_COG[:,0]
+    y = obj.mesh.facet_COG[:,1]
+    z = obj.mesh.facet_COG[:,2]
+    Tinf = np.full(n_data_points, freestream_temperature)
 
-        if ((time).is_integer()): time = int(time)  
+    if ((time).is_integer()): time = int(time)  
 
-        with open(options.output_folder + 'PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:
+    with open(options.output_folder + 'PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:
+
+        if options.pato.Ta_bc == "qconv":
+
             f.write('TITLE     = "vol-for-blayer.fu"\n')
             f.write('VARIABLES = \n')
             f.write('"xw (m)"\n')
@@ -829,11 +879,44 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
             f.write(np.array2string(x)[1:-1]+' ')
             f.write(np.array2string(y)[1:-1]+' ')
             f.write(np.array2string(z)[1:-1]+' ')
-            f.write(np.array2string(q)[1:-1]+' ')
-            f.write(np.array2string(e)[1:-1]+' ')
+            f.write(np.array2string(conv_heatflux)[1:-1]+' ')
+            f.write(np.array2string(emissivity)[1:-1]+' ')
             f.write(np.array2string(Tinf)[1:-1]+' ')
 
-        f.close()
+        if options.pato.Ta_bc == "ablation":
+
+            Ch = conv_heatflux/(he-hw)
+            Ch[np.isnan(Ch)] = 0
+            Ch[np.isinf(Ch)] = 0
+            #rhoeUeCh = rhoe*ue*Ch
+
+            f.write('TITLE     = "vol-for-blayer.fu"\n')
+            f.write('VARIABLES = \n')
+            f.write('"xw (m)"\n')
+            f.write('"yw (m)"\n')
+            f.write('"zw (m)"\n')
+            f.write('"pw (Pa)"\n')
+            f.write('"CH (kg/m2/s)"\n')
+            f.write('"He (J/kg)"\n')
+            f.write('"emissivity (-)"\n')
+            f.write('"Tbackground (K)"\n')
+            f.write('"Hw (J/kg)"\n')
+            f.write('ZONE T="zone 1"\n')
+            f.write(' STRANDID=0, SOLUTIONTIME=0\n')
+            f.write(' I=' + str(n_data_points) + ', J=1, K=1, ZONETYPE=Ordered\n')
+            f.write(' DATAPACKING=BLOCK\n')
+            f.write(' DT=(DOUBLE DOUBLE DOUBLE DOUBLE)   \n')
+            f.write(np.array2string(x)[1:-1]+' ')
+            f.write(np.array2string(y)[1:-1]+' ')
+            f.write(np.array2string(z)[1:-1]+' ')
+            f.write(np.array2string(pw)[1:-1]+' ')
+            f.write(np.array2string(Ch)[1:-1]+' ')
+            f.write(np.array2string(he)[1:-1]+' ')
+            f.write(np.array2string(emissivity)[1:-1]+' ')
+            f.write(np.array2string(Tinf)[1:-1]+' ')
+            f.write(np.array2string(hw)[1:-1]+' ')
+
+    f.close()
 
     #elif options.pato.Ta_bc == "ablation":
         #print("PATO ablation is not implemented yet."); exit(0);    
