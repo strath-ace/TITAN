@@ -146,7 +146,7 @@ class Component():
         """
 
         vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
-        
+
         mass = vol*density
         self.mass = np.sum(mass)
 

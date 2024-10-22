@@ -416,7 +416,7 @@ def check_breakup_v2(titan, options):
                 if np.sum(assembly.mesh.vol_mass[assembly.mesh.vol_tag == obj.id]) <= 0.05:
                     assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = 0
             
-            assembly.compute_mass_properties()
+            assembly.compute_mass_properties_unstructured()
             for obj in assembly.objects: print(obj.mass)
 
 

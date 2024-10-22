@@ -46,7 +46,9 @@ def compute_thermal(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, p
 
     run_PATO(options, obj.global_ID)
 
-    postprocess_PATO_solution(options, obj, time_to_postprocess)
+    #postprocess_PATO_solution(options, obj, time_to_postprocess)
+
+    return time_to_postprocess
 
 def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, pw):
     """
@@ -95,7 +97,8 @@ def write_material_properties(options, obj):
         f.write('\n')
         f.write('/***        Temperature dependent material properties   ***/\n')
         f.write('/***        5 coefs - n0 + n1 T + n2 T² + n3 T³ + n4 T⁴ ***/\n')
-        f.write('Tmax ' + str(obj.material.meltingTemperature) + ';\n')
+        f.write('Tmelt ' + str(obj.material.meltingTemperature) + ';\n')
+        f.write('Hfusion ' + str(obj.material.meltingHeat) + ';\n')
         f.write('// specific heat capacity - cp - [0 2 -2 -1 0 0 0]\n')
         f.write('cp_sub_n[0] '+str(cp)+';\n')
         f.write('cp_sub_n[1] 0;\n')
@@ -224,8 +227,9 @@ def write_All_run(options, obj, time, iteration):
         f.write('MAT_NAME=subMat1 \n')
         for n in range(options.pato.n_cores):
             f.write('cd processor' + str(n) + '/\n')
-            f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
+            f.write('cp "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
             f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
+            f.write('cp "$TIME_STEP"/"$MAT_NAME"/polyMesh/* "$TIME_STEP"/polyMesh \n')
             f.write('cd .. \n')
         f.write('cp system/"$MAT_NAME"/fvSchemes  system/ \n')
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
@@ -239,7 +243,7 @@ def write_All_run(options, obj, time, iteration):
         print('end_time:', end_time)
         print('start_time:', start_time)
         for n in range(options.pato.n_cores):
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             #f.write('rm -rf processor'+str(n)+'/restart/* \n')
             if options.current_iter%options.save_freq == 0:
                 f.write('rm -rf processor'+str(n)+'/restart/* \n')
@@ -388,8 +392,8 @@ def write_constant_folder(options, object_id):
             f.write('/****************************** MASS, ENERGY, PYROLYSIS **************************************/\n')
             f.write('MaterialProperties {\n')
             f.write('  MaterialPropertiesType Fourier; \n')
-            #f.write('  MaterialPropertiesDirectory "$FOAM_CASE/data"; \n')
-            f.write('  MaterialPropertiesDirectory "$PATO_DIR/data/Materials/Fourier/FourierTemplate"; \n')
+            f.write('  MaterialPropertiesDirectory "$FOAM_CASE/data"; \n')
+            #f.write('  MaterialPropertiesDirectory "$PATO_DIR/data/Materials/Fourier/FourierTemplate"; \n')
             f.write('}\n')
             f.write('Mass {\n')
             f.write('  MassType no; // Solve the semi implicit pressure equation\n')
@@ -563,7 +567,7 @@ def write_origin_folder(options, obj):
             f.write('p 101325;\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
-            f.write('value           uniform 300;\n')
+            f.write('value           uniform '+str(obj.pato.initial_temperature)+';\n')
         elif Ta_bc == "ablation":
             f.write('type             Bprime;\n')
             f.write('mixtureMutationBprime '+(mix_file)+';\n')
@@ -585,7 +589,7 @@ def write_origin_folder(options, obj):
             f.write('lambda 0.5;\n')
             f.write('Tedge 300;\n')
             f.write('hconv 0;\n')
-            f.write('value uniform 300;\n')
+            f.write('value uniform '+str(obj.pato.initial_temperature)+';\n')
             f.write('moleFractionGasInMaterial ( ("O"  0.115) ("N" 0) ("C" 0.206) ("H" 0.679));\n')  
         f.write('  }\n')
         f.write('}\n')
@@ -1337,7 +1341,7 @@ def run_PATO(options, object_id):
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
 
-def postprocess_PATO_solution(options, obj, time_to_read):
+def postprocess_PATO_solution(options, obj, time_to_read, assembly):
     """
     Postprocesses the PATO output
 
@@ -1354,10 +1358,14 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 
     solution = 'surface'
 
-    if solution == 'surface':
-        data = retrieve_surface_vtk_data(n_proc, path, time_to_read)
-    elif solution == 'volume':
-        data = retrieve_volume_vtk_data(n_proc, path, time_to_read)
+    data_surface = retrieve_surface_vtk_data(n_proc, path, time_to_read)
+    data_volume = retrieve_volume_vtk_data(n_proc, path, time_to_read)
+
+    ####BY THIS POINT WE HAVE VTK SOLUTION IN NEW MESH
+    update_mesh_from_PATO(assembly, obj.mesh, data_volume, data_surface)
+    exit()
+    ####FIRST READ THE MESH FROM VTK AND COMPUTE NEW INERTIA PROPERTIES
+    ####THEN READ TEMPERATURE SOLUTION # i think just use as is and output as such (AS BEFORE, WHEN MAPPING METHOD WITH UPDATED FACET COGs)
 
     # extract temperature distribution (tetras)
     cell_data = data.GetCellData()
@@ -1382,6 +1390,75 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
+
+def update_mesh_from_PATO(assembly, obj_mesh, vtk_data_volume, vtk_data_surface):
+
+    #Extract and update volume mesh
+
+    # Extract the points (nodes)
+    points = vtk_data_volume.GetPoints()
+    num_points = points.GetNumberOfPoints()
+    
+    print(f"Number of nodes: {num_points}")
+
+    # Store all node coordinates in a numpy array for easy access
+    node_coords = np.array([points.GetPoint(i) for i in range(num_points)])
+    
+    # Extract the elements (cells)
+    num_cells = vtk_data_volume.GetNumberOfCells()
+    
+    print(f"Number of elements: {num_cells}")
+    
+    # Initialize lists to store tetrahedral and prismatic element indices
+    tetra_indices = []    # Indices for tetrahedral elements
+    prism_indices = []    # Indices for prismatic elements
+    
+    # Iterate over all the cells and categorize them based on their type
+    for i in range(num_cells):
+        cell = vtk_data_volume.GetCell(i)
+        node_ids = cell.GetPointIds()
+        element_nodes = [node_ids.GetId(j) for j in range(node_ids.GetNumberOfIds())]
+    
+        # Check the type of cell and categorize
+        cell_type = cell.GetCellType()
+    
+        if cell_type == vtk.VTK_TETRA:
+            # Collect indices of tetrahedral element nodes
+            tetra_indices.append(element_nodes)
+    
+        elif cell_type == vtk.VTK_WEDGE:
+            # Collect indices of prismatic element nodes
+            prism_indices.append(element_nodes)
+    
+    # Convert lists of indices to NumPy arrays for efficiency
+    tetra_indices = np.array(tetra_indices)
+    prism_indices = np.array(prism_indices)
+    
+    # Extract node coordinates for elements in one go using NumPy indexing
+    #assembly.mesh.vol_coords = node_coords[np.unique(tetra_indices)]
+    obj.mesh.vol_coords = node_coords#[np.unique(tetra_indices)]
+    #assembly.mesh.vol_coords_prism = node_coords[np.unique(prism_indices)]
+    
+    # Store element definitions (no need to re-extract coordinates here)
+    obj.mesh.vol_elements_tetra = tetra_indices
+    obj.mesh.vol_elements_prism = prism_indices
+    obj.mesh.vol_elements = [tetra_indices, prism_indices] #list where rows have different number of columns, depending if it a tetra of prism element
+
+    size = len(obj.mesh.vol_elements_tetra) + len(obj.mesh.vol_elements_prism)
+
+    obj.mesh.vol_density = np.ones(size)*obj.material.density
+    obj.mesh.vol_tag = np.full(size, np.ones(size)*obj.id)
+
+    assembly.mesh.vol_elements = np.append(assembly.mesh.vol_elements,obj.mesh.vol_elements)
+    assembly.mesh.vol_density = np.append(assembly.mesh.vol_density, np.ones(size)*obj.material.density)
+    assembly.mesh.vol_tag = np.append(assembly.mesh.vol_tag, np.ones(size)*obj.id)    
+
+    print('0 elements:', assembly.mesh.vol_elements[0][0])
+    #print('-1 elements:', assembly.mesh.vol_elements[-1])
+    assembly.volume_hybrid();exit()
+    assembly.compute_mass_properties_from_objects(mesh_type = 'hybrid')
+
+    #Extract and update surface mesh
 
 def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
 
@@ -1475,13 +1552,13 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
     appendFilter.Update()
     data = appendFilter.GetOutput()
 
-    # extract surface data
-    extractSurface=vtk.vtkGeometryFilter()
-    extractSurface.SetInputData(data)
-    extractSurface.Update()
-    vtk_data = extractSurface.GetOutput()    
+    ## extract surface data
+    #extractSurface=vtk.vtkGeometryFilter()
+    #extractSurface.SetInputData(data)
+    #extractSurface.Update()
+    #vtk_data = extractSurface.GetOutput()    
 
-    return vtk_data
+    return data
 
 def compute_heat_conduction(assembly):
 

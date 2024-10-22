@@ -74,6 +74,12 @@ class Mesh():
         self.facet_radius = np.ones([]) 
 
         self.vol_coords = np.array([])
+        self.vol_elements = np.array([])
+        self.vol_density = np.array([])
+        self.vol_tag = np.array([])
+
+        self.vol_elements_tetra = np.array([])
+        self.vol_elements_prism = np.array([])
 
 
 def append(mesh_assembly, mesh_obj):

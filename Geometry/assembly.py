@@ -20,6 +20,8 @@
 from Geometry import mesh as Mesh
 from Geometry import gmsh_api as GMSH
 from Geometry.tetra import inertia_tetra, vol_tetra
+from Geometry.triangular_prism import vol_triangular_prism
+
 import numpy as np
 from copy import deepcopy
 import subprocess
@@ -512,6 +514,13 @@ class Assembly():
         self.mesh.vol_T = np.ones(len(self.mesh.vol_elements))
         self.mesh.vol_orig_index = np.arange(len(self.mesh.vol_elements))
 
+        print("Create mapping between surface facets and tetras")
+        self.mesh.index_surf_tetra = Mesh.map_surf_to_tetra(self.mesh.vol_coords, self.mesh.vol_elements)
+
+        print("Done")
+
+    def volume_unstructured(self):
+
         coords = self.mesh.vol_coords
         elements = self.mesh.vol_elements
 
@@ -531,12 +540,47 @@ class Assembly():
             self.mesh.vol_T[index] = obj.temperature            
             obj.mesh.vol_elements = np.copy(self.mesh.vol_elements[index])
 
-        print("Create mapping between surface facets and tetras")
-        self.mesh.index_surf_tetra = Mesh.map_surf_to_tetra(self.mesh.vol_coords, self.mesh.vol_elements)
+    def volume_hybrid(self):
 
-        print("Done")
+        #print('2 size coord:', np.shape(self.mesh.vol_coords))
 
-    def compute_mass_properties(self):
+        coords = self.mesh.vol_coords
+
+        #Computes the volume of every single tetrahedral
+        
+        elements = self.mesh.vol_elements_tetra
+        #print('assembly tetras:')
+        #print('3 size coord:', np.shape(coords))
+        #print('size elements:', np.shape(elements))
+        #print('1 elements:', elements)
+        vol_uns = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+
+        #Computes the volume of every single triangular prism
+        elements = self.mesh.vol_elements_prism
+        vol_prism = vol_triangular_prism(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], coords[elements[:,4]], coords[elements[:,5]])
+
+        total_volume = np.sum(vol_uns) + np.sum(vol_prism)
+
+        print('total_volume:', total_volume)
+
+        self.mesh.vol_volume = np.concatenate((vol_uns, vol_prism), axis=0)        
+
+        #Copy original coords to use when fragmenting an object
+        self.mesh.original_vol_coords = deepcopy(self.mesh.vol_coords)
+
+        print("Volume Grid Completed")
+
+        print("Passing Volume information to objects..")
+
+        for obj in self.objects:
+            index = (self.mesh.vol_tag == obj.id) 
+
+            #print('self.mesh.vol_elements[0]', self.mesh.vol_elements[0])  
+            obj.mesh.vol_elements = np.copy(self.mesh.vol_elements[:][index])
+            print('obj.mesh.vol_elements:', obj.mesh.vol_elements)
+            #exit()
+
+    def compute_mass_properties(self, mesh_type = 'unstructured'):
         """
         Computes the inertial properties
 
@@ -545,9 +589,13 @@ class Assembly():
 
         coords = self.mesh.vol_coords
         elements = self.mesh.vol_elements
+        #print('coords:', coords);exit() #node coordinates
+        #print('\nelements:', elements);exit()#array of 4 integers, each referring to a node index composing the element
         density = self.mesh.vol_density
         tag = self.mesh.vol_tag
         vol = self.mesh.vol_volume
+
+        #print('vol:', np.sum(vol));exit()
 
         #Computes the mass of every single tetrahedral
         self.mesh.vol_mass  = vol*density
