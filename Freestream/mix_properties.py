@@ -252,8 +252,8 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
     if options.freestream.method.lower() == "mutationpp":
 
         mix = mixture_mpp(species = species_index, temperature = temperature, density = density)
-        
         freestream.percent_mole = mix.X()
+        freestream.percent_mass = mix.Y()
         freestream.percent_mole.shape = (1,-1)
         freestream.pressure = mix.P()
         freestream.R = mix.P()/(mix.density()*mix.T())
@@ -265,7 +265,6 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
         freestream.mach = freestream.velocity/freestream.sound
 
         m_mean = mix.mixtureMw()/avo
-
         k = 2.64638e-3*freestream.temperature**1.5/(freestream.temperature+245*10**(-12/freestream.temperature))
         freestream.prandtl = freestream.mu*freestream.cp/k
 
@@ -282,7 +281,6 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
         m_mean = (compute_mass_mean(species_index = freestream.species_index, percent_gas = freestream.percent_mole)/avo)[0]
 
         freestream.mach = freestream.velocity/freestream.sound
-
         k = 2.64638e-3*freestream.temperature**1.5/(freestream.temperature+245*10**(-12/freestream.temperature))
         freestream.prandtl = freestream.mu*freestream.cp/k
 

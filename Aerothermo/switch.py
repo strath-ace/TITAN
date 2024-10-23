@@ -27,6 +27,7 @@ from sympy import sqrt,tan
 import sympy
 from pathlib import Path
 from Geometry import assembly as Assembly
+import os
 
 def sphere_surface(radius, center, num_assembly, num_object, i, assembly, options):
     """    
@@ -230,7 +231,7 @@ def compute_aerothermo(titan, options):
                 aerothermo.compute_low_fidelity_aerothermo(titan.assembly[index], options)
 
             else:
-                su2.compute_cfd_aerothermo(titan.assembly[index], options, tag)
+                su2.compute_cfd_aerothermo(titan.assembly[index],titan, options, tag)
 
     titan.assembly= list(titan.assembly)
 
@@ -281,10 +282,14 @@ def compute_billig(M,theta, center, sphere_radius, index_assembly, assembly, lis
     #Blast Wave implementation here
     x_limit = compute_blast_wave_limit(sphere_radius, freestream, options) - delta - sphere_radius
 
-    exp = 1*(sphere_radius+delta-Rc*(1/tan(theta))**2*(sqrt(1+(r**2)*(tan(theta)**2)/(Rc**2))-1))+x_limit
-    sol = sympy.solve(exp)
+    # Sympy gives the following symbolic solution for Billig's equation, can use directly
+    r = -Rc * sqrt(-1 + (sphere_radius * tan(theta) ** 2 + Rc + delta * tan(theta) ** 2 + x_limit * tan(theta) ** 2) ** 2 / Rc ** 2) / tan(theta)
+    r = float(abs(r))
 
-    r = float(abs(sol[0]))
+    #exp = 1*(sphere_radius+delta-Rc*(1/tan(theta))**2*(sqrt(1+(r**2)*(tan(theta)**2)/(Rc**2))-1))+x_limit
+    #sol = sympy.solve(exp)
+
+    #r = float(abs(sol[0]))
     r = np.linspace(0,r,50)
 
     num_points = 36
@@ -339,7 +344,13 @@ def compute_billig(M,theta, center, sphere_radius, index_assembly, assembly, lis
         if inside_ellipse.any():
             computational_domain_bodies.append(index)
 
-    return computational_domain_bodies
+    if options.write_solutions==False and i>=2:
+        if os.path.exists(f"{folder_path}/Billig_{i-2}_{index_assembly}_{index_object}.vtk"):
+            billig_path = Path(f"{folder_path}/Billig_{i-2}_{index_assembly}_{index_object}.vtk")
+            sphere_path = Path(f"{folder_path}/Sphere_{i-2}_{index_assembly}_{index_object}.vtk")
+            billig_path.unlink()
+            sphere_path.unlink()
+        return computational_domain_bodies
 
 
 

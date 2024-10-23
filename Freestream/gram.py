@@ -17,12 +17,21 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+import pickle
 import pandas as pd
 import os
+import pathlib
 import subprocess
 import numpy as np
+import datetime as dt
+from scipy.interpolate import interp1d, PchipInterpolator
 
 def generate_script(assembly, options):
+	options.gram.isPerturbed=0
+
+	if options.gram.Uncertain:
+		from Uncertainty.atmosphere import setupGRAM
+		setupGRAM(assembly,options)
 	with open(options.output_folder+"/GRAM/gram_config_"+str(assembly.id), 'w') as f:
 
 		f.write(" $INPUT \n")
@@ -30,6 +39,16 @@ def generate_script(assembly, options):
 		f.write("  DataPath       = '"+options.gram.gramPath+"/Earth/data'\n")
 		f.write("  ListFileName   = '"+options.output_folder+"/GRAM/LIST'\n")          
 		f.write("  ColumnFileName = '"+options.output_folder+"/GRAM/OUTPUT'\n")       
+		f.write("  EastLongitudePositive = 1 \n")
+
+		if options.gram.isPerturbed:
+			from Uncertainty.atmosphere import perturbGRAM
+			f=perturbGRAM(f,options)
+		else:
+			f.write("  InitialHeight         = " + str(assembly.trajectory.altitude / 1000) + " \n")
+			f.write("  InitialLatitude       = " + str(assembly.trajectory.latitude * 180 / np.pi) + "\n")
+			f.write("  InitialLongitude      = " + str(assembly.trajectory.longitude * 180 / np.pi) + " \n")
+			f.write("  NumberOfPositions     = 1 \n")
 	
 #  Month     = 3
 #  Day       = 25
@@ -77,11 +96,11 @@ def generate_script(assembly, options):
 #
 #  UseTrajectoryFile     = 0
 #  TrajectoryFileName    = 'null' 
-		f.write("NumberOfPositions     = 1 \n")   
-		f.write("EastLongitudePositive = 1 \n")  
-		f.write("InitialHeight         = "+str(assembly.trajectory.altitude/1000)+" \n")    
-		f.write("InitialLatitude       = "+str(assembly.trajectory.latitude*180/np.pi)+"\n")
-		f.write("InitialLongitude      = "+str(assembly.trajectory.longitude*180/np.pi)+" \n") 
+# f.write("NumberOfPositions     = 1 \n")
+# f.write("EastLongitudePositive = 1 \n")
+# f.write("InitialHeight         = "+str(assembly.trajectory.altitude/1000)+" \n")
+# f.write("InitialLatitude       = "+str(assembly.trajectory.latitude*180/np.pi)+"\n")
+# f.write("InitialLongitude      = "+str(assembly.trajectory.longitude*180/np.pi)+" \n")
 #  DeltaHeight           = 40.0    
 #  DeltaLatitude         = 0.3     
 #  DeltaLongitude        = 0.5     
@@ -113,27 +132,88 @@ def generate_script(assembly, options):
 		f.write(" $END")                
 
 def read_gram_species(altitude, options):
-	data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
 
-	if options.planet.name == "earth":   species_index = ["N2","O2","O","He","N","H"]
-	if options.planet.name == "neptune": species_index = ["H2","He","CH4"]
-	if options.planet.name == "uranus":  species_index = ["H2","He","CH4"]
+	if options.planet.name == "earth":   species_index = ["N2", "O2", "O", "He", "N", "H"]
+	if options.planet.name == "neptune": species_index = ["H2", "He", "CH4"]
+	if options.planet.name == "uranus":  species_index = ["H2", "He", "CH4"]
 
-	temperature = data['Temperature_K'].to_numpy()[0]
-	density = data['Density_kgm3'].to_numpy()[0]
+	if not os.path.exists(options.output_folder+'/GRAM/gramSpecies.pkl') or not options.gram.isPerturbed:
 
-	species_data = np.zeros(len(species_index)+2)
+		data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
 
-	species_data[0] = altitude
-	species_data[1] = temperature
 
-	for index, specie in enumerate(species_index):
-		species_data[index+2] = data[specie+"mass_pct"].to_numpy()[0]/100
+		temp_str = 'PerturbedTemperature_K' if options.gram.isPerturbed else 'Temperature_K'
+		dens_str = 'PerturbedDensity_kgm3' if options.gram.isPerturbed else 'Density_kgm3'
 
-	species_data[2:] /= np.sum(species_data[2:])
-	species_data[2:] *= density
+		temperature = data[temp_str].to_numpy()
+		density = data[dens_str].to_numpy()
 
-	return species_data, species_index
+		species_data = np.zeros((len(species_index)+2, len(temperature)))
+
+		species_data[0, :] = data['Height_km'].to_numpy()*1000 if options.gram.isPerturbed else altitude
+		species_data[1, :] = temperature
+
+		for index, specie in enumerate(species_index):
+			species_data[index+2, :] = data[specie+"mass_pct"].to_numpy()/100
+
+		for i_alt in range(len(temperature)):
+			species_data[2:, i_alt] /= np.sum(species_data[2:, i_alt])
+			species_data[2:, i_alt] *= density[i_alt]
+
+		if not options.gram.isPerturbed: return species_data[:, 0], species_index, 'NoInterpolator'
+
+		_, unique_alts = np.unique(species_data[0, :], return_index=True)
+
+		interp_data=species_data[:, unique_alts]
+
+		with open(options.output_folder+'/GRAM/gramSpecies.pkl','wb') as file: pickle.dump(interp_data, file)
+	else:
+		with open(options.output_folder + '/GRAM/gramSpecies.pkl', 'rb') as file: interp_data = pickle.load(file)
+
+	interp_data=np.transpose(interp_data)
+	f = PchipInterpolator(interp_data[:, 0], interp_data, axis=0, extrapolate=False)
+	species_data = f(altitude)
+	if np.isnan(species_data).any(): species_data = interp_data[-1,:]
+	# species_data = np.hstack((altitude, data))
+
+	return species_data, species_index, f
+
+def get_wind_vector(altitude, options):
+	if not os.path.exists(options.output_folder+'/GRAM/gramWind.pkl'):
+
+		if not os.path.exists(options.output_folder+"/GRAM/OUTPUT.csv"): return [0,0,0]
+		data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
+
+
+
+		n_str = 'PerturbedNSWind_ms' if options.gram.isPerturbed else 'NSWind_ms'
+		e_str = 'PerturbedEWWind_ms' if options.gram.isPerturbed else 'EWWind_ms'
+		d_str = 'PerturbedVerticalWind_ms' if options.gram.isPerturbed else 'VerticalWind_ms'
+
+		heights = data['Height_km'].to_numpy() * 1000 if options.gram.isPerturbed else altitude
+		n_points = len(heights) if isinstance(heights,np.ndarray) else 1
+		vectors = np.zeros((4, n_points))
+
+		vectors[0, :] = heights
+		vectors[1, :] = data[n_str].to_numpy()
+		vectors[2, :] = data[e_str].to_numpy()
+		vectors[3, :] = -1*data[d_str].to_numpy()
+
+		if not options.gram.isPerturbed: return vectors[1:, 0]
+
+		_, unique_alts = np.unique(vectors[0, :], return_index=True)
+
+		interp_data=vectors[:, unique_alts]
+
+		with open(options.output_folder+'/GRAM/gramWind.pkl','wb') as file: pickle.dump(interp_data, file)
+	else:
+		with open(options.output_folder + '/GRAM/gramWind.pkl', 'rb') as file: interp_data = pickle.load(file)
+
+	interp_data=np.transpose(interp_data)
+	f = PchipInterpolator(interp_data[:, 0], interp_data, axis=0, extrapolate=False)
+	vector = f(altitude)
+	if np.isnan(vector).any(): vector = interp_data[-1,:]
+	return vector[1:]
 
 def read_gram(assembly, options):
 	data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
@@ -144,6 +224,10 @@ def run_single_gram(assembly, options):
 	path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 	#Run the GRAM model
-	if options.planet.name == "earth": os.system("echo "+options.output_folder+"/GRAM/gram_config_"+str(assembly.id)+" | "+path+"/Executables/EarthGRAM")
+	if options.planet.name == "earth":
+		subprocess.run(
+			args=[path + "/Executables/EarthGRAM", "-file", options.output_folder + "/GRAM/gram_config_" + str(assembly.id)], stdout=subprocess.DEVNULL
+		)
 	if options.planet.name == "neptune": os.system("echo "+options.output_folder+"/GRAM/gram_config_"+str(assembly.id)+" | "+path+"/Executables/NeptuneGRAM")
 	if options.planet.name == "uranus": os.system("echo "+options.output_folder+"/GRAM/gram_config_"+str(assembly.id)+" | "+path+"/Executables/UranusGRAM")
+

@@ -21,7 +21,7 @@ Longitude = -32
 Num_iters = 1000
 
 [Bloom]
-Flag = True
+Flag = False
 Layers = 20
 Spacing = 1E-4
 Growth_Rate = 1.1
@@ -35,7 +35,7 @@ Sensor = Mach
 
 [Assembly]
 # Path for the geometry files
-Path = Geometry/Sphere/
+Path = Examples/Geometry/Sphere/
 
 [Objects]
 Primary = [NAME = sphere.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]

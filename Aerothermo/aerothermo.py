@@ -25,6 +25,7 @@ from copy import copy
 from Aerothermo import su2, switch
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
+from Uncertainty.atmosphere import add_wind
 import trimesh
 try:
     import mutationpp as mpp
@@ -304,6 +305,9 @@ def compute_aerothermo(titan, options):
     atmo_model = options.freestream.model
     
     for assembly in titan.assembly:
+        if options.freestream.model=='GRAM':
+            add_wind(assembly,options)
+
         #Compute the freestream properties and stagnation quantities
         mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
         mix_properties.compute_stagnation(assembly.freestream, options.freestream)
@@ -888,7 +892,6 @@ def aerodynamics_module_bridging(facet_normal,free,p,aerobridge, flow_direction,
     Shear = 0 + (Sfree - 0)* aerobridge
 
     return Pressure, Shear
-
 def aerothermodynamics_module_bridging(facet_normal, facet_radius,free,p, wall_temperature, flow_direction, atm_data, Kn_cont, Kn_free, lref, assembly, options):
     """
     Heatflux computation for the heat-flux regime
@@ -1057,7 +1060,6 @@ def bridging_altitudes(model, Kn_cont,Kn_free, lref):
     alt_free = altitude_knudsen(Kn_free)
 
     return alt_cont, alt_free
-
 
 ### Standoff Distance:
 def compute_delta(flow, method_delta):

@@ -101,7 +101,8 @@ def write_output_data(titan, options):
         df['Pressure'] = [assembly.freestream.pressure]
         df['SpecificHeatRatio'] = [assembly.freestream.gamma]
 
-        for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.percent_mass[0]) :
+        pct_mass =assembly.freestream.percent_mass if options.freestream.method == "Mutationpp" else assembly.freestream.percent_mass[0]
+        for specie, pct in zip(assembly.freestream.species_index, pct_mass) :
             df[specie+"_mass_pct"] = [pct]
 
         #Stagnation properties

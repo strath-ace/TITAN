@@ -33,6 +33,7 @@ import os
 import trimesh
 import open3d as o3d
 import pandas as pd
+import pathlib
 
 class Solver():
     """ Class Solver
@@ -184,7 +185,11 @@ class Solver_Numerical_Method():
         self.cfl = "CFL_NUMBER = " + str(su2.cfl)
         
         #[str] Adaptive CFL boolean (Default is NO)
-        self.cfl_adapt = "CFL_ADAPT = NO"
+        self.cfl_adapt = "CFL_ADAPT = YES"
+
+        #Parameters of the adaptive CFL number (factor down, factor up, CFL min value,CFL max value )
+
+        self.cfl_adapt_param = "CFL_ADAPT_PARAM= ( 0.05, 1.005, 0.01, 1.5 )"
 
         #[str] Maximum number of iterations
         self.iter = "ITER = " + str(su2.iters)
@@ -210,7 +215,7 @@ class Flow_Numerical_Method():
         self.limiter_coeff = "VENKAT_LIMITER_COEFF = 0.01"
         
         #: [str] Time discretization (Default = EULER_EXPLICIT)
-        self.time = "TIME_DISCRE_FLOW = EULER_EXPLICIT"
+        self.time = "TIME_DISCRE_FLOW = " + su2.time
 
 class Solver_Convergence():
     """ Class Solver convergence
@@ -223,11 +228,8 @@ class Solver_Convergence():
         #: [str] Fields to look for convergence
         self.field = "CONV_FIELD= (LIFT, DRAG)"
 
-        #: [str] Minimum residual for convergence
-        self.res_min = "CONV_RESIDUAL_MINVAL= -15"
-
         #: [str] Start iteration for the convergence assessment
-        self.start_iter = "CONV_STARTITER= 10"
+        self.start_iter = "CONV_STARTITER= 300"
 
         #: [str] Number of elements to be used in the Cauchy convergence window
         self.cauchy_elems = "CONV_CAUCHY_ELEMS= 100"
@@ -264,14 +266,18 @@ class Solver_Input_Output():
         #: [str] Name of the volume solution filename to write the simulation data
         self.output_vol = "VOLUME_FILENAME= "+output_folder+"/CFD_sol/flow_"+ str(iteration) + '_adapt_' + str(it) + '_cluster_'+str(cluster_tag)
 
+        self.ouptut_res = "VOLUME_OUTPUT= SOLUTION,PRIMITIVE,RESIDUAL"
         #: [str] Name of the surface solution filename to write the simulation data
         self.output_surf = "SURFACE_FILENAME= "+output_folder+"/CFD_sol/surface_flow_"+ str(iteration) + '_adapt_' + str(it) + '_cluster_'+str(cluster_tag)
 
         #: [str] Frequency for the output file generation
-        self.output_freq = "OUTPUT_WRT_FREQ= 500"
+        self.output_freq = "OUTPUT_WRT_FREQ= 100"
 
         #: [str] Screen output
-        self.screen = "SCREEN_OUTPUT= (INNER_ITER, WALL_TIME, FORCE_X, FORCE_Y, FORCE_Z, MOMENT_X, MOMENT_Y, MOMENT_Z)"
+        self.screen = "SCREEN_OUTPUT= (INNER_ITER,WALL_TIME, RMS_RES, CAUCHY, AVG_CFL)"
+        self.conv_filename= 'CONV_FILENAME = '+output_folder+"/CFD_sol/history" + str(iteration) + '_adapt_' + str(it) + ".csv"
+
+        self.history_output= "HISTORY_OUTPUT= ITER, RMS_RES, LIFT, DRAG, CAUCHY, AVG_CFL"
 
 class SU2_Config():
     """ Class SU2 Configuration
@@ -543,7 +549,8 @@ def run_SU2(n, options):
 
     options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([path+'/Executables/mpirun_SU2','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    if n>1: subprocess.run(['mpirun','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    else: subprocess.run([path + '/Executables/SU2_CFD', options.output_folder + '/CFD_sol/Config.cfg'], text=True)
 
 def generate_BL(assembly, options, it, cluster_tag):
     """
@@ -584,7 +591,7 @@ def adapt_mesh(assembly, options, it, cluster_tag, iteration):
         amg.adapt_mesh(options.amg, iteration, options, j = it, num_obj = len(assembly),  input_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it)+'_cluster_'+str(cluster_tag), output_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
 
 
-def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
+def compute_cfd_aerothermo(assembly_list,titan, options, cluster_tag = 0):
 
     """
     Compute the aerothermodynamic properties using the CFD software
@@ -601,7 +608,6 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     
     #TODO:
     # ---> size ref should also be in the options config file
-    assembly_list = titan.assembly
 
     iteration = options.current_iter
     su2 = options.cfd 
@@ -744,15 +750,30 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
 
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)
+    it = 0
 
     #Writes the configuration file
-    it = 0
-    
+    options.cfd.time = 'EULER_EXPLICIT'
+    adapt_params = {"change_back" : False, 
+                    "iters" : options.cfd.iters, 
+                    "solver" : options.cfd.solver,
+                    "cfl" : options.cfd.cfl,
+                    "time_method" : options.cfd.time}
+
+    # if options.amg.flag: # Hack to a super fast euler first adaptation
+    #     adapt_params['change_back'] = True
+    #     options.cfd.iters  = 10000
+    #     options.cfd.solver = 'NEMO_EULER'
+    #     options.cfd.cfl = 0.1
     config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = input_grid, bloom=False)
     
     #Runs SU2 simulaton
     run_SU2(n, options)
-
+    if adapt_params['change_back']:
+        options.cfd.iters = adapt_params['iters']
+        options.cfd.solver = adapt_params['solver'] 
+        options.cfd.cfl = adapt_params['cfl'] 
+        options.cfd.time = adapt_params['time_method']
     #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
     if options.amg.flag:
         run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)
@@ -846,4 +867,20 @@ def post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, clu
     
     #Reads the solution file and stores into the different assemblies
     total_aerothermo = read_vtk_from_su2_v2(options.output_folder+'/CFD_sol/surface_flow_'+str(iteration)+'_adapt_'+str(adapt_iter)+'_cluster_'+str(cluster_tag)+'.vtu', assembly_nodes, idx_inv, options, free)
-    split_aerothermo(total_aerothermo, assembly_list)#        
+    split_aerothermo(total_aerothermo, assembly_list)#
+
+    if options.write_solutions == False and iteration>0:
+        sol_dir = options.output_folder+'/CFD_sol/'
+        grid_dir = options.output_folder+'/CFD_Grid/'
+        toDelete = [grid_dir+'Domain_'+str(iteration-1)+'_cluster_'+str(cluster_tag)+'.su2']
+
+        for i_adapt in range(adapt_iter+1):
+            toDelete.append(sol_dir+'surface_flow_'+str(iteration-1)+'_adapt_'+str(i_adapt)+'_cluster_'+str(cluster_tag)+'.vtu')
+            toDelete.append(sol_dir+'flow_'+str(iteration-1)+'_adapt_'+str(i_adapt)+'_cluster_'+str(cluster_tag)+'.vtu')
+            toDelete.append(sol_dir+'restart_flow_'+str(iteration-1)+'_adapt_'+str(i_adapt)+'.csv')
+            if i_adapt>0: toDelete.append(grid_dir+'Domain_iter_'+str(iteration-1)+'_adapt_'+str(i_adapt)+'_cluster_'+str(cluster_tag)+'.su2')
+        for file in toDelete:
+            try: 
+                pathlib.Path(file).unlink()
+            except Exception as e:
+                print('Could not delete file {}! Error: {}'.format(file,e))

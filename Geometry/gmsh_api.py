@@ -98,6 +98,7 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     #assembly.map_physical_volume = map_objects
 
     gmsh.model.geo.synchronize()
+    #gmsh.write("inner_domain.geo_unrolled")
     gmsh.model.mesh.generate(3)
 
     if False:
@@ -212,6 +213,7 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
     outer_surface(gmsh,ref2, surf_ref-1, xmin, xmax, ref_phys_surface, options = None)
     
     gmsh.model.geo.synchronize()
+    #gmsh.write("cfd_domain.geo_unrolled")
 
     if False:
         gmsh.fltk.initialize()

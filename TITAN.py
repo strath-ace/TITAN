@@ -47,10 +47,10 @@ def loop(options = [], titan = []):
     """
 
     #For collision testing purposes
-    if "sphere-sphere.txt" in options.filepath:
-        titan.assembly[0].mass = 1
-        titan.assembly[1].mass = 2
-        titan.assembly[0].velocity[2] = 5
+    #if "sphere-sphere.txt" in options.filepath:
+        #titan.assembly[0].mass = 1
+        #titan.assembly[1].mass = 2
+        #titan.assembly[0].velocity[2] = 5
 
     if options.structural_dynamics:
         print("Structural dynamics selected: still requiring further validation")
@@ -118,9 +118,13 @@ def main(filename = "", postprocess = "", filter_name = None):
     configFilePath = filename
     configParser.read(configFilePath)
 
+    # This function is for easy modification of config objects, called here to prevent code repeats
+    load_and_run_cfg(configParser, postprocess, filter_name)
+
+def load_and_run_cfg(cfg,postprocess,filter_name):
+
     #Pre-processing phase: Creates the options and titan class
-    options, titan = configuration.read_config_file(configParser, postprocess)
-    options.filepath = filename
+    options, titan = configuration.read_config_file(cfg, postprocess)
 
     #Initialization of the simulation
     if not postprocess:

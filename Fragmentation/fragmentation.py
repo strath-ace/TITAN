@@ -29,6 +29,7 @@ import trimesh
 from Geometry.component import Component
 from collections import defaultdict
 from Dynamics import collision
+from Uncertainty.uncertainty import write_demise
 
 def demise_components(titan, i, joints_id, options): 
     """
@@ -61,6 +62,10 @@ def demise_components(titan, i, joints_id, options):
     for id in joints_id:
         index += (connectivity[:,0] == id) + (connectivity[:,1] == id) + (connectivity[:,2] == id)
 
+        if options.uncertainty.qoi_flag: 
+            if titan.assembly[i].objects[id-1].name in options.uncertainty.stls:
+                write_demise(titan.assembly[i],titan.assembly[i].objects[id-1],options)
+
     connectivity = np.copy(connectivity[~index])
 
     #Change conectivity here to match the objects vector in assembly
@@ -85,6 +90,9 @@ def demise_components(titan, i, joints_id, options):
             Flags[Flags >= (enum_obj+1-aux)] -= 1
             #connectivity[connectivity >= (enum_obj+1-aux)] -= 1
             aux += 1
+
+            if options.uncertainty.qoi_flag: 
+                if obj.name in options.uncertainty.stls: write_demise(titan.assembly[i],obj,options)
 
     if len(mask_delete) > 0:
         titan.assembly[i].objects = np.delete(titan.assembly[i].objects,mask_delete)
@@ -168,8 +176,11 @@ def demise_components(titan, i, joints_id, options):
         R_B_ECEF = Rot.from_quat(titan.assembly[i].quaternion)
         dx_ECEF = R_B_ECEF.apply(dx)
         angle_vel_ECEF = R_B_ECEF.apply(angle_vel)
-
-        titan.assembly[-1].position = np.copy(titan.assembly[i].position) + dx_ECEF
+        if options.wrap_propagator:
+            titan.assembly[-1].position = deepcopy(titan.assembly[i].position)
+            titan.assembly[-1].position.position = np.copy(titan.assembly[i].position) + dx_ECEF
+        else:
+            titan.assembly[-1].position = np.copy(titan.assembly[i].position) + dx_ECEF
         titan.assembly[-1].velocity = np.copy(titan.assembly[i].velocity) + np.cross(angle_vel_ECEF,dx_ECEF)
         
         titan.assembly[-1].roll_vel  = angle_vel[0]
@@ -181,7 +192,9 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].quaternion = deepcopy(titan.assembly[i].quaternion)
 
         #Compute the trajectory and angular quantities
-        [latitude, longitude, altitude] = pymap3d.ecef2geodetic(titan.assembly[-1].position[0], titan.assembly[-1].position[1], titan.assembly[-1].position[2], ell = None,deg = False);
+        [latitude, longitude, altitude] = pymap3d.ecef2geodetic(titan.assembly[-1].position[0], titan.assembly[-1].position[1], titan.assembly[-1].position[2],
+                                                                ell = pymap3d.Ellipsoid(semimajor_axis = options.planet.ellipsoid()['a'], semiminor_axis = options.planet.ellipsoid()['b']),
+                                                                deg = False);
 
         titan.assembly[-1].trajectory.latitude = latitude
         titan.assembly[-1].trajectory.longitude = longitude
@@ -501,7 +514,6 @@ def fragmentation(titan, options):
     """
 
     #if options.ablation_mode.lower() == "tetra":
-    
     #Check for tetra ablation
     check_breakup_v2(titan, options)
 
@@ -588,6 +600,11 @@ def fragmentation(titan, options):
         if len(objs_id) != 0 or primitive_separation:
             fragmentation_flag = True
             if len(titan.assembly[it].objects) != 1: demise_components(titan, it, objs_id, options)
+
+            elif options.uncertainty.qoi_flag:
+                if titan.assembly[it].objects[0].name in options.uncertainty.stls:
+                    write_demise(titan.assembly[it],titan.assembly[it].objects[0],options)
+                    
             assembly_id = np.append(assembly_id, it)
             
     titan.assembly = np.delete(titan.assembly,assembly_id).tolist()

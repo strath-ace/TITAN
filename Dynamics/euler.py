@@ -57,7 +57,11 @@ def compute_Euler(titan, options):
     forces.compute_aerodynamic_moments(titan, options)
 
     # Writes the output data before
-    output.write_output_data(titan = titan, options = options)
+    if options.wrap_propagator:
+        if options.output_dynamics:
+            output.write_output_data(titan = titan, options = options)
+    else: output.write_output_data(titan = titan, options = options)
+
 
     time_step = options.dynamics.time_step
     if options.collision.flag and len(titan.assembly)>1:
@@ -109,7 +113,6 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.trajectory.latitude = latitude
     assembly.trajectory.longitude = longitude
     assembly.trajectory.altitude = altitude
-
     [vEast, vNorth, vUp] = pymap3d.uvw2enu(assembly.velocity[0], assembly.velocity[1], assembly.velocity[2], latitude, longitude, deg=False)
 
     gamma = np.arcsin(np.dot(assembly.position, assembly.velocity)/(np.linalg.norm(assembly.position)*np.linalg.norm(assembly.velocity)))

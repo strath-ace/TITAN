@@ -223,7 +223,8 @@ def compute_cartesian_derivatives(assembly, options):
 
     Faero_I = R_B_ECEF.apply(np.array(assembly.body_force.force))
 
-    Fgrav_I = np.array([agrav_u,agrav_v,agrav_w])*assembly.mass
+    Fgrav_I = np.array([agrav_u,agrav_v,agrav_w])
+    # Fgrav_I = np.array([agrav_u, agrav_v, agrav_w])*assembly.mass
     Fcoreolis_I = -np.cross(np.array([0,0,wE]), np.cross(np.array([0,0,wE]), assembly.position))
     Fcentrif_I  = -2*np.cross(np.array([0,0,wE]), assembly.velocity)
 
@@ -231,7 +232,8 @@ def compute_cartesian_derivatives(assembly, options):
     #pymap3d has the functions we need
 
     dx = assembly.velocity
-    dv = (Faero_I + Fgrav_I + Fcoreolis_I + Fcentrif_I) / assembly.mass
+    # dv = (Faero_I + Fgrav_I + Fcoreolis_I + Fcentrif_I) / assembly.mass
+    dv = ((Faero_I / assembly.mass) + Fgrav_I + Fcoreolis_I + Fcentrif_I)
 
     return DerivativesCartesian(dx = dx[0], dy = dx[1], dz = dx[2], du = dv[0], dv = dv[1], dw = dv[2])
 
@@ -332,5 +334,7 @@ def integrate(titan, options):
         Object of class Options
 
     """
-
-    euler.compute_Euler(titan, options)
+    if options.wrap_propagator:
+        from Uncertainty import UT
+        UT.unscentedPropagation(titan,options)
+    else: euler.compute_Euler(titan, options)
