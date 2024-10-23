@@ -17,7 +17,10 @@ from matplotlib.collections import PolyCollection
 import elevation
 import rasterio
 import datetime as dt
-from messaging import messenger
+try:
+    from messaging import messenger
+except:
+    pass
 
 
 # Sometimes extensibility ain't pretty
@@ -354,12 +357,15 @@ def write_demise(assembly,demise_object,options):
     #     lookup[specie+"_mass_pct"] = [pct]
     proc = ''.join(character for character in options.output_folder if character.isdigit())
     proc=int(proc) if len(proc)>0 else 0
-    msg=messenger(rank=proc)
-    msg.read_data()
+
     with open(options.uncertainty.qoi_filepath,'rb') as file: options.uncertainty.quantities=pickle.load(file)
 
     stl = demise_object.name
-    msg.print_n_send('Object of interest \'{}\' has demised at altitude {}'.format(stl,assembly.trajectory.altitude))
+    try:
+        msg=messenger(rank=proc)
+        msg.read_data()
+        msg.print_n_send('Object of interest \'{}\' has demised at altitude {}'.format(stl,assembly.trajectory.altitude))
+    except: pass
     for output_name, _ in options.uncertainty.quantities[stl].items():
         options.uncertainty.quantities[stl][output_name].append(lookup[output_name])
 
