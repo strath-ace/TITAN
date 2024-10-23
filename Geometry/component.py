@@ -18,10 +18,12 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 from Geometry import mesh as Mesh
-from Geometry.tetra import inertia_tetra, vol_tetra
+from Geometry.tetra import inertia_tetra, inertia_tetra_new, vol_tetra
 from Material.material import Material
 import numpy as np
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
+from Geometry.tetra import volume_from_convex_hull
 
 class Component_list():
     # A class with the purpose of storing the different components in a list
@@ -157,6 +159,170 @@ class Component():
         
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
 
+
+    def compute_hybrid_mass_properties(self):
+
+        print('\nHYBRID')
+
+        density = self.material.density
+
+        #Computes the inertia properties of the unstructured region
+
+        coords = self.mesh.vol_coords
+
+        #Computes the volume of every single tetrahedral
+        elements = self.mesh.vol_elements_tetra
+
+        vol_uns = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
+
+        mass_uns = vol_uns*density
+        self.mass_uns = np.sum(mass_uns)
+
+
+        self.COG_uns = np.sum((1/4)*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*mass_uns[:,None], axis = 0)/self.mass_uns
+
+        self.local_COG_uns = (1/4)*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*mass_uns[:,None]
+        
+        self.inertia_uns = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol_uns, self.COG_uns, density)
+        #print('volume:', vol_uns);exit()
+        #print('COG:', self.COG_uns)
+        print('inertia_uns new:', self.inertia_uns)
+        
+        self.inertia_uns, self.mass_uns, self.COG_uns, vol_uns = inertia_prisms(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], density)
+        #print('volume:', np.sum(vol_uns))
+        #print('COG:', self.COG_uns)
+        print('\ninertia_prisms:', self.inertia_uns)
+        exit()
+        
+        print('v0:', coords[elements[:,0]])
+        print('v1:', coords[elements[:,1]])
+        print('v2:', coords[elements[:,2]])
+        print('v3:', coords[elements[:,3]])
+
+
+        print('volume:', np.sum(vol_uns))
+        print('mass:', self.mass_uns)
+        print('density:', density)
+        print('COG:', self.COG_uns)
+        print('inertia_uns:', self.inertia_uns)
+
+        exit()
+        #Computes the inertia properties of the structured region composed of triangular prisms
+
+        elements = self.mesh.vol_elements_prism
+        #vol_str = vol_triangular_prism(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], coords[elements[:,4]], coords[elements[:,5]])
+
+        #total_volume = np.sum(vol_uns) + np.sum(vol_prism)
+
+        self.inertia_str, self.mass_str, self.COG_str, vol_prism = inertia_prisms(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], coords[elements[:,4]], coords[elements[:,5]], density)
+
+        print('inertia_str:', self.inertia_str)
+
+
+        #Combine unstructured and structured regions
+
+        self.mesh.vol_volume = np.concatenate((vol_uns, vol_prism), axis=0)        
+
+        self.inertia, self.mass, self.COG = combine_inertia_tensors(self.inertia_uns, self.mass_uns, self.COG_uns, self.inertia_str, self.mass_str, self.COG_str)
+
+        
+        print('volume:', np.sum(vol_uns) + np.sum(vol_prism))
+        print('mass:', self.mass)
+        print('COG:', self.COG)
+        print('inertia:', self.inertia)
+        exit()
+
+
+# Function to apply the parallel axis theorem to translate inertia tensor
+def translate_inertia(inertia_tensor, mass, region_com, total_com):
+    d = region_com - total_com  # Vector from region COM to total COM
+    d_squared = np.dot(d, d)
+    translation_inertia = mass * (d_squared * np.eye(3) - np.outer(d, d))
+    return inertia_tensor + translation_inertia
+
+# Function to calculate the total inertia tensor of the body
+def combine_inertia_tensors(inertia1, mass1, com1, inertia2, mass2, com2):
+    # Calculate total mass
+    total_mass = mass1 + mass2
+    
+    # Calculate total center of mass
+    total_com = (mass1 * com1 + mass2 * com2) / total_mass
+    
+    # Translate each region's inertia tensor to the total center of mass
+    translated_inertia1 = translate_inertia(inertia1, mass1, com1, total_com)
+    translated_inertia2 = translate_inertia(inertia2, mass2, com2, total_com)
+    
+    # Sum the translated inertia tensors to get the total inertia tensor
+    total_inertia_tensor = translated_inertia1 + translated_inertia2
+    
+    return total_inertia_tensor, total_mass, total_com
+
+# Function to calculate the center of mass of a polyhedron
+def center_of_mass(points):
+    return np.mean(points, axis=0)
+
+# Function to compute inertia tensor for a single polyhedron relative to its center of mass
+def moment_of_inertia(points, mass, center_of_mass):
+    inertia_tensor = np.zeros((3, 3))
+    for p in points:
+        r = p - center_of_mass
+        inertia_tensor[0, 0] += mass * (r[1]**2 + r[2]**2)
+        inertia_tensor[1, 1] += mass * (r[0]**2 + r[2]**2)
+        inertia_tensor[2, 2] += mass * (r[0]**2 + r[1]**2)
+        inertia_tensor[0, 1] -= mass * r[0] * r[1]
+        inertia_tensor[0, 2] -= mass * r[0] * r[2]
+        inertia_tensor[1, 2] -= mass * r[1] * r[2]
+
+    inertia_tensor[1, 0] = inertia_tensor[0, 1]
+    inertia_tensor[2, 0] = inertia_tensor[0, 2]
+    inertia_tensor[2, 1] = inertia_tensor[1, 2]
+
+    return inertia_tensor
+
+# Function to calculate total inertia tensor using parallel processing
+def inertia_prisms(v0, v1, v2, v3, density):
+    n = len(v0)
+    all_points = np.stack([v0, v1, v2, v3], axis=1)  # Shape (n, 6, 3)
+
+    # Function to process each polyhedron
+    def process_polyhedron(i):
+        points = all_points[i]
+        volume = volume_from_convex_hull(points)
+        mass = volume * density
+        com = center_of_mass(points)
+        inertia_tensor = moment_of_inertia(points, mass, com)
+        #print(f"Tetra {i}: inertia_local =\n{inertia_tensor}")
+        return volume, mass, com, inertia_tensor
+
+    # Use ThreadPoolExecutor to parallelize the computation of volume, mass, com, and inertia tensor
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_polyhedron, range(n)))
+
+    # Unpack the results
+    volumes, masses, centers_of_mass, inertia_tensors = zip(*results)
+    volumes = np.array(volumes)
+    #print('vol inertia_prisms:', volumes)
+    masses = np.array(masses)
+    centers_of_mass = np.array(centers_of_mass)
+    #print('COG_local inertia_prisms:', centers_of_mass)
+    total_mass = np.sum(masses)
+
+    # Compute total center of mass
+    total_com = np.sum(masses[:, np.newaxis] * centers_of_mass, axis=0) / total_mass
+
+    # Compute total inertia tensor, including parallel axis theorem correction
+    total_inertia_tensor = np.zeros((3, 3))
+    for i in range(n):
+        # Inertia relative to global center of mass
+        translation_vector = centers_of_mass[i] - total_com
+        #print(f"Tetra {i}: d (COG_local - global_com) = {translation_vector}")
+        translation_inertia = masses[i] * (
+            np.dot(translation_vector, translation_vector) * np.eye(3) - np.outer(translation_vector, translation_vector)
+        )
+        total_inertia_tensor += inertia_tensors[i] + translation_inertia
+        #print(f"Tetra {i}: inertia_global after translation =\n{inertia_tensors[i] + translation_inertia}")  
+
+    return total_inertia_tensor, total_mass, total_com, volumes
 
 class PATO():
     """ Class PATO

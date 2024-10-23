@@ -150,14 +150,14 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].connectivity = np.array(new_connectivity)
 
         #Uses GMSH again to compute the inner domain of the new assembly
-        #titan.assembly[-1].generate_inner_domain(write = False, output_folder = options.output_folder)
-        #titan.assembly[-1].compute_mass_properties()
-        #output.generate_volume(titan = titan, options = options)
-
-        compute_new_volume_v2(titan.assembly[i].mesh, titan.assembly[-1].mesh, titan.assembly[-1].objects)
-        titan.assembly[-1].mesh.index_surf_tetra = map_surf_to_tetra(titan.assembly[-1].mesh.vol_coords, titan.assembly[-1].mesh.vol_elements)
-
+        titan.assembly[-1].generate_inner_domain(write = False, output_folder = options.output_folder)
         titan.assembly[-1].compute_mass_properties()
+        output.generate_volume(titan = titan, options = options)
+
+        #compute_new_volume_v2(titan.assembly[i].mesh, titan.assembly[-1].mesh, titan.assembly[-1].objects)
+        #titan.assembly[-1].mesh.index_surf_tetra = map_surf_to_tetra(titan.assembly[-1].mesh.vol_coords, titan.assembly[-1].mesh.vol_elements)
+
+        #titan.assembly[-1].compute_mass_properties()
 
         titan.assembly[-1].roll  = angle[0]
         titan.assembly[-1].pitch = angle[1]

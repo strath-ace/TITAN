@@ -979,7 +979,6 @@ def read_config_file(configParser, postprocess = ""):
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
                 assembly.generate_inner_domain(write = options.pato.flag, output_folder = options.output_folder)
-                assembly.volume_unstructured()
                 assembly.compute_mass_properties()
                 if options.pato.flag:
                     for obj in assembly.objects:

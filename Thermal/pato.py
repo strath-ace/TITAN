@@ -46,7 +46,7 @@ def compute_thermal(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, p
 
     run_PATO(options, obj.global_ID)
 
-    #postprocess_PATO_solution(options, obj, time_to_postprocess)
+    postprocess_PATO_solution(options, obj, time_to_postprocess)
 
     return time_to_postprocess
 
@@ -1341,7 +1341,7 @@ def run_PATO(options, object_id):
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
 
-def postprocess_PATO_solution(options, obj, time_to_read, assembly):
+def postprocess_PATO_solution(options, obj, time_to_read):
     """
     Postprocesses the PATO output
 
@@ -1362,22 +1362,21 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly):
     data_volume = retrieve_volume_vtk_data(n_proc, path, time_to_read)
 
     ####BY THIS POINT WE HAVE VTK SOLUTION IN NEW MESH
-    update_mesh_from_PATO(assembly, obj.mesh, data_volume, data_surface)
-    exit()
+    update_mesh_from_PATO(obj, data_volume, data_surface)
     ####FIRST READ THE MESH FROM VTK AND COMPUTE NEW INERTIA PROPERTIES
     ####THEN READ TEMPERATURE SOLUTION # i think just use as is and output as such (AS BEFORE, WHEN MAPPING METHOD WITH UPDATED FACET COGs)
 
     # extract temperature distribution (tetras)
-    cell_data = data.GetCellData()
+    cell_data = data_surface.GetCellData()
     temperature = cell_data.GetArray('Ta')
-    n_cells=data.GetNumberOfCells()
+    n_cells=data_surface.GetNumberOfCells()
     temperature_cell = [temperature.GetValue(i) for i in range(n_cells)]
 
     # sort vtk and TITAN surface mesh cell numbering by checking facet COG
 
     # get cell COG from vtk
     vtk_cell_centers=vtk.vtkCellCenters()
-    vtk_cell_centers.SetInputData(data)
+    vtk_cell_centers.SetInputData(data_surface)
     vtk_cell_centers.Update()
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
@@ -1391,7 +1390,7 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly):
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
 
-def update_mesh_from_PATO(assembly, obj_mesh, vtk_data_volume, vtk_data_surface):
+def update_mesh_from_PATO(obj, vtk_data_volume, vtk_data_surface):
 
     #Extract and update volume mesh
 
@@ -1435,9 +1434,7 @@ def update_mesh_from_PATO(assembly, obj_mesh, vtk_data_volume, vtk_data_surface)
     prism_indices = np.array(prism_indices)
     
     # Extract node coordinates for elements in one go using NumPy indexing
-    #assembly.mesh.vol_coords = node_coords[np.unique(tetra_indices)]
     obj.mesh.vol_coords = node_coords#[np.unique(tetra_indices)]
-    #assembly.mesh.vol_coords_prism = node_coords[np.unique(prism_indices)]
     
     # Store element definitions (no need to re-extract coordinates here)
     obj.mesh.vol_elements_tetra = tetra_indices
@@ -1446,17 +1443,7 @@ def update_mesh_from_PATO(assembly, obj_mesh, vtk_data_volume, vtk_data_surface)
 
     size = len(obj.mesh.vol_elements_tetra) + len(obj.mesh.vol_elements_prism)
 
-    obj.mesh.vol_density = np.ones(size)*obj.material.density
     obj.mesh.vol_tag = np.full(size, np.ones(size)*obj.id)
-
-    assembly.mesh.vol_elements = np.append(assembly.mesh.vol_elements,obj.mesh.vol_elements)
-    assembly.mesh.vol_density = np.append(assembly.mesh.vol_density, np.ones(size)*obj.material.density)
-    assembly.mesh.vol_tag = np.append(assembly.mesh.vol_tag, np.ones(size)*obj.id)    
-
-    print('0 elements:', assembly.mesh.vol_elements[0][0])
-    #print('-1 elements:', assembly.mesh.vol_elements[-1])
-    assembly.volume_hybrid();exit()
-    assembly.compute_mass_properties_from_objects(mesh_type = 'hybrid')
 
     #Extract and update surface mesh
 

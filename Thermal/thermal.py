@@ -243,11 +243,6 @@ def compute_thermal_PATO(titan, options):
         pato.compute_heat_conduction(assembly)
         Tinf = assembly.freestream.temperature
 
-        assembly.mesh.vol_coords = np.array([])
-        assembly.mesh.vol_elements = np.array([])
-        assembly.mesh.vol_density = np.array([])
-        assembly.mesh.vol_tag = np.array([])
-
         for obj in assembly.objects:
             if obj.pato.flag: 
 
@@ -260,9 +255,10 @@ def compute_thermal_PATO(titan, options):
                 
                 time_to_postprocess = pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf, he, hw, rhoe, ue, pw)
                 
-                pato.postprocess_PATO_solution(options, obj, time_to_postprocess, assembly)
-                
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+
+        #assembly.volume_hybrid();exit()
+        assembly.compute_hybrid_mass_properties_from_objects()
 
     return
 
