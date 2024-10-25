@@ -2,9 +2,9 @@
 #First test case to test the config file of TITAN
 
 [Options]
-Num_iters = 50000
-Load_mesh = True
-Load_state = True
+Num_iters = 1
+Load_mesh = False
+Load_state = False
 Fidelity = Low
 Output_folder = Tests/3-cube-pato/
 Output_freq = 1
@@ -28,9 +28,9 @@ wrt = 0.5
 
 [Bloom]
 Flag =  True
-Layers = 40
+Layers = 500
 Spacing = 0.001
-Growth_Rate = 3
+Growth_Rate = 1.2
 
 [Time]
 Time_step = 0.5

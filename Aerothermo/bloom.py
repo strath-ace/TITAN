@@ -97,9 +97,9 @@ def generate_PATO_mesh(options, object_id, bloom):
 
     create_bloom_config(1, bloom, options, path_folder)
 
-    subprocess.run(['python3.8', path+'/Executables/su2_to_gmf.py', '-m' ,options.output_folder + path_folder +input_grid+'.su2','-o',options.output_folder+path_folder+input_grid])
+    subprocess.run(['python3.10', path+'/Executables/su2_to_gmf.py', '-m' ,options.output_folder + path_folder +input_grid+'.su2','-o',options.output_folder+path_folder+input_grid])
     subprocess.run([path+'/Executables/amg_bloom', '-in', options.output_folder+path_folder+input_grid+'.meshb', '-bl-data',options.output_folder+path_folder+"bloom", '-bl-hybrid', '-out', options.output_folder+path_folder+input_grid+'_PL', '-hmsh'])
-    subprocess.run(['python3.8', path+'/Executables/gmf_to_su2.py', '-m', options.output_folder+path_folder+input_grid+'_PL.meshb', '-b', options.output_folder +path_folder+input_grid+'.su2', '-o', options.output_folder+path_folder+output_grid])
+    subprocess.run(['python3.10', path+'/Executables/gmf_to_su2.py', '-m', options.output_folder+path_folder+input_grid+'_PL.meshb', '-b', options.output_folder +path_folder+input_grid+'.su2', '-o', options.output_folder+path_folder+output_grid])
     subprocess.run(['python', path+'/Executables/su2tomsh-amg.py', options.output_folder+path_folder+output_grid+".su2"])
     subprocess.run(['mv', path+'/mesh.msh', options.output_folder+path_folder])
     subprocess.run(['rm', '/'+options.output_folder+path_folder+'*.meshb'])

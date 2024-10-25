@@ -27,6 +27,7 @@ from vtk import *
 import glob
 import os
 import re
+from scipy.spatial import KDTree
 
 def compute_thermal(obj, time, iteration, options, hf, Tinf):
 
@@ -226,14 +227,14 @@ def write_All_run(options, obj, time, iteration):
         #f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         f.write('rm mesh/*meshb \n')
-        f.write('rm VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
+        #f.write('rm VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
         f.write('rm -rf '+str(prev_time)+' \n')       
         #for n in range(options.pato.n_cores):
             #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
             #f.write('rm processor'+str(n)+'/VTK/top/top_'+str(iteration_to_delete)+'.vtk \n')
-        if (iteration_to_delete%500 != 0):
-            f.write('rm -rf VTK/PATO_'+str(obj.global_ID)+'_'+str(iteration_to_delete+1)+'* \n')
+        #if (iteration_to_delete%500 != 0):
+        #    f.write('rm -rf VTK/PATO_'+str(obj.global_ID)+'_'+str(iteration_to_delete+1)+'* \n')
 
 
     f.close()
@@ -898,9 +899,15 @@ def postprocess_PATO_solution(options, obj, iteration):
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
 
-    for i in range(len(obj.pato.temperature)):
-        obj.pato.temperature[i] = interpolateNearestCOG(obj.mesh.facet_COG[i], vtk_COG, temperature_cell)
+    #print('hey 1')
+    temperature_cell = np.array(temperature_cell)
+    mapping = mapping_facetCOG_TITAN_PATO(obj.mesh.facet_COG, vtk_COG)
+    obj.pato.temperature = temperature_cell[mapping]
+    #exit()
+    #for i in range(len(obj.pato.temperature)):
+    #    obj.pato.temperature[i] = interpolateNearestCOG(obj.mesh.facet_COG[i], vtk_COG, temperature_cell)
     obj.temperature = obj.pato.temperature
+    #print('obj.temperature:', obj.temperature)
     
 
 def interpolateNearestCOG(facet_COG, input_COG, input_array):
@@ -929,6 +936,27 @@ def interpolateNearestCOG(facet_COG, input_COG, input_array):
         value = input_array[indexData];
 
     return value    
+
+def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
+
+    A = facet_COG
+    B = vtk_COG
+
+    tree = KDTree(B)
+    
+    # Find the nearest point in B for each point in A
+    distances, indices = tree.query(A)
+        
+    # If you need the indices as a list
+    mapping = list(indices)
+    #print("Mapping of points from A to B:", mapping)
+
+    mapping = np.array(mapping)
+
+    #print(type(mapping))
+    #print(mapping)
+
+    return mapping
 
 def retrieve_surface_vtk_data(n_proc, path, iteration):
 
