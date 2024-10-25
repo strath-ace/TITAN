@@ -95,7 +95,10 @@ def write_material_properties(options, obj):
         f.write('\n')
         f.write('/***        Temperature dependent material properties   ***/\n')
         f.write('/***        5 coefs - n0 + n1 T + n2 T² + n3 T³ + n4 T⁴ ***/\n')
-        f.write('Tmax ' + str(obj.material.meltingTemperature) + ';\n')
+        f.write('Tmelt ' + str(obj.material.meltingTemperature) + ';\n')
+        f.write('Hfusion ' + str(obj.material.meltingHeat) + ';\n')
+        f.write('mass ' + str(obj.mass) + ';\n')
+        f.write('density ' + str(obj.material.density) + ';\n')
         f.write('// specific heat capacity - cp - [0 2 -2 -1 0 0 0]\n')
         f.write('cp_sub_n[0] '+str(cp)+';\n')
         f.write('cp_sub_n[1] 0;\n')
@@ -327,7 +330,7 @@ def write_constant_folder(options, object_id):
             f.write('\n')
             f.write('/****************************** IO *****************************************/\n')
             f.write('IO {\n')
-            f.write('  writeFields(); // write fields in the time folders\n')
+            f.write('  writeFields(mass); // write fields in the time folders\n')
             f.write('}\n')
             f.write('/****************************** END IO ************************************/\n')
             f.write('\n')
@@ -388,8 +391,7 @@ def write_constant_folder(options, object_id):
             f.write('/****************************** MASS, ENERGY, PYROLYSIS **************************************/\n')
             f.write('MaterialProperties {\n')
             f.write('  MaterialPropertiesType Fourier; \n')
-            #f.write('  MaterialPropertiesDirectory "$FOAM_CASE/data"; \n')
-            f.write('  MaterialPropertiesDirectory "$PATO_DIR/data/Materials/Fourier/FourierTemplate"; \n')
+            f.write('  MaterialPropertiesDirectory "$FOAM_CASE/data"; \n')
             f.write('}\n')
             f.write('Mass {\n')
             f.write('  MassType no; // Solve the semi implicit pressure equation\n')
@@ -885,6 +887,12 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
 
         if options.pato.Ta_bc == "ablation":
 
+            print('he:', he)
+            print('hw:', hw)
+            he[:] = 8907150.32919412
+            hw[:] = 643858.87310542
+            conv_heatflux[:] = 100000
+
             Ch = conv_heatflux/(he-hw)
             Ch[np.isnan(Ch)] = 0
             Ch[np.isinf(Ch)] = 0
@@ -1336,7 +1344,7 @@ def run_PATO(options, object_id):
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
-
+    #exit()
 def postprocess_PATO_solution(options, obj, time_to_read):
     """
     Postprocesses the PATO output
@@ -1345,6 +1353,8 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     ----------
 	?????????????????????????
     """ 
+
+    if options.pato.Ta_bc == 'ablation': postprocess_mass_inertia(obj, options, time_to_read)
 
     path = options.output_folder+"PATO_"+str(obj.global_ID)+"/"
 
@@ -1382,6 +1392,51 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
+
+def postprocess_mass_inertia(obj, options, time_to_read):
+
+    # Define the file path
+    file_path = options.output_folder + "PATO_" + str(obj.global_ID) + "/processor0/" + str(time_to_read) + "/subMat1/uniform/massFile"    
+    # Initialize variables to store mass and density
+    new_mass = None
+    density_ratio = None
+    
+    # Open the file and read line by line
+    with open(file_path, 'r') as file:
+        for line in file:
+            if 'new_mass' in line:
+                print('line:', line)
+                new_mass = float(line.split()[1].strip(';'))
+            elif 'density_ratio' in line:
+                density_ratio = float(line.split()[1].strip(';'))
+            
+            # Exit early once both values are found
+            if new_mass is not None and density_ratio is not None:
+                break
+
+    obj.density_ratio = density_ratio
+
+    print(f"Mass: {new_mass}")
+    print(f"Density_ratio: {density_ratio}")
+
+    if obj.density_ratio < 1:
+
+        obj.material.density *= density_ratio
+        obj.mass = new_mass
+    
+        if (obj.material.density <= 0) or (obj.mass <= 0):
+            obj.material.density = 0
+            obj.mass = 0
+    
+        obj.inertia *= density_ratio
+
+    with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/data/constantProperties', 'r+', encoding='utf-8') as f:
+        lines = f.readlines()
+        lines[17] = 'mass ' + str(obj.mass) + ';\n'
+        lines[18] = 'density ' + str(obj.material.density) + ';\n'
+        lines[34] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
+        f.seek(0)
+        f.writelines(lines)
 
 def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
 

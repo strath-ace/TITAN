@@ -175,6 +175,9 @@ class PATO():
         #: [bool] Flag value indicating the use of PATO for the thermal model
         self.flag = bloom_config[0]
 
+        #: [float] Value of density ratio due to ablation mass loss
+        self.density_ratio = 1
+
         Path(options.output_folder+'/PATO_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)

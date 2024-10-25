@@ -841,7 +841,9 @@ def read_config_file(configParser, postprocess = ""):
         if (options.thermal.ablation_mode == "pato"):
             options.pato.flag = True
             options.pato.Ta_bc  = get_config_value(configParser, options.pato.Ta_bc,  'PATO', 'PATO_mode', 'str').lower()
-            options.pato.time_step = get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
+            #PATO and TITAN time-step need to be the same for the consistency of the heat conduction and density change algorithm
+            options.pato.time_step = options.dynamics.time_step#get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
+            print("PATO time-step:", options.pato.time_step)
             options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
             if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
             #Read Bloom conditions

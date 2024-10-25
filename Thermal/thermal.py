@@ -27,6 +27,7 @@ from Aerothermo import aerothermo as Aerothermo
 from scipy.spatial.transform import Rotation as Rot
 import vg
 import sys
+from Geometry.tetra import inertia_tetra
 
 def compute_thermal(titan, options):
 
@@ -252,6 +253,26 @@ def compute_thermal_PATO(titan, options):
                 pw = assembly.aerothermo.pressure[obj.facet_index]
                 pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf, he, hw, rhoe, ue, pw)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+                assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
+
+        if any(obj.density_ratio < 1 for obj in assembly.objects):
+            coords = assembly.mesh.vol_coords
+            elements = assembly.mesh.vol_elements
+            density = assembly.mesh.vol_density
+            vol = assembly.mesh.vol_volume
+    
+            #Computes the mass of every single tetrahedral
+            assembly.mesh.vol_mass  = vol*density
+            assembly.mass = np.sum(assembly.mesh.vol_mass)
+    
+            #Computes the Center of Mass
+            if assembly.mass <= 0:
+                assembly.COG = np.array([0,0,0])
+            else:
+                assembly.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*assembly.mesh.vol_mass[:,None], axis = 0)/assembly.mass
+    
+            #Computes the inertia matrix
+            assembly.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, assembly.COG, density)
 
     return
 
