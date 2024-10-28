@@ -883,7 +883,7 @@ def read_config_file(configParser, postprocess = ""):
             options.uncertainty.outputs = get_config_value(configParser, options.uncertainty.outputs, 'Uncertainty', 'Outputs', 'str')
             options.uncertainty.qoi_filepath = options.output_folder +'/Data/'+ options.uncertainty.qoi_filepath
             options.uncertainty.build_quantities(get_config_value(configParser, '', 'Assembly', 'Path', 'str'))
-            options.wrap_propagator = get_config_value(configParser,False,'Time','Wrap_propagator','boolean')
+        options.wrap_propagator = get_config_value(configParser,False,'Time','Wrap_propagator','boolean')
 
         if options.wrap_propagator:
             from Uncertainty.UT import setupUT
