@@ -95,10 +95,6 @@ def write_material_properties(options, obj):
         f.write('\n')
         f.write('/***        Temperature dependent material properties   ***/\n')
         f.write('/***        5 coefs - n0 + n1 T + n2 T² + n3 T³ + n4 T⁴ ***/\n')
-        f.write('Tmelt ' + str(obj.material.meltingTemperature) + ';\n')
-        f.write('Hfusion ' + str(obj.material.meltingHeat) + ';\n')
-        f.write('mass ' + str(obj.mass) + ';\n')
-        f.write('density ' + str(obj.material.density) + ';\n')
         f.write('// specific heat capacity - cp - [0 2 -2 -1 0 0 0]\n')
         f.write('cp_sub_n[0] '+str(cp)+';\n')
         f.write('cp_sub_n[1] 0;\n')
@@ -126,6 +122,11 @@ def write_material_properties(options, obj):
         f.write('e_sub_n[2]  0;\n')
         f.write('e_sub_n[3]  0;\n')
         f.write('e_sub_n[4]  0;\n')
+        f.write('\n')
+        f.write('Tmelt ' + str(obj.material.meltingTemperature) + ';\n')
+        f.write('Hfusion ' + str(obj.material.meltingHeat) + ';\n')
+        f.write('mass ' + str(obj.mass) + ';\n')
+        f.write('density ' + str(obj.material.density) + ';\n')
     f.close()
 
 def write_All_run_init(options, object_id):
@@ -152,12 +153,12 @@ def write_All_run_init(options, object_id):
         f.write('cd ../.. \n')
         f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
         f.write('mv constant/polyMesh constant/subMat1 \n')
-        f.write('count=`ls -1 processor* 2>/dev/null | wc -l`\n')
-        f.write('if [ $count != 0 ];\n')
-        f.write('then\n')
-        f.write('    rm -rf processor*\n')
-        f.write('fi\n')                                                                                                                                                                                                                             
-        f.write('decomposePar -region subMat1\n')
+        #f.write('count=`ls -1 processor* 2>/dev/null | wc -l`\n')
+        #f.write('if [ $count != 0 ];\n')
+        #f.write('then\n')
+        #f.write('    rm -rf processor*\n')
+        #f.write('fi\n')                                                                                                                                                                                                                             
+        #f.write('decomposePar -region subMat1\n')
 
     f.close()
 
@@ -191,6 +192,7 @@ def write_All_run(options, obj, time, iteration):
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/Allrun', 'w') as f:
 
         if ((end_time).is_integer()): end_time = int(end_time)
+        else: end_time = np.round(end_time, 5)
         if ((start_time).is_integer()): start_time = int(start_time)
         if ((time_step_to_delete).is_integer()): time_step_to_delete = int(time_step_to_delete)
         f.write('#!/bin/bash \n')
@@ -202,38 +204,40 @@ def write_All_run(options, obj, time, iteration):
         f.write('    source $PATO_DIR/bashrc\n')
         f.write('fi\n')
         f.write('\n')
-        f.write('if [ -z $1 ];\n')
-        f.write('then\n')
-        f.write('    echo "error: correct usage = ./Allrun_parallel <number_processors>"\n')
-        f.write('    exit 1\n')
-        f.write('fi\n')
-        f.write('re="^[0-9]+$"\n')
-        f.write('if ! [[ $1 =~ $re ]] ; then\n')
-        f.write('   echo "error: First argument is not a number" >&2\n')
-        f.write('   exit 1\n')
-        f.write('fi\n')
-        f.write('\n')
-        f.write('NPROCESSOR=$1\n')
-        f.write('\n')
-        f.write('if [ "$(uname)" = "Darwin" ]; then\n')
-        f.write('    sed_cmd=gsed\n')
-        f.write('else\n')
-        f.write('    sed_cmd=sed\n')
-        f.write('fi\n')
-        f.write('$sed_cmd -i "s/numberOfSubdomains \+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
+        #f.write('if [ -z $1 ];\n')
+        #f.write('then\n')
+        #f.write('    echo "error: correct usage = ./Allrun_parallel <number_processors>"\n')
+        #f.write('    exit 1\n')
+        #f.write('fi\n')
+        #f.write('re="^[0-9]+$"\n')
+        #f.write('if ! [[ $1 =~ $re ]] ; then\n')
+        #f.write('   echo "error: First argument is not a number" >&2\n')
+        #f.write('   exit 1\n')
+        #f.write('fi\n')
+        #f.write('\n')
+        #f.write('NPROCESSOR=$1\n')
+        #f.write('\n')
+        #f.write('if [ "$(uname)" = "Darwin" ]; then\n')
+        #f.write('    sed_cmd=gsed\n')
+        #f.write('else\n')
+        #f.write('    sed_cmd=sed\n')
+        #f.write('fi\n')
+        #f.write('$sed_cmd -i "s/numberOfSubdomains \+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
         f.write('cp qconv/BC_'+str(end_time) + ' qconv/BC_' + str(start_time) + '\n')
-        f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
+        #f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
+        f.write('PATOx \n')
         f.write('TIME_STEP='+str(end_time)+' \n')
         f.write('MAT_NAME=subMat1 \n')
-        for n in range(options.pato.n_cores):
-            f.write('cd processor' + str(n) + '/\n')
-            f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
-            f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
-            f.write('cd .. \n')
+        #for n in range(options.pato.n_cores):
+        #f.write('cd processor' + str(n) + '/\n')
+        f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
+        f.write('cp -r constant/"$MAT_NAME"/polyMesh/  "$TIME_STEP"/ \n')
+        #f.write('cd .. \n')
         f.write('cp system/"$MAT_NAME"/fvSchemes  system/ \n')
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
-        f.write('foamJob -p -s foamToVTK -time '+str(end_time)+' -useTimeName\n')
+        #f.write('foamJob -p -s foamToVTK -time '+str(end_time)+' -useTimeName\n')
+        f.write('foamToVTK -time '+str(end_time)+' -useTimeName\n')
         f.write('cp qconv/BC* qconv-bkp/ \n')
         f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
@@ -241,20 +245,20 @@ def write_All_run(options, obj, time, iteration):
         print('time_step_to_delete:', time_step_to_delete)
         print('end_time:', end_time)
         print('start_time:', start_time)
-        for n in range(options.pato.n_cores):
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
-            #f.write('rm -rf processor'+str(n)+'/restart/* \n')
-            if options.current_iter%options.save_freq == 0:
-                f.write('rm -rf processor'+str(n)+'/restart/* \n')
-                f.write('cp -r  processor'+str(n)+'/'+str(start_time)+'/ processor'+str(n)+'/restart/ \n')
-            f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+        #for n in range(options.pato.n_cores):
+        #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+        #f.write('rm -rf processor'+str(n)+'/restart/* \n')
+        #if options.current_iter%options.save_freq == 0:
+        #    f.write('rm -rf processor'+str(n)+'/restart/* \n')
+        #    f.write('cp -r  processor'+str(n)+'/'+str(start_time)+'/ processor'+str(n)+'/restart/ \n')
+        #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+        #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+        #if time_step_to_delete/options.dynamics.time_step != options.save_freq:
             #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-            #if time_step_to_delete/options.dynamics.time_step != options.save_freq:
-                #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-                #print('delete time_step_to_delete:', time_step_to_delete)
-            #if options.current_iter%options.save_freq != 0:
-            #    f.write('rm -rf processor'+str(n)+'/'+str(end_time)+' \n')
-            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
+            #print('delete time_step_to_delete:', time_step_to_delete)
+        #if options.current_iter%options.save_freq != 0:
+        #    f.write('rm -rf processor'+str(n)+'/'+str(end_time)+' \n')
+        #f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
 
     f.close()
 
@@ -330,7 +334,7 @@ def write_constant_folder(options, object_id):
             f.write('\n')
             f.write('/****************************** IO *****************************************/\n')
             f.write('IO {\n')
-            f.write('  writeFields(mass); // write fields in the time folders\n')
+            f.write('  writeFields(); // write fields in the time folders\n')
             f.write('}\n')
             f.write('/****************************** END IO ************************************/\n')
             f.write('\n')
@@ -772,7 +776,7 @@ def write_origin_folder(options, obj):
     
         f.close()
     
-        density = 300#obj.material.density
+        density = obj.material.density
     
         with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/origin.0/subMat1/rho_s', 'w') as f:
             
@@ -885,18 +889,30 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
             f.write(np.array2string(emissivity)[1:-1]+' ')
             f.write(np.array2string(Tinf)[1:-1]+' ')
 
+
         if options.pato.Ta_bc == "ablation":
 
-            print('he:', he)
-            print('hw:', hw)
-            he[:] = 8907150.32919412
-            hw[:] = 643858.87310542
-            conv_heatflux[:] = 100000
+            #print('he:', he)
+            #print('hw:', hw)
+            #he[:] = 8907150.32919412
+            #hw[:] = 643858.87310542
+            #conv_heatflux[:] = 100000
+
+            #print('conv_heatflux:', conv_heatflux)
+            conv_heatflux[:] = 0
+            for i in range(len(obj.mesh.facet_COG)):
+                if x[i] == 2: conv_heatflux[i] = 150000
 
             Ch = conv_heatflux/(he-hw)
             Ch[np.isnan(Ch)] = 0
             Ch[np.isinf(Ch)] = 0
             #rhoeUeCh = rhoe*ue*Ch
+            #for i in range(len(Ch)):
+            #    Ch[i] = i
+
+            #print('Ch:', Ch)
+
+            #print('len Ch:', len(Ch))#;exit()
 
             f.write('TITLE     = "vol-for-blayer.fu"\n')
             f.write('VARIABLES = \n')
@@ -1330,7 +1346,8 @@ def initialize(options, obj):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init', str(n_proc)], text = True)
+    #subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init', str(n_proc)], text = True)
+    subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init'], text = True)
 
 def run_PATO(options, object_id):
     """
@@ -1343,7 +1360,8 @@ def run_PATO(options, object_id):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
+    #subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
+    subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun'], text = True)
     #exit()
 def postprocess_PATO_solution(options, obj, time_to_read):
     """
@@ -1396,7 +1414,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 def postprocess_mass_inertia(obj, options, time_to_read):
 
     # Define the file path
-    file_path = options.output_folder + "PATO_" + str(obj.global_ID) + "/processor0/" + str(time_to_read) + "/subMat1/uniform/massFile"    
+    file_path = options.output_folder + "PATO_" + str(obj.global_ID) + "/" + str(time_to_read) + "/subMat1/uniform/massFile"    
     # Initialize variables to store mass and density
     new_mass = None
     density_ratio = None
@@ -1421,20 +1439,26 @@ def postprocess_mass_inertia(obj, options, time_to_read):
 
     if obj.density_ratio < 1:
 
+        print('Ablation melting')
+
         obj.material.density *= density_ratio
         obj.mass = new_mass
     
         if (obj.material.density <= 0) or (obj.mass <= 0):
+            print("MASS DEMISE OBJ: ", obj.name)
             obj.material.density = 0
             obj.mass = 0
     
         obj.inertia *= density_ratio
 
+    print('OBJ: ', obj.global_ID, 'DENSITY: ', obj.material.density)
+    print('OBJ: ', obj.global_ID, 'MASS: ', obj.mass)
+
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/data/constantProperties', 'r+', encoding='utf-8') as f:
         lines = f.readlines()
-        lines[17] = 'mass ' + str(obj.mass) + ';\n'
-        lines[18] = 'density ' + str(obj.material.density) + ';\n'
-        lines[34] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
+        lines[45] = 'mass ' + str(obj.mass) + ';\n'
+        lines[46] = 'density ' + str(obj.material.density) + ';\n'
+        lines[30] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
         f.seek(0)
         f.writelines(lines)
 
@@ -1484,10 +1508,12 @@ def interpolateNearestCOG(facet_COG, input_COG, input_array):
 
 def retrieve_surface_vtk_data(n_proc, path, time_to_read):
 
+    n_proc = 1
+
     filename = [''] * n_proc
 
     for n in range(n_proc):
-        filename[n] = path + "processor" + str(n) + "/VTK/top/" +  "top_" + str(time_to_read) + ".vtk"
+        filename[n] = path + "/VTK/top/" +  "top_" + str(time_to_read) + ".vtk"
 
     print('\n PATO solution filenames:', filename)
 
@@ -1509,10 +1535,12 @@ def retrieve_surface_vtk_data(n_proc, path, time_to_read):
 
 def retrieve_volume_vtk_data(n_proc, path, time_to_read):
 
+    n_proc = 1
+
     filename = [''] * n_proc
 
     for n in range(n_proc):
-        filename[n] = path + "processor" + str(n) + "/VTK/" + "processor" + str(n) + "_" + str(time_to_read) + ".vtk"
+        filename[n] = path + "/VTK/" + "PATO" + "_" + str(time_to_read) + ".vtk"
 
     print('\n PATO solution filenames:', filename)
 

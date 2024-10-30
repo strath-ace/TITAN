@@ -1,6 +1,6 @@
 [Options]
-Num_iters = 100
-Load_mesh = False
+Num_iters = 265
+Load_mesh = True
 Load_state = False
 Fidelity = Low
 Output_folder = ATV-joint-demise
@@ -49,10 +49,10 @@ Panel2 = [NAME = Panel2.stl, TYPE = Primitive, MATERIAL = ATV_panel, FENICS_ID =
 Panel3 = [NAME = Panel3.stl, TYPE = Primitive, MATERIAL = ATV_panel, FENICS_ID = 2]
 Panel4 = [NAME = Panel4.stl, TYPE = Primitive, MATERIAL = ATV_panel, FENICS_ID = 2]
 
-Joint1 = [NAME = Joint1.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint1_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 119000, FENICS_ID = -1]
-Joint2 = [NAME = Joint2.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint2_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 100000, FENICS_ID = -1]
-Joint3 = [NAME = Joint3.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint3_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 90000,  FENICS_ID = -1]
-Joint4 = [NAME = Joint4.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint4_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 80000,  FENICS_ID = -1]
+Joint1 = [NAME = Joint1.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint1_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 0, FENICS_ID = -1]
+Joint2 = [NAME = Joint2.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint2_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 0, FENICS_ID = -1]
+Joint3 = [NAME = Joint3.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint3_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 0,  FENICS_ID = -1]
+Joint4 = [NAME = Joint4.stl, TYPE = Joint, MATERIAL = ATV_joint, TEMPERATURE = 300, INNER_STL = Joint4_inner.stl, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 0,  FENICS_ID = -1]
 
 [Initial Conditions]
 Angular Velocity = (1 : [0,10,0])

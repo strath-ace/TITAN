@@ -443,7 +443,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
-        if options.pato: compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture)
+        if options.pato.flag: compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture)
         #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
 
 
@@ -584,6 +584,9 @@ def compute_equilibrium_chemistry(assembly, mixture):
     cfree_i = free.percent_mass
     ufree = free.velocity
 
+    print('Mfree:', Mfree)
+    print('Tfree:', Tfree)
+
     #N O NO N2 O2
     cfree_i = np.array([0, 0, 0, cfree_i[0,0], cfree_i[0,1]])
     rhosfree = cfree_i*rhofree
@@ -600,8 +603,13 @@ def compute_equilibrium_chemistry(assembly, mixture):
     p = np.where(theta*180/np.pi > 1e-3)[0]
     beta = shock_angle(Mfree, theta[p], gammafree)
 
+    theta_max = (90-np.arcsin(1/Mfree))/2
+
+    print('theta_max:', theta_max)
+
     # Normal component of Mach number for each surface
-    Mn1 = np.where((theta[p]*180/np.pi > 1e-3) & (theta[p]*180/np.pi < 90), Mfree * np.sin(beta), Mfree)
+    # if theta > 89.9 deg -> normal shock -> Mn1 = Mfree
+    Mn1 = np.where((theta[p]*180/np.pi > 1e-3) & (theta[p]*180/np.pi < theta_max), Mfree * np.sin(beta), Mfree)
 
     #Frozen chemistry normal post-shock relations with Mn1:
     T_post_frozen = normal_shock_T(Tfree, gammafree, Mn1)
@@ -610,36 +618,47 @@ def compute_equilibrium_chemistry(assembly, mixture):
     Mn2_frozen    = normal_shock_M(gammafree, Mn1)
     M_post_frozen = Mn2_frozen / np.sin(beta - theta[p])
 
-    beta_high = np.pi / 2  # Upper bound is 90 degrees (in radians)    
+    #beta_high = np.pi / 2  # Upper bound is 90 degrees (in radians)    
 
     # Then apply the condition: if (beta - theta) <= 0, this is the case of a normal shock, set M_post_frozen[p] = Mn2_frozen
-    M_post_frozen = np.where(beta >= 89.9*np.pi/180, Mn2_frozen, M_post_frozen)
+    M_post_frozen = np.where(theta[p] >= theta_max*np.pi/180, Mn2_frozen, M_post_frozen)
     u_post_frozen = M_post_frozen*mix.frozenSoundSpeed()
     H_post_frozen = np.full(len(beta), H0_free) - u_post_frozen**2/2.0
 
     #BLE conditions (equilibrium post-shock)
-    Ue = np.zeros(len(beta))
-    rhoe = np.zeros(len(beta))
-    He = np.zeros(len(beta))
-    Te = np.zeros(len(beta))
-    Pe = np.zeros(len(beta))
+    Ue = np.full(len(beta),u_post_frozen)
+    rhoe = np.full(len(beta),rho_post_frozen)
+    He = np.full(len(beta),H_post_frozen)
+    Te = np.full(len(beta),T_post_frozen)
+    Pe = np.full(len(beta),P_post_frozen)
     ce_i = np.zeros((len(beta), mix.nSpecies()))
+    #print('ce_i:',ce_i)
+    ce_i[:] = cfree_i
+
+    #print('ce_i:',ce_i);exit()
+
     cwall_i = np.zeros((len(beta), mix.nSpecies()))
     Tfluid_wall = assembly.aerothermo.temperature[p]
-    print('Tfluid_wall:', Tfluid_wall)
     Hw = np.zeros(len(beta))
-    print('hello')
+
     for facet in range(len(beta)):
-        print('facet:', facet)
-        Te[facet], Pe[facet], He[facet], rhoe[facet], Ue[facet], ce_i[facet] = post_shock_equilibrium(T_post_frozen[facet], P_post_frozen[facet], H_post_frozen[facet], rhofree, Pfree, ufree, Hfree, mix)
-        #Tfluid_wall[facet] = fluid_wall_temperature(Te[facet], Pe[facet], H0_free, mix)
-        #mix.equilibrate(Tfluid_wall[facet], Pe[facet])
-        print('Tfluid_wall:', Tfluid_wall[facet])
-        print('Pe:', Pe[facet])
+        #print('facet:', facet)
+        #print('theta:', theta[p][facet]*180/np.pi)
+        #print('beta:', beta[facet]*180/np.pi)
+        #print('Mfree:', Mfree)
+        #print('Tfree:', Tfree)
+        #print('T_post_frozen:', T_post_frozen[facet])
+        #Onset of dissociation is 2500 K for air
+        if T_post_frozen[facet] > 2000:
+            Te[facet], Pe[facet], He[facet], rhoe[facet], Ue[facet], ce_i[facet] = post_shock_equilibrium(T_post_frozen[facet], P_post_frozen[facet], H_post_frozen[facet], rhofree, Pfree, ufree, Hfree, mix)
+        #print('Te[facet]:', Te[facet])
+        #print('Pe[facet]:', Pe[facet])
+        #print('He[facet]:', He[facet])
+        #print('Tfluid_wall[facet]:', Tfluid_wall[facet])
         mix.equilibrate(Tfluid_wall[facet], Pe[facet])
-        print('after equilibrating wall')
         cwall_i[facet] = mix.Y()
         Hw[facet] = mix.mixtureHMass()
+        #print('Hw[facet]:', Hw[facet])
 
     assembly.aerothermo.he[p] = He
     assembly.aerothermo.hw[p] = Hw
@@ -679,6 +698,9 @@ def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
 
     while abs(h2_eq-h2)>tol:
 
+        #print('Teq:', Teq)
+        #print('Peq:', Peq)
+
         mix.equilibrate(Teq, Peq)
         rho2 = mix.density()
         h2_eq = mix.mixtureHMass()
@@ -688,7 +710,7 @@ def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
 
         dT = (h2_eq-h2)/cp_eq
 
-        Teq = Teq - dT*0.1
+        Teq = Teq - dT*0.05
         Peq = p1 + rho1*u1**2*(1-rho1/rho2)
 
     u2 = rho1*u1/rho2
