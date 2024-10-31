@@ -597,68 +597,76 @@ def compute_equilibrium_chemistry(assembly, mixture):
     Hfree = mix.mixtureHMass()
     H0_free = Hfree + (Mfree*mix.frozenSoundSpeed())**2/2.0
 
-    #Frozen chemistry post-shock conditions for facets facing the flow:
-    beta = np.zeros(len(Twall))
+    #Flow conditions for facets facing the flow:
+    #beta = np.zeros(len(Twall))
     theta = assembly.aerothermo.theta
     p = np.where(theta*180/np.pi > 1e-3)[0]
-    beta = shock_angle(Mfree, theta[p], gammafree)
 
-    theta_max = (90-np.arcsin(1/Mfree))/2
-
-    print('theta_max:', theta_max)
-
-    # Normal component of Mach number for each surface
-    # if theta > 89.9 deg -> normal shock -> Mn1 = Mfree
-    Mn1 = np.where((theta[p]*180/np.pi > 1e-3) & (theta[p]*180/np.pi < theta_max), Mfree * np.sin(beta), Mfree)
-
-    #Frozen chemistry normal post-shock relations with Mn1:
-    T_post_frozen = normal_shock_T(Tfree, gammafree, Mn1)
-    P_post_frozen = normal_shock_P(Pfree, gammafree, Mn1)
-    rho_post_frozen = normal_shock_rho(rhofree, gammafree, Mn1)
-    Mn2_frozen    = normal_shock_M(gammafree, Mn1)
-    M_post_frozen = Mn2_frozen / np.sin(beta - theta[p])
-
-    #beta_high = np.pi / 2  # Upper bound is 90 degrees (in radians)    
-
-    # Then apply the condition: if (beta - theta) <= 0, this is the case of a normal shock, set M_post_frozen[p] = Mn2_frozen
-    M_post_frozen = np.where(theta[p] >= theta_max*np.pi/180, Mn2_frozen, M_post_frozen)
-    u_post_frozen = M_post_frozen*mix.frozenSoundSpeed()
-    H_post_frozen = np.full(len(beta), H0_free) - u_post_frozen**2/2.0
-
-    #BLE conditions (equilibrium post-shock)
-    Ue = np.full(len(beta),u_post_frozen)
-    rhoe = np.full(len(beta),rho_post_frozen)
-    He = np.full(len(beta),H_post_frozen)
-    Te = np.full(len(beta),T_post_frozen)
-    Pe = np.full(len(beta),P_post_frozen)
-    ce_i = np.zeros((len(beta), mix.nSpecies()))
-    #print('ce_i:',ce_i)
-    ce_i[:] = cfree_i
-
-    #print('ce_i:',ce_i);exit()
-
-    cwall_i = np.zeros((len(beta), mix.nSpecies()))
+    cwall_i = np.zeros((len(theta[p]), mix.nSpecies()))
     Tfluid_wall = assembly.aerothermo.temperature[p]
-    Hw = np.zeros(len(beta))
+    Hw = np.zeros(len(theta[p]))
 
-    for facet in range(len(beta)):
-        #print('facet:', facet)
-        #print('theta:', theta[p][facet]*180/np.pi)
-        #print('beta:', beta[facet]*180/np.pi)
-        #print('Mfree:', Mfree)
-        #print('Tfree:', Tfree)
-        #print('T_post_frozen:', T_post_frozen[facet])
-        #Onset of dissociation is 2500 K for air
-        if T_post_frozen[facet] > 2000:
-            Te[facet], Pe[facet], He[facet], rhoe[facet], Ue[facet], ce_i[facet] = post_shock_equilibrium(T_post_frozen[facet], P_post_frozen[facet], H_post_frozen[facet], rhofree, Pfree, ufree, Hfree, mix)
-        #print('Te[facet]:', Te[facet])
-        #print('Pe[facet]:', Pe[facet])
-        #print('He[facet]:', He[facet])
-        #print('Tfluid_wall[facet]:', Tfluid_wall[facet])
+    if( Mfree > 1):
+
+        beta = shock_angle(Mfree, theta[p], gammafree)
+    
+        theta_max = (90-np.arcsin(1/Mfree))/2
+    
+        print('theta_max:', theta_max)
+    
+        # Normal component of Mach number for each surface
+        # if theta > 89.9 deg -> normal shock -> Mn1 = Mfree
+        Mn1 = np.where((theta[p]*180/np.pi > 1e-3) & (theta[p]*180/np.pi < theta_max), Mfree * np.sin(beta), Mfree)
+    
+        #Frozen chemistry normal post-shock relations with Mn1:
+        T_post_frozen = normal_shock_T(Tfree, gammafree, Mn1)
+        P_post_frozen = normal_shock_P(Pfree, gammafree, Mn1)
+        rho_post_frozen = normal_shock_rho(rhofree, gammafree, Mn1)
+        Mn2_frozen    = normal_shock_M(gammafree, Mn1)
+        M_post_frozen = Mn2_frozen / np.sin(beta - theta[p])
+    
+        #beta_high = np.pi / 2  # Upper bound is 90 degrees (in radians)    
+    
+        # Then apply the condition: if (beta - theta) <= 0, this is the case of a normal shock, set M_post_frozen[p] = Mn2_frozen
+        M_post_frozen = np.where(theta[p] >= theta_max*np.pi/180, Mn2_frozen, M_post_frozen)
+        u_post_frozen = M_post_frozen*mix.frozenSoundSpeed()
+        H_post_frozen = np.full(len(beta), H0_free) - u_post_frozen**2/2.0
+    
+        #BLE conditions (equilibrium post-shock)
+        Ue = np.full(len(beta),u_post_frozen)
+        rhoe = np.full(len(beta),rho_post_frozen)
+        He = np.full(len(beta),H_post_frozen)
+        Te = np.full(len(beta),T_post_frozen)
+        Pe = np.full(len(beta),P_post_frozen)
+        ce_i = np.zeros((len(beta), mix.nSpecies()))
+        ce_i[:] = cfree_i
+    
+        for facet in range(len(beta)):
+            #Onset of dissociation is 2500 K for air
+            if T_post_frozen[facet] > 2000:
+                Te[facet], Pe[facet], He[facet], rhoe[facet], Ue[facet], ce_i[facet] = post_shock_equilibrium(T_post_frozen[facet], P_post_frozen[facet], H_post_frozen[facet], rhofree, Pfree, ufree, Hfree, mix)
+            #mix.equilibrate(Tfluid_wall[facet], Pe[facet])
+            #cwall_i[facet] = mix.Y()
+            #Hw[facet] = mix.mixtureHMass()
+
+    else:
+
+        #If Mach <=1, assume the BLE conditions are the same as freestream conditions
+        #This is a rough approximation but TITAN is tailored for supersonic/hypersonic flow
+        #and in subsonic flow, enthalpy increase between freestream and BLE is considered to be relatively small 
+
+        Ue = np.full(len(theta[p]),ufree)
+        rhoe = np.full(len(theta[p]),rhofree)
+        He = np.full(len(theta[p]),Hfree)
+        Te = np.full(len(theta[p]),Tfree)
+        Pe = np.full(len(theta[p]),Pfree)
+        ce_i = np.zeros((len(theta[p]), mix.nSpecies()))
+        ce_i[:] = cfree_i
+
+    for facet in range(len(theta[p])):
         mix.equilibrate(Tfluid_wall[facet], Pe[facet])
         cwall_i[facet] = mix.Y()
         Hw[facet] = mix.mixtureHMass()
-        #print('Hw[facet]:', Hw[facet])
 
     assembly.aerothermo.he[p] = He
     assembly.aerothermo.hw[p] = Hw
