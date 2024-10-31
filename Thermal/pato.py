@@ -901,7 +901,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
             #print('conv_heatflux:', conv_heatflux)
             conv_heatflux[:] = 0
             for i in range(len(obj.mesh.facet_COG)):
-                if x[i] == 2: conv_heatflux[i] = 150000
+                if y[i] == 2: conv_heatflux[i] = 150000
 
             Ch = conv_heatflux/(he-hw)
             Ch[np.isnan(Ch)] = 0
