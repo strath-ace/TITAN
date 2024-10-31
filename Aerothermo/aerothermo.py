@@ -710,7 +710,7 @@ def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
 
         dT = (h2_eq-h2)/cp_eq
 
-        Teq = Teq - dT*0.05
+        Teq = Teq - dT*0.1
         Peq = p1 + rho1*u1**2*(1-rho1/rho2)
 
     u2 = rho1*u1/rho2

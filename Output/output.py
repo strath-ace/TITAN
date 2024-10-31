@@ -170,7 +170,6 @@ def write_output_data(titan, options):
             df["Density"] = [obj.material.density]
             df["Photons_second"] = [obj.photons]
             df["Mass"] = [obj.mass]
-            print('Output:', obj.mass)
             df["Max_stress"] = [obj.max_stress]
             df["Yield_stress"] = [obj.yield_stress]
             df["Parent_id"] = [obj.parent_id]
