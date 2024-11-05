@@ -1419,6 +1419,8 @@ def postprocess_mass_inertia(obj, options, time_to_read):
 
         print('Ablation melting')
 
+        obj.mass_loss = obj.mass - new_mass if new_mass >= 0 else obj.mass
+        print('mass loss:', obj.mass_loss)
         obj.material.density *= density_ratio
         obj.mass = new_mass
     
