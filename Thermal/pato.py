@@ -77,10 +77,6 @@ def write_material_properties(options, obj):
 
     object_id = obj.global_ID
 
-    Tboil = 320 #dummy
-    Hboil = 361500 #dummy
-    fstrip = 1 #dummy
-
     with open(options.output_folder + '/PATO_'+str(object_id)+'/data/constantProperties', 'w') as f:
 
         f.write('/*---------------------------------------------------------------------------*\\n')
@@ -128,13 +124,12 @@ def write_material_properties(options, obj):
         f.write('e_sub_n[4]  0;\n')
         f.write('\n')
         f.write('Tmelt ' + str(obj.material.meltingTemperature) + ';\n')
-        f.write('Tboil ' + str(Tboil) + ';\n')
+        f.write('Tboil ' + str(obj.material.vaporizationTemperature) + ';\n')
         f.write('Hfusion ' + str(obj.material.meltingHeat) + ';\n')
-        f.write('Hboil ' + str(Hboil) + ';\n')
-        f.write('fstrip ' + str(fstrip) + ';\n')
+        f.write('Hboil ' + str(obj.material.vaporizationHeat) + ';\n')
+        f.write('fstrip ' + str(options.pato.fstrip) + ';\n')
         f.write('mass ' + str(obj.mass) + ';\n')
         f.write('density ' + str(obj.material.density) + ';\n')
-        #exit()
 
     f.close()
 
@@ -1403,14 +1398,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
 
-    print('obj.global_ID:', obj.global_ID)
-    print('max temp:', max(obj.temperature))
-    print('obj.material.meltingTemperature:', obj.material.meltingTemperature)
-
     obj.molten[obj.temperature == obj.material.meltingTemperature] = 1
-
-    print('Tw:', obj.temperature)
-    print('molten:', obj.molten)
 
 def postprocess_mass_inertia(obj, options, time_to_read):
 

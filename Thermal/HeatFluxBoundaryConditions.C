@@ -96,7 +96,8 @@ void Foam::HeatFluxBoundaryConditions::initialize()
 }
 
 void Foam::HeatFluxBoundaryConditions::update()
-{
+{ 
+  //Info << "Foam::HeatFluxBoundaryConditions::update() 0" << endl;
   if (!initialized_) {
     initialize();
   }
@@ -106,15 +107,21 @@ void Foam::HeatFluxBoundaryConditions::update()
   }
   updateBoundaryMapping();
 
+  //Info << "Foam::HeatFluxBoundaryConditions::update() 1" << endl;
+
   if (debug_) {
     Info << "--- update optionsBC --- Foam::HeatFluxBoundaryConditions::update()" << endl;
   }
   optionsBC_.update();
 
+  //Info << "Foam::HeatFluxBoundaryConditions::update() 2" << endl;
+
   if (debug_) {
     Info << "--- update temperature --- Foam::HeatFluxBoundaryConditions::update()" << endl;
   }
   updateTemperatureBC();
+
+  //Info << "Foam::HeatFluxBoundaryConditions::update() 3" << endl;
 }
 
 void Foam::HeatFluxBoundaryConditions::updateBoundaryMapping()
@@ -147,8 +154,9 @@ void Foam::HeatFluxBoundaryConditions::updateTemperatureBC()
   volScalarField& qConvCFD_=scalarFields_["qConvCFD"];
   volScalarField& qCond_=scalarFields_["qCond"];
 
+  Info << "Foam::HeatFluxBoundaryConditions::updateTemperatureBC() start" << endl;
+
   forAll(T_.boundaryFieldRef()[currentPatchID_], faceI) {
-    
     // Updated by BoundaryMapping
     scalar& Tbackground_BF = Tbackground.boundaryFieldRef()[currentPatchID_][faceI];
     scalar& qRad_BF = qRad.boundaryFieldRef()[currentPatchID_][faceI];
@@ -201,7 +209,19 @@ void Foam::HeatFluxBoundaryConditions::updateTemperatureBC()
           );
     }
     qCond_BF = (kProj_BF * invDx_BF)* (T_BF - Tint_BF);
+
+    //Info << " faceI:" << faceI << endl;
+    //Info << "COG:" <<  mesh_.C().boundaryField()[currentPatchID_][faceI] << endl;
+    //Info << "Tint_BF:" << Tint_BF << endl;
+    //Info << "T_BF:" << T_BF << endl;
+    //Info << "kProj_BF:" << kProj_BF << endl;
+    //Info << "invDx_BF:" << invDx_BF << endl;
+    //Info << "qConv_BF:" << qConv_BF << endl;
+    //Info << "qRadEmission_BF:" << qRadEmission_BF << endl;
   }
+
+
+    Info << "Foam::HeatFluxBoundaryConditions::updateTemperatureBC() end" << endl;
 }
 
 Foam::wordList Foam::HeatFluxBoundaryConditions::neededFields()
@@ -211,8 +231,8 @@ Foam::wordList Foam::HeatFluxBoundaryConditions::neededFields()
   neededFields.append("Tbackground");
   neededFields.append("qConvCFD");
   neededFields.append("qRad");
-  neededFields.append("emissivity");
   neededFields.append("chemistryOn");
+  neededFields.append("emissivity");
   return neededFields;
 }
 
