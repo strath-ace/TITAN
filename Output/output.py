@@ -170,6 +170,9 @@ def write_output_data(titan, options):
             df["Density"] = [obj.material.density]
             df["Photons_second"] = [obj.photons]
             df["Mass"] = [obj.mass]
+            if options.pato.flag:
+                df["MaxTemperature"] = [max(obj.pato.temperature)]
+                print('obj:', obj.global_ID, ' max temp:', max(obj.pato.temperature))
             df["Max_stress"] = [obj.max_stress]
             df["Yield_stress"] = [obj.yield_stress]
             df["Parent_id"] = [obj.parent_id]

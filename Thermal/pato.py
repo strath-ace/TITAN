@@ -77,6 +77,10 @@ def write_material_properties(options, obj):
 
     object_id = obj.global_ID
 
+    Tboil = 320 #dummy
+    Hboil = 361500 #dummy
+    fstrip = 1 #dummy
+
     with open(options.output_folder + '/PATO_'+str(object_id)+'/data/constantProperties', 'w') as f:
 
         f.write('/*---------------------------------------------------------------------------*\\n')
@@ -124,9 +128,14 @@ def write_material_properties(options, obj):
         f.write('e_sub_n[4]  0;\n')
         f.write('\n')
         f.write('Tmelt ' + str(obj.material.meltingTemperature) + ';\n')
+        f.write('Tboil ' + str(Tboil) + ';\n')
         f.write('Hfusion ' + str(obj.material.meltingHeat) + ';\n')
+        f.write('Hboil ' + str(Hboil) + ';\n')
+        f.write('fstrip ' + str(fstrip) + ';\n')
         f.write('mass ' + str(obj.mass) + ';\n')
         f.write('density ' + str(obj.material.density) + ';\n')
+        #exit()
+
     f.close()
 
 def write_All_run_init(options, object_id):
@@ -583,6 +592,7 @@ def write_origin_folder(options, obj):
             f.write('    (emissivity "6")\n')
             f.write('    (Tbackground "7")\n')
             f.write('    (h_w "8")\n')
+            f.write('    (molten "9")\n')
             f.write(');\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
@@ -905,6 +915,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
             f.write('"emissivity (-)"\n')
             f.write('"Tbackground (K)"\n')
             f.write('"Hw (J/kg)"\n')
+            f.write('"molten (-)"\n')
             f.write('ZONE T="zone 1"\n')
             f.write(' STRANDID=0, SOLUTIONTIME=0\n')
             f.write(' I=' + str(n_data_points) + ', J=1, K=1, ZONETYPE=Ordered\n')
@@ -919,6 +930,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
             f.write(np.array2string(emissivity)[1:-1]+' ')
             f.write(np.array2string(Tinf)[1:-1]+' ')
             f.write(np.array2string(hw)[1:-1]+' ')
+            f.write(np.array2string(obj.molten)[1:-1]+' ')
 
     f.close()
 
@@ -1327,6 +1339,7 @@ def initialize(options, obj):
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init', str(n_proc)], text = True)
+    #subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init'], text = True)
 
 def run_PATO(options, object_id):
     """
@@ -1340,6 +1353,7 @@ def run_PATO(options, object_id):
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
+    #subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun'], text = True)
 
 def postprocess_PATO_solution(options, obj, time_to_read):
     """
@@ -1389,10 +1403,20 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
 
+    print('obj.global_ID:', obj.global_ID)
+    print('max temp:', max(obj.temperature))
+    print('obj.material.meltingTemperature:', obj.material.meltingTemperature)
+
+    obj.molten[obj.temperature == obj.material.meltingTemperature] = 1
+
+    print('Tw:', obj.temperature)
+    print('molten:', obj.molten)
+
 def postprocess_mass_inertia(obj, options, time_to_read):
 
     # Define the file path
     file_path = options.output_folder + "PATO_" + str(obj.global_ID) + "/processor0/" + str(time_to_read) + "/subMat1/uniform/massFile" 
+    #file_path = options.output_folder + "PATO_" + str(obj.global_ID) + "/" + str(time_to_read) + "/subMat1/uniform/massFile"    
     # Initialize variables to store mass and density
     new_mass = None
     density_ratio = None
@@ -1436,8 +1460,8 @@ def postprocess_mass_inertia(obj, options, time_to_read):
 
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/data/constantProperties', 'r+', encoding='utf-8') as f:
         lines = f.readlines()
-        lines[45] = 'mass ' + str(obj.mass) + ';\n'
-        lines[46] = 'density ' + str(obj.material.density) + ';\n'
+        lines[48] = 'mass ' + str(obj.mass) + ';\n'
+        lines[49] = 'density ' + str(obj.material.density) + ';\n'
         lines[30] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
         f.seek(0)
         f.writelines(lines)
@@ -1488,10 +1512,13 @@ def interpolateNearestCOG(facet_COG, input_COG, input_array):
 
 def retrieve_surface_vtk_data(n_proc, path, time_to_read):
 
+    #n_proc = 1
+
     filename = [''] * n_proc
 
     for n in range(n_proc):
         filename[n] = path + "processor" + str(n) + "/VTK/top/" +  "top_" + str(time_to_read) + ".vtk"
+        #filename[n] = path + "/VTK/top/" +  "top_" + str(time_to_read) + ".vtk"
 
     print('\n PATO solution filenames:', filename)
 
@@ -1513,10 +1540,13 @@ def retrieve_surface_vtk_data(n_proc, path, time_to_read):
 
 def retrieve_volume_vtk_data(n_proc, path, time_to_read):
 
+    #n_proc = 1
+
     filename = [''] * n_proc
 
     for n in range(n_proc):
         filename[n] = path + "processor" + str(n) + "/VTK/" + "processor" + str(n) + "_" + str(time_to_read) + ".vtk"
+        #filename[n] = path + "/VTK/" + "PATO" + "_" + str(time_to_read) + ".vtk"
 
     print('\n PATO solution filenames:', filename)
 

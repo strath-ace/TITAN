@@ -133,6 +133,8 @@ class Component():
         #: [float] Value of mass loss due to ablation
         self.mass_loss = 0        
 
+        self.molten = np.zeros(len(self.mesh.facet_COG))
+
     def compute_mass_properties(self, coords, elements, density):
         """
         Compute the inertia properties

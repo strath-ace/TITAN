@@ -651,14 +651,20 @@ def compute_equilibrium_chemistry(assembly, mixture):
 
     else:
 
+        #OLD assumption
         #If Mach <=1, assume the BLE conditions are the same as freestream conditions
         #This is a rough approximation but TITAN is tailored for supersonic/hypersonic flow
         #and in subsonic flow, enthalpy increase between freestream and BLE is considered to be relatively small 
 
+        #NEW ASSUMPTION
+        #If subsonic flow, Te = Twall, i.e., he = hw, which will lead to Ch = 0
+        #The assumption is that, if subsonic flow, the convective heating is negligible
+        #Otherwise, for situations where Tinf < Twall, we would have negative convective heating cooling down the wall
+
         Ue = np.full(len(theta[p]),ufree)
         rhoe = np.full(len(theta[p]),rhofree)
         He = np.full(len(theta[p]),Hfree)
-        Te = np.full(len(theta[p]),Tfree)
+        Te = Tfluid_wall
         Pe = np.full(len(theta[p]),Pfree)
         ce_i = np.zeros((len(theta[p]), mix.nSpecies()))
         ce_i[:] = cfree_i
@@ -719,7 +725,7 @@ def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
         dT = (h2_eq-h2)/cp_eq
 
         Teq = Teq - dT*0.1
-        Peq = p1 + rho1*u1**2*(1-rho1/rho2)
+        #Peq = p1 + rho1*u1**2*(1-rho1/rho2)
 
     u2 = rho1*u1/rho2
     ceq = mix.Y()
