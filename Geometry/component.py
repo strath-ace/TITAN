@@ -130,11 +130,6 @@ class Component():
             self.pato = PATO(options, len(mesh.facets), bloom_config, self.global_ID, self.temperature)
             self.bloom = bloom(bloom_config)
 
-        #: [float] Value of mass loss due to ablation
-        self.mass_loss = 0        
-
-        self.molten = np.zeros(len(self.mesh.facet_COG))
-
     def compute_mass_properties(self, coords, elements, density):
         """
         Compute the inertia properties
@@ -177,8 +172,15 @@ class PATO():
 
         self.hf_cond = np.zeros(len_facets)
 
+        self.mDotVapor = np.zeros(len_facets)
+
         #: [bool] Flag value indicating the use of PATO for the thermal model
         self.flag = bloom_config[0]
+
+        #: [float] Value of mass loss due to ablation
+        self.mass_loss = 0        
+
+        self.molten = np.zeros(len_facets)
 
         Path(options.output_folder+'/PATO_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)

@@ -476,7 +476,9 @@ class Assembly():
             self.ablation_mode = 'tetra'
 
         elif options.thermal.ablation_mode.lower() == 'pato':
-            self.ablation_mode = 'PATO'      
+            self.ablation_mode = 'PATO'  
+            if options.pato.Ta_bc == 'ablation':
+                self.mDotVapor = np.zeros(len(self.mesh.facets))
 
         else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
 

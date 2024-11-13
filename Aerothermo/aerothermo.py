@@ -443,7 +443,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
-        if options.pato.flag: compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture)
+        if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture)
         #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
 
 

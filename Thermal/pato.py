@@ -401,7 +401,7 @@ def write_constant_folder(options, object_id):
             f.write('}\n')
             f.write('Mass {\n')
             f.write('  MassType no; // Solve the semi implicit pressure equation\n')
-            f.write('  createFields ((p volScalarField) (mDotG volVectorField) (mDotGw volScalarField));\n')
+            f.write('  createFields ((p volScalarField) (mDotG volVectorField) (mDotGw volScalarField) (mDotVapor volScalarField) (mDotMelt volScalarField));\n')
             f.write('}\n')
             f.write('Energy {\n')
             f.write('  EnergyType PureConduction; // Solve the temperature equation\n')
@@ -522,6 +522,7 @@ def write_origin_folder(options, obj):
 
     f.close()
 
+    #This is actually not used inside PATO, as we are not using the Bprime mutation++ surfaceMassBalance
     mix_file = 'tacot26'
 
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/origin.0/subMat1/Ta', 'w') as f:
@@ -848,6 +849,76 @@ def write_origin_folder(options, obj):
     
         f.close()
 
+        with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/origin.0/subMat1/mDotMelt', 'w') as f:
+            
+            f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
+            f.write('  =========                 | \n')
+            f.write('  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox \n')
+            f.write('   \\    /   O peration     | Website:  https://openfoam.org \n')
+            f.write('    \\  /    A nd           | Version:  7 \n')
+            f.write('     \\/     M anipulation  | \n')
+            f.write('\*---------------------------------------------------------------------------*/ \n')
+            f.write('FoamFile { \n')
+            f.write('  version     2.0; \n')
+            f.write('  format      ascii; \n')
+            f.write('  class       volScalarField; \n')
+            f.write('  location    "1/porousMat"; \n')
+            f.write('  object      mDotMelt; \n')
+            f.write('} \n')
+            f.write('// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * // \n')
+            f.write(' \n')
+            f.write('dimensions      [1 -2 -1 0 0 0 0]; \n')
+            f.write(' \n')
+            f.write('internalField   uniform 0; \n')
+            f.write(' \n')
+            f.write('boundaryField { \n')
+            f.write('  top \n')
+            f.write('  { \n')
+            f.write('    type            calculated; \n')
+            f.write('    value           uniform 0.0; \n')
+            f.write('  } \n')
+            f.write('} \n')
+            f.write(' \n')
+            f.write(' \n')
+            f.write('// ************************************************************************* // \n')
+
+        f.close()
+
+        with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/origin.0/subMat1/mDotVapor', 'w') as f:
+            
+            f.write('/*--------------------------------*- C++ -*----------------------------------*\ \n')
+            f.write('  =========                 | \n')
+            f.write('  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox \n')
+            f.write('   \\    /   O peration     | Website:  https://openfoam.org \n')
+            f.write('    \\  /    A nd           | Version:  7 \n')
+            f.write('     \\/     M anipulation  | \n')
+            f.write('\*---------------------------------------------------------------------------*/ \n')
+            f.write('FoamFile { \n')
+            f.write('  version     2.0; \n')
+            f.write('  format      ascii; \n')
+            f.write('  class       volScalarField; \n')
+            f.write('  location    "1/porousMat"; \n')
+            f.write('  object      mDotVapor; \n')
+            f.write('} \n')
+            f.write('// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * // \n')
+            f.write(' \n')
+            f.write('dimensions      [1 -2 -1 0 0 0 0]; \n')
+            f.write(' \n')
+            f.write('internalField   uniform 0; \n')
+            f.write(' \n')
+            f.write('boundaryField { \n')
+            f.write('  top \n')
+            f.write('  { \n')
+            f.write('    type            calculated; \n')
+            f.write('    value           uniform 0.0; \n')
+            f.write('  } \n')
+            f.write('} \n')
+            f.write(' \n')
+            f.write(' \n')
+            f.write('// ************************************************************************* // \n')
+
+        f.close()
+
     pass
 
 def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he, hw, rhoe, ue, pw):
@@ -925,7 +996,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
             f.write(np.array2string(emissivity)[1:-1]+' ')
             f.write(np.array2string(Tinf)[1:-1]+' ')
             f.write(np.array2string(hw)[1:-1]+' ')
-            f.write(np.array2string(obj.molten)[1:-1]+' ')
+            f.write(np.array2string(obj.pato.molten)[1:-1]+' ')
 
     f.close()
 
@@ -1374,13 +1445,23 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     elif solution == 'volume':
         data = retrieve_volume_vtk_data(n_proc, path, time_to_read)
 
-    # extract temperature distribution (tetras)
+    # extract distribution
     cell_data = data.GetCellData()
-    temperature = cell_data.GetArray('Ta')
     n_cells=data.GetNumberOfCells()
-    temperature_cell = [temperature.GetValue(i) for i in range(n_cells)]
 
-    # sort vtk and TITAN surface mesh cell numbering by checking facet COG
+    #extract temperature distribution
+    temperature = cell_data.GetArray('Ta')
+    temperature_cell = [temperature.GetValue(i) for i in range(n_cells)]
+    temperature_cell = np.array(temperature_cell)
+
+    #extract mDotVapor distribution if BC ablation is used
+    if options.pato.Ta_bc == "ablation":
+        mDotVapor = cell_data.GetArray('mDotVapor')
+        mDotVapor_cell = [mDotVapor.GetValue(i) for i in range(n_cells)]
+        mDotVapor_cell = np.array(mDotVapor_cell)
+        print('mDotVapor_cell:', mDotVapor_cell)
+
+    # mapping: sort vtk and TITAN surface mesh cell numbering by checking facet COG
 
     # get cell COG from vtk
     vtk_cell_centers=vtk.vtkCellCenters()
@@ -1388,17 +1469,17 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     vtk_cell_centers.Update()
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
     vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
-
-    #for i in range(len(obj.pato.temperature)):
-    #    obj.pato.temperature[i] = interpolateNearestCOG(obj.mesh.facet_COG[i], vtk_COG, temperature_cell)
     
-    temperature_cell = np.array(temperature_cell)
     mapping = mapping_facetCOG_TITAN_PATO(obj.mesh.facet_COG, vtk_COG)
 
+    #retrieve solution
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
 
-    obj.molten[obj.temperature == obj.material.meltingTemperature] = 1
+    if options.pato.Ta_bc == "ablation":
+        obj.pato.mDotVapor = mDotVapor_cell[mapping]
+        print('obj.pato.mDotVapor:', obj.pato.mDotVapor)
+        obj.pato.molten[obj.temperature == obj.material.meltingTemperature] = 1
 
 def postprocess_mass_inertia(obj, options, time_to_read):
 
@@ -1431,8 +1512,8 @@ def postprocess_mass_inertia(obj, options, time_to_read):
 
         print('Ablation melting')
 
-        obj.mass_loss = obj.mass - new_mass if new_mass >= 0 else obj.mass
-        print('mass loss:', obj.mass_loss)
+        obj.pato.mass_loss = obj.mass - new_mass if new_mass >= 0 else obj.mass
+        print('mass loss:', obj.pato.mass_loss)
         obj.material.density *= density_ratio
         obj.mass = new_mass
     
