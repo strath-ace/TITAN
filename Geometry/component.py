@@ -174,6 +174,8 @@ class PATO():
 
         self.mDotVapor = np.zeros(len_facets)
 
+        self.mDotMelt = np.zeros(len_facets)
+
         #: [bool] Flag value indicating the use of PATO for the thermal model
         self.flag = bloom_config[0]
 

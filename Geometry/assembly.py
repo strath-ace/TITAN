@@ -319,6 +319,10 @@ class Aerothermo():
         self.rhoe = np.zeros((n_points))
         self.ue = np.zeros((n_points))
 
+        #Air-5 species + material element
+        self.nSpecies = 6
+        self.ce_i = np.zeros((n_points, self.nSpecies))
+
     def append(self, n_points = 0, temperature = 300):
         self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
         self.pressure = np.append(self.pressure, np.zeros(n_points))
@@ -330,6 +334,7 @@ class Aerothermo():
         self.hw = np.append(self.hw, np.zeros(n_points))
         self.rhoe = np.append(self.rhoe, np.zeros(n_points))
         self.ue = np.append(self.ue, np.zeros(n_points))
+        self.ce_i = np.append(self.ce_i, np.zeros((n_points, self.nSpecies)))
 
     def delete(self, index):
         self.temperature = np.delete(self.temperature, index)
@@ -342,6 +347,7 @@ class Aerothermo():
         self.hw = np.delete(self.hw, index)
         self.rhoe = np.delete(self.rhoe, index)
         self.ue = np.delete(self.ue, index)
+        self.ce_i = np.delete(self.ce_i, index)
 
 
 class Assembly():
@@ -479,6 +485,8 @@ class Assembly():
             self.ablation_mode = 'PATO'  
             if options.pato.Ta_bc == 'ablation':
                 self.mDotVapor = np.zeros(len(self.mesh.facets))
+                self.mVapor = np.zeros(len(self.mesh.facets))
+                self.mDotMelt = np.zeros(len(self.mesh.facets))
 
         else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
 

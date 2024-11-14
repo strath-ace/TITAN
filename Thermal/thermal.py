@@ -253,10 +253,14 @@ def compute_thermal_PATO(titan, options):
                 pw = assembly.aerothermo.pressure[obj.facet_index]
                 pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf, he, hw, rhoe, ue, pw)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
-                if options.pato.Ta_bc == 'ablation': assembly.mDotVapor[obj.facet_index] = obj.pato.mDotVapor
+                if options.pato.Ta_bc == 'ablation':
+                    assembly.mDotVapor[obj.facet_index] = obj.pato.mDotVapor
+                    assembly.mDotMelt[obj.facet_index] = obj.pato.mDotMelt
                 
 
         if options.pato.Ta_bc == 'ablation':
+
+            #if there is mass loss, update assembly mass and inertia properties
             if any(obj.density_ratio < 1 for obj in assembly.objects):
 
                 assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
@@ -278,6 +282,21 @@ def compute_thermal_PATO(titan, options):
         
                 #Computes the inertia matrix
                 assembly.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, assembly.COG, density)
+
+            #Update gas mass fractions to include vaporized material from ablation
+
+            assembly.mVapor = assembly.mDotVapor*options.dynamics.time_step
+            shock_distance = 0.1
+            gas_volume = assembly.mesh.facet_area * shock_distance
+            gas_mass = assembly.aerothermo.rhoe * gas_volume
+            #before adding vaporized material
+            species_mass = assembly.aerothermo.ce_i * gas_mass[:,np.newaxis]
+            #add vaporized material mass
+            species_mass[:,-1] = assembly.mVapor
+            gas_mass = species_mass.sum(axis=1)
+            assembly.aerothermo.ce_i = species_mass / gas_mass[:, np.newaxis] 
+            assembly.aerothermo.ce_i[np.isnan(assembly.aerothermo.ce_i)] = 0
+            assembly.aerothermo.ce_i[np.isinf(assembly.aerothermo.ce_i)] = 0
 
     return
 

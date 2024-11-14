@@ -105,8 +105,8 @@ nameBprimeFile_(dict_.lookupOrDefault<fileName>("BprimeFile",fileName(word::null
 {
   // Create new fields in Energy Model
   scalarFields_.insert("mDotCw",energyModel_.createVolField<scalar>("mDotCw",dimensionedScalar("0", dimMass/pow(dimLength,2)/dimTime, scalar(0.0))));
-  scalarFields_.insert("mDotMelt",energyModel_.createVolField<scalar>("mDotMelt",dimensionedScalar("0", dimMass/pow(dimLength,2)/dimTime, scalar(0.0))));
-  scalarFields_.insert("mDotVapor",energyModel_.createVolField<scalar>("mDotVapor",dimensionedScalar("0", dimMass/pow(dimLength,2)/dimTime, scalar(0.0))));
+  //scalarFields_.insert("mDotMelt",energyModel_.createVolField<scalar>("mDotMelt",dimensionedScalar("0", dimMass/pow(dimLength,2)/dimTime, scalar(0.0))));
+  //scalarFields_.insert("mDotVapor",energyModel_.createVolField<scalar>("mDotVapor",dimensionedScalar("0", dimMass/pow(dimLength,2)/dimTime, scalar(0.0))));
   scalarFields_.insert("BprimeCw",energyModel_.createVolField<scalar>("BprimeCw",dimensionedScalar("0", dimless, scalar(0.0))));
   scalarFields_.insert("BprimeGw",energyModel_.createVolField<scalar>("BprimeGw",dimensionedScalar("0", dimless, scalar(0.0))));
   scalarFields_.insert("qRadEmission",energyModel_.createVolField<scalar>("qRadEmission",dimensionedScalar("0", dimMass/ pow3(dimTime)/ dimLength, scalar(0.0))));
@@ -216,6 +216,8 @@ void Foam::BprimeBoundaryConditions::initialize()
   scalarFields_.insert("p",massModel.refVolField<scalar>("p"));
   vectorFields_.insert("mDotG",massModel.refVolField<vector>("mDotG"));
   scalarFields_.insert("mDotGw",massModel.refVolField<scalar>("mDotGw"));
+  scalarFields_.insert("mDotVapor",massModel.refVolField<scalar>("mDotVapor"));
+  scalarFields_.insert("mDotMelt",massModel.refVolField<scalar>("mDotMelt"));
   // References to fields from Gas Properties Model
   scalarFields_.insert("h_g",gasPropertiesModel.refVolField<scalar>("h_g"));
   // References to fields from Energy Model
@@ -713,19 +715,15 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
           );
     }
 
-//    Info << "\n   rho_s_BF: " << rho_s_BF << endl;
-    //hereInfo << "before melt or vapor T_BF: " << T_BF << endl;
-
-
     qCond_BF = (kProj_BF * invDx_BF)* (T_BF - Tint_BF);
 
-    //Info << "molten_BF: " << molten_BF << endl;
-    //scalar new_mass = mass;
+    mDotMelt_BF = 0.0;
+    mDotVapor_BF = 0.0;
+
+    Info << "mDotVapor:" << mDotVapor_BF << endl;
 
     if (T_BF > Tmelt){
       
-      //hereInfo << "inside condition " << endl;
-
       if ((molten_BF == 0) || (fstrip == 1)) {
 
         Info << " Melting" << endl;
@@ -738,14 +736,7 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
   
         mDotMelt_BF = fstrip*Qmelt/Hfusion;
   
-        //molten_BF = 1;
-
-        //Info << " melt molten: " << molten_BF << endl;
-  
         localMassChange -= mDotMelt_BF * time_step;
-
-        //hereInfo << " after melt T_BF: " << T_BF << endl;
-
       }
 
       if ((T_BF > Tboil) && (fstrip < 1)) {

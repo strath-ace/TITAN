@@ -433,6 +433,12 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         _assembly.aerothermo.heatflux *= 0
         _assembly.aerothermo.pressure *= 0
         _assembly.aerothermo.shear    *= 0
+        _assembly.aerothermo.he       *= 0
+        _assembly.aerothermo.hw       *= 0
+        _assembly.aerothermo.Te       *= 0
+        _assembly.aerothermo.rhoe     *= 0
+        _assembly.aerothermo.ue       *= 0
+        _assembly.aerothermo.ce_i     *= 0
 
         #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
@@ -602,7 +608,7 @@ def compute_equilibrium_chemistry(assembly, mixture):
     theta = assembly.aerothermo.theta
     p = np.where(theta*180/np.pi > 1e-3)[0]
 
-    cwall_i = np.zeros((len(theta[p]), mix.nSpecies()))
+    cwall_i = np.zeros((len(theta[p]), nSpecies))
     Tfluid_wall = assembly.aerothermo.temperature[p]
     Hw = np.zeros(len(theta[p]))
 
@@ -638,7 +644,7 @@ def compute_equilibrium_chemistry(assembly, mixture):
         He = np.full(len(beta),H_post_frozen)
         Te = np.full(len(beta),T_post_frozen)
         Pe = np.full(len(beta),P_post_frozen)
-        ce_i = np.zeros((len(beta), mix.nSpecies()))
+        ce_i = np.zeros((len(beta), nSpecies))
         ce_i[:] = cfree_i
     
         for facet in range(len(beta)):
@@ -666,7 +672,7 @@ def compute_equilibrium_chemistry(assembly, mixture):
         He = np.full(len(theta[p]),Hfree)
         Te = Tfluid_wall
         Pe = np.full(len(theta[p]),Pfree)
-        ce_i = np.zeros((len(theta[p]), mix.nSpecies()))
+        ce_i = np.zeros((len(theta[p]), nSpecies))
         ce_i[:] = cfree_i
 
     for facet in range(len(theta[p])):
@@ -679,6 +685,7 @@ def compute_equilibrium_chemistry(assembly, mixture):
     assembly.aerothermo.Te[p] = Te
     assembly.aerothermo.rhoe[p] = rhoe
     assembly.aerothermo.ue[p] = Ue
+    assembly.aerothermo.ce_i[p, :nSpecies] = ce_i
 
 def fluid_wall_temperature(Teq, Peq, H0_free, mix):
 

@@ -197,6 +197,7 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
     hw = np.array([])
     Te = np.array([])
     mDotVapor = np.array([])
+    mDotMelt = np.array([])
 
 
     for assembly in titan.assembly:
@@ -215,6 +216,7 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
         hw = assembly.aerothermo.hw
         Te = assembly.aerothermo.Te
         mDotVapor = assembly.mDotVapor
+        mDotMelt = assembly.mDotMelt
         #hf_cond = assembly.hf_cond
 
         for cellid in range(len(assembly.mesh.facets)):
@@ -236,6 +238,7 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
                       "Hw": [hw],
                       "Te": [Te],
                       "mDotVapor": [mDotVapor],
+                      "mDotMelt": [mDotMelt],
                     }
 
         point_data = { "Displacement": displacement,

@@ -249,6 +249,7 @@ def write_All_run(options, obj, time, iteration):
         print('start_time:', start_time)
         for n in range(options.pato.n_cores):
             f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
             #f.write('rm -rf processor'+str(n)+'/restart/* \n')
             if options.current_iter%options.save_freq == 0:
                 f.write('rm -rf processor'+str(n)+'/restart/* \n')
@@ -260,7 +261,7 @@ def write_All_run(options, obj, time, iteration):
             #print('delete time_step_to_delete:', time_step_to_delete)
         #if options.current_iter%options.save_freq != 0:
         #    f.write('rm -rf processor'+str(n)+'/'+str(end_time)+' \n')
-        f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
+        
 
     f.close()
 
@@ -966,6 +967,9 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
 
         if options.pato.Ta_bc == "ablation":
 
+            for i in range(n_data_points):
+                if x[i] == 2: conv_heatflux[i] = 1500*i
+
             Ch = conv_heatflux/(he-hw)
             Ch[np.isnan(Ch)] = 0
             Ch[np.isinf(Ch)] = 0
@@ -1459,7 +1463,9 @@ def postprocess_PATO_solution(options, obj, time_to_read):
         mDotVapor = cell_data.GetArray('mDotVapor')
         mDotVapor_cell = [mDotVapor.GetValue(i) for i in range(n_cells)]
         mDotVapor_cell = np.array(mDotVapor_cell)
-        print('mDotVapor_cell:', mDotVapor_cell)
+        mDotMelt = cell_data.GetArray('mDotMelt')
+        mDotMelt_cell = [mDotMelt.GetValue(i) for i in range(n_cells)]
+        mDotMelt_cell = np.array(mDotMelt_cell)
 
     # mapping: sort vtk and TITAN surface mesh cell numbering by checking facet COG
 
@@ -1478,7 +1484,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 
     if options.pato.Ta_bc == "ablation":
         obj.pato.mDotVapor = mDotVapor_cell[mapping]
-        print('obj.pato.mDotVapor:', obj.pato.mDotVapor)
+        obj.pato.mDotMelt = mDotMelt_cell[mapping]
         obj.pato.molten[obj.temperature == obj.material.meltingTemperature] = 1
 
 def postprocess_mass_inertia(obj, options, time_to_read):

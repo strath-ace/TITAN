@@ -99,6 +99,7 @@ public simpleBoundaryMappingModel
   //- Interpolate from the nearest for face COG (3D-tecplot)
   scalar interpolateNearestFaceCOG(label patchID, label faceI, label fieldI, List<scalarList>& mappingFileData);
 
+
   //- write in os
   virtual void write(Ostream& os) const;
 
