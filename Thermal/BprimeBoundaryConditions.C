@@ -584,7 +584,7 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
 
 //  Info << "Tmelt: " << Tmelt << endl;
 //  Info << "Hfusion: " << Hfusion << endl;
-  Info << "mass: " << mass << endl;
+ // Info << "mass: " << mass << endl;
 //  Info << "time_step: " << time_step << endl;
   double density_ratio = 1;
   double previous_mass = mass;
@@ -685,13 +685,8 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
     if(chemistryOn_BF == 1) {
       qAdvPyro_BF = mDotGw_BF * (h_g_BF - h_w_BF);
       qAdvChar_BF =  BprimeCw_BF * rhoeUeCH_BF * blowingCorrection_BF * (h_c_BF - h_w_BF);
-      qConv_BF = rhoeUeCH_BF * blowingCorrection_BF * (h_r_BF - h_w_BF * wallSpeciesDiffusion) ;
-      //hereInfo << "rhoeUeCH_BF: " << rhoeUeCH_BF << endl;
-      //Info << "blowingCorrection_BF: " << blowingCorrection_BF << endl;
-      //hereInfo << "h_r_BF: " << h_r_BF << endl;
-      //hereInfo << "h_w_BF: " << h_w_BF << endl;
-      //Info << "wallSpeciesDiffusion: " << wallSpeciesDiffusion << endl;
-      //hereInfo << "qConv_BF: " << qConv_BF << endl;
+      //qConv_BF = rhoeUeCH_BF * blowingCorrection_BF * (h_r_BF - h_w_BF * wallSpeciesDiffusion) ;
+
       //Info << "qRadEmission_BF: " << qRadEmission_BF << endl;
       T_BF = 
           Tint_BF
@@ -720,13 +715,13 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
     mDotMelt_BF = 0.0;
     mDotVapor_BF = 0.0;
 
-    Info << "mDotVapor:" << mDotVapor_BF << endl;
+    //Info << "mDotVapor:" << mDotVapor_BF << endl;
 
     if (T_BF > Tmelt){
       
       if ((molten_BF == 0) || (fstrip == 1)) {
 
-        Info << " Melting" << endl;
+        //Info << " Melting" << endl;
         
         T_BF = Tmelt;
   
@@ -741,7 +736,7 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
 
       if ((T_BF > Tboil) && (fstrip < 1)) {
 
-        Info << "Vaporizing" << endl;
+        //Info << "Vaporizing" << endl;
         
         T_BF = Tboil;
   
@@ -753,7 +748,7 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
   
         localMassChange -= mDotVapor_BF * time_step;
 
-        Info << " after vapor T_BF: " << T_BF << endl;
+       // Info << " after vapor T_BF: " << T_BF << endl;
       }
     }
   }
@@ -1072,17 +1067,18 @@ Foam::wordList Foam::BprimeBoundaryConditions::neededFields()
 {
   wordList neededFields;
   neededFields.append("p");
-  neededFields.append("h_r");
+  //neededFields.append("h_r");
   neededFields.append("Tbackground");
   neededFields.append("lambda");
-  neededFields.append("rhoeUeCH");
+  //neededFields.append("rhoeUeCH");
   neededFields.append("qRad");
   neededFields.append("chemistryOn");
   neededFields.append("Tedge");
   neededFields.append("hconv");
   neededFields.append("emissivity");
-  neededFields.append("h_w");
+  //neededFields.append("h_w");
   neededFields.append("molten");
+  neededFields.append("qConv");
   //neededFields.append("ce(0)");
   //neededFields.append("ce(1)");
   //neededFields.append("ce(2)");

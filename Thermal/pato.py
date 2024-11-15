@@ -584,12 +584,10 @@ def write_origin_folder(options, obj):
             f.write('mappingFields\n')
             f.write('(\n')
             f.write('    (p "3")\n')
-            f.write('    (rhoeUeCH "4")\n')
-            f.write('    (h_r "5")\n')
-            f.write('    (emissivity "6")\n')
-            f.write('    (Tbackground "7")\n')
-            f.write('    (h_w "8")\n')
-            f.write('    (molten "9")\n')
+            f.write('    (qConv "4")\n')
+            f.write('    (emissivity "5")\n')
+            f.write('    (Tbackground "6")\n')
+            f.write('    (molten "7")\n')
             f.write(');\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
@@ -964,12 +962,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
             f.write(np.array2string(emissivity)[1:-1]+' ')
             f.write(np.array2string(Tinf)[1:-1]+' ')
 
-
         if options.pato.Ta_bc == "ablation":
-
-            Ch = conv_heatflux/(he-hw)
-            Ch[np.isnan(Ch)] = 0
-            Ch[np.isinf(Ch)] = 0
 
             f.write('TITLE     = "vol-for-blayer.fu"\n')
             f.write('VARIABLES = \n')
@@ -977,11 +970,9 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
             f.write('"yw (m)"\n')
             f.write('"zw (m)"\n')
             f.write('"pw (Pa)"\n')
-            f.write('"CH (kg/m2/s)"\n')
-            f.write('"He (J/kg)"\n')
+            f.write('"qConv (W/m^2)"\n')
             f.write('"emissivity (-)"\n')
             f.write('"Tbackground (K)"\n')
-            f.write('"Hw (J/kg)"\n')
             f.write('"molten (-)"\n')
             f.write('ZONE T="zone 1"\n')
             f.write(' STRANDID=0, SOLUTIONTIME=0\n')
@@ -992,17 +983,12 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
             f.write(np.array2string(y)[1:-1]+' ')
             f.write(np.array2string(z)[1:-1]+' ')
             f.write(np.array2string(pw)[1:-1]+' ')
-            f.write(np.array2string(Ch)[1:-1]+' ')
-            f.write(np.array2string(he)[1:-1]+' ')
+            f.write(np.array2string(conv_heatflux)[1:-1]+' ')
             f.write(np.array2string(emissivity)[1:-1]+' ')
             f.write(np.array2string(Tinf)[1:-1]+' ')
-            f.write(np.array2string(hw)[1:-1]+' ')
             f.write(np.array2string(obj.pato.molten)[1:-1]+' ')
 
     f.close()
-
-    #elif options.pato.Ta_bc == "ablation":
-        #print("PATO ablation is not implemented yet."); exit(0);    
 
     pass
 
@@ -1478,6 +1464,9 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     #retrieve solution
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
+
+    print('obj ID:', obj.global_ID)
+    print('max temp:', max(obj.temperature))
 
     if options.pato.Ta_bc == "ablation":
         obj.pato.mDotVapor = mDotVapor_cell[mapping]
