@@ -967,9 +967,6 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
 
         if options.pato.Ta_bc == "ablation":
 
-            for i in range(n_data_points):
-                if x[i] == 2: conv_heatflux[i] = 1500*i
-
             Ch = conv_heatflux/(he-hw)
             Ch[np.isnan(Ch)] = 0
             Ch[np.isinf(Ch)] = 0
