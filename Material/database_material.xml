@@ -152,6 +152,8 @@
 		</specificHeatCapacity>
 		<meltingHeat>361500.0</meltingHeat>
 		<meltingTemperature>906.15</meltingTemperature>
+		<vaporizationHeat>10500000.0</meltingHeat>
+		<vaporizationTemperature>2743.0</meltingTemperature>
 		<emissivity>
 			<values>250.0,0.105;360.0,0.12;580.0,0.14;800.0,0.16;906.15,0.16;</values>
 		</emissivity>

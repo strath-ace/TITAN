@@ -251,7 +251,7 @@ def compute_thermal_PATO(titan, options):
                 rhoe = assembly.aerothermo.rhoe[obj.facet_index]
                 ue = assembly.aerothermo.ue[obj.facet_index]
                 pw = assembly.aerothermo.pressure[obj.facet_index]
-                pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf, he, hw, rhoe, ue, pw)
+                pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
                 if options.pato.Ta_bc == 'ablation':
                     assembly.mDotVapor[obj.facet_index] = obj.pato.mDotVapor

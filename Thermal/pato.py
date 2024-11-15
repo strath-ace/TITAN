@@ -30,7 +30,7 @@ import re
 from scipy.spatial import KDTree
 from Material import material as Material
 
-def compute_thermal(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, pw):
+def compute_thermal(obj, time, iteration, options, hf, Tinf):
 
     """
     Compute the aerothermodynamic properties using the CFD software
@@ -42,13 +42,13 @@ def compute_thermal(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, p
     options: Options
         Object of class Options
     """
-    time_to_postprocess = setup_PATO_simulation(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, pw)
+    time_to_postprocess = setup_PATO_simulation(obj, time, iteration, options, hf, Tinf)
 
     run_PATO(options, obj.global_ID)
 
     postprocess_PATO_solution(options, obj, time_to_postprocess)
 
-def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf, he, hw, rhoe, ue, pw):
+def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
     """
     Sets up the PATO simulation - creates PATO simulation folders and required input files
 
@@ -57,7 +57,7 @@ def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf, he, hw, rhoe,
 	?????????????????????????
     """
 
-    write_PATO_BC(options, obj, time, hf, Tinf, he, hw, rhoe, ue, pw)
+    write_PATO_BC(options, obj, time, hf, Tinf)
     time_to_postprocess = write_All_run(options, obj, time - options.dynamics.time_step, iteration)
     write_system_folder(options, obj.global_ID, time - options.dynamics.time_step)
 
@@ -583,11 +583,10 @@ def write_origin_folder(options, obj):
             f.write('mappingFileName "$FOAM_CASE/qconv/BC";\n')
             f.write('mappingFields\n')
             f.write('(\n')
-            f.write('    (p "3")\n')
-            f.write('    (qConv "4")\n')
-            f.write('    (emissivity "5")\n')
-            f.write('    (Tbackground "6")\n')
-            f.write('    (molten "7")\n')
+            f.write('    (qConv "3")\n')
+            f.write('    (emissivity "4")\n')
+            f.write('    (Tbackground "5")\n')
+            f.write('    (molten "6")\n')
             f.write(');\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
@@ -920,14 +919,12 @@ def write_origin_folder(options, obj):
 
     pass
 
-def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he, hw, rhoe, ue, pw):
+def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
 
     # write tecplot file with facet_COG coordinates and associated facet quantities
 
     emissivity = obj.material.emissivity(obj.pato.temperature)
     emissivity = np.clip(emissivity, 0, 1)  
-
-    emissivity[:] = 0  
 
     n_data_points = len(obj.mesh.facet_COG)
 
@@ -982,7 +979,6 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature, he,
             f.write(np.array2string(x)[1:-1]+' ')
             f.write(np.array2string(y)[1:-1]+' ')
             f.write(np.array2string(z)[1:-1]+' ')
-            f.write(np.array2string(pw)[1:-1]+' ')
             f.write(np.array2string(conv_heatflux)[1:-1]+' ')
             f.write(np.array2string(emissivity)[1:-1]+' ')
             f.write(np.array2string(Tinf)[1:-1]+' ')

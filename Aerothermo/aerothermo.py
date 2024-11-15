@@ -449,7 +449,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
-        if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture)
+        if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture, index)
         #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
 
 
@@ -571,7 +571,11 @@ def compute_frozen_chemistry(assembly, mixture):
     He[p] = H_post_frozen
     ce_i[p] = cfree_i
 
-def compute_equilibrium_chemistry(assembly, mixture):
+def compute_equilibrium_chemistry(assembly, mixture, p):
+
+    facet_normal = assembly.mesh.facet_normal
+    length_normal = np.linalg.norm(facet_normal, axis = 1, ord = 2)
+    p = p*(length_normal[p] != 0)
 
     free = assembly.freestream
     Twall = assembly.aerothermo.temperature
@@ -606,7 +610,7 @@ def compute_equilibrium_chemistry(assembly, mixture):
     #Flow conditions for facets facing the flow:
     #beta = np.zeros(len(Twall))
     theta = assembly.aerothermo.theta
-    p = np.where(theta*180/np.pi > 1e-3)[0]
+    #p = np.where(theta*180/np.pi > 1e-3)[0]
 
     cwall_i = np.zeros((len(theta[p]), nSpecies))
     Tfluid_wall = assembly.aerothermo.temperature[p]
