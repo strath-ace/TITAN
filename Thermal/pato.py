@@ -123,6 +123,14 @@ def write_material_properties(options, obj):
         f.write('e_sub_n[2]  0;\n')
         f.write('e_sub_n[3]  0;\n')
         f.write('e_sub_n[4]  0;\n')
+        f.write('\n')
+        f.write('Tmelt ' + str(0) + ';\n')
+        f.write('Tboil ' + str(0) + ';\n')
+        f.write('Hfusion ' + str(0) + ';\n')
+        f.write('Hboil ' + str(0) + ';\n')
+        f.write('fstrip ' + str(0) + ';\n')
+        f.write('mass ' + str(obj.mass) + ';\n')
+        f.write('density ' + str(obj.material.density) + ';\n')
     f.close()
 
 def write_All_run_init(options, object_id):
