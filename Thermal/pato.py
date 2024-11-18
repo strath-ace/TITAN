@@ -247,7 +247,6 @@ def write_All_run(options, obj, time, iteration):
         print('time_step_to_delete:', time_step_to_delete)
         print('end_time:', end_time)
         print('start_time:', start_time)
-        print('cp data/constantProperties data/constantProperties_'+str(end_time)+'\n')
         for n in range(options.pato.n_cores):
             f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
