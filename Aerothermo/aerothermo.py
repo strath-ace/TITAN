@@ -679,16 +679,8 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
         ce_i = np.zeros((len(theta[p]), nSpecies))
         ce_i[:] = cfree_i
 
-    for facet in range(len(theta[p])):
-        mix.equilibrate(Tfluid_wall[facet], Pe[facet])
-        cwall_i[facet] = mix.Y()
-        Hw[facet] = mix.mixtureHMass()
-
-    assembly.aerothermo.he[p] = He
-    assembly.aerothermo.hw[p] = Hw
     assembly.aerothermo.Te[p] = Te
     assembly.aerothermo.rhoe[p] = rhoe
-    assembly.aerothermo.ue[p] = Ue
     assembly.aerothermo.ce_i[p, :nSpecies] = ce_i
 
 def fluid_wall_temperature(Teq, Peq, H0_free, mix):

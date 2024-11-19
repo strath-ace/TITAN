@@ -393,17 +393,15 @@ def compute_particle_emissions(titan, options):
     print('Function compute_particle_emissions not yet implemented')
 
 
-def compute_black_body_spectral_emissions(titan, options, q = []):
+def compute_black_body_spectral_emissions(titan, options, emissions, q = []):
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
 
-    phi   = np.linspace(options.radiation.phi_min,options.radiation.phi_max,options.radiation.phi_n_values)
-    theta = np.linspace(options.radiation.theta_min,options.radiation.theta_max,options.radiation.theta_n_values)
-    wavelength = np.linspace(options.radiation.wavelength_min,options.radiation.wavelength_max,100)
-
-    print('1')
+    phi   = options.radiation.phi
+    theta = options.radiation.theta
+    wavelength = options.radiation.wavelengths
 
     print('Computing spectral emissions ...')
 
@@ -411,54 +409,46 @@ def compute_black_body_spectral_emissions(titan, options, q = []):
 
         lamb = wavelength[wavelength_i]
 
-        for theta_i in range(len(theta)):
-            for phi_i in range(len(phi)):
-                for assembly_id, assembly in enumerate(titan.assembly):
-                    for obj in assembly.objects:
-                        emissivity_obj = obj.material.emissivity(obj.temperature)
-                        assembly.emissivity[obj.facet_index] = emissivity_obj
-                        assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
+        for assembly_id, assembly in enumerate(titan.assembly):
+            for obj in assembly.objects:
+                emissivity_obj = obj.material.emissivity(obj.temperature)
+                assembly.emissivity[obj.facet_index] = emissivity_obj
+                assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
     
-                    viewpoint = np.array([np.sin(theta[theta_i])*np.cos(phi[phi_i]), np.sin(theta[theta_i])*np.sin(phi[phi_i]), np.cos(theta[theta_i])])
+            #define viewpoint on the basis of angles
+            viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
 
-                    if len(q) == 0: quat = assembly.quaternion_prev
-                    else: quat = q[assembly_id]
+            #transform from ECEF to body frame
+            if len(q) == 0: quat = assembly.quaternion_prev
+            else: quat = q[assembly_id]
     
-                    viewpoint = -Rot.from_quat(quat).inv().apply(viewpoint)/np.linalg.norm(viewpoint)
+            viewpoint = -Rot.from_quat(quat).inv().apply(viewpoint)/np.linalg.norm(viewpoint)
     
-                    index = Aerothermo.ray_trace(assembly, viewpoint)
-                    
-                    facet_area = assembly.mesh.facet_area
+            #retrive index of facets seen from viewpoint
+            index = Aerothermo.ray_trace(assembly, viewpoint)
     
-                    vec1 = -viewpoint
-                    vec2 = np.array(assembly.mesh.facet_normal)
-                    angle = vg.angle(vec1, vec2) #degrees
-                    cosine = np.cos(angle*np.pi/180)
-    
-                    temperature = assembly.aerothermo.temperature
-    
-                    exp = np.exp((h*c)/(k*lamb*temperature))   
+            #calculate blackbody spectral radiance
+            temperature = assembly.aerothermo.temperature[index]
+            exp = np.exp((h*c)/(k*lamb*temperature))   
+            b = (((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)))/1e9 # units W.sr−1.m−2.nm−1 #Spectral radiance in terms of wavelength
 
-                    b = ((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)) # units W.sr−1.m−3 #Radiance in terms of wavelength
-    
-                    assembly.emissive_power[:] = 0
-                    assembly.emissive_power[index] = assembly.emissivity[index]*b[index]*cosine[index]*facet_area[index] #Units: W.sr-1 (after integrating over wavelength range)
-    
-                    #print('assembly.emissive_power[index]:', assembly.emissive_power[index])
-    
-                    assembly.total_emissive_power = np.sum(assembly.emissive_power) # units W.sr−1.m−1
-    
-                    d = {'Phi': [phi[phi_i]*180/np.pi],
-                         'Theta': [theta[theta_i]*180/np.pi],
-                         'Wavelength': lamb,
-                         'Spectral directional emissive power': [assembly.total_emissive_power],
-    
-                        }
-    
-                    df = pd.DataFrame(data=d)
-    
-                    df.to_csv(options.output_folder + '/Data/'+ 'thermal_signature_lamb_'+str(titan.iter)+'_'+str(assembly.id)+'.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/'+ 'thermal_signature_lamb_'+str(titan.iter)+'_'+str(assembly.id)+'.csv'), index = False)
+            #grey-body radiation seen from viewpoint
+            vec1 = -viewpoint
+            vec2 = np.array(assembly.mesh.facet_normal[index])
+            angle = vg.angle(vec1, vec2) #degrees
+            cosine = np.cos(angle*np.pi/180)
+            emissivity = assembly.emissivity[index]
+            seen_b = b*cosine*emissivity
 
+            #weighing facet contribution by its area
+            facet_area = assembly.mesh.facet_area[index]
+            weighted_b = seen_b*facet_area
+
+            #sum contributions of all facets
+            emissions[wavelength_i] = np.sum(weighted_b)
+
+    return emissions
+    
 #def compute_radiance(temperature, area, emissivity):
 #
 #    wavelength_min = 0.000000500

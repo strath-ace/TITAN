@@ -43,12 +43,16 @@ def postprocess_emissions(options):
 	data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
 
 	iter_interval = np.unique(data['Iter'].to_numpy())
+
+	if options.radiation.spectral_freq%options.save_freq != 0:
+		print('No available solutions for the chosen frequency.');exit()
+
 	
-	for iter_value in range(0, max(iter_interval)+1, options.save_freq):
+	for iter_value in range(0, max(iter_interval)+1, options.radiation.spectral_freq):
 		iter_value = int(iter_value)
 		print('iter:', iter_value)	
 		titan = read_state(options, iter_value)
-		#emissions(titan, options, iter_value, data)
+		emissions(titan, options, iter_value, data)
 		output.generate_surface_solution(titan = titan, options = options, folder = 'Postprocess_emissions')
 
 def read_state(options, i = 0):
@@ -79,15 +83,25 @@ def emissions(titan, options, iter_value, data):
 
 	q = np.array([qx,qy,qz,qw]).transpose()
 
-	print('iter:', iter_value)	
-	print('options.radiation.spectral:', options.radiation.spectral)
-	print('options.radiation.spectral_freq:', options.radiation.spectral_freq)
-	print('/:', iter_value%options.radiation.spectral_freq)
+	#(declare) array of blackbody_emissions with dimensions n_wavelengths
+	#call blackbody sending wavelength array, and return populated blackbody_emissions
 
-	if options.radiation.black_body_emissions and (iter_value%options.radiation.black_body_emissions_freq == 0):
-		thermal.compute_black_body_emissions(titan, options, q)
-	if options.radiation.spectral and (iter_value%options.radiation.spectral_freq == 0):
-		print('0')
-		thermal.compute_black_body_spectral_emissions(titan, options, q)
-	if options.thermal.ablation and options.radiation.particle_emissions and options.thermal.pato and (iter_value%options.radiation.black_body_emissions_freq == 0):
-		thermal.compute_particle_emissions(titan, options, q)
+	#(declare) array of particle_emissions with dimensions n_wavelengths
+	#call particle sending wavelength array, and return populated particle_emissions
+
+		#billing
+		#other steps in notes
+
+	#sum up for each wavelength
+
+	blackbody_emissions = np.zeros(len(options.radiation.wavelengths))
+	particle_emissions  = np.zeros(len(options.radiation.wavelengths))
+
+	print('blackbody_emissions:', blackbody_emissions)
+
+	if options.radiation.spectral:
+		blackbody_emissions = thermal.compute_black_body_spectral_emissions(titan, options, blackbody_emissions, q)
+
+	print('blackbody_emissions:', blackbody_emissions)
+	#if options.thermal.ablation and options.radiation.particle_emissions and options.thermal.pato and (iter_value%options.radiation.black_body_emissions_freq == 0):
+	#	thermal.compute_particle_emissions(titan, options, q)
