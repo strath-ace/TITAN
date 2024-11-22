@@ -115,7 +115,7 @@ def main(filename = "", postprocess = "", filter_name = None):
     """
 
     configParser = configparser.RawConfigParser()   
-    configFilePath = filename
+    configFilePath = filename.lstrip()
     configParser.read(configFilePath)
 
     # This function is for easy modification of config objects, called here to prevent code repeats

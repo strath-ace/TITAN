@@ -103,9 +103,8 @@ def retrieve_atmosphere_data(name, altitude, assembly, options):
         data = f(altitude)
 
     elif name.upper() == "GRAM":
-        if not options.gram.Uncertain or options.current_iter==0:
-            gram.run_single_gram(assembly, options)
-        data, species_index, _ = gram.read_gram_species(altitude, options)
+        gram.run_single_gram(assembly, options)
+        data, species_index = gram.read_gram_species(altitude, options)
 
 
     return data, species_index

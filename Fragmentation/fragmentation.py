@@ -178,7 +178,7 @@ def demise_components(titan, i, joints_id, options):
         angle_vel_ECEF = R_B_ECEF.apply(angle_vel)
         if options.wrap_propagator:
             titan.assembly[-1].position = deepcopy(titan.assembly[i].position)
-            titan.assembly[-1].position.position = np.copy(titan.assembly[i].position) + dx_ECEF
+            titan.assembly[-1].position.position = np.copy(titan.assembly[i].position[:3]) + dx_ECEF
         else:
             titan.assembly[-1].position = np.copy(titan.assembly[i].position) + dx_ECEF
         titan.assembly[-1].velocity = np.copy(titan.assembly[i].velocity) + np.cross(angle_vel_ECEF,dx_ECEF)

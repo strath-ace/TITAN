@@ -35,7 +35,7 @@ from Dynamics import dynamics
 from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
-
+import pathlib
 
 class Collision_options():
 
@@ -797,8 +797,12 @@ def read_config_file(configParser, postprocess = ""):
         options.gram.ComputeMinMaxFactor = get_config_value(configParser, options.gram.ComputeMinMaxFactor, 'GRAM', 'ComputeMinMaxFactor', 'str')
         options.gram.Uncertain = get_config_value(configParser, False, 'GRAM','Uncertain', 'boolean')
         options.gram.Seed = get_config_value(configParser, 'Auto', 'GRAM','Seed', 'str')
-        options.gram.isPerturbed = 0
+        options.gram.reference = get_config_value(configParser, False, 'GRAM','Use_reference_traj', 'boolean')
         options.gram.wind = get_config_value(configParser, False, 'GRAM','Use_wind', 'boolean')
+        if os.path.exists(options.output_folder+'/GRAM/gramSpecies.pkl'):
+            pathlib.Path(options.output_folder+'/GRAM/gramSpecies.pkl').unlink()
+        if os.path.exists(options.output_folder+'/GRAM/gramWind.pkl'):
+            pathlib.Path(options.output_folder+'/GRAM/gramWind.pkl').unlink()
 
     #Read Planet
     options.planet = planet.ModelPlanet(get_config_value(configParser, "Earth", 'Model', 'Planet', 'str'))
@@ -883,9 +887,12 @@ def read_config_file(configParser, postprocess = ""):
             options.uncertainty.outputs = get_config_value(configParser, options.uncertainty.outputs, 'Uncertainty', 'Outputs', 'str')
             options.uncertainty.qoi_filepath = options.output_folder +'/Data/'+ options.uncertainty.qoi_filepath
             options.uncertainty.build_quantities(get_config_value(configParser, '', 'Assembly', 'Path', 'str'))
+
         options.wrap_propagator = get_config_value(configParser,False,'Time','Wrap_propagator','boolean')
 
         if options.wrap_propagator:
+            options.uncertainty.ut_DoF = get_config_value(configParser,6,'Uncertainty','UT_DoF','int')
+            options.uncertainty.cov_UT = get_config_value(configParser,False,'Uncertainty','UT_use_covariance','boolean')
             from Uncertainty.UT import setupUT
             options=setupUT(options)
         

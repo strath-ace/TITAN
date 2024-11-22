@@ -305,18 +305,18 @@ def compute_aerothermo(titan, options):
     atmo_model = options.freestream.model
     
     for assembly in titan.assembly:
-        if options.freestream.model=='GRAM':
-            add_wind(assembly,options)
-
         #Compute the freestream properties and stagnation quantities
         mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
         mix_properties.compute_stagnation(assembly.freestream, options.freestream)
+
+        if options.freestream.model=='GRAM':
+            add_wind(assembly,options)
 
     if options.fidelity.lower() == 'low':
         compute_low_fidelity_aerothermo(titan.assembly, options)
     elif options.fidelity.lower() == 'high':
         if options.cfd.cfd_restart: su2.restart_cfd_aerothermo(titan, options)
-        else: su2.compute_cfd_aerothermo(titan, options)
+        else: su2.compute_cfd_aerothermo(titan.assembly,titan, options)
     elif options.fidelity.lower() == 'multi':
         switch.compute_aerothermo(titan, options)
     else:
