@@ -650,8 +650,11 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
         Pe = np.full(len(beta),P_post_frozen)
         ce_i = np.zeros((len(beta), nSpecies))
         ce_i[:] = cfree_i
+
+        print('before equilibrium loop')
     
         for facet in range(len(beta)):
+            print('facet:', facet)
             #Onset of dissociation is 2500 K for air
             if T_post_frozen[facet] > 2000:
                 Te[facet], Pe[facet], He[facet], rhoe[facet], Ue[facet], ce_i[facet] = post_shock_equilibrium(T_post_frozen[facet], P_post_frozen[facet], H_post_frozen[facet], rhofree, Pfree, ufree, Hfree, mix)
@@ -718,6 +721,9 @@ def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
     i = 0
 
     while abs(h2_eq-h2)>tol:
+
+        print('\nTeq:', Teq)
+        print('Peq:', Peq)
 
         mix.equilibrate(Teq, Peq)
         rho2 = mix.density()
