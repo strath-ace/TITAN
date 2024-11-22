@@ -28,6 +28,7 @@ from scipy.spatial.transform import Rotation as Rot
 import vg
 import sys
 from Geometry.tetra import inertia_tetra
+import requests
 
 def compute_thermal(titan, options):
 
@@ -386,14 +387,9 @@ def black_body(wavelength, T):
 
     b = ((2*h*c*c)/(np.power(wavelength, 5))) * (1/(exp-1)) # units W.sr−1.m−3 #Radiance in terms of wavelength
 
-    return b    
+    return b
 
-
-def compute_particle_emissions(titan, options):
-    print('Function compute_particle_emissions not yet implemented')
-
-
-def compute_black_body_spectral_emissions(titan, options, emissions, q = []):
+def compute_black_body_spectral_emissions(assembly, options, emissions):
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
@@ -403,78 +399,234 @@ def compute_black_body_spectral_emissions(titan, options, emissions, q = []):
     theta = options.radiation.theta
     wavelength = options.radiation.wavelengths
 
-    print('Computing spectral emissions ...')
+    print('Computing spectral blackbody emissions ...')
 
     for wavelength_i in range(len(wavelength)):
 
         lamb = wavelength[wavelength_i]
 
-        for assembly_id, assembly in enumerate(titan.assembly):
-            for obj in assembly.objects:
-                emissivity_obj = obj.material.emissivity(obj.temperature)
-                assembly.emissivity[obj.facet_index] = emissivity_obj
-                assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
+        for obj in assembly.objects:
+            emissivity_obj = obj.material.emissivity(obj.temperature)
+            assembly.emissivity[obj.facet_index] = emissivity_obj
+            assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
     
-            #define viewpoint on the basis of angles
-            viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
-
-            #transform from ECEF to body frame
-            if len(q) == 0: quat = assembly.quaternion_prev
-            else: quat = q[assembly_id]
+        #define viewpoint on the basis of angles
+        viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
     
-            viewpoint = -Rot.from_quat(quat).inv().apply(viewpoint)/np.linalg.norm(viewpoint)
+        #retrive index of facets seen from viewpoint
+        index = Aerothermo.ray_trace(assembly, viewpoint)
     
-            #retrive index of facets seen from viewpoint
-            index = Aerothermo.ray_trace(assembly, viewpoint)
-    
-            #calculate blackbody spectral radiance
-            temperature = assembly.aerothermo.temperature[index]
-            exp = np.exp((h*c)/(k*lamb*temperature))   
-            b = (((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)))/1e9 # units W.sr−1.m−2.nm−1 #Spectral radiance in terms of wavelength
+        #calculate blackbody spectral radiance
+        temperature = assembly.aerothermo.temperature[index]
+        exp = np.exp((h*c)/(k*lamb*temperature))   
+        b = (((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)))/1e9 # units W.sr−1.m−2.nm−1 #Spectral radiance in terms of wavelength
 
-            #grey-body radiation seen from viewpoint
-            vec1 = -viewpoint
-            vec2 = np.array(assembly.mesh.facet_normal[index])
-            angle = vg.angle(vec1, vec2) #degrees
-            cosine = np.cos(angle*np.pi/180)
-            emissivity = assembly.emissivity[index]
-            seen_b = b*cosine*emissivity
+        #grey-body radiation seen from viewpoint
+        vec1 = -viewpoint
+        vec2 = np.array(assembly.mesh.facet_normal[index])
+        angle = vg.angle(vec1, vec2) #degrees
+        cosine = np.cos(angle*np.pi/180)
+        emissivity = assembly.emissivity[index]
+        seen_b = b*cosine*emissivity
 
-            #weighing facet contribution by its area
-            facet_area = assembly.mesh.facet_area[index]
-            weighted_b = seen_b*facet_area
+        #weighing facet contribution by its area
+        facet_area = assembly.mesh.facet_area[index]
+        weighted_b = seen_b*facet_area
 
-            #sum contributions of all facets
-            emissions[wavelength_i] = np.sum(weighted_b)
+        #sum contributions of all facets
+        emissions[wavelength_i] += np.sum(weighted_b)
 
     return emissions
-    
-#def compute_radiance(temperature, area, emissivity):
-#
-#    wavelength_min = 0.000000500
-#    wavelength_max = 0.000000502
-#
-#    L      = 1000000 #distance from fragment
-#    r_aper = 1
-#
-#    integral = integrate.quad(black_body,wavelength_min,wavelength_max,args=(temperature))
-#
-#    bb = integral*area*emissivity #units: photons*s-1*sr-1
-#
-#    p = bb*(np.pi*r_aper*r_aper)/(4*np.pi*L*L) #units: photons*s-1
-#
-#    return p
-#
-#def black_body(wavelength, T):
-#
-#    h = 6.62607015e-34 # m2.kg.s-1        planck constant
-#    c = 3e8            # m.s-1           light speed in vaccum
-#    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
-#    Tref = 273 
-#
-#    exp = np.exp((h*c)/(k*wavelength*(T-Tref)))   
-#
-#    b = (2*c/pow(wavelength,4)) *(1/(exp-1)) #units: photons*m-2*m-1*s-1*sr-1
-#
-#    return b
 
+def compute_particle_spectral_emissions(assembly, options, emissions):
+
+    h = 6.62607015e-34 # m2.kg.s-1        planck constant
+    c = 3e8            # m.s-1           light speed in vaccum
+    print('h*c:', h*c)
+    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
+    Na = 6.023e23      # 1/mol Avogadro number
+
+    #A_O = [3.69e+07, 3.69e+07, 3.69e+07] #s-1
+    #E_O = [86631.454*1.986e-23, 86627.778*1.986e-23, 86627.778*1.986e-23] #J
+    #g_O = [7, 5, 3]
+
+    A_O = [3.69e+07] #s-1
+    E_O = [86631.454*1.986e-23] #J
+    g_O = [7]
+
+    molarMass_O = 16*1e-3 #kg/mol
+
+    phi   = options.radiation.phi
+    theta = options.radiation.theta
+    wavelength = options.radiation.wavelengths
+
+    print('Computing spectral particle emissions ...')
+
+    #define viewpoint on the basis of angles
+    viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
+    
+    #retrive index of facets seen from viewpoint
+    index = Aerothermo.ray_trace(assembly, viewpoint)
+    
+    #calculate blackbody spectral radiance
+    temperature = np.full(len(index), 5000) #assembly.aerothermo.temperature[index]
+    print('temperature:', temperature)
+    
+
+    for obj in assembly.objects:
+        emissivity_obj = obj.material.emissivity(obj.temperature)
+        assembly.emissivity[obj.facet_index] = emissivity_obj
+        assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
+    
+        density_obj = obj.material.density
+        assembly.material_density[obj.facet_index] = density_obj
+    density = assembly.material_density[index]
+
+    for wavelength_i in range(len(wavelength)):
+
+        lamb = wavelength[wavelength_i]
+        A    = A_O[wavelength_i]
+        E    = E_O[wavelength_i]
+        g    = g_O[wavelength_i]
+
+        print('wavelength:', wavelength)
+        print('A:', A)
+        print('E:', E)
+        print('g:', g)
+
+        ZZ = partition('O I', temperature)
+
+        line = 1.0
+
+        print('density:', density)
+        print('Na:', Na)
+        print('molarMass_O:', molarMass_O)
+
+        ntot = 1e22 #density*Na/molarMass_O
+
+        print('ntot:', ntot)
+
+        test1 = E/(k*temperature)
+        print('E/(k*temperature):', test1)
+
+        exp = g*np.exp(-E/(k*temperature))
+
+        print('exp:', exp)
+
+        print('ZZ:', ZZ)
+
+        nn = g * exp * ntot / ZZ
+
+        print('nn:', nn)
+
+        intensity = (h * c * A * nn * line / lamb)/(4*np.pi)
+
+        print('intensity:', intensity) #424,430,279.95 [W/m3/sr/m] 
+
+        #grey-body radiation seen from viewpoint
+        vec1 = -viewpoint
+        vec2 = np.array(assembly.mesh.facet_normal[index])
+        angle = vg.angle(vec1, vec2) #degrees
+        cosine = np.cos(angle*np.pi/180)
+        emissivity = assembly.emissivity[index]
+        intensity = intensity*cosine*emissivity
+
+        exit()
+
+        #weighing facet contribution by its area
+        facet_area = assembly.mesh.facet_area[index]
+        weighted_b = seen_intensity*facet_area
+
+        #sum contributions of all facets
+        emissions[wavelength_i] += np.sum(weighted_b)
+    
+    return emissions
+
+def get_energy_levels(element):
+    # Define the NIST Levels Tool URL
+    url = "https://physics.nist.gov/cgi-bin/ASD/energy1.pl"
+    
+    # Define parameters for the query
+    params = {
+        "spectrum": element,  # Neutral oxygen
+        "units": "0",       # Units in cm^-1
+        "format": "1",      # Machine-readable text output
+        "output": "1",      # Request data for programmatic use
+        "conf_out": "on",   # Include configurations
+        "term_out": "on",   # Include terms
+        "level_out": "on",  # Include level energies
+        "j_out": "on",      # Include J quantum numbers
+        "g_out": "on",      # Include statistical weights (g)
+    }
+    
+    # Make the GET request
+    response = requests.get(url, params=params)
+    response.raise_for_status()  # Ensure the request was successful
+
+    # Process the response
+    lines = response.text.splitlines()
+
+    levels = []
+    
+    for line in lines:
+        # Skip lines that are separators or irrelevant
+        if set(line.strip()) in [{"-"}, {"|"}, {" "}, {""}]:
+            continue
+        
+        # Attempt to parse valid level data
+        parts = line.split("|")
+        if len(parts) >= 5:  # Check if there are enough columns
+            try:
+                g = float(parts[3].strip())  # Parse 'g' (statistical weight)
+                energy = float(parts[4].strip())  # Parse 'Level (cm^-1)'
+                levels.append((g, energy))
+            except ValueError:
+                # Skip lines that do not contain valid numeric data
+                continue
+
+    return levels
+
+def calculate_partition_function(levels, T_e):
+    """
+    Calculate the partition function for O I at a given electron temperature T_e (in eV).
+    Args:
+        levels: List of tuples [(g, E), ...] where g is the statistical weight 
+                and E is the energy in cm^-1.
+        T_e: Electron temperature in eV.
+
+    Returns:
+        Partition function Z(T).
+    """
+    k_B_eV = 8.617333262145e-5  # Boltzmann constant in eV/K
+    h = 6.62607015e-34          # Planck constant in J*s
+    c = 2.99792458e10           # Speed of light in cm/s
+    eV_conversion_factor = 1.60218e-19  # 1 eV in Joules
+
+    # Convert cm^-1 to eV (E = h * c * E_cm / eV_conversion_factor)
+    levels_in_eV = [(g, (h * c * E) / eV_conversion_factor) for g, E in levels]
+    
+    # Find the minimum energy level for numerical stability
+    min_energy = min(E for _, E in levels_in_eV)
+    
+    # Calculate the partition function using the log-sum-exp trick
+    Z = np.zeros(len(T_e))
+    for g, E in levels_in_eV:
+        Z[:] += g * np.exp(-(E - min_energy) / T_e[:])
+    
+    # Adjust for the minimum energy
+    Z *= np.exp(-min_energy / T_e)
+    
+    return Z
+
+# Main execution
+def partition(element, temperature):
+    # Retrieve energy levels for O I
+    levels = get_energy_levels(element)
+    
+    # Define electron temperature in eV
+    T_e = temperature/1.1605e4  # Example electron temperature in eV
+
+    # Calculate partition function
+    Z = calculate_partition_function(levels, T_e)
+    
+    return Z

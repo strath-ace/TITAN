@@ -25,6 +25,7 @@ import pandas as pd
 import pickle
 import os
 import glob
+from scipy.spatial.transform import Rotation as Rot
 
 def postprocess_emissions(options):
 
@@ -97,11 +98,27 @@ def emissions(titan, options, iter_value, data):
 	blackbody_emissions = np.zeros(len(options.radiation.wavelengths))
 	particle_emissions  = np.zeros(len(options.radiation.wavelengths))
 
-	print('blackbody_emissions:', blackbody_emissions)
+	for i, assembly in enumerate(titan.assembly):
 
-	if options.radiation.spectral:
-		blackbody_emissions = thermal.compute_black_body_spectral_emissions(titan, options, blackbody_emissions, q)
+		#-Rot.from_quat(quat).inv().apply(viewpoint)/np.linalg.norm(viewpoint)
 
-	print('blackbody_emissions:', blackbody_emissions)
-	#if options.thermal.ablation and options.radiation.particle_emissions and options.thermal.pato and (iter_value%options.radiation.black_body_emissions_freq == 0):
-	#	thermal.compute_particle_emissions(titan, options, q)
+		R_B_ECEF = Rot.from_quat(q[i])
+
+		#Translate the assembly to (0,0,0), transform, and translate tp ECEF position
+		#assembly.mesh.nodes -= np.array([body_X[i],body_Y[i],body_Z[i]])
+		assembly.mesh.facet_normal = -R_B_ECEF.apply(assembly.mesh.facet_normal)
+		#assembly.mesh.nodes += np.array([X[i],Y[i],Z[i]])
+
+		print('Computing blackbody_emissions ...')
+
+		print('blackbody_emissions:', blackbody_emissions)
+
+		if options.radiation.spectral:
+			blackbody_emissions = thermal.compute_black_body_spectral_emissions(assembly, options, blackbody_emissions)
+
+		print('blackbody_emissions:', blackbody_emissions)
+
+		print('Computing particle emissions ...')
+
+		if options.thermal.ablation and options.radiation.particle_emissions and options.pato.flag:
+			thermal.compute_particle_spectral_emissions(assembly, options, particle_emissions)

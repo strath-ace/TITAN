@@ -465,6 +465,7 @@ class Assembly():
         self.collision = None
 
         self.emissivity = np.zeros(len(self.mesh.facets))
+        self.material_density = np.zeros(len(self.mesh.facets))
         self.emissive_power = np.zeros(len(self.mesh.facets))
         self.total_emissive_power = 0
         self.hf_cond = np.zeros(len(self.mesh.facets))

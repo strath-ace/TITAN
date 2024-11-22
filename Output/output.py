@@ -215,8 +215,11 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
         he = assembly.aerothermo.he
         hw = assembly.aerothermo.hw
         Te = assembly.aerothermo.Te
-        mDotVapor = assembly.mDotVapor
-        mDotMelt = assembly.mDotMelt
+        mDotVapor = np.zeros(len(assembly.mesh.facets))
+        mDotMelt  = np.zeros(len(assembly.mesh.facets))
+        if options.thermal.ablation_mode.lower() == 'pato' and options.pato.Ta_bc == 'ablation':
+            mDotVapor = assembly.mDotVapor
+            mDotMelt = assembly.mDotMelt
         #hf_cond = assembly.hf_cond
 
         for cellid in range(len(assembly.mesh.facets)):
