@@ -316,11 +316,7 @@ def compute_aerothermo(titan, options):
         compute_low_fidelity_aerothermo(titan.assembly, options)
     elif options.fidelity.lower() == 'high':
         if options.cfd.cfd_restart: su2.restart_cfd_aerothermo(titan, options)
-<<<<<<< HEAD
-        else: su2.compute_cfd_aerothermo(titan.assembly,titan, options)
-=======
         else: su2.compute_cfd_aerothermo(titan, options)
->>>>>>> ESA-detection-PATO-dev
     elif options.fidelity.lower() == 'multi':
         switch.compute_aerothermo(titan, options)
     else:
