@@ -9,6 +9,7 @@ Fidelity = Low
 #High, Low or Multi
 Output_folder = Tests/Simulation
 Collision = True
+Output_freq = 1
 
 
 [Trajectory]

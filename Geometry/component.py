@@ -21,18 +21,19 @@ from Geometry import mesh as Mesh
 from Geometry.tetra import inertia_tetra, vol_tetra
 from Material.material import Material
 import numpy as np
+from pathlib import Path
 
 class Component_list():
     # A class with the purpose of storing the different components in a list
     def __init__(self):
         self.object = []
         self.id = 1
-
-    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None):
         
+    def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, global_ID = 0, bloom_config = [False, 0, 0, 0]):
+
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
-                           trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, options = options))
+                           trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, options = options, global_ID = global_ID, bloom_config = bloom_config))
         self.id += 1
 
 class Component():
@@ -42,7 +43,8 @@ class Component():
     """
     
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
-                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest', v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None):
+                 trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest',
+                 v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0, bloom_config = [False, 0, 0, 0]):
 
         print("Generating Body: ", filename)
         
@@ -62,6 +64,7 @@ class Component():
 
         #: [int] ID of the component
         self.id = id
+        self.global_ID = global_ID
         self.inner_mesh = False
 
         mesh = Mesh.Mesh(filename)
@@ -74,7 +77,7 @@ class Component():
             mesh.v1 = v1
             mesh.v2 = v2
 
-        mesh = Mesh.compute_mesh(mesh, compute_radius = False) #TODO
+        mesh = Mesh.compute_mesh(mesh, compute_radius = True) #TODO
         
         #: [Mesh] Object of class mesh that stores the mesh information
         self.mesh = mesh
@@ -84,6 +87,8 @@ class Component():
 
         #: [Material] Object of class Material to store the material properties
         self.material = Material(material, options)
+
+        self.material_name = material
 
         #: [K] Temperature
         self.temperature = temperature
@@ -118,6 +123,13 @@ class Component():
             self.parent_id = parent_id
             self.parent_part = parent_part
 
+        self.photons = 0
+
+        #if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato' and (not ("_joint" in self.name)):
+        if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
+            self.pato = PATO(options, len(mesh.facets), bloom_config, self.global_ID, self.temperature)
+            self.bloom = bloom(bloom_config)        
+
     def compute_mass_properties(self, coords, elements, density):
         """
         Compute the inertia properties
@@ -144,3 +156,50 @@ class Component():
             self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*mass[:,None], axis = 0)/self.mass
         
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
+
+
+class PATO():
+    """ Class PATO
+    
+        A class to store the PATO simulation
+    """
+
+    def __init__(self, options, len_facets, bloom_config, object_id = 0, temperature = 300):
+
+        self.initial_temperature = temperature
+        
+        self.temperature = np.empty(len_facets); self.temperature.fill(temperature)
+
+        self.hf_cond = np.zeros(len_facets)
+
+        #: [bool] Flag value indicating the use of PATO for the thermal model
+        self.flag = bloom_config[0]
+
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/constant/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/constant/subMat1/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/origin.0/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/origin.0/subMat1').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/system/').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/system/subMat1').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/qconv').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/qconv-bkp').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/mesh').mkdir(parents=True, exist_ok=True)
+        Path(options.output_folder+'/PATO_'+str(object_id)+'/data').mkdir(parents=True, exist_ok=True)        
+
+class bloom():
+    def __init__(self, bloom_config):
+
+        #: [bool] Flag value indicating the use of Bloom to generate the boundary layer mesh
+        self.flag = bloom_config[0]
+
+        #: [int] Number of Layers in the boundary layer
+        self.layers = int(bloom_config[1])
+
+        #: [float] Value of spacing of the first element in the boundary layer
+        self.spacing = bloom_config[2]
+
+        #: [float] Value of the growth rate, starting at the first element
+        self.growth_rate = bloom_config[3]

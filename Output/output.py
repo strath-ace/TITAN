@@ -24,6 +24,29 @@ import meshio
 from pathlib import Path
 
 def write_output_data(titan, options):
+
+    n_assembly = len(titan.assembly)
+
+    if n_assembly == 1:
+    
+        width_max = titan.assembly[0].Lref
+    else:
+    
+        width = np.zeros((n_assembly, n_assembly))
+        for i in range(n_assembly):
+            for j in range(n_assembly):
+                width_vector = np.subtract(titan.assembly[i].position,titan.assembly[j].position)
+                width[i,j] = np.linalg.norm(width_vector)
+
+        width_max = max([max(l) for l in width])      
+
+
+    df = pd.DataFrame()
+    df['Time'] = [titan.time]
+    df['Width'] = [width_max]
+    df = df.round(decimals = 12)
+    df.to_csv(options.output_folder + '/Data/'+ 'data_width.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_width.csv'), index = False)
+
     
     df = pd.DataFrame()
 
@@ -36,8 +59,9 @@ def write_output_data(titan, options):
 
         #Trajectory Details
         df['Altitude']       = [assembly.trajectory.altitude]
+        df['Distance']       = [assembly.distance_travelled]
         df['Velocity']       = [assembly.trajectory.velocity]
-        df['FlighPathAngle'] = [assembly.trajectory.gamma*180/np.pi]
+        df['FlightPathAngle'] = [assembly.trajectory.gamma*180/np.pi]
         df['HeadingAngle']   = [assembly.trajectory.chi*180/np.pi]
         df['Latitude']       = [assembly.trajectory.latitude*180/np.pi]
         df['Longitude']      = [assembly.trajectory.longitude*180/np.pi]
@@ -93,6 +117,12 @@ def write_output_data(titan, options):
         df['Quat_y']   = [assembly.quaternion[1]]
         df['Quat_z']   = [assembly.quaternion[2]]
 
+        #Quaternion Body -> ECEF frame of the previous iteration, for emissions post-processing   
+        df['Quat_prev_w']   = [assembly.quaternion_prev[3]]
+        df['Quat_prev_x']   = [assembly.quaternion_prev[0]]
+        df['Quat_prev_y']   = [assembly.quaternion_prev[1]]
+        df['Quat_prev_z']   = [assembly.quaternion_prev[2]]
+
         #Freestream properties
         df['Mach'] = [assembly.freestream.mach]
         df['Speedsound'] = [assembly.freestream.sound]
@@ -138,6 +168,7 @@ def write_output_data(titan, options):
         for obj in assembly.objects:
             df["Obj_name"] = [obj.name]
             df["Temperature"] = [obj.temperature]
+            df["Photons_second"] = [obj.photons]
             df["Mass"] = [obj.mass]
             df["Max_stress"] = [obj.max_stress]
             df["Yield_stress"] = [obj.yield_stress]
@@ -147,14 +178,17 @@ def write_output_data(titan, options):
             df = df.round(decimals = 6)
             df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
 
-def generate_surface_solution(titan, options):
+def generate_surface_solution(titan, options, folder = 'Surface_solution'):
     points = np.array([])
     facets = np.array([])
     pressure = np.array([])
     shear = np.array([])
     heatflux = np.array([])
+    hf_cond = np.array([])
     radius = np.array([])
     ellipse = np.array([])
+    cellID = np.array([])
+    emissive_power = np.array([])
 
 
     for assembly in titan.assembly:
@@ -167,6 +201,12 @@ def generate_surface_solution(titan, options):
         radius = assembly.mesh.facet_radius
         ellipse = assembly.inside_shock
         temperature  = assembly.aerothermo.temperature
+        emissive_power = assembly.emissive_power
+        #hf_cond = assembly.hf_cond
+
+        for cellid in range(len(assembly.mesh.facets)):
+            cellID = np.append(cellID, cellid)
+
         
         cells = {"triangle": facets}
 
@@ -174,7 +214,10 @@ def generate_surface_solution(titan, options):
                       "Heatflux": [heatflux],
                       "Temperature": [temperature],
                       "Shear": [shear],
-                      "Radius": [radius],
+                      #"Radius": [radius],
+                      #"CellID": [cellID], #uncommenting this actually crashes the code
+                      "Emissive power": [emissive_power],
+                      #"Heat conduction": [hf_cond],
                     }
 
         point_data = { "Displacement": displacement,
@@ -186,7 +229,7 @@ def generate_surface_solution(titan, options):
                               point_data = point_data,
                               cell_data = cell_data)
 
-        folder_path = options.output_folder+'/Surface_solution/ID_'+str(assembly.id)
+        folder_path = options.output_folder+'/' + folder + '/ID_'+str(assembly.id)
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
         vol_mesh_filepath = f"{folder_path}/solution_iter_{str(titan.iter).zfill(3)}.xdmf"
@@ -280,7 +323,7 @@ def options_information(options):
         Maximum number of iterations: {options.iters}
         Fidelity level: {options.fidelity}
         Structural dynamics flag: {options.structural_dynamics}
-        Ablation flag: {options.ablation}  
+        Ablation flag: {options.thermal.ablation}  
         Time-step: {options.dynamics.time_step}
         Planet: {options.planet.name.upper()}
 

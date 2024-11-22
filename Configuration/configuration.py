@@ -19,7 +19,6 @@
 #
 import os
 import sys
-sys.setrecursionlimit(100000) 
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -36,6 +35,10 @@ from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
 import pathlib
+from Aerothermo import bloom
+from Thermal import pato
+from Geometry import gmsh_api as GMSH
+
 
 class Collision_options():
 
@@ -199,6 +202,64 @@ class Amg():
         #: [str] Name of the sensor field to be used in the adaptation
         self.sensor = sensor
 
+
+class Thermal():
+    def __init__(self, ablation = False, ablation_mode = "0D", post_fragment_tetra_ablation = False):
+
+        #: [boolean] Flag to perform ablation
+        self.ablation = False
+
+        #: [str] Ablation Model (0D, tetra)
+        self.ablation_mode = "0D"
+
+        self.post_fragment_tetra_ablation = False
+
+
+class PATO():
+    def __init__(self, flag = False, time_step = 0.1, n_cores = 6):
+
+
+        #: [boolean] Flag to perform PATO simulation
+        self.flag = False
+
+        #: [boolean] Flag to perform PATO simulation
+        self.time_step = time_step  
+
+        #: [int] Number of cores to perform PATO simulation
+        self.n_cores = n_cores    
+
+        #: [int] String to define type of boundary condition used in the PATO simulation
+        self.Ta_bc = 'qconv'            
+
+
+class Radiation():
+    def __init__(self, black_body_emissions = False, black_body_emissions_freq = 10000, particle_emissions = False,
+                 spectral = False, spectral_freq = 10000):
+
+        #: [boolean] Flag to compute black body emissions
+        self.black_body_emissions = black_body_emissions
+
+        #: [int] Frequency to compute black body emissions
+        self.black_body_emissions_freq = black_body_emissions_freq
+
+        #: [boolean] Flag to compute particle emissions
+        self.particle_emissions = particle_emissions
+
+        #: [boolean] Flag to compute spectral emissions
+        self.spectral = spectral  
+
+        #: [int] Frequency to compute spectral emissions
+        self.spectral_freq = spectral_freq                
+
+        self.phi_min = 0
+        self.phi_max = 0
+        self.phi_n_values = 1
+        self.theta_min = 0
+        self.theta_max = 0
+        self.theta_n_values = 1
+        self.wavelength_min = 0
+        self.wavelength_max = 0                
+
 class Aerothermo():
     """ Aerothermo class
 
@@ -332,6 +393,9 @@ class Options():
 
         #: [:class:`.Dynamics`] Object of class Dynamics
         self.dynamics = Dynamics()
+        self.thermal = Thermal()
+        self.pato = PATO()
+        self.radiation = Radiation()
         self.cfd = CFD()
         self.bloom = Bloom()
         self.amg = Amg()
@@ -358,6 +422,9 @@ class Options():
         #:[int] Frequency of generating a restart file [per number of iterations]
         self.save_freq = 500
 
+        #:[int] Frequency of generating the output surface solution [per number of iterations]
+        self.output_freq = 500        
+
         #: [int] Current iteration
         self.current_iter = 0
                 
@@ -379,13 +446,8 @@ class Options():
         #: [str] Fidelity of the aerothermo calculation (Low - Default, High, Hybrid)
         self.fidelity = fidelity
 
-        #: [boolean] Flag to perform ablation
-        self.ablation = False
+        self.assembly_path = ""
 
-        #: [str] Ablation Model (0D, tetra)
-        self.ablation_mode = "0D"
-
-        self.post_fragment_tetra_ablation = False
         
     def clean_up_folders(self):
         """
@@ -612,12 +674,15 @@ def read_geometry(configParser, options):
 
     #Reads the path to the geometrical files
     path = get_config_value(configParser, '', 'Assembly', 'Path', 'str')
+    options.assembly_path = path
 
     #Initialization of the object of class Component_list to store the user-defined compoents
     objects = Component.Component_list()
 
     #Loops through the user-defined components, checks if they are either Primitives or Joints 
     #and creates the object according to the specified parameters in the config file
+    obj_global_ID = 0
+
     for section in configParser.sections():
         if section == 'Objects':
             for name, value in configParser.items(section):
@@ -655,9 +720,18 @@ def read_geometry(configParser, options):
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
                         temperature = 300
+
+                    bloom = [False, 0, 0, 0]
+                    try:                        
+                        for s in value:
+                            if 'bloom' in s.lower():
+                                bloom = s.split('=')[1].strip('()').split(';')  
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]       
+                    except:
+                        bloom = [False, 0, 0, 0]               
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
-                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options)
+                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -687,10 +761,22 @@ def read_geometry(configParser, options):
                     try:
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
-                        temperature = 300
+                        temperature = 300   
+
+                    bloom = [False, 0, 0, 0]
+
+                    try:                        
+                        for s in value:
+                            if 'bloom' in s.lower():
+                                bloom = s.split('=')[1].strip('()').split(';')  
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]              
+                    except:
+                        bloom = [False, 0, 0, 0]              
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
-                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 
+                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom) 
+
+                obj_global_ID += 1
 
 
     # Creates a list of the different assemblies, where each assembly is a object with several linked components
@@ -741,6 +827,7 @@ def read_config_file(configParser, postprocess = ""):
     
     #Read Options Conditions
     options.output_folder = get_config_value(configParser, options.output_folder, 'Options', 'output_folder', 'str')
+    options.output_freq     = get_config_value(configParser, options.output_freq, 'Options', 'Output_freq', 'int')
     if postprocess: return options, None
 
     options.iters         = get_config_value(configParser, options.iters, 'Options', 'Num_iters', 'int')
@@ -750,8 +837,7 @@ def read_config_file(configParser, postprocess = ""):
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
     #options.SPARTA =       get_config_value(configParser, options.SPARTA, 'Options', 'SPARTA', 'boolean')
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
-    options.ablation       = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
-    options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
+
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
     options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
     options.time_counter   = 0
@@ -772,6 +858,37 @@ def read_config_file(configParser, postprocess = ""):
     #options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
     #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
     #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
+
+    #Read Thermal options
+    options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
+    if options.thermal.ablation:
+        options.thermal.ablation_mode  = get_config_value(configParser, "0D",  'Thermal', 'Ablation_mode', 'str').lower()
+        options.radiation.black_body_emissions  = get_config_value(configParser, False,  'Radiation', 'Black_body_emissions', 'boolean')
+        
+        if (options.thermal.ablation_mode == "pato"):
+            options.pato.flag = True
+            options.pato.time_step = get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
+            options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
+            if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
+            #Read Bloom conditions
+            #options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
+            #options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
+            #options.bloom.spacing =     get_config_value(configParser,options.bloom.spacing,'Bloom', 'Spacing', 'float')
+            #options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
+            options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
+            #if not options.bloom.flag: print('Error: PATO requires BLOOM for mesh generation.'); exit()
+        if(options.radiation.black_body_emissions):
+            options.radiation.black_body_emissions_freq     = get_config_value(configParser, options.radiation.black_body_emissions_freq, 'Radiation', 'Black_body_emissions_freq', 'int')
+            options.radiation.phi_min      =       get_config_value(configParser, options.radiation.phi_min, 'Radiation', 'Phi_min', 'custom', 'angle')
+            options.radiation.phi_max      =       get_config_value(configParser, options.radiation.phi_max, 'Radiation', 'Phi_max', 'custom', 'angle')
+            options.radiation.phi_n_values =       get_config_value(configParser, options.radiation.phi_n_values, 'Radiation', 'Phi_n_values', 'int')
+            options.radiation.theta_min     =      get_config_value(configParser, options.radiation.theta_min, 'Radiation', 'Theta_min', 'custom', 'angle')
+            options.radiation.theta_max     =      get_config_value(configParser, options.radiation.theta_max, 'Radiation', 'Theta_max', 'custom', 'angle')
+            options.radiation.theta_n_values=      get_config_value(configParser, options.radiation.theta_n_values, 'Radiation', 'Theta_n_values', 'int')
+            options.radiation.wavelength_min =     get_config_value(configParser, options.radiation.wavelength_min, 'Radiation', 'Wavelength_min', 'float')
+            options.radiation.wavelength_max =     get_config_value(configParser, options.radiation.wavelength_max, 'Radiation', 'Wavelength_max', 'float')
+            options.radiation.spectral           = get_config_value(configParser, False,  'Radiation', 'Spectral', 'boolean')
+            options.radiation.spectral_freq     = get_config_value(configParser, options.radiation.spectral_freq, 'Radiation', 'Spectral_freq', 'int')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
@@ -911,15 +1028,21 @@ def read_config_file(configParser, postprocess = ""):
             #Reads the user-defined geometries, properties and connectivity
             #to generate an assembly. The information is stored in the titan object
             titan = read_geometry(configParser, options)
-            
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
-                ### bc_ids = [obj.fenics_bc_id for obj in assembly.objects]
-                assembly.generate_inner_domain(write = False, output_folder = options.output_folder)
+                assembly.generate_inner_domain(write = options.pato.flag, output_folder = options.output_folder)
                 assembly.compute_mass_properties()
+                if options.pato.flag:
+                    for obj in assembly.objects:
+                        if obj.pato.flag:
+                            GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)                          
+                            bloom.generate_PATO_mesh(options, obj.global_ID, bloom = obj.bloom)
+                            pato.initialize(options, obj)
 
+                    #for each object, define connectivity to connected objects for heat conduction between objects
+                    pato.identify_object_connections(assembly)
             options.save_mesh(titan)
-        
+
         #Computes the quaternion and cartesian for the initial position
         for assembly in titan.assembly:
             assembly.trajectory = copy.deepcopy(trajectory)

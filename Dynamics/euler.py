@@ -45,7 +45,7 @@ def compute_Euler(titan, options):
         if flag_collision: collision.collision_physics(titan, options)
         #if flag_collision: collision.collision_physics_simultaneous(titan, options)
 
-    aerothermo.compute_aerothermo(titan, options)
+    aerothermo.compute_aerothermo(titan, options)  
 
     # If we go to switch.py or su2.py, Because we call deepcopy() function, we need to rebuild
     #the collision mesh
@@ -70,11 +70,12 @@ def compute_Euler(titan, options):
         __, time_step = collision.check_collision(titan, options, time_step)
     
     titan.time += time_step
+    titan.time = round(titan.time, 5)
 
     # Loop over the assemblies and compute the dericatives
     for assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(assembly)
-        cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)
+        cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)     
         update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step)
         
 def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step):
@@ -103,6 +104,8 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.velocity[1] += dt*cartesianDerivatives.dv
     assembly.velocity[2] += dt*cartesianDerivatives.dw
 
+    assembly.distance_travelled += np.sqrt(dt*cartesianDerivatives.dx*dt*cartesianDerivatives.dx+dt*cartesianDerivatives.dy*dt*cartesianDerivatives.dy+dt*cartesianDerivatives.dz*dt*cartesianDerivatives.dz) 
+
     q = assembly.quaternion
 
     # Get the new latitude, longitude and altitude
@@ -119,6 +122,8 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.trajectory.chi = np.arctan2(vEast,vNorth)
     
     R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+
+    norm = np.linalg.norm(assembly.quaternion)
 
     #Should it be like this??
     R_B_NED_quat = (R_NED_ECEF).inv()*Rot.from_quat(assembly.quaternion)

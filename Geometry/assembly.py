@@ -22,6 +22,8 @@ from Geometry import gmsh_api as GMSH
 from Geometry.tetra import inertia_tetra, vol_tetra
 import numpy as np
 from copy import deepcopy
+import subprocess
+import os
 
 def create_assembly_flag(list_bodies, Flags):
     """
@@ -294,7 +296,7 @@ class Aerothermo():
         A class to store the surface quantities
     """
 
-    def __init__(self,n_points):
+    def __init__(self,n_points, wall_temperature = 300):
 
         self.density = np.zeros((n_points))      
         self.temperature = np.zeros((n_points))
@@ -308,9 +310,9 @@ class Aerothermo():
 
         #: [np.array] Heatflux [W]
         self.heatflux = np.zeros((n_points))
-        self.wall_temperature = 300
+        self.wall_temperature = wall_temperature
 
-    def append(self, n_points = 0, temperature= 300):
+    def append(self, n_points = 0, temperature = 300):
         self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
         self.pressure = np.append(self.pressure, np.zeros(n_points))
         self.heatflux = np.append(self.heatflux, np.zeros(n_points))
@@ -395,6 +397,7 @@ class Assembly():
             #Loop the components that belong to the assembly, and append the surface mesh
             for obj in objects:
                 self.mesh = Mesh.append(self.mesh, obj.mesh)
+                obj.parent_id = self.id
 
             #Create the mapping between the facets and the vertex coordinates
             ___, self.mesh.facets = Mesh.map_facets_connectivity(self.mesh.v0, self.mesh.v1, self.mesh.v2) 
@@ -411,13 +414,16 @@ class Assembly():
             self.mesh.nodes_normal = Mesh.compute_nodes_normals(len(self.mesh.nodes), self.mesh.facets ,self.mesh.facet_COG, self.mesh.v0,self.mesh.v1,self.mesh.v2)
             self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
             self.mesh.nodes_radius, self.mesh.facet_radius, self.mesh.Avertex, self.mesh.Acorner = Mesh.compute_curvature(self.mesh.nodes, self.mesh.facets, self.mesh.nodes_normal, self.mesh.facet_normal, self.mesh.facet_area, self.mesh.v0, self.mesh.v1, self.mesh.v2)
+            #self.mesh.facet_radius = np.ones((len(self.mesh.facets)))
 
             self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes),3))
 
             #Create mapping between the nodes and facets of the singular component and the assembly
             for obj in objects:
-                obj.node_index, obj.node_mask = Mesh.create_index(self.mesh.nodes, obj.mesh.nodes)
-                obj.facet_index, obj.facet_mask = Mesh.create_index(self.mesh.facet_COG, obj.mesh.facet_COG)
+                #obj.node_index, obj.node_mask = Mesh.create_index(self.mesh.nodes, obj.mesh.nodes)
+                #obj.facet_index, obj.facet_mask = Mesh.create_index_facet(self.mesh.facet_COG, obj.mesh.facet_COG)
+                obj.node_index  = Mesh.create_index_mapping(self.mesh.nodes, obj.mesh.nodes)
+                obj.facet_index = Mesh.create_index_mapping(self.mesh.facet_COG, obj.mesh.facet_COG)
 
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
             self.inside_shock = np.zeros(len(self.mesh.nodes))
@@ -433,8 +439,13 @@ class Assembly():
 
         self.collision = None
 
-        if options.ablation_mode.lower() == '0d':
-            if options.post_fragment_tetra_ablation:
+        self.emissivity = np.zeros(len(self.mesh.facets))
+        self.emissive_power = np.zeros(len(self.mesh.facets))
+        self.total_emissive_power = 0
+        self.hf_cond = np.zeros(len(self.mesh.facets))
+
+        if options.thermal.ablation_mode.lower() == '0d':
+            if options.thermal.post_fragment_tetra_ablation:
                 if len(self.objects) > 1:
                     self.ablation_mode = '0d'
                 else:
@@ -442,10 +453,17 @@ class Assembly():
             else:
                 self.ablation_mode = '0d'
 
-        elif options.ablation_mode.lower() == 'tetra':
+        elif options.thermal.ablation_mode.lower() == 'tetra':
             self.ablation_mode = 'tetra'
 
-        else: raise ValueError("ablation mode has to be Tetra or 0D")
+        elif options.thermal.ablation_mode.lower() == 'pato':
+            self.ablation_mode = 'PATO'      
+
+        else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
+
+        self.distance_travelled = 0
+
+        self.quaternion_prev = np.array([])
 
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):

@@ -479,6 +479,8 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
     aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
     aerothermo.pressure -= freestream.pressure 
 
+    aerothermo.pressure -= freestream.pressure
+
     try:
         aerothermo.shear = vtk_to_numpy(data.GetPointData().GetArray('Skin_Friction_Coefficient'))[idx_sim][idx_inv]
         aerothermo.shear *= 0.5*freestream.density*freestream.velocity**2
@@ -549,9 +551,8 @@ def run_SU2(n, options):
 
     options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if n>1: subprocess.run(['mpirun','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    if n>1: subprocess.run(['mpirun','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
     else: subprocess.run([path + '/Executables/SU2_CFD', options.output_folder + '/CFD_sol/Config.cfg'], text=True)
-
 def generate_BL(assembly, options, it, cluster_tag):
     """
     Generates a Boundary Layer
@@ -569,7 +570,7 @@ def generate_BL(assembly, options, it, cluster_tag):
     """
 
     if options.bloom.flag:
-        bloom.generate_BL(it, options, num_obj = len(assembly), bloom = options.bloom, input_grid ='Domain_'+str(it)+'_cluster_'+str(cluster_tag) , output_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
+        bloom.generate_BL_CFD(it, options, num_obj = len(assembly), bloom = options.bloom, input_grid ='Domain_'+str(it)+'_cluster_'+str(cluster_tag) , output_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
     
 def adapt_mesh(assembly, options, it, cluster_tag, iteration):
     """
@@ -591,7 +592,7 @@ def adapt_mesh(assembly, options, it, cluster_tag, iteration):
         amg.adapt_mesh(options.amg, iteration, options, j = it, num_obj = len(assembly),  input_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it)+'_cluster_'+str(cluster_tag), output_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
 
 
-def compute_cfd_aerothermo(assembly_list,titan, options, cluster_tag = 0):
+def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
 
     """
     Compute the aerothermodynamic properties using the CFD software
@@ -608,6 +609,7 @@ def compute_cfd_aerothermo(assembly_list,titan, options, cluster_tag = 0):
     
     #TODO:
     # ---> size ref should also be in the options config file
+    assembly_list = titan.assembly
 
     iteration = options.current_iter
     su2 = options.cfd 
@@ -747,7 +749,6 @@ def compute_cfd_aerothermo(assembly_list,titan, options, cluster_tag = 0):
     #Automatically generates the CFD domain
     input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
     GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
-
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)
     it = 0
@@ -767,6 +768,64 @@ def compute_cfd_aerothermo(assembly_list,titan, options, cluster_tag = 0):
     #     options.cfd.cfl = 0.1
     config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = input_grid, bloom=False)
     
+    #Runs SU2 simulaton
+    run_SU2(n, options)
+
+    #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
+    if options.amg.flag:
+        run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)
+
+    post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free)
+
+
+def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
+    """
+    Compute the aerothermodynamic properties using the CFD software
+
+    Parameters
+    ----------
+    assembly_list: List_Assembly
+        Object of class List_Assembly
+    options: Options
+        Object of class Options
+    cluster_tag: int
+        Value of Cluster tag
+    """
+    
+    #TODO:
+    # ---> size ref should also be in the options config file
+    assembly_list = titan.assembly
+    iteration = options.current_iter
+    su2 = options.cfd 
+
+    n = options.cfd.cores
+    if options.amg.flag: 
+        adapt_iter = options.cfd.adapt_iter
+    else:
+        adapt_iter = 0
+
+    #Choose index of the object with lower altitude
+    altitude = 1E10
+
+    for index,assembly in enumerate(assembly_list):
+        if assembly.trajectory.altitude < altitude:
+            altitude = assembly.trajectory.altitude
+            it = index
+            lref = assembly.Lref
+    
+
+    free = assembly_list[it].freestream
+    #TODO options for ref_size_surf
+
+    #Number of iterations to smooth surface
+    num_smooth_iter = 0
+
+    restart_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(su2.restart_grid)+'_cluster_'+str(cluster_tag)+'.su2'
+
+    #Writes the configuration file
+    it = su2.restart_grid
+    restart = True
+    config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = restart_grid, bloom=False)
     #Runs SU2 simulaton
     run_SU2(n, options)
     if adapt_params['change_back']:

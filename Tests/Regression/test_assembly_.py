@@ -26,7 +26,7 @@ import meshio
 options, titan = main("Tests/Configs/assembly_CFD.txt")
 
 titan_aerothermo_cfd = titan.assembly[0].aerothermo_cfd
-SU2_mesh = meshio.read("Tests/Simulation/CFD_sol/surface_flow_0_0_cluster_0.vtk")
+SU2_mesh = meshio.read("Tests/Simulation/CFD_sol/surface_flow_0_adapt_0_cluster_0.vtk")
 
 index = titan_aerothermo_cfd.pressure != 0
 

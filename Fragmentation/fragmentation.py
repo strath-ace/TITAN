@@ -29,7 +29,11 @@ import trimesh
 from Geometry.component import Component
 from collections import defaultdict
 from Dynamics import collision
+<<<<<<< HEAD
 from Uncertainty.uncertainty import write_demise
+=======
+from Thermal import pato
+>>>>>>> ESA-detection-PATO-dev
 
 def demise_components(titan, i, joints_id, options): 
     """
@@ -54,6 +58,7 @@ def demise_components(titan, i, joints_id, options):
     COG = titan.assembly[i].COG
     angle = np.array([titan.assembly[i].roll, titan.assembly[i].pitch, titan.assembly[i].yaw])
     angle_vel = np.array([titan.assembly[i].roll_vel, titan.assembly[i].pitch_vel, titan.assembly[i].yaw_vel])
+    distance_travelled = titan.assembly[i].distance_travelled
 
     connectivity = titan.assembly[i].connectivity
     index = np.zeros(len(connectivity), dtype = bool)
@@ -199,6 +204,7 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].trajectory.latitude = latitude
         titan.assembly[-1].trajectory.longitude = longitude
         titan.assembly[-1].trajectory.altitude = altitude
+        titan.assembly[-1].distance_travelled = distance_travelled 
 
         [vEast, vNorth, vUp] = pymap3d.uvw2enu(titan.assembly[-1].velocity[0], titan.assembly[-1].velocity[1], titan.assembly[-1].velocity[2], latitude, longitude, deg=False)
 
@@ -226,6 +232,9 @@ def check_breakup_v2(titan, options):
         tri_mesh.triangles = o3d.utility.Vector3iVector(assembly.mesh.facets)
         
         #Compute the surface clusters
+        #Function that clusters connected triangles, i.e., triangles that are connected via edges are assigned
+        #the same cluster index. This function returns an array that contains the cluster index per triangle,
+        #a second array contains the number of triangles per cluster, and a third vector contains the surface area per cluster.
         triangle_clusters, cluster_n_triangles, cluster_area = (tri_mesh.cluster_connected_triangles())
         triangle_clusters = np.asarray(triangle_clusters)
 
@@ -587,7 +596,7 @@ def fragmentation(titan, options):
                 """
 
             if obj.mass <= 0 or len(obj.mesh.nodes) <= 3:
-                print ('Mass demise occured')
+                print ('Mass demise occured for object:', obj.name)
                 objs_id = np.append(objs_id, _id)
                 print(objs_id)
                         
@@ -621,3 +630,8 @@ def fragmentation(titan, options):
                 options.time_counter = options.collision.post_fragmentation_iters
 
         output.generate_volume(titan = titan, options = options)
+
+    
+    if options.thermal.ablation and options.pato.flag:
+        for assembly in titan.assembly:
+            pato.identify_object_connections(assembly)

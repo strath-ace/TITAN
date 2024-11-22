@@ -25,6 +25,7 @@ from Output import output
 from Dynamics import dynamics
 from Fragmentation import fragmentation
 from Postprocess import postprocess as pp
+from Postprocess import postprocess_emissions as pp_emissions
 from Thermal import thermal
 from Structural import structural
 from pathlib import Path
@@ -61,13 +62,16 @@ def loop(options = [], titan = []):
 
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
-        titan.assembly[0].mass = options.vehicle.mass
+        titan.assembly[0].mass = options.vehicle.mass   
 
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
 
+        #if options.current_iter%options.output_freq == 0:
+        #    output.generate_surface_solution(titan = titan, options = options)
+
         fragmentation.fragmentation(titan = titan, options = options)
-        if not titan.assembly: return
+        if not titan.assembly: return      
 
         if options.time_counter>0:
             options.dynamics.time_step = options.collision.post_fragmentation_timestep
@@ -76,22 +80,26 @@ def loop(options = [], titan = []):
             options.dynamics.time_step = options.user_time
 
         dynamics.integrate(titan = titan, options = options)
-        output.generate_surface_solution(titan = titan, options = options)
+        #output.generate_surface_solution(titan = titan, options = options)
 
-        if options.ablation:
-            if options.ablation_mode == "tetra":
-                thermal.compute_thermal_tetra(titan = titan, options = options)
-            elif options.ablation_mode == "0d":
-                thermal.compute_thermal_0D(titan = titan, options = options)
-            else:
-                raise ValueError("Ablation Mode can only be 0D or Tetra")
+        if options.thermal.ablation:
+            thermal.compute_thermal(titan = titan, options = options)
+
+            if options.radiation.black_body_emissions and (options.current_iter%options.radiation.black_body_emissions_freq == 0):
+                thermal.compute_black_body_emissions(titan = titan, options = options)
+            if options.radiation.spectral and (options.current_iter%options.radiation.spectral_freq == 0):
+                thermal.compute_black_body_spectral_emissions(titan = titan, options = options)
+            if options.thermal.ablation and options.radiation.particle_emissions and options.thermal.pato and (options.current_iter%options.radiation.black_body_emissions_freq == 0):
+                thermal.compute_particle_emissions(titan = titan, options = options)
 
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)
-
-        output.generate_surface_solution(titan = titan, options = options)
+            
+        #output.generate_surface_solution(titan = titan, options = options)
+        if options.current_iter%options.output_freq == 0:
+            output.generate_surface_solution(titan = titan, options = options)         
         
         output.iteration(titan = titan, options = options)
 
@@ -100,9 +108,9 @@ def loop(options = [], titan = []):
         if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
             options.save_state(titan, options.current_iter)
 
-    options.save_state(titan)
+   # options.save_state(titan)
 
-def main(filename = "", postprocess = "", filter_name = None):
+def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     """TITAN main function
 
     Parameters
@@ -127,7 +135,7 @@ def load_and_run_cfg(cfg,postprocess,filter_name):
     options, titan = configuration.read_config_file(cfg, postprocess)
 
     #Initialization of the simulation
-    if not postprocess:
+    if (not postprocess) and (not emissions):
         loop(options, titan)
         print("Finished simulation")
         return options, titan
@@ -137,6 +145,9 @@ def load_and_run_cfg(cfg,postprocess,filter_name):
     if postprocess:
         Path(options.output_folder+'/Postprocess/').mkdir(parents=True, exist_ok=True)
         pp.postprocess(options, postprocess, filter_name)
+    if emissions:
+        Path(options.output_folder+'/Postprocess_emissions/').mkdir(parents=True, exist_ok=True)
+        pp_emissions.postprocess_emissions(options)
     
 if __name__ == "__main__":
 
@@ -158,8 +169,13 @@ if __name__ == "__main__":
     parser.add_argument("-flt", "--filter",
                         dest="filtername",
                         type=str,
-                        help="filter postprocess (name of the ovject)",
+                        help="filter postprocess (name of the object)",
                         metavar="filtername")
+    parser.add_argument("-em", "--emissions",
+                        dest="emissions",
+                        type=str,
+                        help="simulation emissions (spectral, polar)",
+                        metavar="emissions")
     
     args=parser.parse_args()
 
@@ -169,7 +185,10 @@ if __name__ == "__main__":
     filename = args.configfilename
     postprocess = args.postprocess
     filter_name = args.filtername
+    emissions = args.emissions
     if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef"):
         raise Exception("Postprocess can only be WIND or ECEF")
+    if emissions and (emissions.lower()!="spectral" and emissions.lower()!="polar"):
+        raise Exception("Postprocessing emissions can only be SPECTRAL or POLAR")
 
-    main(filename = filename, postprocess = postprocess, filter_name = filter_name)
+    main(filename = filename, postprocess = postprocess, filter_name = filter_name, emissions = emissions)

@@ -316,7 +316,11 @@ def compute_aerothermo(titan, options):
         compute_low_fidelity_aerothermo(titan.assembly, options)
     elif options.fidelity.lower() == 'high':
         if options.cfd.cfd_restart: su2.restart_cfd_aerothermo(titan, options)
+<<<<<<< HEAD
         else: su2.compute_cfd_aerothermo(titan.assembly,titan, options)
+=======
+        else: su2.compute_cfd_aerothermo(titan, options)
+>>>>>>> ESA-detection-PATO-dev
     elif options.fidelity.lower() == 'multi':
         switch.compute_aerothermo(titan, options)
     else:
@@ -423,41 +427,6 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         Object of class Options
     """
 
-    def COG_subdivision(v0,v1,v2, COG, start, n, i = 1):
-
-        v0v1 = (v0 + v1) / 2.0
-        v0v2 = (v0 + v2) / 2.0
-        v1v2 = (v1 + v2) / 2.0
-
-        if i == n:
-
-            COG[start+0::4**n,:] = (v0v1 + v0v2 + v0)/3.0
-            COG[start+1::4**n,:] = (v0v1 + v1v2 + v1)/3.0
-            COG[start+2::4**n,:] = (v0v2 + v1v2 + v2)/3.0
-            COG[start+3::4**n,:] = (v0v1 + v0v2 + v1v2)/3.0
-
-            return start + 4
-
-        else:
-            start = COG_subdivision(v0v1,v0v2, v0, COG, start, n, i+1)
-            start = COG_subdivision(v0v1,v1, v1v2, COG, start, n, i+1)
-            start = COG_subdivision(v0v2,v1v2, v2, COG, start, n, i+1)
-            start = COG_subdivision(v0v1,v1v2, v0v2, COG, start, n, i+1)
-
-
-    def edge_subdivision(v0,v1,v2, n):
-    # Each subdivision level divides the triangle into 4 parts with equal areas
-    # Function returns the number of triangles and the geometrical center of each generated triangle
-
-        if n == 0:
-            COG = (v0+v1+v2)/3.0
-
-        else:
-            COG = np.zeros((len(v0)*4**n,3))
-            COG_subdivision(v0,v1,v2,COG, 0, n)
-
-        return COG
-
     #Number of subdivisions
     n = options.aerothermo.subdivision_triangle
 
@@ -469,26 +438,70 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
 
-        mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
-        ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
+        _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
 
-        COG = edge_subdivision(_assembly.mesh.v0, _assembly.mesh.v1, _assembly.mesh.v2, n)
-
-        ray_list = COG - 1E-4*flow_direction  #flow_direction*3*_assembly.Lref
-
-        ray_directions = np.tile(-flow_direction,len(ray_list))
-        ray_directions.shape = (-1,3)
-
-        index = ~ray.intersects_any(ray_origins = ray_list, ray_directions = ray_directions)
-        index.shape = (-1, 4**n)
-        index = np.sum(index, axis = 1)
-
-        _assembly.aerothermo.partial_factor = np.zeros(len(_assembly.mesh.facets)) + index/(4**n)
-
-        index = np.arange(len(_assembly.mesh.facets))[index != 0]
+        index = ray_trace(_assembly, flow_direction, n)
 
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
+
+
+def edge_subdivision(v0,v1,v2, n):
+# Each subdivision level divides the triangle into 4 parts with equal areas
+# Function returns the number of triangles and the geometrical center of each generated triangle
+
+    def COG_subdivision(v0,v1,v2, COG, start, n, i = 1):
+    
+        v0v1 = (v0 + v1) / 2.0
+        v0v2 = (v0 + v2) / 2.0
+        v1v2 = (v1 + v2) / 2.0
+    
+        if i == n:
+    
+            COG[start+0::4**n,:] = (v0v1 + v0v2 + v0)/3.0
+            COG[start+1::4**n,:] = (v0v1 + v1v2 + v1)/3.0
+            COG[start+2::4**n,:] = (v0v2 + v1v2 + v2)/3.0
+            COG[start+3::4**n,:] = (v0v1 + v0v2 + v1v2)/3.0
+    
+            return start + 4
+    
+        else:
+            start = COG_subdivision(v0v1,v0v2, v0, COG, start, n, i+1)
+            start = COG_subdivision(v0v1,v1, v1v2, COG, start, n, i+1)
+            start = COG_subdivision(v0v2,v1v2, v2, COG, start, n, i+1)
+            start = COG_subdivision(v0v1,v1v2, v0v2, COG, start, n, i+1)
+
+
+    if n == 0:
+        COG = (v0+v1+v2)/3.0
+
+    else:
+        COG = np.zeros((len(v0)*4**n,3))
+        COG_subdivision(v0,v1,v2,COG, 0, n)
+
+    return COG
+
+def ray_trace(assembly, direction, n = 0):
+
+    mesh = trimesh.Trimesh(vertices=assembly.mesh.nodes, faces=assembly.mesh.facets)
+    ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
+
+    COG = edge_subdivision(assembly.mesh.v0, assembly.mesh.v1, assembly.mesh.v2, n)
+
+    ray_list = COG - 1E-4*direction  #direction*3*_assembly.Lref
+
+    ray_directions = np.tile(-direction,len(ray_list))
+    ray_directions.shape = (-1,3)
+
+    index_ray_trace = ~ray.intersects_any(ray_origins = ray_list, ray_directions = ray_directions)
+    index_ray_trace.shape = (-1, 4**n)
+    index_ray_trace = np.sum(index_ray_trace, axis = 1)
+
+    assembly.aerothermo.partial_factor = np.zeros(len(assembly.mesh.facets)) + index_ray_trace/(4**n)
+
+    index_ray_trace = np.arange(len(assembly.mesh.facets))[index_ray_trace != 0]
+
+    return index_ray_trace
 
 def aerodynamics_module_continuum(facet_normal,free, p, flow_direction):
     """
