@@ -85,13 +85,6 @@ def loop(options = [], titan = []):
         if options.thermal.ablation:
             thermal.compute_thermal(titan = titan, options = options)
 
-            if options.radiation.black_body_emissions and (options.current_iter%options.radiation.black_body_emissions_freq == 0):
-                thermal.compute_black_body_emissions(titan = titan, options = options)
-            if options.radiation.spectral and (options.current_iter%options.radiation.spectral_freq == 0):
-                thermal.compute_black_body_spectral_emissions(titan = titan, options = options)
-            if options.thermal.ablation and options.radiation.particle_emissions and options.thermal.pato and (options.current_iter%options.radiation.black_body_emissions_freq == 0):
-                thermal.compute_particle_emissions(titan = titan, options = options)
-
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO
             structural.run_FENICS(titan = titan, options = options)
@@ -129,10 +122,11 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     # This function is for easy modification of config objects, called here to prevent code repeats
     load_and_run_cfg(configParser, postprocess, filter_name)
 
-def load_and_run_cfg(cfg,postprocess,filter_name):
+def load_and_run_cfg(configParser,postprocess,filter_name):
 
     #Pre-processing phase: Creates the options and titan class
-    options, titan = configuration.read_config_file(cfg, postprocess)
+    options, titan = configuration.read_config_file(configParser, postprocess, emissions)
+    options.filepath = filename
 
     #Initialization of the simulation
     if (not postprocess) and (not emissions):
@@ -173,9 +167,7 @@ if __name__ == "__main__":
                         metavar="filtername")
     parser.add_argument("-em", "--emissions",
                         dest="emissions",
-                        type=str,
-                        help="simulation emissions (spectral, polar)",
-                        metavar="emissions")
+                        action="store_true")
     
     args=parser.parse_args()
 
@@ -188,7 +180,5 @@ if __name__ == "__main__":
     emissions = args.emissions
     if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef"):
         raise Exception("Postprocess can only be WIND or ECEF")
-    if emissions and (emissions.lower()!="spectral" and emissions.lower()!="polar"):
-        raise Exception("Postprocessing emissions can only be SPECTRAL or POLAR")
 
     main(filename = filename, postprocess = postprocess, filter_name = filter_name, emissions = emissions)

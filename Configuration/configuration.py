@@ -216,7 +216,7 @@ class Thermal():
 
 
 class PATO():
-    def __init__(self, flag = False, time_step = 0.1, n_cores = 6):
+    def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1):
 
 
         #: [boolean] Flag to perform PATO simulation
@@ -229,18 +229,15 @@ class PATO():
         self.n_cores = n_cores    
 
         #: [int] String to define type of boundary condition used in the PATO simulation
-        self.Ta_bc = 'qconv'            
+        self.Ta_bc = pato_mode #'fixed', 'qconv' or 'ablation' 
+
+        #Fraction of the melted material that is stripped away
+        self.fstrip = fstrip
 
 
 class Radiation():
-    def __init__(self, black_body_emissions = False, black_body_emissions_freq = 10000, particle_emissions = False,
-                 spectral = False, spectral_freq = 10000):
-
-        #: [boolean] Flag to compute black body emissions
-        self.black_body_emissions = black_body_emissions
-
-        #: [int] Frequency to compute black body emissions
-        self.black_body_emissions_freq = black_body_emissions_freq
+    def __init__(self, particle_emissions = False,
+                 spectral = False, spectral_freq = 10000, phi = 0, theta = 0, wavelengths = [0]):
 
         #: [boolean] Flag to compute particle emissions
         self.particle_emissions = particle_emissions
@@ -251,14 +248,9 @@ class Radiation():
         #: [int] Frequency to compute spectral emissions
         self.spectral_freq = spectral_freq                
 
-        self.phi_min = 0
-        self.phi_max = 0
-        self.phi_n_values = 1
-        self.theta_min = 0
-        self.theta_max = 0
-        self.theta_n_values = 1
-        self.wavelength_min = 0
-        self.wavelength_max = 0                
+        self.phi = phi
+        self.theta = theta
+        self.wavelengths = wavelengths             
 
 class Aerothermo():
     """ Aerothermo class
@@ -266,7 +258,7 @@ class Aerothermo():
         A class to store the user-defined aerothemo model options
     """
 
-    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100):
+    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100, mixture = "air5"):
 
         #: [str] Name of the heatflux model to be used
         self.heat_model = heat_model
@@ -279,6 +271,9 @@ class Aerothermo():
 
         #: [float] Value of the free-molecular knudsen
         self.knf = knf
+
+        #: [str] Mixture file name
+        self.mixture = mixture
 
 class Freestream():
     """ Freestream class
@@ -552,6 +547,7 @@ class Options():
 def get_config_value(configParser, variable, section, field, var_type, list_type = None):
     
     if configParser.has_option(section, field):
+
         if var_type == 'boolean':
             try:        
                 variable = configParser.getboolean(section, field)
@@ -585,6 +581,7 @@ def get_config_value(configParser, variable, section, field, var_type, list_type
                 if list_type == 'angle': variable = check_angle(configParser.get(section, field))
                 if list_type == 'fidelity': variable = check_fidelity(configParser.get(section, field))
                 if list_type == 'connectivity': variable = check_connectivity(configParser.get(section, field))
+                if list_type == 'wavelengths': variable = check_wavelengths(configParser.get(section, field))
                 if list_type == 'initial_condition':
                     ids, variable = check_initial_condition_array(configParser.get(section, field))
                     return ids, variable
@@ -613,6 +610,14 @@ def check_connectivity(connectivity):
     connectivity.shape = (-1,3)
 
     return connectivity
+
+def check_wavelengths(wavelengths):
+
+    wavelengths = wavelengths.replace('[','').replace(']','').replace(' ','').split(',')
+    wavelengths = [float(i) for i in wavelengths]
+    wavelengths = np.array(wavelengths)
+
+    return wavelengths
 
 def check_initial_condition_array(initial_condition):
     
@@ -803,7 +808,7 @@ def read_initial_conditions(titan, options, configParser):
     return
 
 
-def read_config_file(configParser, postprocess = ""):
+def read_config_file(configParser, postprocess = "", emissions = ""):
     """
     Read the config file
 
@@ -863,33 +868,29 @@ def read_config_file(configParser, postprocess = ""):
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
     if options.thermal.ablation:
         options.thermal.ablation_mode  = get_config_value(configParser, "0D",  'Thermal', 'Ablation_mode', 'str').lower()
-        options.radiation.black_body_emissions  = get_config_value(configParser, False,  'Radiation', 'Black_body_emissions', 'boolean')
         
         if (options.thermal.ablation_mode == "pato"):
             options.pato.flag = True
-            options.pato.time_step = get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
+            options.pato.Ta_bc  = get_config_value(configParser, options.pato.Ta_bc,  'PATO', 'PATO_mode', 'str').lower()
+            #PATO and TITAN time-step need to be the same for the consistency of the heat conduction and density change algorithm
+            options.pato.time_step = options.dynamics.time_step#get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
             options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
+            options.pato.fstrip = get_config_value(configParser, options.pato.fstrip, 'PATO', 'fStrip', 'float')
             if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
-            #Read Bloom conditions
-            #options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
-            #options.bloom.layers =      get_config_value(configParser,options.bloom.layers,'Bloom', 'Layers', 'int')
-            #options.bloom.spacing =     get_config_value(configParser,options.bloom.spacing,'Bloom', 'Spacing', 'float')
-            #options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
             options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
-            #if not options.bloom.flag: print('Error: PATO requires BLOOM for mesh generation.'); exit()
+            
             options.pato.solution_type = get_config_value(configParser, 'surface', 'PATO', 'Solution_type', 'str').lower()
-        if(options.radiation.black_body_emissions):
-            options.radiation.black_body_emissions_freq     = get_config_value(configParser, options.radiation.black_body_emissions_freq, 'Radiation', 'Black_body_emissions_freq', 'int')
-            options.radiation.phi_min      =       get_config_value(configParser, options.radiation.phi_min, 'Radiation', 'Phi_min', 'custom', 'angle')
-            options.radiation.phi_max      =       get_config_value(configParser, options.radiation.phi_max, 'Radiation', 'Phi_max', 'custom', 'angle')
-            options.radiation.phi_n_values =       get_config_value(configParser, options.radiation.phi_n_values, 'Radiation', 'Phi_n_values', 'int')
-            options.radiation.theta_min     =      get_config_value(configParser, options.radiation.theta_min, 'Radiation', 'Theta_min', 'custom', 'angle')
-            options.radiation.theta_max     =      get_config_value(configParser, options.radiation.theta_max, 'Radiation', 'Theta_max', 'custom', 'angle')
-            options.radiation.theta_n_values=      get_config_value(configParser, options.radiation.theta_n_values, 'Radiation', 'Theta_n_values', 'int')
-            options.radiation.wavelength_min =     get_config_value(configParser, options.radiation.wavelength_min, 'Radiation', 'Wavelength_min', 'float')
-            options.radiation.wavelength_max =     get_config_value(configParser, options.radiation.wavelength_max, 'Radiation', 'Wavelength_max', 'float')
-            options.radiation.spectral           = get_config_value(configParser, False,  'Radiation', 'Spectral', 'boolean')
-            options.radiation.spectral_freq     = get_config_value(configParser, options.radiation.spectral_freq, 'Radiation', 'Spectral_freq', 'int')
+            
+        options.radiation.spectral               = get_config_value(configParser, options.radiation.spectral, 'Radiation', 'Spectral_emissions', 'boolean')
+
+        if(options.radiation.spectral):
+            options.radiation.spectral_freq      = get_config_value(configParser, options.radiation.spectral_freq, 'Radiation', 'Frequency', 'int')
+            options.radiation.particle_emissions = get_config_value(configParser, options.radiation.particle_emissions, 'Radiation', 'Particle_emissions', 'boolean')
+            options.radiation.phi                = get_config_value(configParser, options.radiation.phi, 'Radiation', 'Phi', 'custom', 'angle')
+            options.radiation.theta              = get_config_value(configParser, options.radiation.theta, 'Radiation', 'Theta', 'custom', 'angle')
+            options.radiation.wavelengths        = get_config_value(configParser, options.radiation.wavelengths, 'Radiation', 'Wavelengths', 'custom', 'wavelengths')
+
+    if emissions: return options, None
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
@@ -898,6 +899,7 @@ def read_config_file(configParser, postprocess = ""):
     options.aerothermo.cat_method = get_config_value(configParser, 'constant', 'Aerothermo', 'Catalicity_method', 'str')
     options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
     options.aerothermo.subdivision_triangle = get_config_value(configParser, 0, 'Aerothermo', 'Level_division', 'int')
+    options.aerothermo.mixture = get_config_value(configParser, options.aerothermo.mixture, 'Aerothermo', 'Mixture', 'str')
 
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
@@ -910,7 +912,7 @@ def read_config_file(configParser, postprocess = ""):
     if options.freestream.model.lower() == "gram":
         options.gram = GRAM()
         options.gram.gramPath = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'GRAM_Path', 'str')
-        options.gram.spicePath = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'SPICE_Path', 'str') 
+        options.gram.spicePath = get_config_value(configParser, options.gram.spicePath, 'GRAM', 'SPICE_Path', 'str') 
         options.gram.MinMaxFactor = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'MinMaxFactor', 'str')
         options.gram.ComputeMinMaxFactor = get_config_value(configParser, options.gram.ComputeMinMaxFactor, 'GRAM', 'ComputeMinMaxFactor', 'str')
         options.gram.Uncertain = get_config_value(configParser, False, 'GRAM','Uncertain', 'boolean')

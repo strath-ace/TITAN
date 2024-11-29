@@ -102,6 +102,7 @@ Foam::threeDtecplotBoundaryMappingModel::~threeDtecplotBoundaryMappingModel()
 
 void Foam::threeDtecplotBoundaryMappingModel::update(scalar timeValue, label patchID, word fieldName)
 {
+  //Info << "fieldName:" << fieldName << endl;
 
   if(foundInList(fieldName,mappingFieldsName_ )) {
     int indexField_=-1;
@@ -172,6 +173,8 @@ void Foam::threeDtecplotBoundaryMappingModel::update(scalar timeValue, label pat
       Info << "--- mesh_.objectRegistry::foundObject<volScalarField>(mappingFieldsName_[fieldI]) ---  Foam::threeDtecplotBoundaryMappingModel::update(scalar timeValue, label patchID, word fieldName)" << endl;
     }
 
+    //Info << "\nPRINT HERE\n" << endl;
+    //Info << "mappingFileDataI_:" << mappingFileDataI_[mappingFieldsColumn_[fieldI]] << endl;
 
     if (mesh_.objectRegistry::foundObject<volScalarField>(mappingFieldsName_[fieldI])) {
       volScalarField& field_ = const_cast<volScalarField&>(mesh_.objectRegistry::lookupObject<volScalarField>(mappingFieldsName_[fieldI]));
@@ -190,6 +193,7 @@ void Foam::threeDtecplotBoundaryMappingModel::update(scalar timeValue, label pat
         fieldsInterp_.append(interpolateNearestFaceCOG(patchID,faceI, fieldI, mappingFileDataI_));
         fieldsInterp_.append(interpolateNearestFaceCOG(patchID,faceI, fieldI, mappingFileDataIPlus1_));
         field_.boundaryFieldRef()[patchID][faceI] = linearInterpolation(times_, fieldsInterp_, timeValue)*multiplier_;
+        //Info << "field_.boundaryFieldRef()[patchID][faceI]:" << field_.boundaryFieldRef()[patchID][faceI] << endl;
       }
     }
 

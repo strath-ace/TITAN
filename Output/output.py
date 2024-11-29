@@ -167,13 +167,17 @@ def write_output_data(titan, options):
         df["Assembly_ID"] = [assembly.id]
         for obj in assembly.objects:
             df["Obj_name"] = [obj.name]
-            df["Temperature"] = [obj.temperature]
+            #df["Temperature"] = [obj.temperature]
+            df["Density"] = [obj.material.density]
             df["Photons_second"] = [obj.photons]
             df["Mass"] = [obj.mass]
+            if options.pato.flag:
+                df["MaxTemperature"] = [max(obj.pato.temperature)]
+                print('obj:', obj.global_ID, ' max temp:', max(obj.pato.temperature))
             df["Max_stress"] = [obj.max_stress]
             df["Yield_stress"] = [obj.yield_stress]
             df["Parent_id"] = [obj.parent_id]
-            df["Parent_part"] = [obj.parent_part]
+            #df["Parent_part"] = [obj.parent_part]
             
             df = df.round(decimals = 6)
             df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
@@ -189,6 +193,12 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
     ellipse = np.array([])
     cellID = np.array([])
     emissive_power = np.array([])
+    theta = np.array([])
+    he = np.array([])
+    hw = np.array([])
+    Te = np.array([])
+    mDotVapor = np.array([])
+    mDotMelt = np.array([])
 
 
     for assembly in titan.assembly:
@@ -202,6 +212,15 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
         ellipse = assembly.inside_shock
         temperature  = assembly.aerothermo.temperature
         emissive_power = assembly.emissive_power
+        theta = assembly.aerothermo.theta
+        he = assembly.aerothermo.he
+        hw = assembly.aerothermo.hw
+        Te = assembly.aerothermo.Te
+        mDotVapor = np.zeros(len(assembly.mesh.facets))
+        mDotMelt  = np.zeros(len(assembly.mesh.facets))
+        if options.thermal.ablation_mode.lower() == 'pato' and options.pato.Ta_bc == 'ablation':
+            mDotVapor = assembly.mDotVapor
+            mDotMelt = assembly.mDotMelt
         #hf_cond = assembly.hf_cond
 
         for cellid in range(len(assembly.mesh.facets)):
@@ -213,11 +232,17 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
         cell_data = { "Pressure": [pressure],
                       "Heatflux": [heatflux],
                       "Temperature": [temperature],
-                      "Shear": [shear],
+                      #"Shear": [shear],
                       #"Radius": [radius],
                       #"CellID": [cellID], #uncommenting this actually crashes the code
                       "Emissive power": [emissive_power],
                       #"Heat conduction": [hf_cond],
+                      "Theta": [theta],
+                      "He": [he],
+                      "Hw": [hw],
+                      "Te": [Te],
+                      "mDotVapor": [mDotVapor],
+                      "mDotMelt": [mDotMelt],
                     }
 
         point_data = { "Displacement": displacement,

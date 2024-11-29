@@ -128,7 +128,7 @@ class Component():
         #if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato' and (not ("_joint" in self.name)):
         if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
             self.pato = PATO(options, len(mesh.facets), bloom_config, self.global_ID, self.temperature)
-            self.bloom = bloom(bloom_config)        
+            self.bloom = bloom(bloom_config)
 
     def compute_mass_properties(self, coords, elements, density):
         """
@@ -172,8 +172,17 @@ class PATO():
 
         self.hf_cond = np.zeros(len_facets)
 
+        self.mDotVapor = np.zeros(len_facets)
+
+        self.mDotMelt = np.zeros(len_facets)
+
         #: [bool] Flag value indicating the use of PATO for the thermal model
         self.flag = bloom_config[0]
+
+        #: [float] Value of mass loss due to ablation
+        self.mass_loss = 0        
+
+        self.molten = np.zeros(len_facets)
 
         Path(options.output_folder+'/PATO_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)

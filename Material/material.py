@@ -35,6 +35,8 @@ import os
 # specificHeatCapacity
 # meltingHeat
 # meltingTemperature
+# vaporizationHeat
+# vaporizationTemperature
 # heatConductivity
 # heatConductivityVirgin
 # emissivity
@@ -93,6 +95,12 @@ class Material():
 
 		#: [float] Melting Temperature value
 		self.meltingTemperature = self.material_meltingTemperature(index)
+
+		#: [float] Vaporization Heat value of the material
+		self.vaporizationHeat = self.material_vaporizationHeat(index)
+
+		#: [float] vaporization Temperature value
+		self.vaporizationTemperature = self.material_vaporizationTemperature(index)
 
 		#: [float] Emissivity value
 		self.emissivity = self.material_emissivity(index)                      #function of Temperature
@@ -205,6 +213,30 @@ class Material():
 		"""
 
 		return float(self.metalMaterial.find('meltingTemperature').get_text())
+
+	def material_vaporizationHeat(self,index):
+		"""
+		Function to retrieve the vaporization Heat value
+		
+		Returns
+		-------
+		vaporizationHeat: float
+			Return vaporization heat value
+		"""
+
+		return float(self.metalMaterial.find('vaporizationHeat').get_text())
+
+	def material_vaporizationTemperature(self,index):
+		"""
+		Function to retrieve the vaporization temperature value
+		
+		Returns
+		-------
+		vaporizationTemperature: float
+			Return vaporization temperature value
+		"""
+
+		return float(self.metalMaterial.find('vaporizationTemperature').get_text())
 
 	def material_emissivity(self,index):
 		"""

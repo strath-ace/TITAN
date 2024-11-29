@@ -312,17 +312,42 @@ class Aerothermo():
         self.heatflux = np.zeros((n_points))
         self.wall_temperature = wall_temperature
 
+        self.theta = np.zeros((n_points))
+        self.he = np.zeros((n_points))
+        self.hw = np.zeros((n_points))
+        self.Te = np.zeros((n_points))
+        self.rhoe = np.zeros((n_points))
+        self.ue = np.zeros((n_points))
+
+        #Air-5 species + material element
+        self.nSpecies = 6
+        self.ce_i = np.zeros((n_points, self.nSpecies))
+
     def append(self, n_points = 0, temperature = 300):
         self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
         self.pressure = np.append(self.pressure, np.zeros(n_points))
         self.heatflux = np.append(self.heatflux, np.zeros(n_points))
         self.shear = np.append(self.shear, np.zeros((n_points,3)), axis = 0)
+        self.theta = np.append(self.theta, np.zeros(n_points))
+        self.Te = np.append(self.Te, np.zeros(n_points))
+        self.he = np.append(self.he, np.zeros(n_points))
+        self.hw = np.append(self.hw, np.zeros(n_points))
+        self.rhoe = np.append(self.rhoe, np.zeros(n_points))
+        self.ue = np.append(self.ue, np.zeros(n_points))
+        self.ce_i = np.append(self.ce_i, np.zeros((n_points, self.nSpecies)))
 
     def delete(self, index):
         self.temperature = np.delete(self.temperature, index)
         self.pressure = np.delete(self.pressure, index)
         self.heatflux = np.delete(self.heatflux, index)
         self.shear = np.delete(self.shear, index, axis = 0)
+        self.theta = np.delete(self.theta, index)
+        self.Te = np.delete(self.Te, index)
+        self.he = np.delete(self.he, index)
+        self.hw = np.delete(self.hw, index)
+        self.rhoe = np.delete(self.rhoe, index)
+        self.ue = np.delete(self.ue, index)
+        self.ce_i = np.delete(self.ce_i, index)
 
 
 class Assembly():
@@ -440,6 +465,7 @@ class Assembly():
         self.collision = None
 
         self.emissivity = np.zeros(len(self.mesh.facets))
+        self.material_density = np.zeros(len(self.mesh.facets))
         self.emissive_power = np.zeros(len(self.mesh.facets))
         self.total_emissive_power = 0
         self.hf_cond = np.zeros(len(self.mesh.facets))
@@ -457,7 +483,11 @@ class Assembly():
             self.ablation_mode = 'tetra'
 
         elif options.thermal.ablation_mode.lower() == 'pato':
-            self.ablation_mode = 'PATO'      
+            self.ablation_mode = 'PATO'  
+            if options.pato.Ta_bc == 'ablation':
+                self.mDotVapor = np.zeros(len(self.mesh.facets))
+                self.mVapor = np.zeros(len(self.mesh.facets))
+                self.mDotMelt = np.zeros(len(self.mesh.facets))
 
         else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
 
@@ -539,7 +569,7 @@ class Assembly():
             self.COG = np.array([0,0,0])
         else:
             self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*self.mesh.vol_mass[:,None], axis = 0)/self.mass
-        
+
         #Computes the inertia matrix
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
 
