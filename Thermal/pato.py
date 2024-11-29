@@ -29,6 +29,7 @@ import os
 import re
 from scipy.spatial import KDTree
 from Material import material as Material
+import pandas as pd
 
 def compute_thermal(obj, time, iteration, options, hf, Tinf):
 
@@ -43,7 +44,7 @@ def compute_thermal(obj, time, iteration, options, hf, Tinf):
         Object of class Options
     """
     time_to_postprocess = setup_PATO_simulation(obj, time, iteration, options, hf, Tinf)
-
+    #exit()
     run_PATO(options, obj.global_ID)
 
     postprocess_PATO_solution(options, obj, time_to_postprocess)
@@ -573,7 +574,7 @@ def write_origin_folder(options, obj):
             f.write('p 101325;\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
-            f.write('value           uniform 300;\n')
+            f.write('value           uniform '+str(obj.pato.initial_temperature)+';\n')
         elif Ta_bc == "ablation":
             f.write('type             Bprime;\n')
             f.write('mixtureMutationBprime '+(mix_file)+';\n')
@@ -593,7 +594,7 @@ def write_origin_folder(options, obj):
             f.write('lambda 0.5;\n')
             f.write('Tedge 300;\n')
             f.write('hconv 0;\n')
-            f.write('value uniform 300;\n')
+            f.write('value uniform '+str(obj.pato.initial_temperature)+';\n')
             f.write('moleFractionGasInMaterial ( ("O"  0.115) ("N" 0) ("C" 0.206) ("H" 0.679));\n')  
         f.write('  }\n')
         f.write('}\n')

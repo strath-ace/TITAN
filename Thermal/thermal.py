@@ -438,12 +438,170 @@ def compute_black_body_spectral_emissions(assembly, options, emissions):
 
     return emissions
 
+#def compute_particle_spectral_emissions(assembly, options, emissions):
+#
+#    h_SI = 6.62607015e-34 # m2.kg.s-1        planck constant
+#    c_SI = 3e8            # m.s-1           light speed in vaccum
+#    #k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
+#    
+#    h = 6.62607015e-30 # cm2.kg.s-1        planck constant
+#    c = 3e10            # cm.s-1           light speed in vaccum
+#    k = 1.380649e-19   # cm2.kg.s-2.K-1 boltzmann constant    
+#
+#    Na = 6.023e23      # 1/mol Avogadro number
+#
+#    #A_O = [3.69e+07, 3.69e+07, 3.69e+07] #s-1
+#    #E_O = [86631.454*1.986e-23, 86627.778*1.986e-23, 86627.778*1.986e-23] #J
+#    #g_O = [7, 5, 3]
+#
+#    A_O = [3.69e+07] #s-1
+#    #E_O = [86631.454*1.986e-23] #J
+#    E_O = [86631.454] #J
+#    g_O = [7]
+#
+#    molarMass_O = 16*1e-3 #kg/mol
+#
+#    phi   = options.radiation.phi
+#    theta = options.radiation.theta
+#    wavelength = options.radiation.wavelengths
+#
+#    print('Computing spectral particle emissions ...')
+#
+#    #define viewpoint on the basis of angles
+#    viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
+#    
+#    #retrive index of facets seen from viewpoint
+#    index = Aerothermo.ray_trace(assembly, viewpoint)
+#
+#    vec1 = -viewpoint
+#    vec2 = np.array(assembly.mesh.facet_normal[index])
+#    angle = vg.angle(vec1, vec2) #degrees
+#    cosine = np.cos(angle*np.pi/180)
+#    
+#    #calculate blackbody spectral radiance
+#    temperature = np.full(len(index), 5000) #assembly.aerothermo.temperature[index]
+#    #print('temperature:', temperature)
+#    
+#
+#    for obj in assembly.objects:
+#        emissivity_obj = obj.material.emissivity(obj.temperature)
+#        assembly.emissivity[obj.facet_index] = emissivity_obj
+#        assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
+#    
+#        density_obj = obj.material.density
+#        assembly.material_density[obj.facet_index] = density_obj
+#    
+#    density = assembly.material_density[index]
+#    emissivity = assembly.emissivity[index]
+#    facet_area = assembly.mesh.facet_area[index]
+#
+#    for wavelength_i in range(len(wavelength)):
+#
+#        lamb = wavelength[wavelength_i]
+#        A    = A_O[wavelength_i]
+#        E    = E_O[wavelength_i]
+#        g    = g_O[wavelength_i]
+#
+#        print('wavelength:', wavelength)
+#        print('A:', A)
+#        print('E:', E)
+#        print('g:', g)
+#
+#        ZZ = partition('O I', temperature)
+#
+#        line_shape = 93964.923979865081 #1/um
+#
+#        #print('density:', density)
+#        #print('Na:', Na)
+#        #print('molarMass_O:', molarMass_O)
+#
+#        ntot = 1e16 #density*Na/molarMass_O
+#
+#        print('ntot:', ntot)
+#
+#        test1 = E/(k*temperature)
+#        #print('E/(k*temperature):', test1)
+#
+#        print('temperature:', temperature)
+#
+#        print('hc_k:', h*c/k)
+#
+#        exp = np.exp(-h*c*E/(k*temperature))
+#
+#        print('inside exp:', -h*c*E/(k*temperature))
+#
+#        print('exp:', exp)
+#
+#        print('exp test:', np.exp(-24.94592433))
+#
+#        print('ZZ:', ZZ)
+#
+#        print('g:', g)
+#
+#        
+#
+#        print('ntot:', ntot)
+#
+#        nn = g * exp * ntot / ZZ
+#
+#        print('nn:', nn)
+#
+#        #intensity = (h * c * A * nn * line / lamb)/(4*np.pi)
+#
+#        lamb = 7771.94
+#
+#        intensity = (h_SI * c_SI * 1e10 * A * nn / lamb)/(4*np.pi) # W/cm3-sr
+#
+#       
+#
+#
+#
+#        print('A:', A)
+#        print('nn:', nn);exit()
+#        print('lamb:', lamb)
+#        print('hc_4pi:', h_SI*c_SI*1e10/(4*np.pi))
+#
+#        print('A*nn', A*nn)
+#
+#
+#        print('hc_4pilamb:', h_SI*c_SI*1e10/(4*np.pi*lamb))
+#
+#        print('intensity:', intensity) #424,430,279.95 [W/m3/sr/m] 
+#
+#        intensity = (h_SI * c_SI * 1e10 * A * nn * line_shape/ lamb)/(4*np.pi) # W/cm3-sr-um
+#
+#        LOS = 100 #cm
+#
+#        print('intensity:', intensity) #424,430,279.95 [W/m3/sr/m] 
+#
+#        intensity = intensity * LOS
+#
+#        print('intensity:', intensity)
+#
+#        #grey-body radiation seen from viewpoint
+#        seen_intensity = intensity*cosine*emissivity
+#
+#        exit()
+#
+#        #weighing facet contribution by its area
+#        weighted_b = seen_intensity*facet_area
+#
+#        #sum contributions of all facets
+#        emissions[wavelength_i] += np.sum(weighted_b)
+#    
+#    return emissions
+
+
 def compute_particle_spectral_emissions(assembly, options, emissions):
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
-    print('h*c:', h*c)
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
+    
+    #h = 6.62607015e-30 # cm2.kg.s-1        planck constant
+    #c = 3e10            # cm.s-1           light speed in vaccum
+    #k = 1.380649e-19   # cm2.kg.s-2.K-1 boltzmann constant    
+
     Na = 6.023e23      # 1/mol Avogadro number
 
     #A_O = [3.69e+07, 3.69e+07, 3.69e+07] #s-1
@@ -451,7 +609,8 @@ def compute_particle_spectral_emissions(assembly, options, emissions):
     #g_O = [7, 5, 3]
 
     A_O = [3.69e+07] #s-1
-    E_O = [86631.454*1.986e-23] #J
+    #E_O = [86631.454*1.986e-23] #J
+    E_O = [86631.454] #cm-1
     g_O = [7]
 
     molarMass_O = 16*1e-3 #kg/mol
@@ -467,10 +626,15 @@ def compute_particle_spectral_emissions(assembly, options, emissions):
     
     #retrive index of facets seen from viewpoint
     index = Aerothermo.ray_trace(assembly, viewpoint)
+
+    vec1 = -viewpoint
+    vec2 = np.array(assembly.mesh.facet_normal[index])
+    angle = vg.angle(vec1, vec2) #degrees
+    cosine = np.cos(angle*np.pi/180)
     
     #calculate blackbody spectral radiance
     temperature = np.full(len(index), 5000) #assembly.aerothermo.temperature[index]
-    print('temperature:', temperature)
+    #print('temperature:', temperature)
     
 
     for obj in assembly.objects:
@@ -480,7 +644,10 @@ def compute_particle_spectral_emissions(assembly, options, emissions):
     
         density_obj = obj.material.density
         assembly.material_density[obj.facet_index] = density_obj
+    
     density = assembly.material_density[index]
+    emissivity = assembly.emissivity[index]
+    facet_area = assembly.mesh.facet_area[index]
 
     for wavelength_i in range(len(wavelength)):
 
@@ -496,45 +663,93 @@ def compute_particle_spectral_emissions(assembly, options, emissions):
 
         ZZ = partition('O I', temperature)
 
-        line = 1.0
+        line_shape = 93964.923979865081e-3 #1/um --> 1/nm
 
-        print('density:', density)
-        print('Na:', Na)
-        print('molarMass_O:', molarMass_O)
+        #print('density:', density)
+        #print('Na:', Na)
+        #print('molarMass_O:', molarMass_O)
 
-        ntot = 1e22 #density*Na/molarMass_O
+        ntot = 1e22 # 1/m3 #density*Na/molarMass_O
 
         print('ntot:', ntot)
 
         test1 = E/(k*temperature)
-        print('E/(k*temperature):', test1)
+        #print('E/(k*temperature):', test1)
 
-        exp = g*np.exp(-E/(k*temperature))
+        print('temperature:', temperature)
+
+        print('hc_k:', h*c/k)
+
+        
+        print('h:', h)
+        print('c:', c)
+        print('E:', E)
+
+        exp = np.exp(-h*c*E*100/(k*temperature))
+
+        print('inside exp:', -h*c*E/(k*temperature))
+
+        print('exp:', exp)
+
+        print('exp test:', np.exp(-24.94592433))
+
+        print('ZZ:', ZZ)
+
+        print('g:', g)
+
+        
+
+        print('ntot:', ntot)
+
+        nn = g * exp * ntot / ZZ
 
         print('exp:', exp)
 
         print('ZZ:', ZZ)
 
-        nn = g * exp * ntot / ZZ
+        print('g:', g)
 
+        #print('g * exp * 1e16 / ZZ = nn = :', g * exp * 1e16 / ZZ)
+
+
+        #intensity = (h * c * A * nn * line / lamb)/(4*np.pi)
+
+        lamb = 777.194e-9
+
+        intensity = (h * c * A * nn / lamb)/(4*np.pi) # W/m3-sr
+
+       
+
+
+
+        print('A:', A)
         print('nn:', nn)
+        print('lamb:', lamb)
+        #print('hc_4pi:', h_SI*c_SI*1e10/(4*np.pi))
 
-        intensity = (h * c * A * nn * line / lamb)/(4*np.pi)
+        print('A*nn', A*nn)
 
-        print('intensity:', intensity) #424,430,279.95 [W/m3/sr/m] 
+
+        #print('hc_4pilamb:', h_SI*c_SI*1e10/(4*np.pi*lamb))
+
+        print('intensity  W/m3-sr:', intensity)
+
+        intensity = (h * c  * A * nn * line_shape/ lamb)/(4*np.pi) # W/m3-sr-nm
+
+        LOS = 1 #m
+
+        print('intensity W/m3-sr-m:', intensity) #424,430,279.95 [W/m3-sr-m] 
+
+        intensity = intensity * LOS
+
+        print('intensity W/m2-sr-nm:', intensity)# [W/m2-sr-nm] 
 
         #grey-body radiation seen from viewpoint
-        vec1 = -viewpoint
-        vec2 = np.array(assembly.mesh.facet_normal[index])
-        angle = vg.angle(vec1, vec2) #degrees
-        cosine = np.cos(angle*np.pi/180)
-        emissivity = assembly.emissivity[index]
-        intensity = intensity*cosine*emissivity
+        seen_intensity = intensity*cosine*emissivity
 
         exit()
 
         #weighing facet contribution by its area
-        facet_area = assembly.mesh.facet_area[index]
         weighted_b = seen_intensity*facet_area
 
         #sum contributions of all facets

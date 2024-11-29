@@ -37,7 +37,7 @@ def postprocess_emissions(options):
 	
 	# Iterate and delete each file that contains the search_string
 	for file in files:
-		print(os.path.basename(file))
+		#print(os.path.basename(file))
 		if os.path.isfile(file) and search_string in os.path.basename(file):
 			os.remove(file)
 
