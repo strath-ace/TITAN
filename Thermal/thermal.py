@@ -244,7 +244,7 @@ def compute_thermal_PATO(titan, options):
         Tinf = assembly.freestream.temperature           
         for obj in assembly.objects:
             if obj.pato.flag: 
-                hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
+                hf = assembly.aerothermo.heatflux[obj.facet_index] +obj.pato.hf_cond
                 pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 

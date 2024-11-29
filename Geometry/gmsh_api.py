@@ -213,8 +213,9 @@ def generate_PATO_domain(obj, output_folder = ''):
 
     gmsh.model.geo.synchronize()
     gmsh.model.mesh.generate(3)
-
-    gmsh.write(output_folder +'/PATO_'+str(obj.global_ID)+'/mesh/'+'%s.su2'%('mesh'))
+    gmsh.write("pato_domain.msh")
+    gmsh.write("pato_domain.geo_unrolled")
+    gmsh.write(output_folder +'/PATO_'+str(obj.global_ID)+'/mesh/'+'%s.su2'%('pato_in_mesh'))
     gmsh.finalize()
 
 def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name):

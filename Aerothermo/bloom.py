@@ -19,6 +19,7 @@
 #
 import subprocess
 import os
+import glob
 
 class Bloom():
     def __init__(self, flag = False, layers = 20, spacing = 0.0006, growth_rate = 1.075):
@@ -92,15 +93,20 @@ def generate_PATO_mesh(options, object_id, bloom):
 
     path_folder = '/PATO_'+str(object_id)+'/mesh/'
 
-    input_grid = 'mesh'
+    input_grid = 'pato_in_mesh'
     output_grid = 'hybrid_mesh'
 
     create_bloom_config(1, bloom, options, path_folder)
 
-    subprocess.run(['python3.10', path+'/Executables/su2_to_gmf.py', '-m' ,options.output_folder + path_folder +input_grid+'.su2','-o',options.output_folder+path_folder+input_grid])
-    subprocess.run([path+'/Executables/amg_bloom', '-in', options.output_folder+path_folder+input_grid+'.meshb', '-bl-data',options.output_folder+path_folder+"bloom", '-bl-hybrid', '-out', options.output_folder+path_folder+input_grid+'_PL', '-hmsh'])
-    subprocess.run(['python3.10', path+'/Executables/gmf_to_su2.py', '-m', options.output_folder+path_folder+input_grid+'_PL.meshb', '-b', options.output_folder +path_folder+input_grid+'.su2', '-o', options.output_folder+path_folder+output_grid])
+    subprocess.run(['python', path+'/Executables/su2io/su2gmf/su2_to_gmf.py', '-m' ,options.output_folder + path_folder +input_grid+'.su2','-o',options.output_folder+path_folder+input_grid])
+    #subprocess.run(['ref','translate',options.output_folder + path_folder +input_grid+'.msh',options.output_folder+path_folder+input_grid+'.meshb'])
+    subprocess.run([path+'/Executables/amg_bloom', '-in', options.output_folder+path_folder+input_grid+'.meshb', '-bl-data',options.output_folder+path_folder+"bloom", '-bl-hybrid', '-out', options.output_folder+path_folder+output_grid+'_PL', '-hmsh'])
+    subprocess.run(['python', path+'/Executables/su2io/su2gmf/gmf_to_su2.py', '-m', options.output_folder+path_folder+output_grid+'_PL.meshb', '-b', options.output_folder +path_folder+input_grid+'.su2', '-o', options.output_folder+path_folder+output_grid])
     subprocess.run(['python', path+'/Executables/su2tomsh-amg.py', options.output_folder+path_folder+output_grid+".su2"])
-    subprocess.run(['mv', path+'/mesh.msh', options.output_folder+path_folder])
-    subprocess.run(['rm', '/'+options.output_folder+path_folder+'*.meshb'])
-    subprocess.run(['rm', '/'+options.output_folder+path_folder+'*.su2'])
+    subprocess.run(['mv', path+'/mesh.msh',options.output_folder+path_folder ])
+
+
+    meshb_files = glob.glob(options.output_folder+path_folder+'*.meshb')
+    su2_files = glob.glob(options.output_folder+path_folder+'*.su2')
+    for file in meshb_files: os.remove(file)
+    for file in su2_files: os.remove(file)

@@ -29,11 +29,8 @@ import trimesh
 from Geometry.component import Component
 from collections import defaultdict
 from Dynamics import collision
-<<<<<<< HEAD
 from Uncertainty.uncertainty import write_demise
-=======
 from Thermal import pato
->>>>>>> ESA-detection-PATO-dev
 
 def demise_components(titan, i, joints_id, options): 
     """

@@ -877,6 +877,7 @@ def read_config_file(configParser, postprocess = ""):
             #options.bloom.growth_rate = get_config_value(configParser,options.bloom.growth_rate,'Bloom', 'Growth_Rate', 'float')
             options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
             #if not options.bloom.flag: print('Error: PATO requires BLOOM for mesh generation.'); exit()
+            options.pato.solution_type = get_config_value(configParser, 'surface', 'PATO', 'Solution_type', 'str').lower()
         if(options.radiation.black_body_emissions):
             options.radiation.black_body_emissions_freq     = get_config_value(configParser, options.radiation.black_body_emissions_freq, 'Radiation', 'Black_body_emissions_freq', 'int')
             options.radiation.phi_min      =       get_config_value(configParser, options.radiation.phi_min, 'Radiation', 'Phi_min', 'custom', 'angle')

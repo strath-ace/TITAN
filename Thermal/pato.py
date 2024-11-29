@@ -153,7 +153,7 @@ def write_All_run_init(options, object_id):
         f.write('cd ' + options.output_folder + '/PATO_'+str(object_id)+' \n')
         f.write('cp -r origin.0 0 \n')
         f.write('cd verification/unstructured_gmsh/ \n')
-        f.write('ln -s ' + path + '/' + options.output_folder + 'PATO_'+str(object_id)+'/mesh/mesh.msh \n')
+        f.write('ln -s ' + os.path.abspath(options.output_folder) + '/PATO_'+str(object_id)+'/mesh/mesh.msh \n')
         f.write('cd ../.. \n')
         f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
         f.write('mv constant/polyMesh constant/subMat1 \n')
@@ -188,10 +188,10 @@ def write_All_run(options, obj, time, iteration):
     end_time = time + options.dynamics.time_step
     start_time = time
 
-    time_step_to_delete = time - options.dynamics.time_step
-    iteration_to_delete = int((iteration-1)*options.dynamics.time_step/options.pato.time_step)
+    time_step_to_delete = np.round(time - options.dynamics.time_step, len(str(options.dynamics.time_step).lstrip('0.'))) # Round to time step sig figs
+    #iteration_to_delete = int((iteration-1)*options.dynamics.time_step/options.pato.time_step)
 
-    print('copying BC:', end_time, ' - ', start_time)
+    #print('copying BC:', end_time, ' - ', start_time)
 
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/Allrun', 'w') as f:
 
@@ -243,11 +243,11 @@ def write_All_run(options, obj, time, iteration):
         f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         #f.write('rm mesh/*meshb \n')
-        print('time_step_to_delete:', time_step_to_delete)
-        print('end_time:', end_time)
-        print('start_time:', start_time)
+        #print('time_step_to_delete:', time_step_to_delete)
+        #print('end_time:', end_time)
+        #print('start_time:', start_time)
         for n in range(options.pato.n_cores):
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            if not options.pato.solution_type=='volume': f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             #f.write('rm -rf processor'+str(n)+'/restart/* \n')
             if options.current_iter%options.save_freq == 0:
                 f.write('rm -rf processor'+str(n)+'/restart/* \n')
@@ -494,8 +494,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
             Tinf = np.append(Tinf, freestream_temperature)
 
         if ((time).is_integer()): time = int(time)  
-
-        with open(options.output_folder + 'PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:
+        with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:
             f.write('TITLE     = "vol-for-blayer.fu"\n')
             f.write('VARIABLES = \n')
             f.write('"xw (m)"\n')
@@ -866,7 +865,8 @@ def initialize(options, obj):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init', str(n_proc)], text = True)
+    print('Running PATO initialisation...')
+    subprocess.run(options.output_folder + '/PATO_'+str(object_id)+'/Allrun_init '+ str(n_proc),shell=True, text = True,stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def run_PATO(options, object_id):
     """
@@ -879,8 +879,8 @@ def run_PATO(options, object_id):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
-
+    print('Running PATO simulation...')
+    subprocess.run(options.output_folder + '/PATO_'+str(object_id)+'/Allrun '+str(n_proc), text = False, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 def postprocess_PATO_solution(options, obj, time_to_read):
     """
     Postprocesses the PATO output
@@ -890,13 +890,13 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 	?????????????????????????
     """ 
 
-    path = options.output_folder+"PATO_"+str(obj.global_ID)+"/"
+    path = options.output_folder+"/PATO_"+str(obj.global_ID)+"/"
 
     #iteration_to_read = int(round((iteration+1)*options.dynamics.time_step/options.pato.time_step))
 
     n_proc = options.pato.n_cores
 
-    solution = 'surface'
+    solution = options.pato.solution_type
 
     if solution == 'surface':
         data = retrieve_surface_vtk_data(n_proc, path, time_to_read)
@@ -978,7 +978,7 @@ def retrieve_surface_vtk_data(n_proc, path, time_to_read):
     for n in range(n_proc):
         filename[n] = path + "processor" + str(n) + "/VTK/top/" +  "top_" + str(time_to_read) + ".vtk"
 
-    print('\n PATO solution filenames:', filename)
+    #print('\n PATO solution filenames:', filename)
 
     #Open the VTK solution files and merge them together into one dataset
     appendFilter = vtkAppendFilter()
@@ -994,6 +994,14 @@ def retrieve_surface_vtk_data(n_proc, path, time_to_read):
     appendFilter.Update()
     vtk_data = appendFilter.GetOutput()        
 
+    writer = vtk.vtkPolyDataWriter()
+    pato_output_folder = path + '/Output'
+    if not os.path.exists(pato_output_folder): os.mkdir(pato_output_folder)
+    time_to_write = str(float(time_to_read)).replace('.','').rjust(5,'0')
+    writer.SetFileName(pato_output_folder+'/surface_solution_'+time_to_write+'.vtk')
+    writer.SetInputData(vtk_data)
+    writer.Write()
+
     return vtk_data
 
 def retrieve_volume_vtk_data(n_proc, path, time_to_read):
@@ -1003,7 +1011,7 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
     for n in range(n_proc):
         filename[n] = path + "processor" + str(n) + "/VTK/" + "processor" + str(n) + "_" + str(time_to_read) + ".vtk"
 
-    print('\n PATO solution filenames:', filename)
+    #print('\n PATO solution filenames:', filename)
 
     #Open the VTK solution files and merge them together into one dataset
     appendFilter = vtkAppendFilter()
@@ -1018,12 +1026,25 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
     appendFilter.SetMergePoints(True)
     appendFilter.Update()
     data = appendFilter.GetOutput()
+    
+    writer = vtk.vtkUnstructuredGridWriter()
+    pato_output_folder = path + '/Output'
+    if not os.path.exists(pato_output_folder): os.mkdir(pato_output_folder)
+    time_to_write = str(float(time_to_read)).replace('.','').rjust(5,'0')
+    writer.SetFileName(pato_output_folder+'/volume_solution_'+time_to_write+'.vtk')
+    writer.SetInputData(data)
+    writer.Write()
 
     # extract surface data
     extractSurface=vtk.vtkGeometryFilter()
     extractSurface.SetInputData(data)
     extractSurface.Update()
-    vtk_data = extractSurface.GetOutput()    
+    vtk_data = extractSurface.GetOutput()
+
+
+
+    for file in filename:
+        os.remove(file)   
 
     return vtk_data
 
