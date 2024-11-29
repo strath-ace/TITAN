@@ -166,7 +166,7 @@ def generate_PATO_domain(obj, output_folder = ''):
     gmsh.initialize()
     mesh_Settings(gmsh)
 
-    ref_objects = 0.1
+    ref_objects = 1
     ref_joint = 1.0
     density_elem = []
     tag_elem = []

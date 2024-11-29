@@ -44,7 +44,7 @@ def compute_thermal(obj, time, iteration, options, hf, Tinf):
         Object of class Options
     """
     time_to_postprocess = setup_PATO_simulation(obj, time, iteration, options, hf, Tinf)
-    #exit()
+
     run_PATO(options, obj.global_ID)
 
     postprocess_PATO_solution(options, obj, time_to_postprocess)

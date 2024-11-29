@@ -960,7 +960,6 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
     if options.load_state:
         titan = options.read_state()
-        print('hf:', titan.assembly[0].aerothermo.heatflux); exit()
 
     else:
         #Read the initial trajectory details
