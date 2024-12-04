@@ -29,6 +29,7 @@ from Postprocess import postprocess_emissions as pp_emissions
 from Thermal import thermal
 from Structural import structural
 from pathlib import Path
+import numpy as np
 
 def loop(options = [], titan = []):
     """Simulation loop for time propagation
@@ -80,7 +81,10 @@ def loop(options = [], titan = []):
             options.dynamics.time_step = options.user_time
 
         dynamics.integrate(titan = titan, options = options)
-        #output.generate_surface_solution(titan = titan, options = options)
+        output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)
+        #np.savetxt('heatflux-output.csv', titan.assembly[0].aerothermo.heatflux, delimiter=',')
+        #exit()
+        #titan.time += options.dynamics.time_step
 
         if options.thermal.ablation:
             thermal.compute_thermal(titan = titan, options = options)
@@ -92,7 +96,7 @@ def loop(options = [], titan = []):
             
         #output.generate_surface_solution(titan = titan, options = options)
         if options.current_iter%options.output_freq == 0:
-            output.generate_surface_solution(titan = titan, options = options)         
+            output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)         
         
         output.iteration(titan = titan, options = options)
 

@@ -130,6 +130,8 @@
 		</specificHeatCapacity>
 		<meltingHeat>400000.0</meltingHeat>
 		<meltingTemperature>850.0</meltingTemperature>
+		<vaporizationHeat>400000.0</vaporizationHeat>
+		<vaporizationTemperature>850.0</vaporizationTemperature>
 		<emissivity>
 			<values>50.0,0.4;850.0,0.4;</values>
 		</emissivity>
@@ -152,8 +154,8 @@
 		</specificHeatCapacity>
 		<meltingHeat>361500.0</meltingHeat>
 		<meltingTemperature>906.15</meltingTemperature>
-		<vaporizationHeat>10500000.0</meltingHeat>
-		<vaporizationTemperature>2743.0</meltingTemperature>
+		<vaporizationHeat>10500000.0</vaporizationHeat>
+		<vaporizationTemperature>2743.0</vaporizationTemperature>
 		<emissivity>
 			<values>250.0,0.105;360.0,0.12;580.0,0.14;800.0,0.16;906.15,0.16;</values>
 		</emissivity>
@@ -208,8 +210,8 @@
 		</specificHeatCapacity>
 		<meltingHeat>361500.0</meltingHeat>
 		<meltingTemperature>310</meltingTemperature>
-		<vaporizationHeat>361500.0</meltingHeat>
-		<vaporizationTemperature>320.0</meltingTemperature>
+		<vaporizationHeat>361500.0</vaporizationHeat>
+		<vaporizationTemperature>320.0</vaporizationTemperature>
 		<emissivity>
 			<values>250.0,0.8;906.15,0.8;</values>
 		</emissivity>
@@ -237,8 +239,8 @@
 		</specificHeatCapacity>
 		<meltingHeat>397000.0</meltingHeat>
 		<meltingTemperature>933.5</meltingTemperature>
-		<vaporizationHeat>10500000.0</meltingHeat>
-		<vaporizationTemperature>2743.0</meltingTemperature>
+		<vaporizationHeat>10500000.0</vaporizationHeat>
+		<vaporizationTemperature>2743.0</vaporizationTemperature>
 		<emissivity>
 			<values>250.0,0.1;10000,0.1;</values>
 		</emissivity>
@@ -266,8 +268,8 @@
 		</specificHeatCapacity>
 		<meltingHeat>397000.0</meltingHeat>
 		<meltingTemperature>1941.15</meltingTemperature>
-		<vaporizationHeat>10500000.0</meltingHeat>
-		<vaporizationTemperature>2743.0</meltingTemperature>
+		<vaporizationHeat>10500000.0</vaporizationHeat>
+		<vaporizationTemperature>2743.0</vaporizationTemperature>
 		<emissivity>
 			<values>100.0,0.55;10000,0.55;</values>
 		</emissivity>
@@ -295,8 +297,8 @@
 		</specificHeatCapacity>
 		<meltingHeat>397000.0</meltingHeat>
 		<meltingTemperature>10000</meltingTemperature>
-		<vaporizationHeat>10500000.0</meltingHeat>
-		<vaporizationTemperature>10000</meltingTemperature>
+		<vaporizationHeat>10500000.0</vaporizationHeat>
+		<vaporizationTemperature>10000</vaporizationTemperature>
 		<emissivity>
 			<values>250.0,0.1;10000,0.1;</values>
 		</emissivity>

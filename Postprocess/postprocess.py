@@ -92,18 +92,18 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		R_B_ECEF = Rot.from_quat(q[i])
 
 		#Apply Displacement due to the use of FEniCS
-		mesh[i].points += mesh[i].point_data['Displacement']
+		#mesh[i].points += mesh[i].point_data['Displacement']
 
 		#Translate the assembly to (0,0,0)
-		mesh[i].points -= np.array([body_X[i],body_Y[i],body_Z[i]])
+		#mesh[i].points -= np.array([body_X[i],body_Y[i],body_Z[i]])
 		mesh[i].points = R_B_ECEF.apply(mesh[i].points)
 
 		#Translate to the ECEF position
-		mesh[i].points += np.array([X[i],Y[i],Z[i]])		
+		#mesh[i].points += np.array([X[i],Y[i],Z[i]])		
 
 	#Place the heaviest object in the origin
-	for i, _id in enumerate(assembly_ID):
-		mesh[i].points -= np.array([X[index_mass],Y[index_mass],Z[index_mass]])
+	#for i, _id in enumerate(assembly_ID):
+		#mesh[i].points -= np.array([X[index_mass],Y[index_mass],Z[index_mass]])
 	
 	if postprocess.lower() == "wind": 
 		#Rotate ECEF -> wind_frame

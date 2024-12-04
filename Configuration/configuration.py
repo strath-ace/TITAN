@@ -34,6 +34,7 @@ from Model import planet, vehicle, drag_model
 from Aerothermo import bloom
 from Thermal import pato
 from Geometry import gmsh_api as GMSH
+from Freestream import mix_properties
 
 
 class Collision_options():
@@ -995,7 +996,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             
         #Reads the Initial pitch/yaw/roll 
         read_initial_conditions(titan, options, configParser)
-        
+
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)
 

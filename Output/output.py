@@ -181,7 +181,7 @@ def write_output_data(titan, options):
             df = df.round(decimals = 6)
             df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
 
-def generate_surface_solution(titan, options, folder = 'Surface_solution'):
+def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solution'):
     points = np.array([])
     facets = np.array([])
     pressure = np.array([])
@@ -256,8 +256,31 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
         folder_path = options.output_folder+'/' + folder + '/ID_'+str(assembly.id)
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
-        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(titan.iter).zfill(3)}.xdmf"
+        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(iter_value).zfill(3)}.xdmf"
         meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+
+def generate_surface_solution_object(obj, quantity, options, iter_value, folder = 'Surface_solution'):
+
+    points = np.array([])
+    facets = np.array([])
+
+    points = obj.mesh.nodes
+    facets = obj.mesh.facets
+    
+    cells = {"triangle": facets}
+
+    cell_data = { "quantity": [quantity],
+                }
+
+    trimesh = meshio.Mesh(points,
+                          cells=cells,
+                          cell_data = cell_data)
+
+    folder_path = options.output_folder+'/' + folder
+    Path(folder_path).mkdir(parents=True, exist_ok=True)
+
+    vol_mesh_filepath = f"{folder_path}/obj_{str(obj.global_ID)}_solution_iter_{str(iter_value).zfill(3)}.xdmf"
+    meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 #Generate volume for FENICS
 def generate_volume(titan, options):

@@ -72,9 +72,11 @@ def write_material_properties(options, obj):
     k_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'heatConductivity', 4)
     density = obj.material.density
 
-    cp = obj.material.specificHeatCapacity(300+(obj.material.meltingTemperature-300)/2)
-    em = obj.material.emissivity(300+(obj.material.meltingTemperature-300)/2)
-    tc = obj.material.heatConductivity(300+(obj.material.meltingTemperature-300)/2)
+    T0 = obj.pato.initial_temperature
+
+    cp = obj.material.specificHeatCapacity(T0+(obj.material.meltingTemperature-T0)/2)
+    em = obj.material.emissivity(T0+(obj.material.meltingTemperature-T0)/2)
+    tc = obj.material.heatConductivity(T0+(obj.material.meltingTemperature-T0)/2)
 
     object_id = obj.global_ID
 
@@ -249,13 +251,15 @@ def write_All_run(options, obj, time, iteration):
         print('end_time:', end_time)
         print('start_time:', start_time)
         for n in range(options.pato.n_cores):
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
             #f.write('rm -rf processor'+str(n)+'/restart/* \n')
             if options.current_iter%options.save_freq == 0:
                 f.write('rm -rf processor'+str(n)+'/restart/* \n')
                 f.write('cp -r  processor'+str(n)+'/'+str(start_time)+'/ processor'+str(n)+'/restart/ \n')
+                f.write('mv  processor'+str(n)+'/VTK/proce* processor'+str(n)+'/restart/ \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
         #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
         #if time_step_to_delete/options.dynamics.time_step != options.save_freq:
             #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
@@ -590,6 +594,7 @@ def write_origin_folder(options, obj):
             f.write('    (molten "6")\n')
             f.write(');\n')
             f.write('chemistryOn 1;\n')
+            f.write('p 101325;\n')
             f.write('qRad 0;\n')
             f.write('lambda 0.5;\n')
             f.write('Tedge 300;\n')
@@ -933,6 +938,14 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
     y = obj.mesh.facet_COG[:,1]
     z = obj.mesh.facet_COG[:,2]
     Tinf = np.full(n_data_points, freestream_temperature)
+
+    #print('conv_heatflux:', conv_heatflux)
+
+
+
+    #print('conv_heatflux:', conv_heatflux)
+
+    #conv_heatflux = dart_hf[obj.facet_index]
 
     if ((time).is_integer()): time = int(time)  
 
