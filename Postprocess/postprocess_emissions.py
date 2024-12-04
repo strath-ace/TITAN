@@ -30,13 +30,11 @@ from Aerothermo import aerothermo as Aerothermo
 from Aerothermo import switch as Switch
 import vg
 from copy import deepcopy
-from Dynamics import euler, frames
+from Dynamics import frames
 import sympy
 from sympy import sqrt,tan
 import meshio
 from pathlib import Path
-from joblib import Parallel, delayed
-from scipy.spatial import KDTree
 
 
 def postprocess_emissions(options):
@@ -189,109 +187,6 @@ def line_of_sight(titan, options, iteration):
 
 			output.generate_surface_solution_object(obj, obj.LOS, options, iter_value = iteration, folder = 'Postprocess_emissions')
 
-#def intersect_line_triangle(line_point, line_dir, triangle):
-#    """
-#    Compute the intersection of a line with a triangle in 3D space.
-#
-#    Parameters:
-#        line_point (numpy.ndarray): A point on the line (1x3).
-#        line_dir (numpy.ndarray): Direction vector of the line (1x3).
-#        triangle (numpy.ndarray): 3x3 array of triangle vertices.
-#
-#    Returns:
-#        tuple: (intersection_point, distance), or (None, None) if no intersection.
-#    """
-#    EPSILON = 1e-8
-#    v0, v1, v2 = triangle  # Triangle vertices
-#    edge1 = v1 - v0
-#    edge2 = v2 - v0
-#    h = np.cross(line_dir, edge2)
-#    a = np.dot(edge1, h)
-#
-#    if -EPSILON < a < EPSILON:
-#        return None, None  # Line is parallel to the triangle
-#
-#    f = 1.0 / a
-#    s = line_point - v0
-#    u = f * np.dot(s, h)
-#
-#    if u < 0.0 or u > 1.0:
-#        return None, None  # Intersection lies outside the triangle
-#
-#    q = np.cross(s, edge1)
-#    v = f * np.dot(line_dir, q)
-#
-#    if v < 0.0 or u + v > 1.0:
-#        return None, None  # Intersection lies outside the triangle
-#
-#    t = f * np.dot(edge2, q)
-#
-#    if t > EPSILON:
-#        intersection_point = line_point + t * line_dir
-#        distance = np.linalg.norm(intersection_point - line_point)
-#        return intersection_point, distance
-#
-#    return None, None  # No intersection
-#
-#def compute_distance_for_facet(cog, normal, coord, triangles):
-#    """
-#    Compute the distance for a single facet to the nearest intersection with triangles.
-#
-#    Parameters:
-#        cog (numpy.ndarray): Center of gravity of the facet.
-#        normal (numpy.ndarray): Normal vector of the facet.
-#        coord (numpy.ndarray): nx3 array of vertices of the first surface.
-#        triangles (list of tuples): List of triangles (each as a tuple of three vertex indices).
-#
-#    Returns:
-#        float: Distance to the nearest intersection, or float('inf') if no intersection.
-#    """
-#    # Normalize the normal vector
-#    normal_unit = normal / np.linalg.norm(normal)
-#
-#    for triangle_indices in triangles:
-#        triangle = coord[list(triangle_indices)]
-#        intersection, distance = intersect_line_triangle(cog, normal_unit, triangle)
-#
-#        if intersection is not None:
-#            return distance  # Return distance immediately if intersection is found
-#
-#    return float('inf')  # No intersection found
-#
-#def compute_shock_distance(obj, index, coord, triangles, parallel=True):
-#    """
-#    Computes the shock distances for facets of a second surface to the first surface (triangular facets).
-#
-#    Parameters:
-#        obj: Object containing mesh information.
-#        index (numpy.ndarray): Indices of the facets to compute distances for.
-#        coord (numpy.ndarray): nx3 array of vertices of the first surface.
-#        triangles (list of tuples): List of triangles (each as a tuple of three vertex indices).
-#        parallel (bool): Whether to use parallelization for the computation.
-#
-#    Returns:
-#        numpy.ndarray: m-element array of distances from the facet centers to the intersection points.
-#    """
-#    print("Calculating shock distance ...")
-#
-#    facet_COG = obj.mesh.facet_COG[index]
-#    facet_normal = obj.mesh.facet_normal[index]
-#
-#    if parallel:
-#        # Use parallel computation
-#        distances = Parallel(n_jobs=-1)(
-#            delayed(compute_distance_for_facet)(cog, normal, coord, triangles)
-#            for cog, normal in zip(facet_COG, facet_normal)
-#        )
-#    else:
-#        # Sequential computation with early exit
-#        distances = np.zeros(facet_COG.shape[0])
-#        for i, (cog, normal) in enumerate(zip(facet_COG, facet_normal)):
-#            distances[i] = compute_distance_for_facet(cog, normal, coord, triangles)
-#
-#    return np.array(distances)
-
-
 def precompute_bvh(coord, triangles):
     """
     Precomputes a BVH using PyEmbree.
@@ -342,44 +237,6 @@ def compute_ray_intersection(scene, cog, normal):
     if hit["geomID"] != -1:  # Valid intersection
         return hit["tfar"]  # Distance to the intersection
     return float("inf")  # No intersection
-
-def compute_shock_distances_embree(obj, index, coord, triangles, parallel=True):
-    """
-    Computes shock distances for facets using BVH-based ray casting.
-
-    Parameters:
-        obj: Object containing mesh information.
-        index (numpy.ndarray): Indices of the facets to compute distances for.
-        coord (numpy.ndarray): nx3 array of vertices.
-        triangles (numpy.ndarray): kx3 array of triangle indices.
-        parallel (bool): Whether to use parallel computation.
-
-    Returns:
-        numpy.ndarray: Array of distances for each facet.
-    """
-    print("Calculating shock distances using BVH...")
-
-    # Precompute BVH
-    scene = precompute_bvh(coord, triangles)
-
-    # Extract facets' center of gravity and normals
-    facet_COG = obj.mesh.facet_COG[index]
-    facet_normal = obj.mesh.facet_normal[index]
-
-    if parallel:
-        # Parallel computation using joblib
-        distances = Parallel(n_jobs=-1)(
-            delayed(compute_ray_intersection)(scene, cog, normal)
-            for cog, normal in zip(facet_COG, facet_normal)
-        )
-    else:
-        # Sequential computation
-        distances = [
-            compute_ray_intersection(scene, cog, normal)
-            for cog, normal in zip(facet_COG, facet_normal)
-        ]
-
-    return np.array(distances)
 
 def compute_shock_distance(obj, index, coord, triangles):
     """

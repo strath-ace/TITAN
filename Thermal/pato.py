@@ -939,14 +939,6 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
     z = obj.mesh.facet_COG[:,2]
     Tinf = np.full(n_data_points, freestream_temperature)
 
-    #print('conv_heatflux:', conv_heatflux)
-
-
-
-    #print('conv_heatflux:', conv_heatflux)
-
-    #conv_heatflux = dart_hf[obj.facet_index]
-
     if ((time).is_integer()): time = int(time)  
 
     with open(options.output_folder + 'PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:

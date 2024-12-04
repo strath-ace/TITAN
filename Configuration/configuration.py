@@ -34,8 +34,6 @@ from Model import planet, vehicle, drag_model
 from Aerothermo import bloom
 from Thermal import pato
 from Geometry import gmsh_api as GMSH
-from Freestream import mix_properties
-
 
 class Collision_options():
 

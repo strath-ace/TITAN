@@ -244,22 +244,9 @@ def compute_thermal_PATO(titan, options):
     for assembly in titan.assembly: 
         pato.compute_heat_conduction(assembly)
         Tinf = assembly.freestream.temperature           
-        #print('hf:', assembly.aerothermo.heatflux)
-        #np.savetxt('heatflux-output.csv', assembly.aerothermo.heatflux, delimiter=',')
         for obj in assembly.objects:
             if obj.pato.flag: 
-                fname = 'heatflux-output.csv'
-                dataset = pd.read_csv(fname)
-                params_value = pd.DataFrame(dataset)
-                dart_hf = params_value.iloc[:,0]
-                #print('shape dart_hf:', np.shape(dart_hf))
-                #print('obj.facet_index:', obj.facet_index)
-                #exit()
-                conv = np.array(dart_hf[obj.facet_index])
-                
-                #hf = conv
-                hf = obj.pato.hf_cond + conv
-                #hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
+                hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
                 he = assembly.aerothermo.he[obj.facet_index]
                 hw = assembly.aerothermo.hw[obj.facet_index]
                 rhoe = assembly.aerothermo.rhoe[obj.facet_index]

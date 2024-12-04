@@ -81,11 +81,8 @@ def loop(options = [], titan = []):
             options.dynamics.time_step = options.user_time
 
         dynamics.integrate(titan = titan, options = options)
-        output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)
-        #np.savetxt('heatflux-output.csv', titan.assembly[0].aerothermo.heatflux, delimiter=',')
-        #exit()
-        #titan.time += options.dynamics.time_step
-
+        #output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)
+        
         if options.thermal.ablation:
             thermal.compute_thermal(titan = titan, options = options)
 
