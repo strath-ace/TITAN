@@ -230,7 +230,7 @@ def compute_cartesian_derivatives(assembly, options):
     #pymap3d has the functions we need
 
     dx = assembly.velocity
-    dv = (Faero_I + Fgrav_I + Fcoreolis_I + Fcentrif_I) / assembly.mass
+    dv = (Faero_I + Fgrav_I)/assembly.mass + Fcoreolis_I + Fcentrif_I
 
     return DerivativesCartesian(dx = dx[0], dy = dx[1], dz = dx[2], du = dv[0], dv = dv[1], dw = dv[2])
 

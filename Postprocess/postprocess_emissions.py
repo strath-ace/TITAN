@@ -64,7 +64,7 @@ def postprocess_emissions(options):
 	for iter_value in range(1, max(iter_interval)+2, options.radiation.spectral_freq):
 		iter_value = int(iter_value)
 		titan = read_state(options, iter_value)
-		line_of_sight(titan, options, iter_value); exit()
+		line_of_sight(titan, options, iter_value)
 		emissions(titan, options)
 		#output.generate_surface_solution(titan = titan, options = options, folder = 'Postprocess_emissions')
 
@@ -88,37 +88,39 @@ def read_state(options, i = 0):
 
 def emissions(titan, options):
 
-	blackbody_emissions = np.zeros(len(options.radiation.wavelengths))
-	particle_emissions  = np.zeros(len(options.radiation.wavelengths))
+    blackbody_emissions = np.zeros(len(options.radiation.wavelengths))
+    OI_emissions  = np.zeros(3)
+    AlI_emissions  = np.zeros(2)  # Fixed indentation
 
-	phi   = options.radiation.phi
-	theta = options.radiation.theta
+    phi   = options.radiation.phi
+    theta = options.radiation.theta
 
 	#define viewpoint on the basis of angles
-	viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
+    viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
 
-	for assembly in titan.assembly:
+    for assembly in titan.assembly:
 
-		R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
+        R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
 
-		#Transform assembly from body to ECEF frame
-		assembly.mesh.facet_normal = -R_B_ECEF.apply(assembly.mesh.facet_normal)
+        #Transform assembly from body to ECEF frame
+        assembly.mesh.facet_normal = -R_B_ECEF.apply(assembly.mesh.facet_normal)
 
-		#retrive index of facets seen from viewpoint
-		index = Aerothermo.ray_trace(assembly, viewpoint)
+        #retrive index of facets seen from viewpoint
+        index = Aerothermo.ray_trace(assembly, viewpoint)
 
-		#calculate angle of facets seen from viewpoint, relative to view direction
-		vec1 = -viewpoint
-		vec2 = np.array(assembly.mesh.facet_normal[index])
-		angle = vg.angle(vec1, vec2) #degrees
+        #calculate angle of facets seen from viewpoint, relative to view direction
+        vec1 = -viewpoint
+        vec2 = np.array(assembly.mesh.facet_normal[index])
+        angle = vg.angle(vec1, vec2) #degrees
 
-		if options.radiation.spectral:
-			blackbody_emissions = thermal.compute_black_body_spectral_emissions(assembly, options.radiation.wavelengths, index, angle, blackbody_emissions)
+        if options.radiation.spectral:
+        	blackbody_emissions = thermal.compute_black_body_spectral_emissions(assembly, options.radiation.wavelengths, index, angle, blackbody_emissions)
 
-			print('blackbody_emissions:', blackbody_emissions)
+        	print('blackbody_emissions:', blackbody_emissions)
 
-		if options.radiation.spectral and options.thermal.ablation and options.radiation.particle_emissions and options.pato.flag:
-			thermal.compute_particle_spectral_emissions(assembly, options.radiation.wavelengths, index, angle, particle_emissions)
+        if options.radiation.spectral and options.thermal.ablation and options.radiation.particle_emissions and options.pato.flag:
+            #thermal.compute_particle_spectral_emissions_OI(assembly, index, angle, OI_emissions)
+            thermal.compute_particle_spectral_emissions_AlI(assembly, index, angle, AlI_emissions)
 
 def line_of_sight(titan, options, iteration):
 
