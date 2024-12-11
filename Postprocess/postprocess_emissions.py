@@ -18,6 +18,26 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+#
+# Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
+#
+# This file is part of TITAN
+# (see https://github.com/strath-ace/TITAN).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
 from Thermal import thermal
 from Output import output
 import numpy as np
@@ -32,43 +52,66 @@ import vg
 from copy import deepcopy
 from Dynamics import frames
 import sympy
-from sympy import sqrt,tan
+from sympy import sqrt, tan
 import meshio
 from pathlib import Path
 
 
 def postprocess_emissions(options):
 
+    print('Computing emissions ...')
 
-	print('Computing emissions ...')
+    path = options.output_folder + '/Data/*'
+    search_string = 'thermal'
 
-	path = options.output_folder+'/Data/*'
-	search_string = 'thermal'
-	
-	# Get a list of all files in the folder
-	files = glob.glob(path)
-	
-	# Iterate and delete each file that contains the search_string
-	for file in files:
-		#print(os.path.basename(file))
-		if os.path.isfile(file) and search_string in os.path.basename(file):
-			os.remove(file)
+    # Get a list of all files in the folder
+    files = glob.glob(path)
 
-	data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
+    # Iterate and delete each file that contains the search_string
+    for file in files:
+        if os.path.isfile(file) and search_string in os.path.basename(file):
+            os.remove(file)
 
-	iter_interval = np.unique(data['Iter'].to_numpy())
+    data = pd.read_csv(options.output_folder + '/Data/data.csv', index_col=False)
 
-	if options.radiation.spectral_freq%options.save_freq != 0:
-		print('No available solutions for the chosen frequency.');exit()
-	
-	for iter_value in range(1, max(iter_interval)+2, options.radiation.spectral_freq):
-		iter_value = int(iter_value)
-		titan = read_state(options, iter_value)
-		line_of_sight(titan, options, iter_value)
-		emissions(titan, options)
-		#output.generate_surface_solution(titan = titan, options = options, folder = 'Postprocess_emissions')
+    iter_interval = np.unique(data['Iter'].to_numpy())
 
-def read_state(options, i = 0):
+    if options.radiation.spectral_freq % options.save_freq != 0:
+        print('No available solutions for the chosen frequency.')
+        exit()
+
+    for iter_value in range(1, max(iter_interval) + 2, options.radiation.spectral_freq):
+        iter_value = int(iter_value)
+        titan = read_state(options, iter_value)
+        line_of_sight(titan, options, iter_value)
+        element_gas_densities(titan)
+        emissions(titan, options)
+        # output.generate_surface_solution(titan=titan, options=options, folder='Postprocess_emissions')
+
+
+def element_gas_densities(titan):
+
+    for assembly in titan.assembly:
+
+        for obj in assembly.objects:
+            assembly.LOS[obj.facet_index] = obj.LOS
+
+        gas_volume = assembly.mesh.facet_area * assembly.LOS
+        gas_mass = assembly.aerothermo.rhoe * gas_volume
+        # before adding vaporized material
+        species_mass = assembly.aerothermo.ce_i * gas_mass[:, np.newaxis]
+        # add vaporized material mass
+        species_mass[:, -1] = assembly.mVapor
+        gas_mass = species_mass.sum(axis=1)
+        assembly.aerothermo.ce_i = species_mass / gas_mass[:, np.newaxis]
+        assembly.aerothermo.ce_i[np.isnan(assembly.aerothermo.ce_i)] = 0
+        assembly.aerothermo.ce_i[np.isinf(assembly.aerothermo.ce_i)] = 0
+        # updated gas density after ablation
+        assembly.updated_gas_density = gas_mass / gas_volume
+        assembly.aerothermo.rhoe_i = assembly.aerothermo.ce_i * assembly.updated_gas_density[:, np.newaxis]
+
+
+def read_state(options, i=0):
     """
     Load state of the TITAN object for the given iteration
 
@@ -80,114 +123,360 @@ def read_state(options, i = 0):
 
     print("Reading state Assembly_State_.p, iter:", i)
 
-    infile = open(options.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','rb')
+    infile = open(options.output_folder + '/Restart/' + 'Assembly_State_' + str(i) + '_.p', 'rb')
     titan = pickle.load(infile)
     infile.close()
 
     return titan
 
+
 def emissions(titan, options):
 
-    blackbody_emissions = np.zeros(len(options.radiation.wavelengths))
-    OI_emissions  = np.zeros(3)
-    AlI_emissions  = np.zeros(2)  # Fixed indentation
+    wavelengths_OI = [777.194e-9, 777.417e-9, 777.539e-9]
+    wavelengths_AlI = [394.40058e-9, 396.152e-9]
 
-    phi   = options.radiation.phi
+    phi = options.radiation.phi
     theta = options.radiation.theta
 
-	#define viewpoint on the basis of angles
-    viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
+    # define viewpoint on the basis of angles
+    viewpoint = np.array([np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), np.cos(theta)])
 
     for assembly in titan.assembly:
 
         R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
 
-        #Transform assembly from body to ECEF frame
+        # Transform assembly from body to ECEF frame
         assembly.mesh.facet_normal = -R_B_ECEF.apply(assembly.mesh.facet_normal)
 
-        #retrive index of facets seen from viewpoint
+        # Retrieve index of facets seen from viewpoint
         index = Aerothermo.ray_trace(assembly, viewpoint)
 
-        #calculate angle of facets seen from viewpoint, relative to view direction
+        # Calculate angle of facets seen from viewpoint, relative to view direction
         vec1 = -viewpoint
         vec2 = np.array(assembly.mesh.facet_normal[index])
-        angle = vg.angle(vec1, vec2) #degrees
+        angle = vg.angle(vec1, vec2)  # degrees
 
         if options.radiation.spectral:
-        	blackbody_emissions = thermal.compute_black_body_spectral_emissions(assembly, options.radiation.wavelengths, index, angle, blackbody_emissions)
-
-        	print('blackbody_emissions:', blackbody_emissions)
+            print('Computing spectral blackbody emissions for O I wavelengths ...')
+            assembly.blackbody_emissions_OI = thermal.compute_black_body_spectral_emissions(
+                assembly, wavelengths_OI, index, angle
+            )
+            print('Computing spectral blackbody emissions for Al I wavelengths ...')
+            assembly.blackbody_emissions_AlI = thermal.compute_black_body_spectral_emissions(
+                assembly, wavelengths_AlI, index, angle
+            )
 
         if options.radiation.spectral and options.thermal.ablation and options.radiation.particle_emissions and options.pato.flag:
-            #thermal.compute_particle_spectral_emissions_OI(assembly, index, angle, OI_emissions)
-            thermal.compute_particle_spectral_emissions_AlI(assembly, index, angle, AlI_emissions)
+            assembly.OI_atomic_emissions = thermal.compute_particle_spectral_emissions_OI(
+                assembly, wavelengths_OI, index, angle
+            )
+            assembly.AlI_atomic_emissions = thermal.compute_particle_spectral_emissions_AlI(
+                assembly, wavelengths_AlI, index, angle
+            )
+
+        assembly.emissions_OI = assembly.blackbody_emissions_OI + assembly.OI_atomic_emissions
+        assembly.emissions_AlI = assembly.blackbody_emissions_AlI + assembly.AlI_atomic_emissions
+
+        d = {
+            'Assembly_ID': [assembly.id],
+            'OI_emissions': [assembly.emissions_OI],
+            'AlI_emissions': [assembly.emissions_AlI],
+        }
+
+        df = pd.DataFrame(data=d)
+
+        df.to_csv(
+            options.output_folder + '/Data/' + 'emissions_' + str(titan.iter) + '.csv',
+            mode='a',
+            header=not os.path.exists(
+                options.output_folder + '/Data/' + 'emissions_' + str(titan.iter) + '.csv'
+            ),
+            index=False,
+        )
+
+#from Thermal import thermal
+#from Output import output
+#import numpy as np
+#import pandas as pd
+#import pickle
+#import os
+#import glob
+#from scipy.spatial.transform import Rotation as Rot
+#from Aerothermo import aerothermo as Aerothermo
+#from Aerothermo import switch as Switch
+#import vg
+#from copy import deepcopy
+#from Dynamics import frames
+#import sympy
+#from sympy import sqrt,tan
+#import meshio
+#from pathlib import Path
+#
+#
+#def postprocess_emissions(options):
+#
+#
+#	print('Computing emissions ...')
+#
+#	path = options.output_folder+'/Data/*'
+#	search_string = 'thermal'
+#	
+#	# Get a list of all files in the folder
+#	files = glob.glob(path)
+#	
+#	# Iterate and delete each file that contains the search_string
+#	for file in files:
+#		#print(os.path.basename(file))
+#		if os.path.isfile(file) and search_string in os.path.basename(file):
+#			os.remove(file)
+#
+#	data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
+#
+#	iter_interval = np.unique(data['Iter'].to_numpy())
+#
+#	if options.radiation.spectral_freq%options.save_freq != 0:
+#		print('No available solutions for the chosen frequency.');exit()
+#	
+#	for iter_value in range(1, max(iter_interval)+2, options.radiation.spectral_freq):
+#		iter_value = int(iter_value)
+#		titan = read_state(options, iter_value)
+#		line_of_sight(titan, options, iter_value)
+#        element_gas_densities(titan)
+#		emissions(titan, options)
+#		#output.generate_surface_solution(titan = titan, options = options, folder = 'Postprocess_emissions')
+#
+#def element_gas_densities(titan):
+#
+#    for assembly in titan.assembly:
+#
+#        for obj in assembly.objects:
+#            assembly.LOS[obj.facet_index] = obj.LOS
+#
+#        gas_volume = assembly.mesh.facet_area * assembly.LOS
+#        gas_mass = assembly.aerothermo.rhoe * gas_volume
+#        #before adding vaporized material
+#        species_mass = assembly.aerothermo.ce_i * gas_mass[:,np.newaxis]
+#        #add vaporized material mass
+#        species_mass[:,-1] = assembly.mVapor
+#        gas_mass = species_mass.sum(axis=1)
+#        assembly.aerothermo.ce_i = species_mass / gas_mass[:, np.newaxis] 
+#        assembly.aerothermo.ce_i[np.isnan(assembly.aerothermo.ce_i)] = 0
+#        assembly.aerothermo.ce_i[np.isinf(assembly.aerothermo.ce_i)] = 0
+#        #updated gas density after ablation
+#        rhoe = gas_mass/gas_volume
+#        assembly.aerothermo.rhoe_i = assembly.aerothermo.ce_i* rhoe
+#
+#def read_state(options, i = 0):
+#    """
+#    Load state of the TITAN object for the given iteration
+#
+#    Returns
+#    -------
+#    titan: Assembly_list
+#        Object of class Assembly_list
+#    """
+#
+#    print("Reading state Assembly_State_.p, iter:", i)
+#
+#    infile = open(options.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','rb')
+#    titan = pickle.load(infile)
+#    infile.close()
+#
+#    return titan
+#
+#def emissions(titan, options):
+#
+#    wavelengths_OI  = [777.194e-9, 777.417e-9, 777.539e-9]
+#    wavelengths_AlI = [394.40058e-9, 396.152e-9]
+#
+#    phi   = options.radiation.phi
+#    theta = options.radiation.theta
+#
+#	#define viewpoint on the basis of angles
+#    viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
+#
+#    for assembly in titan.assembly:
+#
+#        R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
+#
+#        #Transform assembly from body to ECEF frame
+#        assembly.mesh.facet_normal = -R_B_ECEF.apply(assembly.mesh.facet_normal)
+#
+#        #retrive index of facets seen from viewpoint
+#        index = Aerothermo.ray_trace(assembly, viewpoint)
+#
+#        #calculate angle of facets seen from viewpoint, relative to view direction
+#        vec1 = -viewpoint
+#        vec2 = np.array(assembly.mesh.facet_normal[index])
+#        angle = vg.angle(vec1, vec2) #degrees
+#
+#        if options.radiation.spectral:
+#        	assembly.blackbody_emissions_OI = thermal.compute_black_body_spectral_emissions(assembly, wavelengths_OI, index, angle)
+#            assembly.blackbody_emissions_AlI = thermal.compute_black_body_spectral_emissions(assembly, wavelengths_AlI, index, angle)
+#
+#        if options.radiation.spectral and options.thermal.ablation and options.radiation.particle_emissions and options.pato.flag:
+#            assembly.OI_atomic_emissions  = thermal.compute_particle_spectral_emissions_OI(assembly, wavelengths_OI, index, angle, OI_emissions)
+#            assembly.AlI_atomic_emissions = thermal.compute_particle_spectral_emissions_AlI(assembly, wavelengths_AlI, index, angle, AlI_emissions)
+#
+#        assembly.emissions_OI  = assembly.blackbody_emissions_OI  + assembly.OI_atomic_emissions
+#        assembly.emissions_AlI = assembly.blackbody_emissions_AlI + assembly.AlI_atomic_emissions
+#
+#        d = {'Assembly_ID':   [assembly.id],
+#             'OI_emissions':  [assembly.emissions_OI],
+#             'AlI_emissions': [assembly.emissions_AlI],
+#            }
+#
+#        df = pd.DataFrame(data=d)
+#
+#        df.to_csv(options.output_folder + '/Data/'+ 'emissions'+str(titan.iter)+'.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'_'+str(assembly.id)+'.csv'), index = False)
+#
+#
+#def line_of_sight(titan, options, iteration):
+#
+#	print('Calculating line-of-sight ...')
+#
+#	titan_windframe = deepcopy(titan)
+#
+#	for index, assembly in enumerate(titan_windframe.assembly):
+#
+#		R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
+#
+#		lat = assembly.trajectory.latitude
+#		lon = assembly.trajectory.longitude
+#		chi = assembly.trajectory.chi
+#		gamma = assembly.trajectory.gamma
+#
+#		R_ECEF_NED = frames.R_NED_ECEF(lat = lat, lon = lon).inv()
+#		R_NED_W = frames.R_W_NED(ha = chi, fpa = gamma).inv()
+#		R_ECEF_W = R_NED_W*R_ECEF_NED
+#
+#		M = assembly.freestream.mach
+#		theta = 0.0001
+#
+#		p = np.where(assembly.aerothermo.theta*180/np.pi > 1e-3)[0]
+#
+#		for index_object,obj in enumerate(assembly.objects):
+#
+#			print("\nObject:", obj.name)
+#
+#			obj.mesh.nodes = R_B_ECEF.apply(obj.mesh.nodes)
+#			obj.mesh.nodes = (R_ECEF_W).apply(obj.mesh.nodes)
+#
+#			obj.mesh.facet_normal =   R_B_ECEF.apply(obj.mesh.facet_normal)
+#			obj.mesh.facet_normal = (R_ECEF_W).apply(obj.mesh.facet_normal)
+#
+#			obj.mesh.facet_COG =   R_B_ECEF.apply(obj.mesh.facet_COG)
+#			obj.mesh.facet_COG = (R_ECEF_W).apply(obj.mesh.facet_COG)
+#
+#			obj.LOS = np.zeros(len(obj.mesh.facets))
+#
+#			min_coords = np.min(obj.mesh.nodes, axis = 0)
+#			max_coords = np.max(obj.mesh.nodes, axis = 0)         
+#
+#			#Creation of the virtual Sphere
+#			center = np.zeros((3))
+#			center[1:] = (min_coords[1:]+max_coords[1:])/2.0
+#			center[0] = max_coords[0]
+#
+#			dist_center = np.linalg.norm(obj.mesh.nodes[:,1:] - center[1:], axis = 1)
+#			radius = np.max(dist_center)
+#
+#			xmax = np.max(obj.mesh.nodes , axis = 0)
+#			xmin = np.min(obj.mesh.nodes , axis = 0)
+#
+#			Lref = np.max(xmax-xmin)
+#
+#			#Compute billig formula and retrieve the bodies that are inside the computed shock envelopes
+#			Switch.sphere_surface(radius, center, index, index_object, titan.iter, assembly, options)
+#			billig_points, billig_facets = compute_billig(M, theta, center, radius, index, Lref, index_object, titan.iter, assembly.freestream, options)
+#
+#			index_aero_obj = np.intersect1d(p, obj.facet_index)
+#
+#			index_aero_obj = np.where(np.isin(obj.facet_index, index_aero_obj))[0]
+#
+#			obj.LOS[index_aero_obj] = compute_shock_distance(obj, index_aero_obj, billig_points, billig_facets)
+#
+#			output.generate_surface_solution_object(obj, obj.LOS, options, iter_value = iteration, folder = 'Postprocess_emissions')
+#
+#    for assembly, assembly_wf in zip(titan.assembly, titan_windframe.assembly):
+#        for obj, obj_wf in zip(assembly.objects, assembly_wf.objects):
+#            obj.LOS = obj_wf.LOS
 
 def line_of_sight(titan, options, iteration):
 
-	print('Calculating line-of-sight ...')
+    print('Calculating line-of-sight ...')
 
-	titan_windframe = deepcopy(titan)
+    titan_windframe = deepcopy(titan)
 
-	for index, assembly in enumerate(titan_windframe.assembly):
+    for index, assembly in enumerate(titan_windframe.assembly):
 
-		R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
+        R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
 
-		lat = assembly.trajectory.latitude
-		lon = assembly.trajectory.longitude
-		chi = assembly.trajectory.chi
-		gamma = assembly.trajectory.gamma
+        lat = assembly.trajectory.latitude
+        lon = assembly.trajectory.longitude
+        chi = assembly.trajectory.chi
+        gamma = assembly.trajectory.gamma
 
-		R_ECEF_NED = frames.R_NED_ECEF(lat = lat, lon = lon).inv()
-		R_NED_W = frames.R_W_NED(ha = chi, fpa = gamma).inv()
-		R_ECEF_W = R_NED_W*R_ECEF_NED
+        R_ECEF_NED = frames.R_NED_ECEF(lat=lat, lon=lon).inv()
+        R_NED_W = frames.R_W_NED(ha=chi, fpa=gamma).inv()
+        R_ECEF_W = R_NED_W * R_ECEF_NED
 
-		M = assembly.freestream.mach
-		theta = 0.0001
+        M = assembly.freestream.mach
+        theta = 0.0001
 
-		p = np.where(assembly.aerothermo.theta*180/np.pi > 1e-3)[0]
+        p = np.where(assembly.aerothermo.theta * 180 / np.pi > 1e-3)[0]
 
-		for index_object,obj in enumerate(assembly.objects):
+        for index_object, obj in enumerate(assembly.objects):
 
-			print("\nObject:", obj.name)
+            print("\nObject:", obj.name)
 
-			obj.mesh.nodes = R_B_ECEF.apply(obj.mesh.nodes)
-			obj.mesh.nodes = (R_ECEF_W).apply(obj.mesh.nodes)
+            obj.mesh.nodes = R_B_ECEF.apply(obj.mesh.nodes)
+            obj.mesh.nodes = (R_ECEF_W).apply(obj.mesh.nodes)
 
-			obj.mesh.facet_normal =   R_B_ECEF.apply(obj.mesh.facet_normal)
-			obj.mesh.facet_normal = (R_ECEF_W).apply(obj.mesh.facet_normal)
+            obj.mesh.facet_normal = R_B_ECEF.apply(obj.mesh.facet_normal)
+            obj.mesh.facet_normal = (R_ECEF_W).apply(obj.mesh.facet_normal)
 
-			obj.mesh.facet_COG =   R_B_ECEF.apply(obj.mesh.facet_COG)
-			obj.mesh.facet_COG = (R_ECEF_W).apply(obj.mesh.facet_COG)
+            obj.mesh.facet_COG = R_B_ECEF.apply(obj.mesh.facet_COG)
+            obj.mesh.facet_COG = (R_ECEF_W).apply(obj.mesh.facet_COG)
 
-			obj.LOS = np.zeros(len(obj.mesh.facets))
+            obj.LOS = np.zeros(len(obj.mesh.facets))
 
-			min_coords = np.min(obj.mesh.nodes, axis = 0)
-			max_coords = np.max(obj.mesh.nodes, axis = 0)         
+            min_coords = np.min(obj.mesh.nodes, axis=0)
+            max_coords = np.max(obj.mesh.nodes, axis=0)
 
-			#Creation of the virtual Sphere
-			center = np.zeros((3))
-			center[1:] = (min_coords[1:]+max_coords[1:])/2.0
-			center[0] = max_coords[0]
+            # Creation of the virtual Sphere
+            center = np.zeros((3))
+            center[1:] = (min_coords[1:] + max_coords[1:]) / 2.0
+            center[0] = max_coords[0]
 
-			dist_center = np.linalg.norm(obj.mesh.nodes[:,1:] - center[1:], axis = 1)
-			radius = np.max(dist_center)
+            dist_center = np.linalg.norm(obj.mesh.nodes[:, 1:] - center[1:], axis=1)
+            radius = np.max(dist_center)
 
-			xmax = np.max(obj.mesh.nodes , axis = 0)
-			xmin = np.min(obj.mesh.nodes , axis = 0)
+            xmax = np.max(obj.mesh.nodes, axis=0)
+            xmin = np.min(obj.mesh.nodes, axis=0)
 
-			Lref = np.max(xmax-xmin)
+            Lref = np.max(xmax - xmin)
 
-			#Compute billig formula and retrieve the bodies that are inside the computed shock envelopes
-			Switch.sphere_surface(radius, center, index, index_object, titan.iter, assembly, options)
-			billig_points, billig_facets = compute_billig(M, theta, center, radius, index, Lref, index_object, titan.iter, assembly.freestream, options)
+            # Compute billig formula and retrieve the bodies that are inside the computed shock envelopes
+            Switch.sphere_surface(radius, center, index, index_object, titan.iter, assembly, options)
+            billig_points, billig_facets = compute_billig(
+                M, theta, center, radius, index, Lref, index_object, titan.iter, assembly.freestream, options
+            )
 
-			index_aero_obj = np.intersect1d(p, obj.facet_index)
+            index_aero_obj = np.intersect1d(p, obj.facet_index)
 
-			index_aero_obj = np.where(np.isin(obj.facet_index, index_aero_obj))[0]
+            index_aero_obj = np.where(np.isin(obj.facet_index, index_aero_obj))[0]
 
-			obj.LOS[index_aero_obj] = compute_shock_distance(obj, index_aero_obj, billig_points, billig_facets)
+            obj.LOS[index_aero_obj] = compute_shock_distance(obj, index_aero_obj, billig_points, billig_facets)
 
-			output.generate_surface_solution_object(obj, obj.LOS, options, iter_value = iteration, folder = 'Postprocess_emissions')
+            output.generate_surface_solution_object(
+                obj, obj.LOS, options, iter_value=iteration, folder='Postprocess_emissions'
+            )
+
+    for assembly, assembly_wf in zip(titan.assembly, titan_windframe.assembly):
+        for obj, obj_wf in zip(assembly.objects, assembly_wf.objects):
+            obj.LOS = obj_wf.LOS
+
 
 def precompute_bvh(coord, triangles):
     """
