@@ -403,16 +403,25 @@ def compute_black_body_spectral_emissions(assembly, wavelength, index, angle):
         lamb = wavelength[wavelength_i]
 
         exp = np.exp((h*c)/(k*lamb*temperature))   
-        b = (((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)))/1e9 # units W.sr−1.m−2.nm−1 #Spectral radiance in terms of wavelength
+        #b = (((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1))) # units W/sr-m3 #Spectral radiance in terms of wavelength
+
+        b = (((2*c)/(np.power(lamb, 4))) * (1/(exp-1))) # units photons/[s*m2*m*sr]  #Spectral radiance in terms of wavelength
 
         seen_b = b*cosine*emissivity
 
         #weighing facet contribution by its area
         facet_area = assembly.mesh.facet_area[index]
-        weighted_b = seen_b*facet_area
+        weighted_b = seen_b*facet_area # units photons/[s*m*sr]
 
         #sum contributions of all facets
         emissions[wavelength_i] += np.sum(weighted_b)
+
+        #print('b:', b)
+        #print('seen_b:', seen_b)
+        #print('weighted_b:', weighted_b)
+
+        #print('Wavelength [m]:', lamb)
+        #print('emissions  [W/sr-m]',np.sum(weighted_b))
 
     return emissions
 
@@ -430,7 +439,7 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, index, angle):
 
     molarMass_Al = 26.98*1e-3 #kg/mol
 
-    print('Computing spectral particle emissions Al I ...')
+    print('\nComputing spectral particle emissions Al I ...')
 
     cosine = np.cos(angle*np.pi/180)
 
@@ -438,7 +447,7 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, index, angle):
         assembly.LOS[obj.facet_index] = obj.LOS
     
     facet_area = assembly.mesh.facet_area[index]
-    temperature = assembly.aerothermo.temperature[index]
+    temperature = assembly.aerothermo.Te[index]
     rhoe_i = assembly.aerothermo.rhoe_i[index]
     LOS = assembly.LOS[index]
 
@@ -462,7 +471,7 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, index, angle):
 
         intensity = (h * c * A * nn / lamb)/(4*np.pi) # W/m3-sr
 
-        intensity = intensity * LOS
+        intensity = intensity * LOS #W/m2-sr
 
         #grey-body radiation seen from viewpoint
         seen_intensity = intensity*cosine
@@ -472,6 +481,11 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, index, angle):
 
         #sum contributions of all facets
         emissions[wavelength_i] += np.sum(weighted_seen_intensity)
+
+        #print('Wavelength      [m]:', lamb)
+        #print('Intensity x LOS [W/m2-sr]:', intensity)
+        #print('emissions       [W/sr]',np.sum(weighted_seen_intensity))
+
     
     return emissions
 
@@ -489,7 +503,7 @@ def compute_particle_spectral_emissions_OI(assembly, wavelength, index, angle):
 
     molarMass_O = 16*1e-3 #kg/mol
 
-    print('Computing spectral particle emissions O I ...')
+    print('\nComputing spectral particle emissions O I ...')
 
     cosine = np.cos(angle*np.pi/180)
     
@@ -497,7 +511,7 @@ def compute_particle_spectral_emissions_OI(assembly, wavelength, index, angle):
         assembly.LOS[obj.facet_index] = obj.LOS
     
     facet_area = assembly.mesh.facet_area[index]
-    temperature = assembly.aerothermo.temperature[index]
+    temperature = assembly.aerothermo.Te[index]
     rhoe_i = assembly.aerothermo.rhoe_i[index]
     LOS = assembly.LOS[index]
 
@@ -527,10 +541,14 @@ def compute_particle_spectral_emissions_OI(assembly, wavelength, index, angle):
         seen_intensity = intensity*cosine
 
         #weighing facet contribution by its area
-        weighted_b = seen_intensity*facet_area # [W/sr]
+        weighted_seen_intensity = seen_intensity*facet_area # [W/sr]
 
         #sum contributions of all facets
-        emissions[wavelength_i] += np.sum(weighted_b)
+        emissions[wavelength_i] += np.sum(weighted_seen_intensity)
+
+        #print('Wavelength      [m]:', lamb)
+        #print('Intensity x LOS [W/m2-sr]:', intensity)
+        #print('emissions       [W/sr]',np.sum(weighted_seen_intensity))
     
     return emissions
 

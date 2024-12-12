@@ -259,6 +259,54 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
         vol_mesh_filepath = f"{folder_path}/solution_iter_{str(iter_value).zfill(3)}.xdmf"
         meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
+def generate_surface_solution_emissions(titan, options, iter_value, folder = 'Surface_solution'):
+
+    points = np.array([])
+    facets = np.array([])
+    cellID = np.array([])
+    heatflux = np.array([])
+    temperature = np.array([])
+    emissions_debug = np.array([])
+
+
+    for assembly in titan.assembly:
+        points = assembly.mesh.nodes - assembly.mesh.surface_displacement
+        facets = assembly.mesh.facets
+        heatflux = assembly.aerothermo.heatflux
+        temperature  = assembly.aerothermo.temperature
+        emissions_debug  = assembly.emissions_debug
+
+        for cellid in range(len(assembly.mesh.facets)):
+            cellID = np.append(cellID, cellid)
+
+        
+        cells = {"triangle": facets}
+
+        cell_data = { "Heatflux": [heatflux],
+                      "Temperature": [temperature],
+                      "emissions_debug":  [emissions_debug],
+                    }
+
+        print('shape points:', np.shape(points))
+
+        print('shape facets:', np.shape(facets))
+        print('shape cells:', np.shape(cells))
+
+        print('shape Heatflux:', np.shape([heatflux]))
+        print('shape Temperature:', np.shape([temperature]))
+        print('shape emissions_debug:', np.shape([emissions_debug]))
+
+        trimesh = meshio.Mesh(points,
+                              cells=cells,
+                              cell_data = cell_data)
+
+        folder_path = options.output_folder+'/' + folder + '/ID_'+str(assembly.id)
+        Path(folder_path).mkdir(parents=True, exist_ok=True)
+
+        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(iter_value).zfill(3)}.xdmf"
+        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+
+
 def generate_surface_solution_object(obj, quantity, options, iter_value, folder = 'Surface_solution'):
 
     points = np.array([])
