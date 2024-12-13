@@ -86,6 +86,8 @@ def write_material_properties(options, obj):
     if obj.pato.initial_temperature > obj.material.meltingTemperature:
         Tmelt = 1e10
         obj.pato.molten[:] = 1
+    else:
+        Tmelt = obj.material.meltingTemperature
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/data/constantProperties', 'w') as f:
 
