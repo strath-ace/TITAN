@@ -80,6 +80,13 @@ def write_material_properties(options, obj):
 
     object_id = obj.global_ID
 
+    # If initial temperature is larger than melting temperature, we want PATO to skip melting algorithm and instantly
+    # go to vaporization algorithm
+
+    if obj.pato.initial_temperature > obj.material.meltingTemperature:
+        Tmelt = 1e10
+        obj.pato.molten[:] = 1
+
     with open(options.output_folder + '/PATO_'+str(object_id)+'/data/constantProperties', 'w') as f:
 
         f.write('/*---------------------------------------------------------------------------*\\n')
@@ -126,7 +133,7 @@ def write_material_properties(options, obj):
         f.write('e_sub_n[3]  0;\n')
         f.write('e_sub_n[4]  0;\n')
         f.write('\n')
-        f.write('Tmelt ' + str(obj.material.meltingTemperature) + ';\n')
+        f.write('Tmelt ' + str(Tmelt) + ';\n')
         f.write('Tboil ' + str(obj.material.vaporizationTemperature) + ';\n')
         f.write('Hfusion ' + str(obj.material.meltingHeat) + ';\n')
         f.write('Hboil ' + str(obj.material.vaporizationHeat) + ';\n')
@@ -1504,7 +1511,7 @@ def postprocess_mass_inertia(obj, options, time_to_read):
 
     if obj.density_ratio < 1:
 
-        print('Ablation melting')
+        print('Ablation')
 
         obj.pato.mass_loss = obj.mass - new_mass if new_mass >= 0 else obj.mass
         print('mass loss:', obj.pato.mass_loss)

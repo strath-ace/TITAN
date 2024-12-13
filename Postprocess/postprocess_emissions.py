@@ -105,34 +105,34 @@ def view_direction(titan, options):
         facets = assembly.mesh.facets
         heatflux = assembly.aerothermo.heatflux
 
-        assembly.index_atomic_debug = np.zeros(len(facets))
-        assembly.index_bb_debug = np.zeros(len(facets))
-
-        assembly.index_atomic_debug[assembly.index_atomic] = 1
-        assembly.index_bb_debug[assembly.index_blackbody] = 1
-
-        cellID = np.array([])
-        for cellid in range(len(assembly.mesh.facets)):
-            cellID = np.append(cellID, cellid)
-
-        
-        cells = {"triangle": facets}
-
-        cell_data = { "Heatflux":                    [heatflux],
-        "index_at":                    [assembly.index_atomic_debug],
-        "index_bb":                    [assembly.index_bb_debug],
-
-                    }
-
-        trimesh = meshio.Mesh(points,
-                              cells=cells,
-                              cell_data = cell_data)
-
-        folder_path = options.output_folder+'/' + 'Postprocess_emissions' + '/ID_'+str(assembly.id)
-        Path(folder_path).mkdir(parents=True, exist_ok=True)
-
-        vol_mesh_filepath = f"{folder_path}/solution_iter_debug.xdmf"
-        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+#        assembly.index_atomic_debug = np.zeros(len(facets))
+#        assembly.index_bb_debug = np.zeros(len(facets))
+#
+#        assembly.index_atomic_debug[assembly.index_atomic] = 1
+#        assembly.index_bb_debug[assembly.index_blackbody] = 1
+#
+#        cellID = np.array([])
+#        for cellid in range(len(assembly.mesh.facets)):
+#            cellID = np.append(cellID, cellid)
+#
+#        
+#        cells = {"triangle": facets}
+#
+#        cell_data = { "Heatflux":                    [heatflux],
+#        "index_at":                    [assembly.index_atomic_debug],
+#        "index_bb":                    [assembly.index_bb_debug],
+#
+#                    }
+#
+#        trimesh = meshio.Mesh(points,
+#                              cells=cells,
+#                              cell_data = cell_data)
+#
+#        folder_path = options.output_folder+'/' + 'Postprocess_emissions' + '/ID_'+str(assembly.id)
+#        Path(folder_path).mkdir(parents=True, exist_ok=True)
+#
+#        vol_mesh_filepath = f"{folder_path}/solution_iter_debug.xdmf"
+#        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 def element_gas_densities(titan):
 

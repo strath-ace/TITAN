@@ -388,9 +388,7 @@ def compute_black_body_spectral_emissions(assembly, wavelength):
     angle = assembly.angle_blackbody[index]
 
     cosine = np.cos(angle*np.pi/180)
-    
-    print('max index:', max(index))
-    print('temp shape:', np.shape(assembly.aerothermo.temperature))
+
     temperature = assembly.aerothermo.temperature[index]
 
     for obj in assembly.objects:
