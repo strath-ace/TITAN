@@ -704,6 +704,9 @@ def read_geometry(configParser, options):
                                 bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]       
                     except:
                         bloom = [False, 0, 0, 0]               
+
+                    if options.pato.flag and bloom[0] == False:
+                        print('Need to set up BLOOM if using PATO!'); exit()
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
                         fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom)

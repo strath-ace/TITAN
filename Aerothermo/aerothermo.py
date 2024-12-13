@@ -447,6 +447,8 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         index = ray_trace(_assembly, flow_direction, n)
 
+        _assembly.aero_index = index
+
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
         if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture, index)
@@ -622,8 +624,6 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
     
         theta_max = (90-np.arcsin(1/Mfree))/2
     
-        print('theta_max:', theta_max)
-    
         # Normal component of Mach number for each surface
         # if theta > 89.9 deg -> normal shock -> Mn1 = Mfree
         Mn1 = np.where((theta[p]*180/np.pi > 1e-3) & (theta[p]*180/np.pi < theta_max), Mfree * np.sin(beta), Mfree)
@@ -650,17 +650,11 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
         Pe = np.full(len(beta),P_post_frozen)
         ce_i = np.zeros((len(beta), nSpecies))
         ce_i[:] = cfree_i
-
-        print('before equilibrium loop')
     
         for facet in range(len(beta)):
-            print('facet:', facet)
             #Onset of dissociation is 2500 K for air
             if T_post_frozen[facet] > 2000:
                 Te[facet], Pe[facet], He[facet], rhoe[facet], Ue[facet], ce_i[facet] = post_shock_equilibrium(T_post_frozen[facet], P_post_frozen[facet], H_post_frozen[facet], rhofree, Pfree, ufree, Hfree, mix)
-            #mix.equilibrate(Tfluid_wall[facet], Pe[facet])
-            #cwall_i[facet] = mix.Y()
-            #Hw[facet] = mix.mixtureHMass()
 
     else:
 
@@ -721,9 +715,6 @@ def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
     i = 0
 
     while abs(h2_eq-h2)>tol:
-
-        print('\nTeq:', Teq)
-        print('Peq:', Peq)
 
         mix.equilibrate(Teq, Peq)
         rho2 = mix.density()

@@ -42,7 +42,7 @@ def postprocess_emissions(options):
     print('Computing emissions ...')
 
     path = options.output_folder + '/Data/*'
-    search_string = 'thermal'
+    search_string = 'emissions'
 
     # Get a list of all files in the folder
     files = glob.glob(path)
@@ -63,11 +63,76 @@ def postprocess_emissions(options):
     for iter_value in range(1, max(iter_interval) + 2, options.radiation.spectral_freq):
         iter_value = int(iter_value)
         titan = read_state(options, iter_value)
+        view_direction(titan, options)
         line_of_sight(titan, options, iter_value)
         element_gas_densities(titan)
-        emissions(titan, options)
+        emissions(titan, options, iter_value)
         #output.generate_surface_solution_emissions(titan=titan, options=options, folder='Postprocess_emissions', iter_value = iter_value)
+        exit()
 
+def view_direction(titan, options):
+
+    print('\nDefining view direction ...')
+
+    phi = options.radiation.phi
+    theta = options.radiation.theta
+
+    # define viewpoint on the basis of angles
+    viewpoint = np.array([np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), np.cos(theta)])
+
+    print('View direction in the ECEF frame:', viewpoint)
+
+    for assembly in titan.assembly:
+
+        R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
+
+        # Transform assembly from body to ECEF frame
+        assembly.mesh.facet_normal = R_B_ECEF.apply(assembly.mesh.facet_normal)
+        assembly.mesh.nodes        = R_B_ECEF.apply(assembly.mesh.nodes)
+        assembly.mesh.v0           = R_B_ECEF.apply(assembly.mesh.v0)
+        assembly.mesh.v1           = R_B_ECEF.apply(assembly.mesh.v1)
+        assembly.mesh.v2           = R_B_ECEF.apply(assembly.mesh.v2)
+
+        # Retrieve index of facets seen from viewpoint
+        assembly.index_blackbody = Aerothermo.ray_trace(assembly, viewpoint)
+        assembly.index_atomic = np.intersect1d(assembly.index_blackbody, assembly.aero_index)
+
+        # Calculate angle of facets seen from viewpoint, relative to view direction
+        assembly.angle_blackbody[assembly.index_blackbody] = vg.angle(-viewpoint, assembly.mesh.facet_normal[assembly.index_blackbody]) # degrees
+        assembly.angle_atomic[assembly.index_atomic]    = vg.angle(-viewpoint, assembly.mesh.facet_normal[assembly.index_atomic]) # degrees
+
+        points = assembly.mesh.nodes - assembly.mesh.surface_displacement
+        facets = assembly.mesh.facets
+        heatflux = assembly.aerothermo.heatflux
+
+        assembly.index_atomic_debug = np.zeros(len(facets))
+        assembly.index_bb_debug = np.zeros(len(facets))
+
+        assembly.index_atomic_debug[assembly.index_atomic] = 1
+        assembly.index_bb_debug[assembly.index_blackbody] = 1
+
+        cellID = np.array([])
+        for cellid in range(len(assembly.mesh.facets)):
+            cellID = np.append(cellID, cellid)
+
+        
+        cells = {"triangle": facets}
+
+        cell_data = { "Heatflux":                    [heatflux],
+        "index_at":                    [assembly.index_atomic_debug],
+        "index_bb":                    [assembly.index_bb_debug],
+
+                    }
+
+        trimesh = meshio.Mesh(points,
+                              cells=cells,
+                              cell_data = cell_data)
+
+        folder_path = options.output_folder+'/' + 'Postprocess_emissions' + '/ID_'+str(assembly.id)
+        Path(folder_path).mkdir(parents=True, exist_ok=True)
+
+        vol_mesh_filepath = f"{folder_path}/solution_iter_debug.xdmf"
+        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 def element_gas_densities(titan):
 
@@ -100,8 +165,8 @@ def read_state(options, i=0):
     titan: Assembly_list
         Object of class Assembly_list
     """
-
-    print("Reading state Assembly_State_.p, iter:", i)
+    print("\n-------------------------------------------------")
+    print("\n\nPost-processing iteration:", i)
 
     infile = open(options.output_folder + '/Restart/' + 'Assembly_State_' + str(i) + '_.p', 'rb')
     titan = pickle.load(infile)
@@ -109,74 +174,50 @@ def read_state(options, i=0):
 
     return titan
 
-
-def emissions(titan, options):
+def emissions(titan, options, iter_value):
 
     wavelengths_OI = [777.194e-9, 777.417e-9, 777.539e-9]
     wavelengths_AlI = [394.40058e-9, 396.152e-9]
 
-    phi = options.radiation.phi
-    theta = options.radiation.theta
-
-    # define viewpoint on the basis of angles
-    viewpoint = np.array([np.sin(theta) * np.cos(phi), np.sin(theta) * np.sin(phi), np.cos(theta)])
-
     for assembly in titan.assembly:
-
-        R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
-
-        # Transform assembly from body to ECEF frame
-        assembly.mesh.facet_normal = -R_B_ECEF.apply(assembly.mesh.facet_normal)
-        assembly.mesh.nodes        = -R_B_ECEF.apply(assembly.mesh.nodes)
-        assembly.mesh.v0           = -R_B_ECEF.apply(assembly.mesh.v0)
-        assembly.mesh.v1           = -R_B_ECEF.apply(assembly.mesh.v1)
-        assembly.mesh.v2           = -R_B_ECEF.apply(assembly.mesh.v2)
-
-        # Retrieve index of facets seen from viewpoint
-        index = Aerothermo.ray_trace(assembly, viewpoint)
-
-        # Calculate angle of facets seen from viewpoint, relative to view direction
-        vec1 = -viewpoint
-        vec2 = np.array(assembly.mesh.facet_normal[index])
-        angle = vg.angle(vec1, vec2)  # degrees
 
         if options.radiation.spectral:
             print('\nComputing spectral blackbody emissions for O I wavelengths ...')
-            assembly.blackbody_emissions_OI = thermal.compute_black_body_spectral_emissions(
-                assembly, wavelengths_OI, index, angle
+            assembly.blackbody_emissions_OI, assembly.blackbody_emissions_OI_surf = thermal.compute_black_body_spectral_emissions(
+                assembly, wavelengths_OI
             )
 
             print('\nComputing spectral blackbody emissions for Al I wavelengths ...')
-            assembly.blackbody_emissions_AlI = thermal.compute_black_body_spectral_emissions(
-                assembly, wavelengths_AlI, index, angle
+            assembly.blackbody_emissions_AlI, assembly.blackbody_emissions_AlI_surf = thermal.compute_black_body_spectral_emissions(
+                assembly, wavelengths_AlI
             )
 
         if options.radiation.spectral and options.thermal.ablation and options.radiation.particle_emissions and options.pato.flag:
-            assembly.OI_atomic_emissions = thermal.compute_particle_spectral_emissions_OI(
-                assembly, wavelengths_OI, index, angle
+            assembly.OI_atomic_emissions, assembly.atomic_emissions_OI_surf = thermal.compute_particle_spectral_emissions_OI(
+                assembly, wavelengths_OI
             )
 
-            assembly.AlI_atomic_emissions = thermal.compute_particle_spectral_emissions_AlI(
-                assembly, wavelengths_AlI, index, angle
+            assembly.AlI_atomic_emissions, assembly.atomic_emissions_AlI_surf = thermal.compute_particle_spectral_emissions_AlI(
+                assembly, wavelengths_AlI
             )
 
-            #output.generate_surface_solution_emissions(titan=titan, options=options, folder='Postprocess_emissions', iter_value = titan.iter)
+        output.generate_surface_solution_emissions(titan=titan, options=options, folder='Postprocess_emissions', iter_value = titan.iter)
 
         d = {
             'Assembly_ID': [assembly.id],
-            'OI_emissions_blackbody':  [assembly.blackbody_emissions_OI],
-            'AlI_emissions_blackbody': [assembly.blackbody_emissions_AlI],
-            'OI_emissions_atomic':     [assembly.OI_atomic_emissions],
-            'AlI_emissions_atomic':    [assembly.AlI_atomic_emissions],
+            'OI_emissions_blackbody':  [np.sum(assembly.blackbody_emissions_OI)],
+            'AlI_emissions_blackbody': [np.sum(assembly.blackbody_emissions_AlI)],
+            'OI_emissions_atomic':     [np.sum(assembly.OI_atomic_emissions)],
+            'AlI_emissions_atomic':    [np.sum(assembly.AlI_atomic_emissions)],
         }
 
         df = pd.DataFrame(data=d)
 
         df.to_csv(
-            options.output_folder + '/Data/' + 'emissions_' + str(titan.iter) + '.csv',
+            options.output_folder + '/Data/' + 'emissions_' + str(iter_value) + '.csv',
             mode='a',
             header=not os.path.exists(
-                options.output_folder + '/Data/' + 'emissions_' + str(titan.iter) + '.csv'
+                options.output_folder + '/Data/' + 'emissions_' + str(iter_value) + '.csv'
             ),
             index=False,
         )
@@ -203,7 +244,7 @@ def line_of_sight(titan, options, iteration):
         M = assembly.freestream.mach
         theta = 0.0001
 
-        p = np.where(assembly.aerothermo.theta * 180 / np.pi > 1e-3)[0]
+        p = np.intersect1d(assembly.index_atomic, np.where(assembly.aerothermo.theta > 0.001)[0])
 
         for index_object, obj in enumerate(assembly.objects):
 

@@ -266,7 +266,11 @@ def generate_surface_solution_emissions(titan, options, iter_value, folder = 'Su
     cellID = np.array([])
     heatflux = np.array([])
     temperature = np.array([])
-    emissions_debug = np.array([])
+    temperature_gas = np.array([])
+    blackbody_emissions_OI_surf  = np.array([])
+    blackbody_emissions_AlI_surf = np.array([])
+    atomic_emissions_OI_surf     = np.array([])
+    atomic_emissions_AlI_surf    = np.array([])
 
 
     for assembly in titan.assembly:
@@ -274,7 +278,11 @@ def generate_surface_solution_emissions(titan, options, iter_value, folder = 'Su
         facets = assembly.mesh.facets
         heatflux = assembly.aerothermo.heatflux
         temperature  = assembly.aerothermo.temperature
-        emissions_debug  = assembly.emissions_debug
+        temperature_gas  = assembly.aerothermo.Te
+        blackbody_emissions_OI_surf   = assembly.blackbody_emissions_OI_surf
+        blackbody_emissions_AlI_surf  = assembly.blackbody_emissions_AlI_surf
+        atomic_emissions_OI_surf      = assembly.atomic_emissions_OI_surf
+        atomic_emissions_AlI_surf     = assembly.atomic_emissions_AlI_surf
 
         for cellid in range(len(assembly.mesh.facets)):
             cellID = np.append(cellID, cellid)
@@ -282,19 +290,14 @@ def generate_surface_solution_emissions(titan, options, iter_value, folder = 'Su
         
         cells = {"triangle": facets}
 
-        cell_data = { "Heatflux": [heatflux],
-                      "Temperature": [temperature],
-                      "emissions_debug":  [emissions_debug],
+        cell_data = { "Heatflux":                    [heatflux],
+                      "Temperature":                 [temperature],
+                      "Temperature equilibrium gas": [temperature_gas],
+                      "blackbody_emissions_OI":  [blackbody_emissions_OI_surf],
+                      "blackbody_emissions_AlI": [blackbody_emissions_AlI_surf],
+                      "atomic_emissions_OI":     [atomic_emissions_OI_surf],
+                      "atomic_emissions_AlI":    [atomic_emissions_AlI_surf],
                     }
-
-        print('shape points:', np.shape(points))
-
-        print('shape facets:', np.shape(facets))
-        print('shape cells:', np.shape(cells))
-
-        print('shape Heatflux:', np.shape([heatflux]))
-        print('shape Temperature:', np.shape([temperature]))
-        print('shape emissions_debug:', np.shape([emissions_debug]))
 
         trimesh = meshio.Mesh(points,
                               cells=cells,

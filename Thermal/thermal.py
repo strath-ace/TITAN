@@ -378,14 +378,19 @@ def black_body(wavelength, T):
 
     return b
 
-def compute_black_body_spectral_emissions(assembly, wavelength, index, angle):
+def compute_black_body_spectral_emissions(assembly, wavelength):
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
 
+    index = assembly.index_blackbody
+    angle = assembly.angle_blackbody[index]
+
     cosine = np.cos(angle*np.pi/180)
     
+    print('max index:', max(index))
+    print('temp shape:', np.shape(assembly.aerothermo.temperature))
     temperature = assembly.aerothermo.temperature[index]
 
     for obj in assembly.objects:
@@ -397,17 +402,19 @@ def compute_black_body_spectral_emissions(assembly, wavelength, index, angle):
     facet_area = assembly.mesh.facet_area[index]
 
     emissions = np.zeros(len(wavelength))
+    distribution = np.zeros(len(assembly.mesh.facets))
 
     for wavelength_i in range(len(wavelength)):
 
         lamb = wavelength[wavelength_i]
 
         exp = np.exp((h*c)/(k*lamb*temperature))   
-        #b = (((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1))) # units W/sr-m3 #Spectral radiance in terms of wavelength
 
         b = (((2*c)/(np.power(lamb, 4))) * (1/(exp-1))) # units photons/[s*m2*m*sr]  #Spectral radiance in terms of wavelength
 
         seen_b = b*cosine*emissivity
+
+        distribution[index] += seen_b
 
         #weighing facet contribution by its area
         facet_area = assembly.mesh.facet_area[index]
@@ -416,16 +423,12 @@ def compute_black_body_spectral_emissions(assembly, wavelength, index, angle):
         #sum contributions of all facets
         emissions[wavelength_i] += np.sum(weighted_b)
 
-        #print('b:', b)
-        #print('seen_b:', seen_b)
-        #print('weighted_b:', weighted_b)
+    return emissions, distribution
 
-        #print('Wavelength [m]:', lamb)
-        #print('emissions  [W/sr-m]',np.sum(weighted_b))
+def compute_particle_spectral_emissions_AlI(assembly, wavelength):
 
-    return emissions
-
-def compute_particle_spectral_emissions_AlI(assembly, wavelength, index, angle):
+    index = assembly.index_atomic
+    angle = assembly.angle_atomic[index]
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
@@ -455,6 +458,7 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, index, angle):
     ntot = rhoe_i[:,-1]*Na/molarMass_Al
 
     emissions = np.zeros(len(wavelength))
+    distribution = np.zeros(len(assembly.mesh.facets))
 
     for wavelength_i in range(len(wavelength)):
 
@@ -476,20 +480,20 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, index, angle):
         #grey-body radiation seen from viewpoint
         seen_intensity = intensity*cosine
 
+        distribution[index] += seen_intensity
+
         #weighing facet contribution by its area
         weighted_seen_intensity = seen_intensity*facet_area # [W/sr]
 
         #sum contributions of all facets
         emissions[wavelength_i] += np.sum(weighted_seen_intensity)
-
-        #print('Wavelength      [m]:', lamb)
-        #print('Intensity x LOS [W/m2-sr]:', intensity)
-        #print('emissions       [W/sr]',np.sum(weighted_seen_intensity))
-
     
-    return emissions
+    return emissions, distribution
 
-def compute_particle_spectral_emissions_OI(assembly, wavelength, index, angle):
+def compute_particle_spectral_emissions_OI(assembly, wavelength):
+
+    index = assembly.index_atomic
+    angle = assembly.angle_atomic[index]
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
@@ -519,6 +523,7 @@ def compute_particle_spectral_emissions_OI(assembly, wavelength, index, angle):
     ntot = rhoe_i[:,1]*Na/molarMass_O
 
     emissions = np.zeros(len(wavelength))
+    distribution = np.zeros(len(assembly.mesh.facets))
 
     for wavelength_i in range(len(wavelength)):
 
@@ -540,17 +545,15 @@ def compute_particle_spectral_emissions_OI(assembly, wavelength, index, angle):
         #grey-body radiation seen from viewpoint
         seen_intensity = intensity*cosine
 
+        distribution[index] += seen_intensity
+
         #weighing facet contribution by its area
         weighted_seen_intensity = seen_intensity*facet_area # [W/sr]
 
         #sum contributions of all facets
         emissions[wavelength_i] += np.sum(weighted_seen_intensity)
-
-        #print('Wavelength      [m]:', lamb)
-        #print('Intensity x LOS [W/m2-sr]:', intensity)
-        #print('emissions       [W/sr]',np.sum(weighted_seen_intensity))
     
-    return emissions
+    return emissions, distribution
 
 def get_energy_levels(element):
     # Define the NIST Levels Tool URL

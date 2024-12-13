@@ -497,6 +497,19 @@ class Assembly():
 
         self.quaternion_prev = np.array([])
 
+        self.aero_index = np.array([])
+
+        self.blackbody_emissions_OI_surf  = np.zeros(len(self.mesh.facets))
+        self.blackbody_emissions_AlI_surf = np.zeros(len(self.mesh.facets))
+        self.atomic_emissions_OI_surf     = np.zeros(len(self.mesh.facets))
+        self.atomic_emissions_AlI_surf    = np.zeros(len(self.mesh.facets))
+
+        self.index_blackbody = np.array([])
+        self.index_atomic    = np.array([])
+
+        self.angle_blackbody = np.zeros(len(self.mesh.facets))
+        self.angle_atomic    = np.zeros(len(self.mesh.facets))
+
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
         """
