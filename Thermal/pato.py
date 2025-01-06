@@ -252,7 +252,7 @@ def write_All_run(options, obj, time, iteration):
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+' -useTimeName\n')
-        f.write('cp qconv/BC* qconv-bkp/ \n')
+        #f.write('cp qconv/BC* qconv-bkp/ \n')
         f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         #f.write('rm mesh/*meshb \n')

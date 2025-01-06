@@ -857,6 +857,10 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             options.pato.conduction_flag = get_config_value(configParser, options.pato.conduction_flag, 'PATO', 'Conduction_objects', 'boolean')
             options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
 
+            if options.pato.conduction_flag and (options.dynamics.time_step != options.pato.time_step):
+                print("If modelling conduction between objects, time-step in TITAN and PATO must be the same."); exit()  
+
+
         options.radiation.spectral               = get_config_value(configParser, options.radiation.spectral, 'Radiation', 'Spectral_emissions', 'boolean')
 
         if(options.radiation.spectral):
