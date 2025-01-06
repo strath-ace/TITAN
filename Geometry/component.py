@@ -126,7 +126,7 @@ class Component():
         self.photons = 0
 
         #if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato' and (not ("_joint" in self.name)):
-        if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato' and bloom_config[0]:      
+        if options.thermal.ablation and options.thermal.ablation_mode.lower() == 'pato':      
             self.pato = PATO(options, len(mesh.facets), bloom_config, self.global_ID, self.temperature)
             self.bloom = bloom(bloom_config)
 
