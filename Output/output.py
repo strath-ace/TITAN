@@ -130,6 +130,9 @@ def write_output_data(titan, options):
         df['Temperature'] = [assembly.freestream.temperature]
         df['Pressure'] = [assembly.freestream.pressure]
         df['SpecificHeatRatio'] = [assembly.freestream.gamma]
+        df['Qint'] = [np.sum(assembly.aerothermo.heatflux*assembly.mesh.facet_area)]
+        df['qmax'] = [max(assembly.aerothermo.heatflux)]
+        df['Tmax'] = [max(assembly.aerothermo.temperature)]
 
         for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.percent_mass[0]) :
             df[specie+"_mass_pct"] = [pct]
@@ -173,6 +176,8 @@ def write_output_data(titan, options):
             if options.pato.flag:
                 df["MaxTemperature"] = [max(obj.pato.temperature)]
                 print('obj:', obj.global_ID, ' max temp:', max(obj.pato.temperature))
+            if options.thermal.ablation_mode == "0d":
+                df["Temperature"] = [obj.temperature]
             df["Max_stress"] = [obj.max_stress]
             df["Yield_stress"] = [obj.yield_stress]
             df["Parent_id"] = [obj.parent_id]

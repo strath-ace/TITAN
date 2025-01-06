@@ -671,7 +671,7 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
     scalar& qCond_BF = qCond_.boundaryFieldRef()[currentPatchID_][faceI];
     scalar& T_BF = T_.boundaryFieldRef()[currentPatchID_][faceI];
 
-    //hereInfo << "T_BF: " << T_BF << endl;
+    //Info << "T_BF: " << T_BF << endl;
 
     //hereInfo << "h_c_BF: " << h_c_BF << endl;
 
@@ -715,8 +715,12 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
     mDotMelt_BF = 0.0;
     mDotVapor_BF = 0.0;
 
+    //Info << "T_BF: " << T_BF << endl;
+
     //Info << "mDotVapor:" << mDotVapor_BF << endl;
 
+
+//1
 //    if (T_BF > Tmelt){
 //      
 //      if ((molten_BF == 0) || (fstrip == 1)) {
@@ -752,8 +756,43 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
 //      }
 //    }
 
-      
-    if ( (T_BF > Tmelt) && ((molten_BF == 0) || (fstrip == 1))) {
+//2      
+//    if ( (T_BF > Tmelt) && ((molten_BF == 0) || (fstrip == 1))) {
+//
+//      //Info << " Melting" << endl;
+//      
+//      T_BF = Tmelt;
+//  
+//      qCond_BF = (kProj_BF * invDx_BF)* (T_BF - Tint_BF);
+//  
+//      double Qmelt = qConv_BF + qRadEmission_BF - qCond_BF; // - mDotChem(h_s - h_w) 
+//  
+//      mDotMelt_BF = fstrip*Qmelt/Hfusion;
+//      
+//      localMassChange -= mDotMelt_BF * time_step;
+//    }
+//
+//    if ((T_BF > Tboil) && (fstrip < 1)) {
+//
+//      //Info << "Vaporizing" << endl;
+//      
+//      T_BF = Tboil;
+//  
+//      qCond_BF = (kProj_BF * invDx_BF)* (T_BF - Tint_BF);
+//  
+//      double Qboil = qConv_BF + qRadEmission_BF - qCond_BF; // - mDotChem(h_s - h_w) 
+//  
+//      mDotVapor_BF = Qboil/Hboil;
+//  
+//      localMassChange -= mDotVapor_BF * time_step;
+//
+//     // Info << " after vapor T_BF: " << T_BF << endl;
+//    }
+
+    //Info << "T_BF: " << T_BF << endl;
+
+
+    if  (T_BF > Tmelt)  {
 
       //Info << " Melting" << endl;
       
@@ -763,26 +802,9 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
   
       double Qmelt = qConv_BF + qRadEmission_BF - qCond_BF; // - mDotChem(h_s - h_w) 
   
-      mDotMelt_BF = fstrip*Qmelt/Hfusion;
-  
-      localMassChange -= mDotMelt_BF * time_step;
-    }
-
-    if ((T_BF > Tboil) && (fstrip < 1)) {
-
-      //Info << "Vaporizing" << endl;
+      mDotMelt_BF = Qmelt/Hfusion;
       
-      T_BF = Tboil;
-  
-      qCond_BF = (kProj_BF * invDx_BF)* (T_BF - Tint_BF);
-  
-      double Qboil = qConv_BF + qRadEmission_BF - qCond_BF; // - mDotChem(h_s - h_w) 
-  
-      mDotVapor_BF = Qboil/Hboil;
-  
-      localMassChange -= mDotVapor_BF * time_step;
-
-     // Info << " after vapor T_BF: " << T_BF << endl;
+      localMassChange -= mDotMelt_BF * time_step;
     }
 
   }
@@ -790,8 +812,9 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
   reduce(localMassChange, sumOp<scalar>());
   mass += localMassChange;
 
-  //hereInfo << "\n localMassChange: " << localMassChange << endl;
-  //hereInfo << "\n mass: " << mass << endl;
+  Info << "\n localMassChange: " << localMassChange << endl;
+  Info << "\n mass: " << mass << endl;
+  Info << "\n previous_mass: " << previous_mass << endl;
 
   density_ratio = mass/previous_mass;
   density *= density_ratio;
@@ -820,6 +843,8 @@ void Foam::BprimeBoundaryConditions::updateTemperatureBC()
   bool massFile = false;
 
   if (fabs(curr_time - end_time) < 1e-8) {massFile = true;}
+
+  //Info << "massFile:" << massFile << endl;
 
   if (massFile){
 

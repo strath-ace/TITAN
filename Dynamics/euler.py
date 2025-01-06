@@ -27,6 +27,7 @@ from Output import output
 import pyquaternion
 from Freestream import gram
 from Model import drag_model
+import copy
 
 def compute_Euler(titan, options):
     """
@@ -72,9 +73,9 @@ def compute_Euler(titan, options):
     for assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)     
-        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step)
+        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, titan.iter)
         
-def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step):
+def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, iter_num):
     """
     Update position and attitude of the assembly
 
@@ -92,13 +93,45 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
 
     dt = time_step
 
-    assembly.position[0] += dt*cartesianDerivatives.dx
-    assembly.position[1] += dt*cartesianDerivatives.dy
-    assembly.position[2] += dt*cartesianDerivatives.dz
+#    assembly.position[0] += dt*cartesianDerivatives.dx
+#    assembly.position[1] += dt*cartesianDerivatives.dy
+#    assembly.position[2] += dt*cartesianDerivatives.dz
+#
+#    assembly.velocity[0] += dt*cartesianDerivatives.du
+#    assembly.velocity[1] += dt*cartesianDerivatives.dv
+#    assembly.velocity[2] += dt*cartesianDerivatives.dw
 
-    assembly.velocity[0] += dt*cartesianDerivatives.du
-    assembly.velocity[1] += dt*cartesianDerivatives.dv
-    assembly.velocity[2] += dt*cartesianDerivatives.dw
+    if iter_num == 0:
+
+    #     print('initial dynamics at iteration 0')
+
+        assembly.position[0] += dt*cartesianDerivatives.dx
+        assembly.position[1] += dt*cartesianDerivatives.dy
+        assembly.position[2] += dt*cartesianDerivatives.dz
+
+        assembly.velocity[0] += dt*cartesianDerivatives.du
+        assembly.velocity[1] += dt*cartesianDerivatives.dv
+        assembly.velocity[2] += dt*cartesianDerivatives.dw
+
+    else:
+
+        px = assembly.position_nlast[0] +  2*dt*cartesianDerivatives.dx
+        py = assembly.position_nlast[1] +  2*dt*cartesianDerivatives.dy
+        pz = assembly.position_nlast[2] +  2*dt*cartesianDerivatives.dz
+        vx = assembly.velocity_nlast[0] + 2*dt*cartesianDerivatives.du
+        vy = assembly.velocity_nlast[1] + 2*dt*cartesianDerivatives.dv
+        vz = assembly.velocity_nlast[2] + 2*dt*cartesianDerivatives.dw
+
+        assembly.position[0] = px
+        assembly.position[1] = py
+        assembly.position[2] = pz
+        assembly.velocity[0] = vx
+        assembly.velocity[1] = vy
+        assembly.velocity[2] = vz
+
+
+    assembly.position_nlast = copy.deepcopy(assembly.position)
+    assembly.velocity_nlast = copy.deepcopy(assembly.velocity)
 
     assembly.distance_travelled += np.sqrt(dt*cartesianDerivatives.dx*dt*cartesianDerivatives.dx+dt*cartesianDerivatives.dy*dt*cartesianDerivatives.dy+dt*cartesianDerivatives.dz*dt*cartesianDerivatives.dz) 
 
@@ -112,6 +145,8 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.trajectory.latitude = latitude
     assembly.trajectory.longitude = longitude
     assembly.trajectory.altitude = altitude
+
+    print('Altitude:', altitude)
 
     [vEast, vNorth, vUp] = pymap3d.uvw2enu(assembly.velocity[0], assembly.velocity[1], assembly.velocity[2], latitude, longitude, deg=False)
 

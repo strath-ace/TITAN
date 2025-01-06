@@ -242,9 +242,14 @@ def compute_thermal_tetra(titan, options):
 def compute_thermal_PATO(titan, options):
 
     for assembly in titan.assembly: 
-        pato.compute_heat_conduction(assembly)
-        Tinf = assembly.freestream.temperature           
+
+        if options.pato.conduction_flag:
+            pato.compute_heat_conduction(assembly)
+
+        Tinf = assembly.freestream.temperature        
+
         for obj in assembly.objects:
+
             if obj.pato.flag: 
                 hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
                 he = assembly.aerothermo.he[obj.facet_index]
@@ -254,6 +259,7 @@ def compute_thermal_PATO(titan, options):
                 pw = assembly.aerothermo.pressure[obj.facet_index]
                 pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+
                 if options.pato.Ta_bc == 'ablation':
                     assembly.mDotVapor[obj.facet_index] = obj.pato.mDotVapor
                     assembly.mDotMelt[obj.facet_index] = obj.pato.mDotMelt

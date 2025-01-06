@@ -579,6 +579,12 @@ class Assembly():
         self.mesh.vol_mass  = vol*density
         self.mass = np.sum(self.mesh.vol_mass)
 
+        print('density:', density[0])
+
+        print('volume:', np.sum(vol))
+
+        print('mass:', self.mass)
+
         #Computes the Center of Mass
         if self.mass <= 0:
             self.COG = np.array([0,0,0])

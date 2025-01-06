@@ -174,6 +174,9 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].position = np.copy(titan.assembly[i].position) + dx_ECEF
         titan.assembly[-1].velocity = np.copy(titan.assembly[i].velocity) + np.cross(angle_vel_ECEF,dx_ECEF)
         
+        titan.assembly[-1].position_nlast = deepcopy(titan.assembly[-1].position)
+        titan.assembly[-1].velocity_nlast = deepcopy(titan.assembly[-1].velocity)
+
         titan.assembly[-1].roll_vel  = angle_vel[0]
         titan.assembly[-1].pitch_vel = angle_vel[1]
         titan.assembly[-1].yaw_vel   = angle_vel[2]
@@ -514,8 +517,6 @@ def fragmentation(titan, options):
     assembly_id = np.array([], dtype = int)
     lenght_assembly = len(titan.assembly)
 
-    #print("Before fragmentation:")
-    #print([obj.id for obj in titan.assembly[0].objects])
     fragmentation_flag = False
 
     for it in range(lenght_assembly):
@@ -558,7 +559,7 @@ def fragmentation(titan, options):
                     con_delete = []
 
                     for index, con in enumerate(titan.assembly[it].connectivity):
-                        if con[2] == _id+1:
+                        if con[2] == 0:
                             con_delete.append(index)
                     
                     titan.assembly[it].connectivity = np.delete(titan.assembly[it].connectivity, con_delete, axis = 0)
@@ -593,7 +594,8 @@ def fragmentation(titan, options):
 
         if len(objs_id) != 0 or primitive_separation:
             fragmentation_flag = True
-            if len(titan.assembly[it].objects) != 1: demise_components(titan, it, objs_id, options)
+            if len(titan.assembly[it].objects) != 1:
+                demise_components(titan, it, objs_id, options)
             assembly_id = np.append(assembly_id, it)
             
     titan.assembly = np.delete(titan.assembly,assembly_id).tolist()
@@ -611,7 +613,6 @@ def fragmentation(titan, options):
 
         output.generate_volume(titan = titan, options = options)
 
-    
     if options.thermal.ablation and options.pato.flag:
         for assembly in titan.assembly:
             pato.identify_object_connections(assembly)

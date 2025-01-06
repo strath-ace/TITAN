@@ -266,6 +266,7 @@ def write_All_run(options, obj, time, iteration):
             if options.current_iter%options.save_freq == 0:
                 f.write('rm -rf processor'+str(n)+'/restart/* \n')
                 f.write('cp -r  processor'+str(n)+'/'+str(start_time)+'/ processor'+str(n)+'/restart/ \n')
+                f.write('cp -r  processor'+str(n)+'/'+str(end_time)+'/ processor'+str(n)+'/restart/ \n')
                 f.write('mv  processor'+str(n)+'/VTK/proce* processor'+str(n)+'/restart/ \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
             f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
@@ -1511,7 +1512,7 @@ def postprocess_mass_inertia(obj, options, time_to_read):
     print(f"Mass: {new_mass}")
     print(f"Density_ratio: {density_ratio}")
 
-    if obj.density_ratio < 1:
+    if obj.density_ratio != 1:
 
         print('Ablation')
 
@@ -1532,11 +1533,18 @@ def postprocess_mass_inertia(obj, options, time_to_read):
 
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/data/constantProperties', 'r+', encoding='utf-8') as f:
         lines = f.readlines()
-        lines[48] = 'mass ' + str(obj.mass) + ';\n'
-        lines[49] = 'density ' + str(obj.material.density) + ';\n'
-        lines[30] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
-        f.seek(0)
-        f.writelines(lines)
+        #lines[48] = 'mass ' + str(obj.mass) + ';\n'
+        #lines[49] = 'density ' + str(obj.material.density) + ';\n'
+        #lines[30] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
+        #f.seek(0)
+        #f.writelines(lines)
+        for i, line in enumerate(lines):
+            if 'rho_sub_n[0]' in line:
+                lines[i] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
+            if 'mass' in line:
+                lines[i] = 'mass ' + str(obj.mass) + ';\n'
+            if 'density' in line:
+                lines[i] = 'density ' + str(obj.material.density) + ';\n'
 
 def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
 
@@ -1645,6 +1653,8 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
     return vtk_data
 
 def compute_heat_conduction(assembly):
+
+    print('Computing heat conduction between objects ...')
 
     objects = assembly.objects
     assembly.hf_cond[:] = 0

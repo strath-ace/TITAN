@@ -211,7 +211,7 @@ class Thermal():
 
 
 class PATO():
-    def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1):
+    def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = True):
 
 
         #: [boolean] Flag to perform PATO simulation
@@ -228,6 +228,9 @@ class PATO():
 
         #Fraction of the melted material that is stripped away
         self.fstrip = fstrip
+
+        #: [boolean] Flag to model heat conduction between objects
+        self.conduction_flag = conduction_flag
 
 
 class Radiation():
@@ -754,6 +757,8 @@ def read_geometry(configParser, options):
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom) 
 
+
+                print('bloom:', bloom)
                 obj_global_ID += 1
 
 
@@ -845,10 +850,11 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             options.pato.flag = True
             options.pato.Ta_bc  = get_config_value(configParser, options.pato.Ta_bc,  'PATO', 'PATO_mode', 'str').lower()
             #PATO and TITAN time-step need to be the same for the consistency of the heat conduction and density change algorithm
-            options.pato.time_step = options.dynamics.time_step#get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
+            options.pato.time_step = get_config_value(configParser, options.pato.time_step, 'PATO', 'Time_step', 'float')
             options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
             options.pato.fstrip = get_config_value(configParser, options.pato.fstrip, 'PATO', 'fStrip', 'float')
             if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
+            options.pato.conduction_flag = get_config_value(configParser, options.pato.conduction_flag, 'PATO', 'Conduction_objects', 'boolean')
             options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
 
         options.radiation.spectral               = get_config_value(configParser, options.radiation.spectral, 'Radiation', 'Spectral_emissions', 'boolean')
@@ -981,6 +987,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
                 if options.pato.flag:
                     for obj in assembly.objects:
                         if obj.pato.flag:
+                            print('blooming name:', obj.name)
                             GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)                          
                             bloom.generate_PATO_mesh(options, obj.global_ID, bloom = obj.bloom)
                             pato.initialize(options, obj)
