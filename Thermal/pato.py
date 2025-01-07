@@ -1546,6 +1546,10 @@ def postprocess_mass_inertia(obj, options, time_to_read):
             if 'density' in line:
                 lines[i] = 'density ' + str(obj.material.density) + ';\n'
 
+        f.seek(0)  # Go back to the start of the file
+        f.writelines(lines)
+        f.truncate()  # Truncate the file to remove any leftover content
+
 def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
 
     A = facet_COG

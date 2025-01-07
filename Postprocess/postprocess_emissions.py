@@ -68,7 +68,6 @@ def postprocess_emissions(options):
         element_gas_densities(titan)
         emissions(titan, options, iter_value)
         #output.generate_surface_solution_emissions(titan=titan, options=options, folder='Postprocess_emissions', iter_value = iter_value)
-        exit()
 
 def view_direction(titan, options):
 

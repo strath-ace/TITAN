@@ -161,6 +161,8 @@
 		</yieldStress>
 	</metalMaterial>
 
+
+
 	<metalMaterial>
 		<name>titanium</name>
 		<density>4506</density>
@@ -280,7 +282,7 @@
 
 	<metalMaterial>
 		<name>Aluminum-test3</name>
-		<density>2000.0</density>
+		<density>2710.0</density>
 		<specificHeatCapacity>
 			<values>293,897;10000,897;</values>
 		</specificHeatCapacity>
