@@ -293,6 +293,7 @@ def compute_thermal_PATO(titan, options):
             #Update gas mass fractions to include vaporized material from ablation
 
             assembly.mVapor = assembly.mDotVapor*options.dynamics.time_step
+            assembly.mMelt  = assembly.mDotMelt*options.dynamics.time_step
 
     return
 

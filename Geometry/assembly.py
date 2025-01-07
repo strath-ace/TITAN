@@ -488,6 +488,7 @@ class Assembly():
                 self.mDotVapor = np.zeros(len(self.mesh.facets))
                 self.mVapor = np.zeros(len(self.mesh.facets))
                 self.mDotMelt = np.zeros(len(self.mesh.facets))
+                self.mMelt = np.zeros(len(self.mesh.facets))
                 self.updated_gas_density = np.zeros(len(self.mesh.facets))
                 self.LOS = np.zeros(len(self.mesh.facets))
 

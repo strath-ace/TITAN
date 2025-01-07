@@ -142,10 +142,10 @@ def element_gas_densities(titan):
 
         gas_volume = assembly.mesh.facet_area * assembly.LOS
         gas_mass = assembly.aerothermo.rhoe * gas_volume
-        # before adding vaporized material
+        # before adding melted material
         species_mass = assembly.aerothermo.ce_i * gas_mass[:, np.newaxis]
-        # add vaporized material mass
-        species_mass[:, -1] = assembly.mVapor
+        # add melted material mass
+        species_mass[:, -1] = assembly.mMelt
         gas_mass = species_mass.sum(axis=1)
         assembly.aerothermo.ce_i = species_mass / gas_mass[:, np.newaxis]
         assembly.aerothermo.ce_i[np.isnan(assembly.aerothermo.ce_i)] = 0
