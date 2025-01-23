@@ -17,6 +17,7 @@ from distutils.dir_util import copy_tree
 import numpy as np
 import pickle
 import pathlib
+import psutil
 from Configuration.configuration import Uncertainty
 
 from matplotlib import pyplot as plt
@@ -46,9 +47,9 @@ def wrapper(i_sim, params):
         cleanup = True
         cfg.set('Options','Write_solutions','False')
 
-    if verbose: runTITAN(cfg,'')
+    if verbose: runTITAN(cfg,'','')
     else:
-        with HiddenPrints(): runTITAN(cfg,'')
+        with HiddenPrints(): runTITAN(cfg,'','')
     with open(directory+'/Data/QoI.pkl','rb') as file: quants = pickle.load(file)
     if cleanup: shutil.rmtree(directory)
     return quants, UQ.inputVector
@@ -69,17 +70,18 @@ def createOracle(cfg):
         burndata = uncertainties['deorbit'].copy()
         deterministicImpulse(oracle_cfg,burndata)
 
+    try:
+        if not cfg.getboolean('GRAM', 'Uncertain'):
+            print('...pregenerating mesh')
+            oracle_cfg.set('Options', 'num_iters', '2')
+        else:
+            print('...uncertain GRAM selected, running full sim')
+            oracle_cfg.set('GRAM','Uncertain','False')
+    except: oracle_cfg.set('Options', 'num_iters', '2')
 
-    if not cfg.getboolean('GRAM', 'Uncertain'):
-        print('...pregenerating mesh')
-        oracle_cfg.set('Options', 'num_iters', '2')
-    else:
-        print('...uncertain GRAM selected, running full sim')
-        oracle_cfg.set('GRAM','Uncertain','False')
 
-
-    runTITAN(oracle_cfg,'')
-    runTITAN(oracle_cfg,'wind')
+    runTITAN(oracle_cfg,'','')
+    #runTITAN(oracle_cfg,'wind','')
     # mass = extractQoI(oracle_cfg,'TempOracle/Data/data.csv')[0]
 
 
@@ -98,7 +100,7 @@ def loadOracleData(directory,oracledirectory):
     [copy_tree(oracledirectory+ '/' + sub, directory + '/' + sub) for sub in subfolders]
 
 
-def sampler(cfg,yamlfile,oracle='',n_procs=multiprocessing.cpu_count(),verbose=False,keep=0,seed='Auto',overrideUQ = None):
+def sampler(cfg,yamlfile,oracle='',n_procs=psutil.cpu_count(logical=False),verbose=False,keep=0,seed='Auto',overrideUQ = None):
     msg = messenger(threshold=300)
 
     if oracle=='':
@@ -132,8 +134,8 @@ def sampler(cfg,yamlfile,oracle='',n_procs=multiprocessing.cpu_count(),verbose=F
     # with open('QoI.pkl', 'rb') as file: qoi=pickle.load(file)
 
     qoi = Uncertainty()
-    qoi.objects = cfg['QoI']['Objects']
-    qoi.outputs = cfg['QoI']['Outputs']
+    qoi.objects = cfg['Uncertainty']['Objects']
+    qoi.outputs = cfg['Uncertainty']['Outputs']
     qoi.build_quantities(cfg['Assembly']['Path'])
     
     inputs = []
@@ -205,7 +207,7 @@ if __name__ == "__main__":
 
     oracle = '' if not args.oracle else args.oracle
 
-    n_procs = multiprocessing.cpu_count() if not args.n_processes else args.n_processes
+    n_procs = psutil.cpu_count(logical=False) if not args.n_processes else args.n_processes
 
     keep = n_procs if not args.keep else args.keep
 

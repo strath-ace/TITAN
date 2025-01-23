@@ -29,6 +29,9 @@ from Uncertainty.atmosphere import add_wind
 import trimesh
 from scipy.optimize import root
 from scipy.optimize import fsolve
+import seaborn as sns
+from matplotlib import pyplot as plt
+
 try:
     import mutationpp as mpp
 except:
@@ -47,7 +50,7 @@ def mixture_mpp(mixture = "air5"):
 
     mix = mpp.Mixture(opts)
 
-    print("Mixture:", mixture)
+    #print("Mixture:", mixture)
     
     return mix
 
@@ -308,7 +311,8 @@ def compute_aerothermo(titan, options):
     options: Options
         Object of class Options
     """
-
+    if titan.iter==1342 or titan.iter==1343:
+        print('Iter of interest!')
     atmo_model = options.freestream.model
     
     for assembly in titan.assembly:
@@ -391,11 +395,13 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
 
     StConst = assembly.freestream.density*assembly.freestream.velocity**3 / 2.0
     if StConst<0.05: StConst = 0.05 # Neglect Cooling effect    
-
+    plt.ion()
     # Heatflux calculation for Earth
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly, index, flow_direction, options)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly, index, flow_direction, options)
+            sns.kdeplot(assembly.aerothermo.heatflux[index],color='r',alpha=0.5)
+            assembly.aerothermo.heatflux[index] *= StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
 
         elif (assembly.freestream.knudsen >= Kn_free): 
@@ -406,10 +412,12 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
             #atmospheric model for the aerothermodynamics bridging needs to be the NRLSMSISE00
             atmo_model = "NRLMSISE00"
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)
+            sns.kdeplot(assembly.aerothermo.heatflux[index],color='b',alpha=0.5)
+            assembly.aerothermo.heatflux[index] *= StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
-
-
+        plt.show()
+        plt.ioff()
     elif options.planet.name == "neptune" or options.planet.name == "uranus":
         #https://sci.esa.int/documents/34923/36148/1567260384517-Ice_Giants_CDF_study_report.pdf        
         assembly.aerothermo.heatflux[index] = aerothermodynamics_module_ice_giants(assembly, index, flow_direction, options)
@@ -584,7 +592,7 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
     free = assembly.freestream
     Twall = assembly.aerothermo.temperature
 
-    print('chemistry mixture:', mixture)
+    #print('chemistry mixture:', mixture)
 
     mix = mixture_mpp('air5')
 
@@ -598,8 +606,8 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
     cfree_i = free.percent_mass
     ufree = free.velocity
 
-    print('Mfree:', Mfree)
-    print('Tfree:', Tfree)
+    #print('Mfree:', Mfree)
+    #print('Tfree:', Tfree)
 
     #N O NO N2 O2
     cfree_i = np.array([0, 0, 0, cfree_i[0,0], cfree_i[0,1]])
@@ -626,7 +634,7 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
     
         theta_max = (90-np.arcsin(1/Mfree))/2
     
-        print('theta_max:', theta_max)
+        #print('theta_max:', theta_max)
     
         # Normal component of Mach number for each surface
         # if theta > 89.9 deg -> normal shock -> Mn1 = Mfree
@@ -655,10 +663,10 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
         ce_i = np.zeros((len(beta), nSpecies))
         ce_i[:] = cfree_i
 
-        print('before equilibrium loop')
+        #print('before equilibrium loop')
     
         for facet in range(len(beta)):
-            print('facet:', facet)
+            #print('facet:', facet)
             #Onset of dissociation is 2500 K for air
             if T_post_frozen[facet] > 2000:
                 Te[facet], Pe[facet], He[facet], rhoe[facet], Ue[facet], ce_i[facet] = post_shock_equilibrium(T_post_frozen[facet], P_post_frozen[facet], H_post_frozen[facet], rhofree, Pfree, ufree, Hfree, mix)
@@ -726,8 +734,8 @@ def post_shock_equilibrium(T_frozen, P_frozen, H_frozen, rho1, p1, u1, h1, mix):
 
     while abs(h2_eq-h2)>tol:
 
-        print('\nTeq:', Teq)
-        print('Peq:', Peq)
+        #print('\nTeq:', Teq)
+        #print('Peq:', Peq)
 
         mix.equilibrate(Teq, Peq)
         rho2 = mix.density()
@@ -1032,7 +1040,17 @@ def aerothermodynamics_module_continuum(assembly, p, flow_direction, options):
 
     Stc[Stc < 0] = 0
     Stc.shape = (-1)
-
+    import seaborn as sns
+    sns.kdeplot(Stc)
+    if free.knudsen<0.001:
+        print('Continuum St : {}'.format(np.std(Stc)))
+        import pandas as pd
+        import os
+        data_array = [[np.std(Stc),0.0,0.0,np.std(Stc)]]
+        columns = [['St Cont','St FMF','Bridging Func','St Final']]
+        data=pd.DataFrame(data_array,columns=columns)
+        doHeader = False if os.path.exists(options.output_folder+'/St.csv') else True
+        data.to_csv(options.output_folder+'/St.csv',mode='a',index=False,header=doHeader)
     return Stc
 
 def aerothermodynamics_module_freemolecular(assembly, p, flow_direction):
@@ -1086,7 +1104,7 @@ def aerothermodynamics_module_freemolecular(assembly, p, flow_direction):
 
     Stfm = Q_fm/StConst
     Stfm.shape = (-1)
-
+    print('Rarefied St : {}'.format(np.mean(Stfm)))
     return Stfm
 
 def aerodynamics_module_freemolecular(assembly, p, flow_direction):
@@ -1302,8 +1320,8 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
                              [3.30532319579131e-08, -9.75492854066848e-06, 0.000882596445817803, 0.974679444906316]])
 
 
-    f2 = PchipInterpolator(Micro_breaks, Micro_coeffs)
-    Thermal_bridge[0] = f2(free.knudsen)[3]
+    micro_interpolator = PchipInterpolator(Micro_breaks, Micro_coeffs)
+    Thermal_bridge[0] = micro_interpolator(free.knudsen)[3]
 
     MarsPath_breaks = np.array([0.00103, 0.00357, 0.014, 0.0271, 0.0547, 0.109, 0.206, 0.404, 1.54, 5.03, 24.1, 100])
     MarsPath_coeffs = np.array([[-434289.992260872, 409.141588399997, 27.0574112949722, 0],
@@ -1321,8 +1339,8 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
 
     MarsPath_bridge = MarsPath_coeffs[:,3]+MarsPath_breaks*MarsPath_coeffs[:,2]+MarsPath_breaks**2*MarsPath_coeffs[:,1]+MarsPath_breaks**3*MarsPath_coeffs[:,0]
     
-    f2 = PchipInterpolator(MarsPath_breaks, MarsPath_coeffs)
-    Thermal_bridge[1] = f2(free.knudsen)[3]
+    MarsPath_interpolator = PchipInterpolator(MarsPath_breaks, MarsPath_coeffs)
+    Thermal_bridge[1] = MarsPath_interpolator(free.knudsen)[3]
 
     MeanR_breaks = np.array([0.001, 0.0033, 0.0073, 0.0161, 0.0456, 0.0788, 0.3857, 0.8532, 2.5, 7, 20, 100])
     MeanR_coeffs = np.array([[-25014.0060084375, -130.324225043622, 14.8316002530129, 0],
@@ -1340,8 +1358,8 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
 
     MeanR_bridge = MeanR_coeffs[:,3]+MeanR_breaks*MeanR_coeffs[:,2]+MeanR_breaks**2*MeanR_coeffs[:,1]+MeanR_breaks**3*MeanR_coeffs[:,0]
 
-    f2 = PchipInterpolator(MeanR_breaks, MeanR_coeffs)
-    Thermal_bridge[2] = f2(free.knudsen)[3]
+    MeanR_interpolator = PchipInterpolator(MeanR_breaks, MeanR_coeffs)
+    Thermal_bridge[2] = MeanR_interpolator(free.knudsen)[3]
 
     Orion_breaks = np.array([0.001, 0.0033, 0.0073, 0.0161, 0.04562, 0.0788, 0.3857, 0.8532 ,2.5,7,20,100])
     Orion_coeffs = np.array([[-16779.2722274906, -82.7046724094568, 8.06917824107994, 0],
@@ -1359,8 +1377,8 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
 
     Orion_bridge = Orion_coeffs[:,3]+Orion_breaks*Orion_coeffs[:,2]+Orion_breaks**2*Orion_coeffs[:,1]+Orion_breaks**3*Orion_coeffs[:,0]
 
-    f2 = PchipInterpolator(Orion_breaks, Orion_coeffs)
-    Thermal_bridge[3] = f2(free.knudsen)[3]
+    Orion_interpolator = PchipInterpolator(Orion_breaks, Orion_coeffs)
+    Thermal_bridge[3] = Orion_interpolator(free.knudsen)[3]
 
     Thermal_bridge[Thermal_bridge<0] = 0
     Thermal_bridge[Thermal_bridge>1] = 1 
@@ -1386,7 +1404,19 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     St = Stc + (Stfm - Stc) * BridgeReq[p]
 
     St.shape = (-1)
-    return St
+    print('Continuum St : {}, Rarefied St : {}, Bridging Factor : {}, Bridged St : {}'.format(np.std(Stc),
+                                                                                          np.std(Stfm),
+                                                                                          np.mean(BridgeReq),
+                                                                                          np.std(St)))
+    import pandas as pd
+    import os
+    data_array = [[np.std(Stc),np.std(Stfm),np.mean(BridgeReq),np.std(St)]]
+    columns = [['St Cont','St FMF','Bridging Func','St Final']]
+    data=pd.DataFrame(data_array,columns=columns)
+    doHeader = False if os.path.exists(options.output_folder+'/St.csv') else True
+    data.to_csv(options.output_folder+'/St.csv',mode='a',index=False,header=doHeader)
+
+    return Stfm
 
 def bridging_altitudes(model, Kn_cont,Kn_free, lref):
 

@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 import numpy as np
 from scipy import interpolate
 import os
+from functools import partial
 
 #### LIST OF MATERIALS
 
@@ -97,10 +98,16 @@ class Material():
 		self.meltingTemperature = self.material_meltingTemperature(index)
 
 		#: [float] Vaporization Heat value of the material
-		self.vaporizationHeat = self.material_vaporizationHeat(index)
+		try:
+			self.vaporizationHeat = self.material_vaporizationHeat(index)
+		except:
+			self.vaporizationHeat = partial(please_dont_call_me,'Vaporization Heat')
 
 		#: [float] vaporization Temperature value
-		self.vaporizationTemperature = self.material_vaporizationTemperature(index)
+		try:
+			self.vaporizationTemperature = self.material_vaporizationTemperature(index)
+		except:
+			self.vaporizationTemperature = partial(please_dont_call_me,'Vaporization Temperature')
 
 		#: [float] Emissivity value
 		self.emissivity = self.material_emissivity(index)                      #function of Temperature
@@ -396,3 +403,9 @@ def polynomial_fit(material, name, properties, order):
 	coefficients = np.flip(coefficients)
 
 	return coefficients
+
+def returnConst(const,input):
+	return const
+
+def please_dont_call_me(message,input):
+	raise NotImplementedError('Error {} is not implemented!'.format(message))

@@ -27,6 +27,7 @@ from Output import output
 import pyquaternion
 from Freestream import gram
 from Model import drag_model
+import copy
 
 def compute_Euler(titan, options):
     """
@@ -76,9 +77,9 @@ def compute_Euler(titan, options):
     for assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)     
-        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step)
+        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, titan.iter)
         
-def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step):
+def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, iter_num):
     """
     Update position and attitude of the assembly
 
@@ -95,16 +96,36 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     """
 
     dt = time_step
+    if iter_num == 0 or not options.dynamics.use_bwd_diff:
+    
+        assembly.position[0] += dt*cartesianDerivatives.dx
+        assembly.position[1] += dt*cartesianDerivatives.dy
+        assembly.position[2] += dt*cartesianDerivatives.dz
 
-    assembly.position[0] += dt*cartesianDerivatives.dx
-    assembly.position[1] += dt*cartesianDerivatives.dy
-    assembly.position[2] += dt*cartesianDerivatives.dz
+        assembly.velocity[0] += dt*cartesianDerivatives.du
+        assembly.velocity[1] += dt*cartesianDerivatives.dv
+        assembly.velocity[2] += dt*cartesianDerivatives.dw
 
-    assembly.velocity[0] += dt*cartesianDerivatives.du
-    assembly.velocity[1] += dt*cartesianDerivatives.dv
-    assembly.velocity[2] += dt*cartesianDerivatives.dw
+    else:
+
+        px = assembly.position_nlast[0] +  2*dt*cartesianDerivatives.dx
+        py = assembly.position_nlast[1] +  2*dt*cartesianDerivatives.dy
+        pz = assembly.position_nlast[2] +  2*dt*cartesianDerivatives.dz
+        vx = assembly.velocity_nlast[0] + 2*dt*cartesianDerivatives.du
+        vy = assembly.velocity_nlast[1] + 2*dt*cartesianDerivatives.dv
+        vz = assembly.velocity_nlast[2] + 2*dt*cartesianDerivatives.dw
+
+        assembly.position[0] = px
+        assembly.position[1] = py
+        assembly.position[2] = pz
+        assembly.velocity[0] = vx
+        assembly.velocity[1] = vy
+        assembly.velocity[2] = vz
 
     assembly.distance_travelled += np.sqrt(dt*cartesianDerivatives.dx*dt*cartesianDerivatives.dx+dt*cartesianDerivatives.dy*dt*cartesianDerivatives.dy+dt*cartesianDerivatives.dz*dt*cartesianDerivatives.dz) 
+
+    assembly.position_nlast = copy.deepcopy(assembly.position)
+    assembly.velocity_nlast = copy.deepcopy(assembly.velocity)
 
     q = assembly.quaternion
 
@@ -116,14 +137,13 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.trajectory.latitude = latitude
     assembly.trajectory.longitude = longitude
     assembly.trajectory.altitude = altitude
+    
     [vEast, vNorth, vUp] = pymap3d.uvw2enu(assembly.velocity[0], assembly.velocity[1], assembly.velocity[2], latitude, longitude, deg=False)
 
     gamma = np.arcsin(np.dot(assembly.position, assembly.velocity)/(np.linalg.norm(assembly.position)*np.linalg.norm(assembly.velocity)))
     assembly.trajectory.chi = np.arctan2(vEast,vNorth)
     
     R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
-
-    norm = np.linalg.norm(assembly.quaternion)
 
     #Should it be like this??
     R_B_NED_quat = (R_NED_ECEF).inv()*Rot.from_quat(assembly.quaternion)
@@ -146,13 +166,12 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     py_quat.integrate([angularDerivatives.droll, angularDerivatives.dpitch,angularDerivatives.dyaw], dt)
     assembly.quaternion = np.append(py_quat.vector, py_quat.real)
 
-    assembly.roll_vel  += dt*angularDerivatives.ddroll  #christie: p,q,r or d(euler)??
+    assembly.roll_vel  += dt*angularDerivatives.ddroll
     assembly.pitch_vel += dt*angularDerivatives.ddpitch
     assembly.yaw_vel   += dt*angularDerivatives.ddyaw
 
     #Limiting the angular velocity to 100 rad/s.
 
-    #christie: not good
     if assembly.roll_vel > 100:  assembly.roll_vel = 100
     if assembly.roll_vel < -100: assembly.roll_vel = -100
 

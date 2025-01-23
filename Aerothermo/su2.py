@@ -59,25 +59,26 @@ class Solver():
         if su2.solver == 'NEMO_NAVIER_STOKES' or su2.solver == 'NEMO_EULER':
 
             #: [str] Fluid Model (Fluid model = MUTATIONPP -> Uses the Mutationpp Library)
-            self.fluid_model = 'FLUID_MODEL= MUTATIONPP'
+            self.fluid_model = 'FLUID_MODEL= SU2_NONEQ'
 
             #: [str] Gas Model (Gas to be used in the simulation)
-            self.gas_model = 'GAS_MODEL= air_5'
+            self.gas_model = 'GAS_MODEL= air_5' if self.fluid_model == 'FLUID_MODEL= MUTATIONPP' else 'GAS_MODEL= AIR-5'
 
+            freestream.percent_mass.flatten()
             print(freestream.percent_mass, freestream.species_index)
+            
+            N  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass, freestream.species_index) if index in ['N']])),5))
+            O  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass, freestream.species_index) if index in ['O']])),5))
+            NO = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass, freestream.species_index) if index in ['NO']])),5))
 
-            N  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N']])),5))
-            O  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O']])),5))
-            NO = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['NO']])),5))
-
-            N2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N2','He','Ar','H']])),5))
-            O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O2']])),5))
+            N2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass, freestream.species_index) if index in ['N2','He','Ar','H']])),5))
+            O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass, freestream.species_index) if index in ['O2']])),5))
 
             #: [str] Gas Composition
             self.gas_composition = 'GAS_COMPOSITION= (' + N + ','  + O + ',' + NO + ',' + N2 + ',' + O2 + ')'
 
             #: [str] Transport Coefficient
-            self.transport_coeff = 'TRANSPORT_COEFF_MODEL = CHAPMANN-ENSKOG'
+            self.transport_coeff = 'TRANSPORT_COEFF_MODEL = CHAPMANN-ENSKOG' if self.fluid_model == 'FLUID_MODEL= MUTATIONPP' else 'TRANSPORT_COEFF_MODEL = GUPTA-YOS'
 
 class Solver_Freestream_Conditions():
     """ Class Solver Freestream Conditions
@@ -189,7 +190,7 @@ class Solver_Numerical_Method():
 
         #Parameters of the adaptive CFL number (factor down, factor up, CFL min value,CFL max value )
 
-        self.cfl_adapt_param = "CFL_ADAPT_PARAM= ( 0.05, 1.005, 0.01, 1.5 )"
+        self.cfl_adapt_param = "CFL_ADAPT_PARAM= ( 0.05, 1.001, 0.01, 1.5 )"
 
         #[str] Maximum number of iterations
         self.iter = "ITER = " + str(su2.iters)
@@ -589,7 +590,8 @@ def adapt_mesh(assembly, options, it, cluster_tag, iteration):
     """
 
     if options.amg.flag:
-        amg.adapt_mesh(options.amg, iteration, options, j = it, num_obj = len(assembly),  input_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it)+'_cluster_'+str(cluster_tag), output_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
+        input_grid='Domain_iter_'+str(iteration)+ '_adapt_' +str(it)+'_cluster_'+str(cluster_tag) if it>0 else 'Domain_'+str(iteration)+'_cluster_'+str(cluster_tag)
+        amg.adapt_mesh(options.amg, iteration, options, j = it, num_obj = len(assembly),  input_grid = input_grid, output_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
 
 
 def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
@@ -747,7 +749,8 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
         options.save_state(titan, titan.iter, CFD = True)        
 
     #Automatically generates the CFD domain
-    input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
+    #input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
+    input_grid = 'Domain_'+ str(titan.iter)+'_cluster_'+str(cluster_tag)+'.su2'
     GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)

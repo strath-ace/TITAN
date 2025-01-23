@@ -106,7 +106,7 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     #assembly.map_physical_volume = map_objects
 
     gmsh.model.geo.synchronize()
-    #gmsh.write("inner_domain.geo_unrolled")
+    gmsh.write("inner_domain.geo_unrolled")
     gmsh.model.mesh.generate(3)
 
     if False:
@@ -212,11 +212,14 @@ def generate_PATO_domain(obj, output_folder = ''):
     gmsh.model.setPhysicalName(3, ref_phys_volume, "body")  
 
     gmsh.model.geo.synchronize()
+    gmsh.write('pato_domain.geo_unrolled')
     gmsh.model.mesh.generate(3)
-    gmsh.write("pato_domain.msh")
-    gmsh.write("pato_domain.geo_unrolled")
-    gmsh.write(output_folder +'/PATO_'+str(obj.global_ID)+'/mesh/'+'%s.su2'%('pato_in_mesh'))
+
+    gmsh.write(output_folder +'/PATO_'+str(obj.global_ID)+'/mesh/'+'%s.su2'%('mesh'))
+    gmsh.write('pato_domain.msh')
+
     gmsh.finalize()
+
 
 def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name):
     #Change here for every object in assembly give a different tag
@@ -294,7 +297,7 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
     outer_surface(gmsh,ref2, surf_ref-1, xmin, xmax, ref_phys_surface, options = None)
     
     gmsh.model.geo.synchronize()
-    #gmsh.write("cfd_domain.geo_unrolled")
+    gmsh.write("cfd_domain.geo_unrolled")
 
     if False:
         gmsh.fltk.initialize()

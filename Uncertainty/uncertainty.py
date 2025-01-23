@@ -17,6 +17,9 @@ from matplotlib.collections import PolyCollection
 import elevation
 import rasterio
 import datetime as dt
+import warnings
+from collections.abc import MutableMapping
+from copy import copy
 try:
     from messaging import messenger
 except:
@@ -55,12 +58,6 @@ distri_list = {'alpha':alpha,'anglit':anglit,'arcsine':arcsine,'argus':argus,'be
                'nbinom':nbinom,'nchypergeom_fisher':nchypergeom_fisher,'nchypergeom_wallenius':nchypergeom_wallenius,
                'nhypergeom':nhypergeom,'planck':planck,'poisson':poisson,'randint':randint,'skellam':skellam,
                'yulesimon':yulesimon,'zipf':zipf,'zipfian':zipfian}
-
-
-
-# missing_distris = {'irwinhall':irwinhall,'jf_skew_t':jf_skew_t,'rel_breitwigner':rel_breitwigner,
-#                    'dirichlet_multinomial':dirichlet_multinomial,'vonmises_fisher':vonmises_fisher,
-#                    betanbinom':betanbinom}
 class uncertaintySupervisor():
 
     def __init__(self, isActive = False, rngSeed = 'Auto'):
@@ -275,6 +272,233 @@ class uncertaintySupervisor():
             np.round(np.degrees(trajectory.gamma),4), 'deg | Heading Angle:',
             np.round(np.degrees(trajectory.chi),4),'deg')
 
+class uncertaintyHandler(MutableMapping):
+    # This class looks after all uncertain variables, it can more or less be treated as a dict with some nice extra funcs
+    def __init__(self,titan,options,rngSeed = 'Auto',filepath='uq.yaml'):
+        # rngSeed can be either a numpy RandomState, 'Auto' to select one automatically (thread-safe) or a float
+        if rngSeed == 'Auto':  self.RNG = np.random.RandomState(seed = os.getpid() + dt.datetime.now().microsecond)
+        elif isinstance(rngSeed,np.random.RandomState): self.RNG=rngSeed
+        else: self.RNG = np.random.RandomState(seed=rngSeed)
+
+        self.frames = {}
+        self.spin_frame
+        self.uq_dict = {}
+        self.vehicle_mass = titan[0].mass
+
+        # filepath should point to a .yaml file of a format as described in 'uncertainty_example.yaml'
+        with open(filepath,'r') as file: self.uncertainty_data = yaml.load(file,Loader)
+        object_list = []
+        for assem in titan: object_list.append([component.name for component in assem.objects])
+        self.instantiate_variables(object_list)
+
+    def __delitem__(self, key):
+        del self.uq_dict[key]
+
+    def __getitem__(self, key):
+        return self.uq_dict[key]
+    
+    def __iter__(self):
+        return iter(self.uq_dict)
+    
+    def __len__(self):
+        return len(self.uq_dict)
+    
+    def __setitem__(self,key):
+        return self.uq_dict[key]
+    
+    def instantiate_variables(self, obj_names):
+        special_cases = {'Position_vector' : self.make_x, 
+                         'Rotation_vector' : self.make_theta, 
+                         'Velocity_vector' : self.make_x_dot, 
+                         'Spin_vector'     : self.make_theta_dot,
+                         'Deorbit'         : self.deorbit,
+                         'Covariance'      : self.make_cov}
+         
+        for key, value in self.uncertainty_data.items():
+            if key in special_cases.keys(): special_cases[key](value) 
+            elif key in obj_names: self.instantiate_object(key,value)
+            else: 
+                nominal = value['nominal'] if 'nominal' in value.keys() else None
+                distribution = value['distribution'] if 'distribution' in value.keys() else None
+                self.uq_dict[key.lower()] = self.uncertainVariable(nominal=nominal, distribution=distribution, rngState=self.RNG)
+
+        self.input_dimensionality = np.sum([var.n for _, var in self.uq_dict.items()])
+        
+    def instantiate_object(self,name,obj_dict):
+        object_variables = ['trigger_value','temperature']
+        for key, value in obj_dict.items():
+            if key.lower() in object_variables:
+                nominal = value['nominal'] if 'nominal' in value.keys() else None
+                distribution = value['distribution'] if 'distribution' in value.keys() else None
+                self.uq_dict[name+'_'+key.lower()] = self.uncertainVariable(nominal=nominal, distribution=distribution, rngState=self.RNG)
+
+    def make_x(self, position_dict):
+        self.position_frame = position_dict['frame']
+        nominal = position_dict['nominal'] if 'nominal' in position_dict.keys() else None
+        distribution = position_dict['distribution'] if 'distribution' in position_dict.keys() else None
+        self.uq_dict[self.position_frame+'_position'] = self.uncertainVariable(nominal=nominal,distribution=distribution,rngState=self.RNG)
+    
+    def make_x_dot(self,velocity_dict):
+        self.velocity_frame = velocity_dict['frame']
+        nominal = velocity_dict['nominal'] if 'nominal' in velocity_dict.keys() else None
+        distribution = velocity_dict['distribution'] if 'distribution' in velocity_dict.keys() else None
+        self.uq_dict[self.velocity_frame+'_velocity'] = self.uncertainVariable(nominal=nominal,distribution=distribution,rngState=self.RNG)
+    
+    def make_theta(self,rotation_dict):
+        self.rotation_frame = rotation_dict['frame']
+        nominal = rotation_dict['nominal'] if 'nominal' in rotation_dict.keys() else None
+        distribution = rotation_dict['distribution'] if 'distribution' in rotation_dict.keys() else None
+        self.uq_dict[self.rotation_frame+'_rotation'] = self.uncertainVariable(nominal=nominal,distribution=distribution,rngState=self.RNG)
+    
+    def make_theta_dot(self,spin_dict):
+        self.spin_frame = spin_dict['frame']
+        nominal = spin_dict['nominal'] if 'nominal' in spin_dict.keys() else None
+        distribution = spin_dict['distribution'] if 'distribution' in spin_dict.keys() else None
+        self.uq_dict[self.spin_frame+'_spin'] = self.uncertainVariable(nominal=nominal,distribution=distribution,rngState=self.RNG)
+    
+    def sample_inputs(self, n_samples=1):
+        input_vector = np.zeros((n_samples,1))
+        for name, var in self.uq_dict.items():
+            input_vector = np.hstack((input_vector,var.rvs(n_samples)))
+        # Quick sanity check on our parameter space
+        assert np.array_equal(np.shape(input_vector),(n_samples,self.input_dimensionality))
+        return input_vector
+
+    def communicate_nominals(self,titan,options):
+        raise NotImplementedError
+    
+    def communicate_sample(self,titan,options):
+        input_vector=self.sample_inputs()
+
+    def make_cov(self,cov_data):
+        pass
+
+    def deorbit(self,deorbit_data):
+        self.uq_dict['deorbit']=self.uncertainThruster(Isp=deorbit_data['specific_impulse'],
+                               m_prop=deorbit_data['propellant_mass'],
+                               m_vehicle=self.vehicle_mass,
+                               mp=deorbit_data['magnitude_proportional'],
+                               mf=deorbit_data['magnitude_fixed'],
+                               pp=deorbit_data['pointing_proportional'],
+                               pf=deorbit_data['pointing_fixed'],
+                               rngState=self.RNG)
+        
+    class uncertainVariable():
+        # Each uncertain variable in the uncertainty handler is stored as an instance of this class
+        # All variables represent n-dimenionsal vectors of floats
+        def __init__(self,nominal=None,distribution=None,rngState=None):
+            # Nominal represents the "default" value that deterministic TITAN runs will see, will be selected as the mean if no value is provided
+            # Distri is either a dict that constructs a scipy distribution or a scipy distribution itself
+            self.rng = rngState
+            self.is_multivariate=False
+            self.has_distribution = True
+
+            if isinstance(distribution,(rv_continuous,stats._multivariate.multi_rv_frozen)):
+                self.distribution = copy(distribution)
+                self.n = len(self.distribution.mean)
+                if self.n>1: self.is_multivariate=True
+
+            elif isinstance(distribution,dict):
+                self.n = len(distribution)
+                if self.n>1: self.distribution =[]
+
+                for dist, args in distribution.items():
+                    if dist in distri_list:
+                        self.distribution.append(distri_list[dist](**args))
+                    else: raise Exception('Error creating distribution {} with arguments {}'.format(dist, args))
+                self.rvs()
+            else: 
+                self.distribution=nominal
+                self.has_distribution=False
+                try:
+                    self.n = len(nominal)
+                except: raise Exception('Error: Must provide a suitable nominal value if no distribution is provided!')
+
+            if nominal is not None: self.nominal=nominal
+            else:
+                self.nominal = []
+                for distri in self.distribution: self.nominal.append(distri.mean)
+                self.nominal = np.flatten(self.nominal)
+
+        
+        def rvs(self,n_samples=1):
+            if not self.has_distribution: raise Exception('Error: No distribution for this variable!')
+            self.value = []
+            for distri in self.distribution: self.value.append(distri.rvs(n_samples,random_state=self.rng))
+            self.value = np.reshape(self.value,[n_samples, -1])
+            self.n = np.shape(self.value)[1]
+            return self.value
+        
+    class uncertainThruster():
+        # An uncertain thruster acts identically to an uncertain variable from a black box perspective but it can be called as it's own object to 
+        # affect the vehicle's trajectory
+        # Represented by the gates model of uncertain manoeuvres
+        def __init__(self,Isp,m_prop,m_vehicle,mp,mf,pp,pf,rngState=None):
+        # First calculate magnitude and direction (retrograde) of deorbit burn
+            self.rng = rngState
+            self.is_multivariate=True
+            self.has_distribution = True
+
+            self.pf = pf
+            self.pp = pp
+            self.mf = mf
+            self.mp = mp
+
+            self.n = 3
+            
+            self.exhaust_velocity = Isp*9.80665
+            self.m_vehicle = m_vehicle
+            self.m_prop_original = m_prop
+            self.m_prop = m_prop
+            mass_ratio = (m_prop + m_vehicle)/m_vehicle
+            
+            self.compute_thruster(mass_ratio)
+
+            self.nominal = self.manoeuvre
+
+        def compute_thruster(self,MR,manouevre_type='retrograde'):
+            # Tsiolkovsky rocket eq...
+            delta_v = self.exhaust_velocity * np.log(self.mass_ratio)
+            if manouevre_type=='retrograde':
+                self.manoeuvre = [-delta_v, 0, 0]
+            elif manouevre_type=='prograde':
+                self.manoeuvre = [delta_v, 0, 0]
+            elif manouevre_type=='radial_in':
+                self.manoeuvre = [0, 0, delta_v]
+            elif manouevre_type=='radial_out':
+                self.manoeuvre = [0, 0, -delta_v]
+            elif manouevre_type=='normal':
+                self.manoeuvre = [0, delta_v, 0]
+            elif manouevre_type=='anti_normal':
+                self.manoeuvre = [0, -delta_v, 0]
+            else:
+                self.manoeuvre = delta_v*manouevre_type
+
+            dx = norm(loc=0, scale=np.sqrt(self.mf ** 2 + self.mp ** 2 * delta_v))
+            dy = norm(loc=0, scale=np.sqrt(self.pf ** 2 + self.pp ** 2 * delta_v))
+            dz = norm(loc=0, scale=np.sqrt(self.pf ** 2 + self.pp ** 2 * delta_v))
+
+            self.disribution = [dx,dy,dz]
+
+        def rvs(self,n_samples=1):
+            perturbations = np.reshape([dim.rvs(n_samples) for dim in self.distribution],[-1,3])
+            self.value = np.array([self.manoeuvre for _ in range(n_samples)]) + perturbations
+            return self.value
+        
+        def burn(self,trajectory,propellant_fraction=1.0,manouevre_type='retrograde'):
+            # propellant_fraction = 1.0 => burn all fuel, = 0.0 => burn nothing, note very low values will have unphysical perturbation effects
+            # i.e. this model can only be used for impulsive burns
+            if self.m_prop<=0: print('Attempted to perform a burn with zero available propellant!')
+            else:
+                prop_to_expend = propellant_fraction*self.m_prop_original
+                if prop_to_expend>self.m_prop: 
+                    print('Not enough propellant to satisfy specification, using what is available...')
+                    prop_to_expend = self.m_prop
+                mass_ratio = (self.m_prop + self.m_vehicle)/(self.m_vehicle+self.m_prop-prop_to_expend)
+                self.compute_thruster(mass_ratio,manouevre_type=manouevre_type)
+                burn = self.rvs()
+                trajectory = apply_velocity_wind(trajectory, burn)
+                self.m_prop-=prop_to_expend
 
 def extractQoI(cfg,csvfile):
 

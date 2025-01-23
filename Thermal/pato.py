@@ -25,10 +25,12 @@ import subprocess
 import os
 from vtk import *
 import glob
-import os
+import os, pathlib
 import re
 from scipy.spatial import KDTree
 from Material import material as Material
+
+conda_preamble = ['conda', 'run', '-n', 'pato'] # Better ideally to separate pato env from TITAN?
 
 def compute_thermal(obj, time, iteration, options, hf, Tinf):
 
@@ -1388,8 +1390,10 @@ def initialize(options, obj):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pato_test = subprocess.run(conda_preamble+['echo', 'PATO environment working!'])
+    if pato_test.returncode>0: raise Exception('Error could not find PATO environment! Check you have a conda env named \'pato\'')
     print('Running PATO initialisation...')
-    subprocess.run(options.output_folder + '/PATO_'+str(object_id)+'/Allrun_init '+ str(n_proc),shell=True, text = True,stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun_init',str(n_proc)],text = True,stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def run_PATO(options, object_id):
     """
@@ -1403,7 +1407,14 @@ def run_PATO(options, object_id):
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     print('Running PATO simulation...')
-    subprocess.run(options.output_folder + '/PATO_'+str(object_id)+'/Allrun '+str(n_proc), text = False, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun',str(n_proc)], text = False, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    dir_VTK = pathlib.Path(options.output_folder + '/PATO_'+str(object_id)+'/VTK').glob('**/*.vtk')
+    for link in dir_VTK:
+        if link.is_symlink():
+            link.unlink() # Remove broken symlinks
+            if not link.exists(): 
+                pass
 def postprocess_PATO_solution(options, obj, time_to_read):
     """
     Postprocesses the PATO output
@@ -1593,7 +1604,7 @@ def retrieve_surface_vtk_data(n_proc, path, time_to_read):
     appendFilter.Update()
     vtk_data = appendFilter.GetOutput()        
 
-    writer = vtk.vtkPolyDataWriter()
+    writer = vtk.vtkUnstructuredGridWriter()
     pato_output_folder = path + '/Output'
     if not os.path.exists(pato_output_folder): os.mkdir(pato_output_folder)
     time_to_write = str(float(time_to_read)).replace('.','').rjust(5,'0')

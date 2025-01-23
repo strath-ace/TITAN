@@ -258,7 +258,7 @@ class Aerothermo():
         A class to store the user-defined aerothemo model options
     """
 
-    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100, mixture = "air5"):
+    def __init__(self, heat_model = 'vd', knc_pressure = 1E-3, knc_heatflux = 1E-3, knf = 100, mixture = "air5"):
 
         #: [str] Name of the heatflux model to be used
         self.heat_model = heat_model
@@ -476,7 +476,19 @@ class Options():
 
     def save_mesh(self,titan):
         outfile = open(self.output_folder + '/Restart/'+'Mesh.p','wb')
-        pickle.dump(titan, outfile)
+        is_saved = False
+        recursion_limit = sys.getrecursionlimit()
+        while not is_saved:
+            try:
+                pickle.dump(titan, outfile)
+                is_saved=True
+                print('Mesh saving succeeded at recursion limit: {}'.format(recursion_limit))
+            except:
+                print('Mesh saving failed at recursion limit: {}'.format(recursion_limit))
+                is_saved=False
+                recursion_limit=int(np.ceil(1.1*recursion_limit))
+                sys.setrecursionlimit(recursion_limit)
+            
         outfile.close() 
 
     def save_state(self, titan, i = 0, CFD = False):
@@ -548,7 +560,7 @@ def get_config_value(configParser, variable, section, field, var_type, list_type
     
     if configParser.has_option(section, field):
 
-        if var_type == 'boolean':
+        if var_type == 'boolean' or var_type == 'bool':
             try:        
                 variable = configParser.getboolean(section, field)
             except ValueError:
@@ -569,7 +581,7 @@ def get_config_value(configParser, variable, section, field, var_type, list_type
                 print(f"Error reading the value of field {field} in section {section}. Returning to default values!")
                 pass
 
-        elif var_type == 'str':
+        elif var_type == 'str' or var_type == 'string':
             try:        
                 variable = configParser.get(section, field)
             except ValueError:
@@ -860,6 +872,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     #Read Dynamics options
     options.dynamics.time = 0
     options.dynamics.time_step           = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
+    options.dynamics.use_bwd_diff        = get_config_value(configParser, False, 'Time', 'Backward_difference', 'boolean')
     #options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
     #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
     #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
@@ -1008,13 +1021,13 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             options.uncertainty.qoi_filepath = options.output_folder +'/Data/'+ options.uncertainty.qoi_filepath
             options.uncertainty.build_quantities(get_config_value(configParser, '', 'Assembly', 'Path', 'str'))
 
-        options.wrap_propagator = get_config_value(configParser,False,'Time','Wrap_propagator','boolean')
+    options.wrap_propagator = get_config_value(configParser,False,'Time','Wrap_propagator','boolean')
 
-        if options.wrap_propagator:
-            options.uncertainty.ut_DoF = get_config_value(configParser,6,'Uncertainty','UT_DoF','int')
-            options.uncertainty.cov_UT = get_config_value(configParser,False,'Uncertainty','UT_use_covariance','boolean')
-            from Uncertainty.UT import setupUT
-            options=setupUT(options)
+    if options.wrap_propagator:
+        options.uncertainty.ut_DoF = get_config_value(configParser,6,'Uncertainty','UT_DoF','int')
+        options.uncertainty.cov_UT = get_config_value(configParser,False,'Uncertainty','UT_use_covariance','boolean')
+        from Uncertainty.UT import setupUT
+        options=setupUT(options)
         
     
     if options.load_state:

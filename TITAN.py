@@ -123,17 +123,16 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     load_and_run_cfg(configParser, postprocess, filter_name)
 
 def load_and_run_cfg(configParser,postprocess,filter_name):
-
+    emissions = False
     #Pre-processing phase: Creates the options and titan class
-    options, titan = configuration.read_config_file(configParser, postprocess, emissions)
-    options.filepath = filename
+    options, titan = configuration.read_config_file(configParser, postprocess)
 
     #Initialization of the simulation
     if (not postprocess) and (not emissions):
         loop(options, titan)
         print("Finished simulation")
         return options, titan
-
+    
     #Postprocess of the simulated solution to pass from Body-frame
     #to ECEF-Frame or Wind-Frame
     if postprocess:

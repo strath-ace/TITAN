@@ -23,7 +23,7 @@ from Geometry.tetra import inertia_tetra, vol_tetra
 import numpy as np
 from copy import deepcopy
 import subprocess
-import os
+import os, sys
 
 def create_assembly_flag(list_bodies, Flags):
     """
@@ -568,10 +568,14 @@ class Assembly():
         if self.mass <= 0:
             self.COG = np.array([0,0,0])
         else:
-            self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*self.mesh.vol_mass[:,None], axis = 0)/self.mass
+            #self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*self.mesh.vol_mass[:,None], axis = 0)/self.mass
+            if np.array_equal(self.COG,[0,0,0]):
+                print('HARDCODED COG FOR HAYABUSA = {}'.format(self.COG))
+            self.COG = np.array([0.1,0,0])
 
         #Computes the inertia matrix
-        self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
+        #self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
+        self.inertia = np.diag([0.289,0.147,0.136])
 
         #Loop over the components to compute each individual inertial properties
         for obj in self.objects:
@@ -614,6 +618,17 @@ def copy_assembly(list_assemblies, options):
         for assembly in list_assemblies:
             assembly.collision = None
 
-    copy_list_assemblies = deepcopy(list_assemblies)
+    is_copied = False
+    recursion_limit = sys.getrecursionlimit()
+    while not is_copied:
+        try:
+            copy_list_assemblies = deepcopy(list_assemblies)
+            is_copied=True
+            print('Succeeded at recursion limit: {}'.format(recursion_limit))
+        except:
+            print('Failed at recursion limit: {}'.format(recursion_limit))
+            is_copied=False
+            recursion_limit=int(np.ceil(1.1*recursion_limit))
+            sys.setrecursionlimit(recursion_limit)
 
     return copy_list_assemblies
