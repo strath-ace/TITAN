@@ -19,6 +19,7 @@
 #
 import numpy as np
 from Dynamics import euler, frames
+from Freestream import gram
 import pymap3d
 from scipy.spatial.transform import Rotation as Rot
 import pyquaternion
@@ -129,7 +130,7 @@ def compute_quaternion(assembly):
 
     #Fix pitch and yaw values according to flight path angle, heading angle, slip and angle of attack
     assembly.pitch= assembly.trajectory.gamma+assembly.aoa
-    assembly.yaw  = assembly.trajectory.chi + assembly.slip
+    assembly.yaw  = assembly.trajectory.chi - assembly.slip #christie: check sign of slip
 
     R_B_NED =   frames.R_B_NED(roll = assembly.roll, pitch = assembly.pitch, yaw = assembly.yaw) 
     R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
@@ -199,6 +200,11 @@ def compute_cartesian_derivatives(assembly, options):
     r = np.linalg.norm(assembly.position)
     gr,gt = options.planet.gravitationalAcceleration(r, phi = np.pi/2 - assembly.trajectory.latitude)
 
+    if options.freestream.method.upper() == "GRAM":
+        data = gram.read_gram(assembly, options)
+        gr = float(data['Gravity_ms2'])
+        gt = 0
+
     #Delete
     #gr = -assembly.gravity
 
@@ -247,6 +253,7 @@ def compute_angular_derivatives(assembly):
     moment_euler = - np.cross(angle_vel, assembly.inertia@angle_vel)
     moment_body = assembly.body_force.moment
 
+#christie: check d(euler) is correct from dM
     rotational_accel = np.linalg.solve(assembly.inertia, moment_body + moment_euler)
 
     droll  =  assembly.roll_vel
@@ -257,6 +264,11 @@ def compute_angular_derivatives(assembly):
     ddpitch = rotational_accel[1]
     ddyaw   = rotational_accel[2]
 
+    if (abs(ddroll) > 100) or (abs(ddpitch) > 100) or (abs(ddyaw) > 100):
+        ddroll = np.sign(ddroll)*100
+        ddpitch = np.sign(ddpitch)*100
+        ddyaw = np.sign(ddyaw)*100
+    
     if (abs(ddroll) > 100) or (abs(ddpitch) > 100) or (abs(ddyaw) > 100):
         ddroll = np.sign(ddroll)*100
         ddpitch = np.sign(ddpitch)*100
@@ -325,4 +337,5 @@ def integrate(titan, options):
         Object of class Options
 
     """
+
     euler.compute_Euler(titan, options)
