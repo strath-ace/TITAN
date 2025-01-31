@@ -463,8 +463,6 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
-
-<<<<<<< HEAD
         assembly.freestream.per_facet_mach = compute_per_facet_mach(assembly,flow_direction)
         #TODO change to facets
         #Check the wet facets/vertex
@@ -473,10 +471,8 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         #Loop the components of each assembly
         for obj in _assembly.objects:
             p2 = np.intersect1d(p, obj.node_index)
-=======
         mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
         ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
->>>>>>> origin/develop
 
         COG = edge_subdivision(_assembly.mesh.v0, _assembly.mesh.v1, _assembly.mesh.v2, n)
 
@@ -1068,25 +1064,6 @@ def bridging_altitudes(model, Kn_cont,Kn_free, lref):
 
     return alt_cont, alt_free
 
-<<<<<<< HEAD
-def compute_per_facet_mach(assembly,flow_direction):
-    # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
-    # This models a dissipative effect to rotation to prevent unbounded spinning.
-    free = assembly.freestream
-    mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
-
-    if free.mach>1:  # neglect rotational effects below Mach 1
-        v_linear = free.mach * free.sound * flow_direction
-        angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
-        v_tangential = np.zeros_like(assembly.mesh.facet_COG)
-
-        for i_centroid, centroid in assembly.mesh.facet_COG:
-            v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,centroid)
-            mach_resultant[i_centroid] = (np.linalg.norm(v_linear) + np.dot(v_linear,v_tangential[i_centroid,:]))/free.sound
-
-    return mach_resultant
-=======
-
 ### Standoff Distance:
 def compute_delta(flow, method_delta):
     if method_delta.lower() == 'billig':
@@ -1163,4 +1140,20 @@ def LAF(flow, method, cat_rate = 0, vel_grad = 0):
     if method == 'fr_noncat': return (1 - flow.Hd/flow.He)
     if method == 'fr_parcat': return (1+(flow.Le*coeff_goulard(flow, vel_grad, cat_rate) -1)*flow.Hd/flow.He)
     return 1
->>>>>>> origin/develop
+
+def compute_per_facet_mach(assembly,flow_direction):
+    # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
+    # This models a dissipative effect to rotation to prevent unbounded spinning.
+    free = assembly.freestream
+    mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
+
+    if free.mach>1:  # neglect rotational effects below Mach 1
+        v_linear = free.mach * free.sound * flow_direction
+        angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
+        v_tangential = np.zeros_like(assembly.mesh.facet_COG)
+
+        for i_centroid, centroid in assembly.mesh.facet_COG:
+            v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,centroid)
+            mach_resultant[i_centroid] = (np.linalg.norm(v_linear) + np.dot(v_linear,v_tangential[i_centroid,:]))/free.sound
+
+    return mach_resultant
