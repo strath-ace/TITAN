@@ -266,6 +266,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
 
+        assembly.freestream.per_facet_mach = compute_per_facet_mach(assembly,flow_direction)
         #TODO change to facets
         #Check the wet facets/vertex
         p = backfaceculling(_assembly, _assembly.mesh.nodes, _assembly.mesh.nodes_normal, flow_direction , 2000)
@@ -307,7 +308,7 @@ def aerodynamics_module_continuum(nodes_normal,free, p, flow_direction):
     Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * nodes_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
 
     P0_s = free.P1_s
-    Cpmax= (2.0/(free.gamma*free.mach**2.0))*((P0_s/free.pressure-1.0))
+    Cpmax= (2.0/(free.gamma*free.per_facet_mach[p]**2.0))*((P0_s/free.pressure-1.0))
 
     #TODO
     if free.mach <= 1.1: Cpmax = 1
@@ -469,7 +470,7 @@ def aerothermodynamics_module_freemolecular(nodes_normal, free, p, flow_directio
     Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * nodes_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
 
     AccCoeff = 1.0 #TODO Wall molecular diffusive accomodation coefficient
-    SR = np.sqrt(0.5*free.gamma)*free.mach
+    SR = np.sqrt(0.5*free.gamma)*free.per_facet_mach[p]
     
     Q_fm = AccCoeff * free.pressure*np.sqrt(0.5*free.R*free.temperature/np.pi) * \
            ((SR**2 + free.gamma/(free.gamma - 1.0) - (free.gamma + 1.0)/(2 * (free.gamma - 1)) * Wall_Temperature / free.temperature ) * \
@@ -510,7 +511,7 @@ def aerodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, body_
     length_normal = np.linalg.norm(nodes_normal, ord = 2, axis = 1)
     Theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * nodes_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
 
-    SR = np.sqrt(0.5*free.gamma)*free.mach
+    SR = np.sqrt(0.5*free.gamma)*free.per_facet_mach[p]
     SN = 1.0 #TODO 0.93
     ST = 1.0 #TODO
 
@@ -763,3 +764,20 @@ def bridging_altitudes(model, Kn_cont,Kn_free, lref):
     alt_free = altitude_knudsen(Kn_free)
 
     return alt_cont, alt_free
+
+def compute_per_facet_mach(assembly,flow_direction):
+    # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
+    # This models a dissipative effect to rotation to prevent unbounded spinning.
+    free = assembly.freestream
+    mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
+
+    if free.mach>1:  # neglect rotational effects below Mach 1
+        v_linear = free.mach * free.sound * flow_direction
+        angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
+        v_tangential = np.zeros_like(assembly.mesh.facet_COG)
+
+        for i_centroid, centroid in assembly.mesh.facet_COG:
+            v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,centroid)
+            mach_resultant[i_centroid] = (np.linalg.norm(v_linear) + np.dot(v_linear,v_tangential[i_centroid,:]))/free.sound
+
+    return mach_resultant

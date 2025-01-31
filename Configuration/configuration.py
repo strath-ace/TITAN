@@ -279,6 +279,9 @@ class Freestream():
         #: Selection of freestream calculation method (Mutationpp, default = Standard)
         self.method = "Standard"
 
+        #: Necessary for addition of relative velocity to mach number, calculated in aerothermo.py
+        self.per_facet_mach = []
+
 class GRAM():
     def __init__(self):
         self.gramPath = ''
