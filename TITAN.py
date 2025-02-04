@@ -63,19 +63,22 @@ def loop(options = [], titan = []):
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
         titan.assembly[0].mass = options.vehicle.mass
-    ##### AoA plot ####
-    plt.ion()
-    fig, ax  = plt.subplots()
-    aoa_plot, = ax.plot([0.0], [0.0], label="AoA",color='b')
-    ss_plot, = ax.plot([0.0],[0.0], label='SS',color='r')
-    aoas = [0.0]
-    sss = [0.0]
-    iters = [0]
-    ax.set_title("Live Angle of Attack Updates!")
-    ax.set_xlabel("Iter")
-    ax.set_ylabel("Degrees")
-    ax.legend()
-    ax.grid(True)
+
+    # This auto-updating plot has been vital for debugging, it can turned off by setting plot = False
+    plot = True
+    if plot:
+        plt.ion()
+        fig, ax  = plt.subplots()
+        aoa_plot, = ax.plot([0.0], [0.0], label="AoA",color='b')
+        ss_plot, = ax.plot([0.0],[0.0], label='SS',color='r')
+        aoas = [0.0]
+        sss = [0.0]
+        iters = [0]
+        ax.set_title("Live Angle of Attack Updates!")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Degrees")
+        ax.legend()
+        ax.grid(True)
 
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
@@ -110,15 +113,19 @@ def loop(options = [], titan = []):
         output.generate_surface_solution(titan = titan, options = options)
         output.iteration(titan = titan, options = options)
 
-        aoas.append(titan.assembly[0].aoa*(360/(2*3.14159)))
-        sss.append(titan.assembly[0].slip*(360/(2*3.14159)))
-        iters.append(titan.time)
-        aoa_plot.set_data(iters,aoas)
-        ss_plot.set_data(iters,sss)
-        ax.relim()
-        ax.autoscale_view()
-        fig.canvas.draw()
-        fig.canvas.flush_events()
+
+        if plot:
+            aoas.append(titan.assembly[0].aoa*(360/(2*3.14159)))
+            sss.append(titan.assembly[0].slip*(360/(2*3.14159)))
+            iters.append(titan.time)
+            aoa_plot.set_data(iters,aoas)
+            ss_plot.set_data(iters,sss)
+            ax.relim()
+            ax.autoscale_view()
+            fig.canvas.draw()
+            fig.canvas.flush_events()
+
+
         titan.iter += 1
         options.current_iter = titan.iter
         if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
