@@ -463,7 +463,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
-        assembly.freestream.per_facet_mach = compute_per_facet_mach(assembly,flow_direction)
+        _assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
         #TODO change to facets
         #Check the wet facets/vertex
         p = backfaceculling(_assembly, _assembly.mesh.nodes, _assembly.mesh.nodes_normal, flow_direction , 2000)
@@ -1148,12 +1148,12 @@ def compute_per_facet_mach(assembly,flow_direction):
     mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
 
     if free.mach>1:  # neglect rotational effects below Mach 1
-        v_linear = free.mach * free.sound * flow_direction
+        v_linear = free.mach * free.sound
         angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
         v_tangential = np.zeros_like(assembly.mesh.facet_COG)
 
-        for i_centroid, centroid in assembly.mesh.facet_COG:
-            v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,centroid)
-            mach_resultant[i_centroid] = (np.linalg.norm(v_linear) + np.dot(v_linear,v_tangential[i_centroid,:]))/free.sound
+        for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
+            v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
+            mach_resultant[i_centroid] = (v_linear + np.dot(flow_direction,v_tangential[i_centroid,:]))/free.sound
 
     return mach_resultant

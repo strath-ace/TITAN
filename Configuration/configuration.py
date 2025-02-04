@@ -723,6 +723,16 @@ def read_config_file(configParser, postprocess = ""):
     #Read Dynamics options
     options.dynamics.time = 0
     options.dynamics.time_step           = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
+    options.dynamics.integrator        = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
+    if options.dynamics.integrator=='nm':
+         options.dynamics.gamma = get_config_value(configParser, 0.5, 'Time', 'Newmark_gamma', 'float')
+         options.dynamics.beta = get_config_value(configParser, 0.25, 'Time', 'Newmark_beta', 'float')
+         
+    elif options.dynamics.integrator=='hht':
+        options.dynamics.alpha = get_config_value(configParser, 1-np.sqrt(2),'Time','HHT_alpha','float')
+        options.dynamics.beta = 0.25*(1-options.dynamics.alpha)**2
+        options.dynamics.gamma = 0.5*(1-2*options.dynamics.alpha)
+        
     #options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
     #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
     #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
@@ -844,14 +854,16 @@ def read_config_file(configParser, postprocess = ""):
 
             options.save_mesh(titan)
         
+        #Reads the Initial pitch/yaw/roll 
+        read_initial_conditions(titan, options, configParser)
+
         #Computes the quaternion and cartesian for the initial position
         for assembly in titan.assembly:
             assembly.trajectory = copy.deepcopy(trajectory)
             dynamics.compute_quaternion(assembly)
             dynamics.compute_cartesian(assembly, options)
             
-        #Reads the Initial pitch/yaw/roll 
-        read_initial_conditions(titan, options, configParser)
+
         
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)
