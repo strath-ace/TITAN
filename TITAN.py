@@ -95,8 +95,10 @@ def loop(options = [], titan = []):
         if 'legacy' in options.dynamics.propagator: dynamics.integrate(titan = titan, options = options)
         else:
             advanced_integrators.propagate(titan = titan, options = options)
-        output.generate_surface_solution(titan = titan, options = options)
 
+        output.generate_surface_solution(titan = titan, options = options)
+        if hasattr(titan,'end_trigger'): return
+        
         if options.ablation:
             if options.ablation_mode == "tetra":
                 thermal.compute_thermal_tetra(titan = titan, options = options)
@@ -124,7 +126,6 @@ def loop(options = [], titan = []):
             ax.autoscale_view()
             fig.canvas.draw()
             fig.canvas.flush_events()
-
 
         titan.iter += 1
         options.current_iter = titan.iter

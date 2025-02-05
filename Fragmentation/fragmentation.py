@@ -181,8 +181,9 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].quaternion = deepcopy(titan.assembly[i].quaternion)
 
         #Compute the trajectory and angular quantities
-        [latitude, longitude, altitude] = pymap3d.ecef2geodetic(titan.assembly[-1].position[0], titan.assembly[-1].position[1], titan.assembly[-1].position[2], ell = None,deg = False);
-
+        [latitude, longitude, altitude] = pymap3d.ecef2geodetic(titan.assembly[-1].position[0], titan.assembly[-1].position[1], titan.assembly[-1].position[2],
+                                        ell=pymap3d.Ellipsoid(semimajor_axis = options.planet.ellipsoid()['a'], semiminor_axis = options.planet.ellipsoid()['b']),
+                                        deg = False);
         titan.assembly[-1].trajectory.latitude = latitude
         titan.assembly[-1].trajectory.longitude = longitude
         titan.assembly[-1].trajectory.altitude = altitude
@@ -198,6 +199,10 @@ def demise_components(titan, i, joints_id, options):
         
         titan.assembly[-1].aoa = titan.assembly[i].aoa
         titan.assembly[-1].slip = titan.assembly[i].slip
+
+        titan.assembly[-1].state_vector = titan.assembly[i].state_vector
+        titan.assembly[-1].state_vector_prior = titan.assembly[i].state_vector_prior
+        titan.assembly[-1].derivs_prior = titan.assembly[i].derivs_prior
 
 
 def check_breakup_v2(titan, options):

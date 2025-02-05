@@ -232,17 +232,25 @@ def append_derivatives(titan,options,new_derivs):
 def setup_integrator(options):
 
     choice = options.dynamics.propagator
-
     if choice == 'euler': 
         options.dynamics.prop_func = explicit_euler_propagate
+        print('Selected Euler propagation')
     elif 'bwd' in choice and not 'legacy' in choice: 
         options.dynamics.prop_func = explicit_bwd_diff_propagate
-        options.dynamics.n_states_hold = 1
-    elif 'RK' in choice or 'DOP': 
-        if '45' in choice: algo = integrate.RK45
-        elif choice == 'DOP853': algo = integrate.DOP853
-        elif '23' in choice: algo = integrate.RK23
+        options.dynamics.n_states_to_hold = 1
+        print('Selected backward difference propagation')
+    elif 'RK' in choice or 'DOP' in choice: 
+        if '45' in choice: 
+            algo = integrate.RK45
+            print('Selected scipy RK45 propagation')
+        elif choice == 'DOP853': 
+            algo = integrate.DOP853
+            print('Selected scipy DOP853 propagation')
+        elif '23' in choice: 
+            algo = integrate.RK23
+            print('Selected scipy RK23 propagation')
         options.dynamics.prop_func = partial(explicit_rk_adapt_wrapper,algo)
+        
     elif 'AB' in choice: 
         n = int(choice[2:])
         if n>5:
@@ -250,7 +258,7 @@ def setup_integrator(options):
             n = 5
         options.dynamics.n_derivs_to_hold = n - 1
         options.dynamics.prop_func = partial(explicit_adams_bashforth_n,n)
-
+        print('Selected Adams-Bashforth {}th order propagation'.format(n))
 #############################################################################################################################################
 #############################################################################################################################################
 ###########################################################  ALGORITHMS  ####################################################################
@@ -276,7 +284,7 @@ def explicit_bwd_diff_propagate(state_vectors,state_vectors_prior,derivatives_pr
         d_dt_state_vectors = state_equation(titan,options,dt,state_vectors)
         for i_assem, _assembly in enumerate(titan.assembly):
             new_vector = []
-            for element_last, d_dt_element in zip(state_vectors_prior[i_assem],d_dt_state_vectors[i_assem]):
+            for element_last, d_dt_element in zip(state_vectors_prior[0][i_assem],d_dt_state_vectors[i_assem]):
                 new_vector.append(element_last+2*dt*d_dt_element)
             new_state_vectors.append(new_vector)
     return new_state_vectors, d_dt_state_vectors
@@ -307,21 +315,26 @@ def explicit_adams_bashforth_n(n,state_vectors,state_vectors_prior,derivatives_p
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
-    if not hasattr(titan, 'rk_fun'): titan.rk_fun=partial(state_equation,titan,options)
-    if not hasattr(titan,'rk_params'):
-        titan.rk_params = [titan.time, np.array(state_vectors).flatten(),
-                     titan.time + dt*options.iters, 
-                     dt]
-    if not hasattr(titan, 'rk_adapt'): titan.rk_adapt = algorithm(fun=titan.rk_fun,
-                                                                  t0=titan.rk_params[0],
-                                                                  y0=titan.rk_params[1],
-                                                                  t_bound=titan.rk_params[2],
-                                                                  first_step=titan.rk_params[3])
+    if not hasattr(titan,'rk_params'): recompute_params = True
+    elif not np.shape(titan.rk_params[1])==np.shape(np.array(state_vectors).flatten()): recompute_params = True
+    else: recompute_params = False
+    if recompute_params: titan.rk_params = [titan.time, 
+                                            np.array(state_vectors).flatten(),
+                                            titan.time + dt*options.iters, 
+                                            dt]
+        
+    if not hasattr(titan, 'rk_fun')   or recompute_params: titan.rk_fun=partial(state_equation,titan,options)
+    if not hasattr(titan, 'rk_adapt') or recompute_params: titan.rk_adapt=algorithm(fun=titan.rk_fun,
+                                                                                    t0=titan.rk_params[0],
+                                                                                    y0=titan.rk_params[1],
+                                                                                    t_bound=titan.rk_params[2],
+                                                                                    first_step=titan.rk_params[3])
 
     if titan.rk_adapt.status == 'running':
         titan.rk_adapt.step()
     else: 
-        print('Simulation finished with propagation status {} ({} function evaluations)'.format(titan.rk45.status,titan.rk45.nfev))
+        print('Propagator concluded with status {} ({} function evaluations)'.format(titan.rk_adapt.status,titan.rk_adapt.nfev))
+        titan.end_trigger = True
     titan.time = titan.rk_adapt.t
     return np.reshape(titan.rk_adapt.y,[-1,13]), None
 
