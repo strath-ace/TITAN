@@ -19,11 +19,11 @@
 #
 import numpy as np
 from Dynamics import euler, frames
+from Dynamics.advanced_integrators import quaternion_mult, quaternion_normalize
 from Freestream import gram
 import pymap3d
 from scipy.spatial.transform import Rotation as Rot
 import pyquaternion
-from Dynamics.advanced_integrators import quaternion_mult
 
 class DerivativesPointMass():
     def __init__(self, dh = 0, dv = 0, dchi = 0, dgamma = 0, dlat = 0, dlon = 0):
@@ -139,6 +139,7 @@ def compute_quaternion(assembly):
     R_B_ECEF = (R_NED_ECEF*R_B_NED)
 
     assembly.quaternion = R_B_ECEF.as_quat()
+    assembly.quaternion = quaternion_normalize(assembly.quaternion)
     assembly.q_dot = 0.5 * quaternion_mult(assembly.quaternion,[assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel,0.0])
 
     assembly.quaternion_canonical = assembly.quaternion # Need to track "true" quaternion for multi-step integrators

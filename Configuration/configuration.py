@@ -28,7 +28,7 @@ import pickle
 import copy
 from Geometry import component as Component
 from Geometry import assembly as Assembly
-from Dynamics import dynamics
+from Dynamics import dynamics, advanced_integrators
 from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
@@ -112,7 +112,7 @@ class Dynamics():
         A class to store the user-defined dynamics options for the simulation
     """
 
-    def __init__(self, time_step = 0, time = 0, propagator = 'EULER', adapt_propagator = False, manifold_correction = True):
+    def __init__(self, time_step = 0, time = 0, propagator = 'euler'):
 
         #: [seconds] Physical time of the simulation.
         self.time = time
@@ -120,14 +120,18 @@ class Dynamics():
         #: [seconds] Value of the time-step.
         self.time_step = time_step
 
-        #: [str] Name of the propagator to be used in the dynamics (options - EULER).
+        #: [str] Name of the propagator to be used in the dynamics (options - euler).
         self.propagator = propagator
 
-        #: [bool] Flag value indicating time-step adaptation
-        self.adapt_propagator = adapt_propagator
+        #: [callable] The function that is called for propagation, 
+        self.prop_func = advanced_integrators.explicit_euler_propagate
+        # ^ of signature prop_func(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options) -> new_state_vectors, new_derivatives
+        
+        #: [int] Number of previous states to hold
+        self.n_states_to_hold = 0
 
-        #: [bool] Flag value indicating manifold correction
-        self.manifold_correction = manifold_correction
+        #: [int] Number of previous derivatives to hold
+        self.n_derivs_to_hold = 0
 
 class CFD():
     def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1):
@@ -407,6 +411,12 @@ class Options():
         if self.collision.flag:
             for assembly in titan.assembly:
                 assembly.collision = None
+        if hasattr(titan, 'rk_adapt'):
+            titan.rk_params[0] = titan.time
+            titan.rk_params[1] = titan.rk_adapt.y
+            del titan.rk_fun
+            del titan.rk_adapt
+
 
         outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
         pickle.dump(titan, outfile)
@@ -722,20 +732,9 @@ def read_config_file(configParser, postprocess = ""):
 
     #Read Dynamics options
     options.dynamics.time = 0
-    options.dynamics.time_step           = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
-    options.dynamics.integrator        = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
-    if options.dynamics.integrator=='nm':
-         options.dynamics.gamma = get_config_value(configParser, 0.5, 'Time', 'Newmark_gamma', 'float')
-         options.dynamics.beta = get_config_value(configParser, 0.25, 'Time', 'Newmark_beta', 'float')
-         
-    elif options.dynamics.integrator=='hht':
-        options.dynamics.alpha = get_config_value(configParser, 1-np.sqrt(2),'Time','HHT_alpha','float')
-        options.dynamics.beta = 0.25*(1-options.dynamics.alpha)**2
-        options.dynamics.gamma = 0.5*(1-2*options.dynamics.alpha)
-        
-    #options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
-    #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
-    #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
+    options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
+    options.dynamics.propagator = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
+    advanced_integrators.setup_integrator(options)
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')

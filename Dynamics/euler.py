@@ -102,7 +102,7 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
         assembly.velocity[1] += dt*cartesianDerivatives.dv
         assembly.velocity[2] += dt*cartesianDerivatives.dw
 
-    elif options.dynamics.integrator == 'legacy_bwd_diff':
+    elif options.dynamics.integrator == 'legacy_bwd':
 
         px = assembly.position_nlast[0] +  2*dt*cartesianDerivatives.dx
         py = assembly.position_nlast[1] +  2*dt*cartesianDerivatives.dy

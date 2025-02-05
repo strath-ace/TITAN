@@ -92,7 +92,7 @@ def loop(options = [], titan = []):
         else:
             options.dynamics.time_step = options.user_time
 
-        if 'legacy' in options.dynamics.integrator: dynamics.integrate(titan = titan, options = options)
+        if 'legacy' in options.dynamics.propagator: dynamics.integrate(titan = titan, options = options)
         else:
             advanced_integrators.propagate(titan = titan, options = options)
         output.generate_surface_solution(titan = titan, options = options)
