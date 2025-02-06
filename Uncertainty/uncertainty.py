@@ -2,11 +2,16 @@ import os
 import numpy as np
 from pyapprox import variables
 from scipy.stats import *
+from scipy.stats._multivariate import multi_rv_frozen
+from statsmodels.stats.correlation_tools import cov_nearest
 import yaml
 try: from yaml import CLoader as Loader
 except: from yaml import Loader
 import pandas as pd
 from Uncertainty.dynamics_tools import apply_velocity_wind
+from Dynamics.frames import *
+from Dynamics.dynamics import compute_cartesian,compute_cartesian_derivatives, compute_quaternion, compute_angular_derivatives
+from pymap3d import ecef2geodetic, geodetic2ecef, Ellipsoid
 from Configuration.configuration import Trajectory
 from matplotlib import cm, pyplot as plt
 import seaborn as sns
@@ -239,8 +244,6 @@ class uncertaintySupervisor():
         cfg.set('Trajectory', 'Velocity', str(trajectory.velocity))
         cfg.set('Trajectory', 'Flight_path_angle', str(np.degrees(trajectory.gamma)))
         cfg.set('Trajectory', 'Heading_angle', str(np.degrees(trajectory.chi)))
-
-
         
         if not 'Velocity' in self.inputNames:
             self.inputNames.append('Velocity')
@@ -279,17 +282,26 @@ class uncertaintyHandler(MutableMapping):
         if rngSeed == 'Auto':  self.RNG = np.random.RandomState(seed = os.getpid() + dt.datetime.now().microsecond)
         elif isinstance(rngSeed,np.random.RandomState): self.RNG=rngSeed
         else: self.RNG = np.random.RandomState(seed=rngSeed)
+        
+        assembly_list = titan.assembly
 
         self.frames = {}
-        self.spin_frame
         self.uq_dict = {}
-        self.vehicle_mass = titan[0].mass
+        self.vehicle_mass = 0
+        self.vehicle_mass = assembly_list[0].mass
+        self.covariances = {}
+        self.input_pointer = 0
+
+        self.position_frame = None
+        self.rotation_frame = None
+        self.velocity_frame = None
+        self.spin_frame = None
 
         # filepath should point to a .yaml file of a format as described in 'uncertainty_example.yaml'
         with open(filepath,'r') as file: self.uncertainty_data = yaml.load(file,Loader)
         object_list = []
-        for assem in titan: object_list.append([component.name for component in assem.objects])
-        self.instantiate_variables(object_list)
+        for assem in assembly_list: object_list.append([component.name.split('/')[-1] for component in assem.objects])
+        self.instantiate_variables(object_list[0])
 
     def __delitem__(self, key):
         del self.uq_dict[key]
@@ -312,7 +324,7 @@ class uncertaintyHandler(MutableMapping):
                          'Velocity_vector' : self.make_x_dot, 
                          'Spin_vector'     : self.make_theta_dot,
                          'Deorbit'         : self.deorbit,
-                         'Covariance'      : self.make_cov}
+                         'Covariances'      : self.make_cov}
          
         for key, value in self.uncertainty_data.items():
             if key in special_cases.keys(): special_cases[key](value) 
@@ -320,7 +332,8 @@ class uncertaintyHandler(MutableMapping):
             else: 
                 nominal = value['nominal'] if 'nominal' in value.keys() else None
                 distribution = value['distribution'] if 'distribution' in value.keys() else None
-                self.uq_dict[key.lower()] = self.uncertainVariable(nominal=nominal, distribution=distribution, rngState=self.RNG)
+                self.uq_dict[key.lower()] = self.uncertainVariable(position_pointer=self.input_pointer,nominal=nominal, distribution=distribution, rngState=self.RNG)
+                self.input_pointer+=self.uq_dict[key.lower()].n
 
         self.input_dimensionality = np.sum([var.n for _, var in self.uq_dict.items()])
         
@@ -330,114 +343,264 @@ class uncertaintyHandler(MutableMapping):
             if key.lower() in object_variables:
                 nominal = value['nominal'] if 'nominal' in value.keys() else None
                 distribution = value['distribution'] if 'distribution' in value.keys() else None
-                self.uq_dict[name+'_'+key.lower()] = self.uncertainVariable(nominal=nominal, distribution=distribution, rngState=self.RNG)
+                self.uq_dict[name.lower()+'__'+key.lower()] = self.uncertainVariable(position_pointer=self.input_pointer,nominal=nominal, distribution=distribution, 
+                                                                                     rngState=self.RNG, obj=name)
+                self.input_pointer+=self.uq_dict[name.lower()+'__'+key.lower()].n
 
     def make_x(self, position_dict):
         self.position_frame = position_dict['frame']
         nominal = position_dict['nominal'] if 'nominal' in position_dict.keys() else None
         distribution = position_dict['distribution'] if 'distribution' in position_dict.keys() else None
-        self.uq_dict[self.position_frame+'_position'] = self.uncertainVariable(nominal=nominal,distribution=distribution,rngState=self.RNG)
+        self.uq_dict['position_vector'] = self.uncertainVariable(position_pointer=self.input_pointer,nominal=nominal,distribution=distribution,rngState=self.RNG)
+        self.input_pointer+=self.uq_dict['position_vector'].n
     
     def make_x_dot(self,velocity_dict):
         self.velocity_frame = velocity_dict['frame']
         nominal = velocity_dict['nominal'] if 'nominal' in velocity_dict.keys() else None
         distribution = velocity_dict['distribution'] if 'distribution' in velocity_dict.keys() else None
-        self.uq_dict[self.velocity_frame+'_velocity'] = self.uncertainVariable(nominal=nominal,distribution=distribution,rngState=self.RNG)
+        self.uq_dict['velocity_vector'] = self.uncertainVariable(position_pointer=self.input_pointer,nominal=nominal,distribution=distribution,rngState=self.RNG)
+        self.input_pointer+=self.uq_dict['velocity_vector'].n
     
     def make_theta(self,rotation_dict):
         self.rotation_frame = rotation_dict['frame']
         nominal = rotation_dict['nominal'] if 'nominal' in rotation_dict.keys() else None
         distribution = rotation_dict['distribution'] if 'distribution' in rotation_dict.keys() else None
-        self.uq_dict[self.rotation_frame+'_rotation'] = self.uncertainVariable(nominal=nominal,distribution=distribution,rngState=self.RNG)
+        self.uq_dict['rotation_vector'] = self.uncertainVariable(position_pointer=self.input_pointer,nominal=nominal,distribution=distribution,rngState=self.RNG)
+        self.input_pointer+=self.uq_dict['rotation_vector'].n
     
     def make_theta_dot(self,spin_dict):
         self.spin_frame = spin_dict['frame']
         nominal = spin_dict['nominal'] if 'nominal' in spin_dict.keys() else None
         distribution = spin_dict['distribution'] if 'distribution' in spin_dict.keys() else None
-        self.uq_dict[self.spin_frame+'_spin'] = self.uncertainVariable(nominal=nominal,distribution=distribution,rngState=self.RNG)
+        self.uq_dict['spin_vector'] = self.uncertainVariable(position_pointer=self.input_pointer,nominal=nominal,distribution=distribution,rngState=self.RNG)
+        self.input_pointer+=self.uq_dict['spin_vector'].n
     
     def sample_inputs(self, n_samples=1):
-        input_vector = np.zeros((n_samples,1))
-        for name, var in self.uq_dict.items():
-            input_vector = np.hstack((input_vector,var.rvs(n_samples)))
-        # Quick sanity check on our parameter space
-        assert np.array_equal(np.shape(input_vector),(n_samples,self.input_dimensionality))
+        input_vector = np.zeros((n_samples,self.input_dimensionality))
+
+        for _, var in self.uq_dict.items():
+            if var.cov_id == None: input_vector[:,var.position.astype(int)] = var.rvs(n_samples)
+        for _, cov in self.covariances.items():
+            input_vector[:,cov['positions'].astype(int)] = cov['distribution'].rvs(n_samples)
         return input_vector
 
-    def communicate_nominals(self,titan,options):
-        raise NotImplementedError
-    
-    def communicate_sample(self,titan,options):
-        input_vector=self.sample_inputs()
+    def communicate_sample(self,assembly,use_nominals=False):
+        trajectory_mapping = {'altitude':'altitude','velocity':'velocity','flight_path_angle':'gamma','heading_angle':'chi',
+                              'latitude':'latitude','longitude':'longitude'}
+        assembly_mapping = {'mass':'mass','nose_radius':'','area_reference':'Aref','sideslip' : 'slip','angle_of_attack':'aoa',
+                            'roll':'roll'}
+        special_cases = {'position_vector' : self.update_position, 
+                         'rotation_vector' : self.update_rotation, 
+                         'velocity_vector' : self.update_velocity, 
+                         'spin_vector'     : self.update_spin,
+                         'deorbit'         : self.do_maneouvre,
+                         'covariances'     : ''}
+        
+        if not use_nominals: input_vector = self.sample_inputs().flatten()
+        else: 
+            input_vector = np.zeros(self.input_dimensionality)
+            for name, input_data in self.uq_dict.items(): input_vector[input_data.position] = input_data.nominal
+
+        for name, input_data in self.uq_dict.items():
+            obj_to_operate = assembly
+            attr_to_operate = name
+            if input_data.object_name is not None:
+                obj_to_operate = assembly.objects[[component.name.split('/')[-1].lower() for component in assembly.objects].index(input_data.object_name.lower())]
+                attr_to_operate = name.split('__')[-1].strip()
+            elif name in trajectory_mapping.keys(): 
+                obj_to_operate = assembly.trajectory
+                attr_to_operate = trajectory_mapping[name]
+            elif name in assembly_mapping.keys(): 
+                attr_to_operate = assembly_mapping[name]
+
+            data = input_vector[input_data.position]
+            if len(data) == 1: data = np.array(data).flatten()[0]
+
+            if name in special_cases.keys(): special_cases[name](obj_to_operate,data)
+            else: setattr(obj_to_operate,attr_to_operate,data)
+
+            return assembly
 
     def make_cov(self,cov_data):
-        pass
+        for cov_id,cov_dict in cov_data.items():
+            cov = {}
+            cov['positions'] = []
+            cov['members'] =[]
+            for member in cov_dict['members'].split(','):
+                name = member.lower().strip()
+                cov['members'].append(name)
+                self.uq_dict[name].cov_id = cov_id
+                cov['positions'] = np.hstack((cov['positions'],self.uq_dict[name].position))
+            cov['dimensionality'] = len(cov['positions'])
+            i_pointer = 0
+            if not isinstance(cov_dict['distribution'],dict):
+                cov['means'] = []
+                cov['covariance'] = np.zeros([cov['dimensionality'],cov['dimensionality']])
+                for member in cov['members']:
+                    for i_dist, dist in enumerate(self.uq_dict[member].distribution):
+                            mean_addition = dist.mean()
+                            cov['means'] = np.hstack((cov['means'],mean_addition))
+                            if isinstance(mean_addition,(float,np.float64)):
+                                cov['covariance'][i_pointer,i_pointer] = dist.var()
+                            else:
+                                cov['covariance'][i_pointer:i_pointer+len(mean_addition),i_pointer:i_pointer+len(mean_addition)] = dist.cov
+                            i_pointer+=1
+
+                cov['covariance'] = cov_nearest(cov['covariance'])
+                cov['distribution'] = multivariate_normal(cov['means'],cov=cov['covariance'],seed=self.RNG,allow_singular=True)
+            else:
+                for dist, args in cov_dict['distribution'].items():
+                    cov['distribution'] = distri_list[dist](**args)
+            if not 'is_dynamic' in cov_dict.keys(): cov['is_dynamic'] = False
+            else: cov['is_dynamic'] = cov_dict['is_dynamic']
+            cov['frame'] = cov_dict['frame'] if cov['is_dynamic'] else None
+            self.covariances[cov_id] = cov
 
     def deorbit(self,deorbit_data):
-        self.uq_dict['deorbit']=self.uncertainThruster(Isp=deorbit_data['specific_impulse'],
-                               m_prop=deorbit_data['propellant_mass'],
-                               m_vehicle=self.vehicle_mass,
-                               mp=deorbit_data['magnitude_proportional'],
-                               mf=deorbit_data['magnitude_fixed'],
-                               pp=deorbit_data['pointing_proportional'],
-                               pf=deorbit_data['pointing_fixed'],
-                               rngState=self.RNG)
+        self.uq_dict['deorbit']=self.uncertainThruster(position_pointer=self.input_pointer,
+                                                       Isp=deorbit_data['specific_impulse'],
+                                                       m_prop=deorbit_data['propellant_mass'],
+                                                       m_vehicle=self.vehicle_mass,
+                                                       mp=deorbit_data['magnitude_proportional'],
+                                                       mf=deorbit_data['magnitude_fixed'],
+                                                       pp=deorbit_data['pointing_proportional'],
+                                                       pf=deorbit_data['pointing_fixed'],
+                                                       rngState=self.RNG)
+        self.input_pointer+=self.uq_dict['deorbit'].n
+
+    def update_position(self,assembly,options,data):
+        if self.position_frame=='GEO':
+            assembly.trajectory.latitude = data[0]
+            assembly.trajectory.longitude = data[1]
+            assembly.trajectory.altitude = data[2]
+            compute_cartesian(assembly, options)
+        elif self.position_frame=='ECEF': 
+            ECEF = data
+            assembly.position = ECEF
+            # Get the new latitude, longitude and altitude
+            [latitude, longitude, altitude] = ecef2geodetic(assembly.position[0], assembly.position[1], assembly.position[2],
+                                        ell=Ellipsoid(semimajor_axis = options.planet.ellipsoid()['a'], semiminor_axis = options.planet.ellipsoid()['b']),
+                                        deg = False);
+            assembly.trajectory.latitude = latitude
+            assembly.trajectory.longitude = longitude
+            assembly.trajectory.altitude = altitude
+        else: raise Exception('Error! Could not find position frame: {}'.format(self.position_frame))
+        return assembly
+
+    def update_rotation(self,assembly,options,data):
+        if self.rotation_frame=='QUAT':
+            assembly.quaternion = data
+            R_NED_ECEF = R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+            #Should it be like this??
+            R_B_NED_quat = (R_NED_ECEF).inv()*Rot.from_quat(assembly.quaternion)
+            [yaw,pitch,roll] = R_B_NED_quat.as_euler('ZYX')
+            assembly.yaw = yaw
+            assembly.pitch = pitch
+            assembly.roll = roll
+        elif self.rotation_frame=='BODY':
+            assembly.roll = data[0]
+            assembly.pitch = data[1]
+            assembly.yaw = data[2]
+            compute_quaternion(assembly)
+        else: raise Exception('Error! Could not find rotation frame: {}'.format(self.rotation_frame))
+        return assembly
+
+    def update_velocity(self,assembly,options,data):
+        if self.velocity_frame=='WIND':
+            assembly.trajectory.velocity = data[0]
+            assembly.trajectory.chi = data[1]
+            assembly.trajectory.gamma = data[2]
+        elif self.velocity_frame=='NED':
+            assembly.trajectory.velocity = np.linalg.norm(data)
+            assembly.trajectory.chi = np.arctan2(data[1], data[0])
+            assembly.trajectory.gamma = -np.arcsin(data[2] / assembly.trajectory.velocity)
+        elif self.velocity_frame=='ECEF':
+            R_NED=R_NED_ECEF(assembly.trajectory.latitude,assembly.trajectory.longitude)
+            v = R_NED.apply(data,inverse=True)
+            assembly.trajectory.velocity = np.linalg.norm(v)
+            assembly.trajectory.chi = np.arctan2(v[1], v[0])
+            assembly.trajectory.gamma = -np.arcsin(v[2] / assembly.trajectory.velocity)
+        else: raise Exception('Error! Could not find velocity frame: {}'.format(self.velocity_frame))
+        return assembly
+
+
+    def update_spin(self,assembly,options,data):
+        if not self.spin_frame=='BODY': raise Exception('Error! Could not find spin frame: {}'.format(self.spin_frame))
+        assembly.roll_vel = data[0]
+        assembly.pitch_vel = data[1]
+        assembly.yaw_vel = data[2]
+        return assembly
+
+
+    def do_maneouvre(self,assembly,options,data):
+        self.uq_dict['deorbit'].value = data
+        self.uq_dict['deorbit'].burn(assembly.trajectory)
+        return assembly.trajectory
         
     class uncertainVariable():
         # Each uncertain variable in the uncertainty handler is stored as an instance of this class
         # All variables represent n-dimenionsal vectors of floats
-        def __init__(self,nominal=None,distribution=None,rngState=None):
+        def __init__(self,position_pointer,nominal=None,distribution=None,rngState=None, obj=None):
             # Nominal represents the "default" value that deterministic TITAN runs will see, will be selected as the mean if no value is provided
             # Distri is either a dict that constructs a scipy distribution or a scipy distribution itself
             self.rng = rngState
             self.is_multivariate=False
             self.has_distribution = True
+            self.cov_id = None
+            self.cov = []
+            self.object_name = obj
 
-            if isinstance(distribution,(rv_continuous,stats._multivariate.multi_rv_frozen)):
+            if isinstance(distribution,(rv_continuous,multi_rv_frozen)):
                 self.distribution = copy(distribution)
                 self.n = len(self.distribution.mean)
                 if self.n>1: self.is_multivariate=True
 
             elif isinstance(distribution,dict):
                 self.n = len(distribution)
-                if self.n>1: self.distribution =[]
-
+                self.distribution = []
+                    
                 for dist, args in distribution.items():
-                    if dist in distri_list:
-                        self.distribution.append(distri_list[dist](**args))
+                    if dist in distri_list: self.distribution.append(distri_list[dist](**args))
                     else: raise Exception('Error creating distribution {} with arguments {}'.format(dist, args))
                 self.rvs()
+                
             else: 
                 self.distribution=nominal
                 self.has_distribution=False
                 try:
                     self.n = len(nominal)
                 except: raise Exception('Error: Must provide a suitable nominal value if no distribution is provided!')
+            
+            self.position = np.arange(position_pointer,position_pointer+self.n)
 
             if nominal is not None: self.nominal=nominal
             else:
                 self.nominal = []
                 for distri in self.distribution: self.nominal.append(distri.mean)
-                self.nominal = np.flatten(self.nominal)
+                self.nominal = np.array(self.nominal).flatten()
 
         
         def rvs(self,n_samples=1):
             if not self.has_distribution: raise Exception('Error: No distribution for this variable!')
-            self.value = []
-            for distri in self.distribution: self.value.append(distri.rvs(n_samples,random_state=self.rng))
-            self.value = np.reshape(self.value,[n_samples, -1])
-            self.n = np.shape(self.value)[1]
-            return self.value
+            if self.cov_id is None:
+                self.value = []
+                for distri in self.distribution: 
+                    self.value.append(distri.rvs(n_samples,random_state=self.rng))
+                self.value = np.reshape(self.value,[n_samples, -1])
+                self.n = np.shape(self.value)[1]
+                return self.value
         
     class uncertainThruster():
         # An uncertain thruster acts identically to an uncertain variable from a black box perspective but it can be called as it's own object to 
         # affect the vehicle's trajectory
         # Represented by the gates model of uncertain manoeuvres
-        def __init__(self,Isp,m_prop,m_vehicle,mp,mf,pp,pf,rngState=None):
+        def __init__(self,position_pointer,Isp,m_prop,m_vehicle,mp,mf,pp,pf,rngState=None):
         # First calculate magnitude and direction (retrograde) of deorbit burn
             self.rng = rngState
             self.is_multivariate=True
             self.has_distribution = True
+            self.cov_id = None
+            self.object_name = None
 
             self.pf = pf
             self.pp = pp
@@ -445,6 +608,7 @@ class uncertaintyHandler(MutableMapping):
             self.mp = mp
 
             self.n = 3
+            self.position = np.arange(position_pointer,position_pointer+self.n)
             
             self.exhaust_velocity = Isp*9.80665
             self.m_vehicle = m_vehicle
@@ -458,7 +622,7 @@ class uncertaintyHandler(MutableMapping):
 
         def compute_thruster(self,MR,manouevre_type='retrograde'):
             # Tsiolkovsky rocket eq...
-            delta_v = self.exhaust_velocity * np.log(self.mass_ratio)
+            delta_v = self.exhaust_velocity * np.log(MR)
             if manouevre_type=='retrograde':
                 self.manoeuvre = [-delta_v, 0, 0]
             elif manouevre_type=='prograde':
@@ -478,14 +642,14 @@ class uncertaintyHandler(MutableMapping):
             dy = norm(loc=0, scale=np.sqrt(self.pf ** 2 + self.pp ** 2 * delta_v))
             dz = norm(loc=0, scale=np.sqrt(self.pf ** 2 + self.pp ** 2 * delta_v))
 
-            self.disribution = [dx,dy,dz]
+            self.distribution = [dx,dy,dz]
 
         def rvs(self,n_samples=1):
             perturbations = np.reshape([dim.rvs(n_samples) for dim in self.distribution],[-1,3])
             self.value = np.array([self.manoeuvre for _ in range(n_samples)]) + perturbations
             return self.value
         
-        def burn(self,trajectory,propellant_fraction=1.0,manouevre_type='retrograde'):
+        def burn(self,trajectory,propellant_fraction=1.0,manouevre_type='retrograde',use_value=True):
             # propellant_fraction = 1.0 => burn all fuel, = 0.0 => burn nothing, note very low values will have unphysical perturbation effects
             # i.e. this model can only be used for impulsive burns
             if self.m_prop<=0: print('Attempted to perform a burn with zero available propellant!')
@@ -496,7 +660,7 @@ class uncertaintyHandler(MutableMapping):
                     prop_to_expend = self.m_prop
                 mass_ratio = (self.m_prop + self.m_vehicle)/(self.m_vehicle+self.m_prop-prop_to_expend)
                 self.compute_thruster(mass_ratio,manouevre_type=manouevre_type)
-                burn = self.rvs()
+                burn = self.value if use_value else self.rvs()
                 trajectory = apply_velocity_wind(trajectory, burn)
                 self.m_prop-=prop_to_expend
 

@@ -258,7 +258,7 @@ class Aerothermo():
         A class to store the user-defined aerothemo model options
     """
 
-    def __init__(self, heat_model = 'vd', knc_pressure = 1E-3, knc_heatflux = 1E-3, knf = 100, mixture = "air5"):
+    def __init__(self, heat_model = 'vd', knc_pressure = 1E-3, knc_heatflux = 5E-2, knf = 100, mixture = "air5"):
 
         #: [str] Name of the heatflux model to be used
         self.heat_model = heat_model
@@ -1084,4 +1084,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     ### else:
     ###     fenics = None
 
+    # from Uncertainty.uncertainty import uncertaintyHandler
+    # uH = uncertaintyHandler(titan=titan,options=options,filepath=options.uncertainty.yaml_path)
+    # uH.communicate_sample(assembly=titan.assembly[0])
     return options, titan

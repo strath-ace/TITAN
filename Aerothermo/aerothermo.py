@@ -400,7 +400,6 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly, index, flow_direction, options)
-            sns.kdeplot(assembly.aerothermo.heatflux[index],color='r',alpha=0.5)
             assembly.aerothermo.heatflux[index] *= StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
 
@@ -413,7 +412,6 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
             atmo_model = "NRLMSISE00"
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)
-            sns.kdeplot(assembly.aerothermo.heatflux[index],color='b',alpha=0.5)
             assembly.aerothermo.heatflux[index] *= StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
         plt.show()
@@ -537,7 +535,7 @@ def compute_frozen_chemistry(assembly, mixture):
     rhofree = free.density
     cfree_i = free.percent_mass
 
-    post_shock
+    #post_shock
 
     #N O NO N2 O2
     cfree_i = np.array([0, 0, 0, cfree_i[0,0], cfree_i[0,1]])
@@ -828,10 +826,11 @@ def aerodynamics_module_continuum(assembly, p, flow_direction):
 
     assembly.aerothermo.theta[p] =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
     P0_s = free.P1_s
-    Cpmax= (2.0/(free.gamma*free.mach**2.0))*((P0_s/free.pressure-1.0))
-
     #TODO
-    if free.mach <= 1.0: Cpmax = 1
+    if free.mach <= 1.0: Cpmax[p] = 1
+    else:
+        mach = mach_add_spin_component(assembly,p, flow_direction)
+        Cpmax= (2.0/(free.gamma*mach[p]**2.0))*((P0_s/free.pressure-1.0))
 
     Theta = assembly.aerothermo.theta[p]
 
@@ -1041,8 +1040,8 @@ def aerothermodynamics_module_continuum(assembly, p, flow_direction, options):
     Stc[Stc < 0] = 0
     Stc.shape = (-1)
     import seaborn as sns
-    sns.kdeplot(Stc)
     if free.knudsen<0.001:
+        sns.kdeplot(Stc,color='g')
         print('Continuum St : {}'.format(np.std(Stc)))
         import pandas as pd
         import os
@@ -1400,9 +1399,12 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     #Compute the Stanton number for both regimes, in the transition altitudes
     Stc = aerothermodynamics_module_continuum(assembly, p, flow_direction, options)
     Stfm = aerothermodynamics_module_freemolecular(assembly, p, flow_direction)
-
     St = Stc + (Stfm - Stc) * BridgeReq[p]
-
+    if free.knudsen<0.0013:
+        sns.kdeplot(Stc,color='b')
+        sns.kdeplot(Stfm, color='r')
+        sns.kdeplot(St, color='m')
+        print(free.knudsen)
     St.shape = (-1)
     print('Continuum St : {}, Rarefied St : {}, Bridging Factor : {}, Bridged St : {}'.format(np.std(Stc),
                                                                                           np.std(Stfm),
@@ -1504,3 +1506,14 @@ def LAF(flow, method, cat_rate = 0, vel_grad = 0):
     if method == 'fr_noncat': return (1 - flow.Hd/flow.He)
     if method == 'fr_parcat': return (1+(flow.Le*coeff_goulard(flow, vel_grad, cat_rate) -1)*flow.Hd/flow.He)
     return 1
+
+def mach_add_spin_component(assembly,facet_indices,flow_direction):
+    free = assembly.freestream
+    v_linear = free.mach * free.sound * flow_direction
+    angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
+    v_tangential = np.zeros_like(assembly.mesh.facet_COG)
+    mach_resultant = np.zeros_like(assembly.mesh.facet_area)
+    for p in facet_indices:
+        v_tangential[p,:] = np.cross(angular_velocity_vector,assembly.mesh.facet_COG[p])
+        mach_resultant[p] = (np.linalg.norm(v_linear) + np.dot(v_linear,v_tangential[p,:]))/free.sound
+    return mach_resultant
