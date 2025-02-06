@@ -405,18 +405,18 @@ def retrieve_index(SU2_type):
     index: np.array()
         Array of index with the position of solution fields of interest
     """
-
+    #TODO: Instead of hardcoded with SU2 indexes, needs to read name of field and retrieve value
     if SU2_type == 'EULER':
         index = np.array([(0,1,3,4)], dtype = [('Density', 'i4'),('Momentum', 'i4'),('Pressure', 'i4'),('Temperature', 'i4')])
         
     if SU2_type == 'NEMO_EULER':
-        index = np.array([(3)], dtype = [('Pressure', 'i4')])
+        index = np.array([(13)], dtype = [('Pressure', 'i4')])
 
     if SU2_type == 'NAVIER_STOKES':
         index = np.array([(0,1,3,4,8,9)], dtype = [('Density', 'i4'),('Momentum', 'i4'),('Pressure', 'i4'),('Temperature', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
         
     if SU2_type == 'NEMO_NAVIER_STOKES':
-        index = np.array([(3,9,10)], dtype = [('Pressure', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
+        index = np.array([(13,19,20)], dtype = [('Pressure', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
 
     return index
 
@@ -831,11 +831,6 @@ def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
     config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = restart_grid, bloom=False)
     #Runs SU2 simulaton
     run_SU2(n, options)
-    if adapt_params['change_back']:
-        options.cfd.iters = adapt_params['iters']
-        options.cfd.solver = adapt_params['solver'] 
-        options.cfd.cfl = adapt_params['cfl'] 
-        options.cfd.time = adapt_params['time_method']
     #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
     if options.amg.flag:
         run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)

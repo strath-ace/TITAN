@@ -569,10 +569,7 @@ class Assembly():
             self.COG = np.array([0,0,0])
         else:
             self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*self.mesh.vol_mass[:,None], axis = 0)/self.mass
-            # if np.array_equal(self.COG,[0,0,0]):
-            #     print('HARDCODED COG FOR HAYABUSA = {}'.format(self.COG))
-            # self.COG = np.array([0.1,0,0])
-
+            #self.COG = [-0.3,0.0,0.0]
         #Computes the inertia matrix
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
         # self.inertia = np.diag([0.289,0.147,0.136])

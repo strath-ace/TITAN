@@ -19,6 +19,7 @@
 #
 import numpy as np
 from Dynamics import euler, frames
+from Dynamics.advanced_integrators import quaternion_mult, quaternion_normalize
 from Freestream import gram
 import pymap3d
 from scipy.spatial.transform import Rotation as Rot
@@ -138,8 +139,11 @@ def compute_quaternion(assembly):
     R_B_ECEF = (R_NED_ECEF*R_B_NED)
 
     assembly.quaternion = R_B_ECEF.as_quat()
-    assembly.quaternion_prev = assembly.quaternion
+    assembly.quaternion = quaternion_normalize(assembly.quaternion)
+    assembly.q_dot = 0.5 * quaternion_mult(assembly.quaternion,[assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel,0.0])
 
+    assembly.quaternion_canonical = assembly.quaternion # Need to track "true" quaternion for multi-step integrators
+    assembly.q_dot_canonical = assembly.q_dot
     return
 
 
@@ -264,6 +268,11 @@ def compute_angular_derivatives(assembly):
     ddroll  = rotational_accel[0]
     ddpitch = rotational_accel[1]
     ddyaw   = rotational_accel[2]
+
+    if (abs(ddroll) > 100) or (abs(ddpitch) > 100) or (abs(ddyaw) > 100):
+        ddroll = np.sign(ddroll)*100
+        ddpitch = np.sign(ddpitch)*100
+        ddyaw = np.sign(ddyaw)*100
     
     if (abs(ddroll) > 100) or (abs(ddpitch) > 100) or (abs(ddyaw) > 100):
         ddroll = np.sign(ddroll)*100

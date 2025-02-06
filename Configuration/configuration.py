@@ -30,7 +30,7 @@ except:
 import copy
 from Geometry import component as Component
 from Geometry import assembly as Assembly
-from Dynamics import dynamics
+from Dynamics import dynamics, advanced_integrators
 from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
@@ -118,7 +118,7 @@ class Dynamics():
         A class to store the user-defined dynamics options for the simulation
     """
 
-    def __init__(self, time_step = 0, time = 0, propagator = 'EULER', adapt_propagator = False, manifold_correction = True):
+    def __init__(self, time_step = 0, time = 0, propagator = 'euler'):
 
         #: [seconds] Physical time of the simulation.
         self.time = time
@@ -126,14 +126,18 @@ class Dynamics():
         #: [seconds] Value of the time-step.
         self.time_step = time_step
 
-        #: [str] Name of the propagator to be used in the dynamics (options - EULER).
+        #: [str] Name of the propagator to be used in the dynamics (options - euler).
         self.propagator = propagator
 
-        #: [bool] Flag value indicating time-step adaptation
-        self.adapt_propagator = adapt_propagator
+        #: [callable] The function that is called for propagation, 
+        self.prop_func = advanced_integrators.explicit_euler_propagate
+        # ^ of signature prop_func(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options) -> new_state_vectors, new_derivatives
+        
+        #: [int] Number of previous states to hold
+        self.n_states_to_hold = 0
 
-        #: [bool] Flag value indicating manifold correction
-        self.manifold_correction = manifold_correction
+        #: [int] Number of previous derivatives to hold
+        self.n_derivs_to_hold = 0
 
 class CFD():
     def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1, cfd_restart = False, restart_grid = 0, restart_iter = 0):
@@ -338,6 +342,9 @@ class Freestream():
         #: Selection of freestream calculation method (Mutationpp, default = Standard)
         self.method = "Standard"
 
+        #: Necessary for addition of relative velocity to mach number, calculated in aerothermo.py
+        self.per_facet_mach = []
+
 class GRAM():
     def __init__(self):
         self.gramPath = ''
@@ -511,6 +518,12 @@ class Options():
         if self.collision.flag:
             for assembly in titan.assembly:
                 assembly.collision = None
+        if hasattr(titan, 'rk_adapt'):
+            titan.rk_params[0] = titan.time
+            titan.rk_params[1] = titan.rk_adapt.y
+            del titan.rk_fun
+            del titan.rk_adapt
+
 
         outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
         pickle.dump(titan, outfile)
@@ -871,11 +884,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
     #Read Dynamics options
     options.dynamics.time = 0
-    options.dynamics.time_step           = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
-    options.dynamics.use_bwd_diff        = get_config_value(configParser, False, 'Time', 'Backward_difference', 'boolean')
-    #options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
-    #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
-    #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
+    options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
+    options.dynamics.propagator = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
+    advanced_integrators.setup_integrator(options)
 
     #Read Thermal options
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
@@ -1058,6 +1069,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
                     #for each object, define connectivity to connected objects for heat conduction between objects
                     pato.identify_object_connections(assembly)
             options.save_mesh(titan)
+        
+        #Reads the Initial pitch/yaw/roll 
+        read_initial_conditions(titan, options, configParser)
 
         #Computes the quaternion and cartesian for the initial position
         for assembly in titan.assembly:
@@ -1069,8 +1083,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
                 from Uncertainty.UT import setupAssembly
                 setupAssembly(assembly,options)
             
-        #Reads the Initial pitch/yaw/roll 
-        read_initial_conditions(titan, options, configParser)
+
         
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)

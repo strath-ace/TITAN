@@ -215,6 +215,10 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].aoa = titan.assembly[i].aoa
         titan.assembly[-1].slip = titan.assembly[i].slip
 
+        titan.assembly[-1].state_vector = titan.assembly[i].state_vector
+        titan.assembly[-1].state_vector_prior = titan.assembly[i].state_vector_prior
+        titan.assembly[-1].derivs_prior = titan.assembly[i].derivs_prior
+
 
 def check_breakup_v2(titan, options):
 
