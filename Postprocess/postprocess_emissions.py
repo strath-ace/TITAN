@@ -60,8 +60,8 @@ def postprocess_emissions(options):
         print('No available solutions for the chosen frequency.')
         exit()
 
-    #for iter_value in range(options.radiation.spectral_freq, max(iter_interval) + 1, options.radiation.spectral_freq):
-    for iter_value in range(837, max(iter_interval) + 1, options.radiation.spectral_freq):
+    for iter_value in range(options.radiation.spectral_freq, max(iter_interval) + 1, options.radiation.spectral_freq):
+    #for iter_value in range(837, max(iter_interval) + 1, options.radiation.spectral_freq):
         iter_value = int(iter_value)
         titan = read_state(options, iter_value)
         #view_direction(titan, options)
