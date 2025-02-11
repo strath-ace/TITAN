@@ -22,7 +22,7 @@ import configparser
 from argparse import ArgumentParser, RawTextHelpFormatter
 from Configuration import configuration
 from Output import output
-from Dynamics import dynamics
+from Dynamics import dynamics, advanced_integrators
 from Fragmentation import fragmentation
 from Postprocess import postprocess as pp
 from Postprocess import postprocess_emissions as pp_emissions
@@ -30,6 +30,7 @@ from Thermal import thermal
 from Structural import structural
 from pathlib import Path
 import numpy as np
+from matplotlib import pyplot as plt
 
 def loop(options = [], titan = []):
     """Simulation loop for time propagation
@@ -65,6 +66,22 @@ def loop(options = [], titan = []):
     if options.vehicle:
         titan.assembly[0].mass = options.vehicle.mass   
 
+    # This auto-updating plot has been vital for debugging, it can turned off by setting plot = False
+    plot = True
+    if plot:
+        plt.ion()
+        fig, ax  = plt.subplots()
+        aoa_plot, = ax.plot([0.0], [0.0], label="AoA",color='b')
+        ss_plot, = ax.plot([0.0],[0.0], label='SS',color='r')
+        aoas = [0.0]
+        sss = [0.0]
+        iters = [0]
+        ax.set_title("Live Angle of Attack Updates!")
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Degrees")
+        ax.legend()
+        ax.grid(True)
+
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
 
@@ -81,11 +98,20 @@ def loop(options = [], titan = []):
         else:
             options.dynamics.time_step = options.user_time
 
-        dynamics.integrate(titan = titan, options = options)
-        #output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)
+        if 'legacy' in options.dynamics.propagator: dynamics.integrate(titan = titan, options = options)
+        else:
+            advanced_integrators.propagate(titan = titan, options = options)
+
+        output.generate_surface_solution(titan = titan, options = options)
+        if hasattr(titan,'end_trigger'): return
         
-        if options.thermal.ablation:
-            thermal.compute_thermal(titan = titan, options = options)
+        if options.ablation:
+            if options.ablation_mode == "tetra":
+                thermal.compute_thermal_tetra(titan = titan, options = options)
+            elif options.ablation_mode == "0d":
+                thermal.compute_thermal_0D(titan = titan, options = options)
+            else:
+                raise ValueError("Ablation Mode can only be 0D or Tetra")
 
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO
@@ -97,6 +123,18 @@ def loop(options = [], titan = []):
             output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)         
         
         output.iteration(titan = titan, options = options)
+
+
+        if plot:
+            aoas.append(titan.assembly[0].aoa*(360/(2*3.14159)))
+            sss.append(titan.assembly[0].slip*(360/(2*3.14159)))
+            iters.append(titan.time)
+            aoa_plot.set_data(iters,aoas)
+            ss_plot.set_data(iters,sss)
+            ax.relim()
+            ax.autoscale_view()
+            fig.canvas.draw()
+            fig.canvas.flush_events()
 
         titan.iter += 1
         options.current_iter = titan.iter
@@ -118,7 +156,7 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     """
 
     configParser = configparser.RawConfigParser()   
-    configFilePath = filename
+    configFilePath = filename.strip()
     configParser.read(configFilePath)
 
     #Pre-processing phase: Creates the options and titan class

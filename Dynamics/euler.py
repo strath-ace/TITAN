@@ -92,18 +92,8 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     """
 
     dt = time_step
-
-#    assembly.position[0] += dt*cartesianDerivatives.dx
-#    assembly.position[1] += dt*cartesianDerivatives.dy
-#    assembly.position[2] += dt*cartesianDerivatives.dz
-#
-#    assembly.velocity[0] += dt*cartesianDerivatives.du
-#    assembly.velocity[1] += dt*cartesianDerivatives.dv
-#    assembly.velocity[2] += dt*cartesianDerivatives.dw
-
-    if iter_num == 0:
-
-    #     print('initial dynamics at iteration 0')
+    
+    if iter_num == 0 or options.dynamics.integrator == 'legacy_euler':
 
         assembly.position[0] += dt*cartesianDerivatives.dx
         assembly.position[1] += dt*cartesianDerivatives.dy
@@ -113,7 +103,7 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
         assembly.velocity[1] += dt*cartesianDerivatives.dv
         assembly.velocity[2] += dt*cartesianDerivatives.dw
 
-    else:
+    elif options.dynamics.integrator == 'legacy_bwd':
 
         px = assembly.position_nlast[0] +  2*dt*cartesianDerivatives.dx
         py = assembly.position_nlast[1] +  2*dt*cartesianDerivatives.dy
@@ -128,7 +118,6 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
         assembly.velocity[0] = vx
         assembly.velocity[1] = vy
         assembly.velocity[2] = vz
-
 
     assembly.position_nlast = copy.deepcopy(assembly.position)
     assembly.velocity_nlast = copy.deepcopy(assembly.velocity)

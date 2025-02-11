@@ -7,7 +7,7 @@ Load_mesh = False
 Load_state = False
 Fidelity = High
 #High, Low or Hybrid
-Output_folder = Sphere_SU2
+Output_folder = Sphere_SU2_NEMO
 
 [Trajectory]
 Altitude = 80000
@@ -19,7 +19,7 @@ Longitude = -32
 
 [SU2]
 #Solver = EULER/NEMO_EULER/NAVIER_STOKES/NEMO_NAVIER_STOKES
-Solver = EULER
+Solver = NEMO_EULER
 Adapt_iter = 0
 Num_iters = 1000
 Num_cores = 6

@@ -71,7 +71,6 @@ class Solver():
 
             N2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N2','He','Ar','H']])),5))
             O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O2']])),5))
-
             #: [str] Gas Composition
             self.gas_composition = 'GAS_COMPOSITION= (' + N + ','  + O + ',' + NO + ',' + N2 + ',' + O2 + ')'
 
@@ -398,18 +397,18 @@ def retrieve_index(SU2_type):
     index: np.array()
         Array of index with the position of solution fields of interest
     """
-
+    #TODO: Instead of hardcoded with SU2 indexes, needs to read name of field and retrieve value
     if SU2_type == 'EULER':
         index = np.array([(0,1,3,4)], dtype = [('Density', 'i4'),('Momentum', 'i4'),('Pressure', 'i4'),('Temperature', 'i4')])
         
     if SU2_type == 'NEMO_EULER':
-        index = np.array([(3)], dtype = [('Pressure', 'i4')])
+        index = np.array([(13)], dtype = [('Pressure', 'i4')])
 
     if SU2_type == 'NAVIER_STOKES':
         index = np.array([(0,1,3,4,8,9)], dtype = [('Density', 'i4'),('Momentum', 'i4'),('Pressure', 'i4'),('Temperature', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
         
     if SU2_type == 'NEMO_NAVIER_STOKES':
-        index = np.array([(3,9,10)], dtype = [('Pressure', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
+        index = np.array([(13,19,20)], dtype = [('Pressure', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
 
     return index
 

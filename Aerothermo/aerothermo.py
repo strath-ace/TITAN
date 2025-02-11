@@ -445,6 +445,8 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
 
+        _assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
+
         index = ray_trace(_assembly, flow_direction, n)
 
         _assembly.aero_index = index
@@ -807,7 +809,7 @@ def aerodynamics_module_continuum(assembly, p, flow_direction):
 
     assembly.aerothermo.theta[p] =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal[p]/length_normal[p,None] , axis = 1), -1.0, 1.0))
     P0_s = free.P1_s
-    Cpmax= (2.0/(free.gamma*free.mach**2.0))*((P0_s/free.pressure-1.0))
+    Cpmax= (2.0/(free.gamma*free.per_facet_mach[p]**2.0))*((P0_s/free.pressure-1.0))
 
     #TODO
     if free.mach <= 1.0: Cpmax = 1
@@ -1064,7 +1066,7 @@ def aerothermodynamics_module_freemolecular(assembly, p, flow_direction):
     Theta = assembly.aerothermo.theta[p]
 
     AccCoeff = 1.0 #TODO Wall molecular diffusive accomodation coefficient
-    SR = np.sqrt(0.5*free.gamma)*free.mach
+    SR = np.sqrt(0.5*free.gamma)*free.per_facet_mach[p]
     
     Q_fm = AccCoeff * free.pressure*np.sqrt(0.5*free.R*free.temperature/np.pi) * \
            ((SR**2 + free.gamma/(free.gamma - 1.0) - (free.gamma + 1.0)/(2 * (free.gamma - 1)) * Wall_Temperature[p] / free.temperature ) * \
@@ -1112,7 +1114,7 @@ def aerodynamics_module_freemolecular(assembly, p, flow_direction):
 
     Theta = assembly.aerothermo.theta[p]
 
-    SR = np.sqrt(0.5*free.gamma)*free.mach
+    SR = np.sqrt(0.5*free.gamma)*free.per_facet_mach[p]
     SN = 1.0 #TODO 0.93
     ST = 1.0 #TODO
 
@@ -1385,7 +1387,6 @@ def bridging_altitudes(model, Kn_cont,Kn_free, lref):
 
     return alt_cont, alt_free
 
-
 ### Standoff Distance:
 def compute_delta(flow, method_delta):
     if method_delta.lower() == 'billig':
@@ -1462,3 +1463,20 @@ def LAF(flow, method, cat_rate = 0, vel_grad = 0):
     if method == 'fr_noncat': return (1 - flow.Hd/flow.He)
     if method == 'fr_parcat': return (1+(flow.Le*coeff_goulard(flow, vel_grad, cat_rate) -1)*flow.Hd/flow.He)
     return 1
+
+def compute_per_facet_mach(assembly,flow_direction):
+    # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
+    # This models a dissipative effect to rotation to prevent unbounded spinning.
+    free = assembly.freestream
+    mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
+
+    if free.mach>1:  # neglect rotational effects below Mach 1
+        v_linear = free.mach * free.sound
+        angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
+        v_tangential = np.zeros_like(assembly.mesh.facet_COG)
+
+        for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
+            v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
+            mach_resultant[i_centroid] = (v_linear + np.dot(flow_direction,v_tangential[i_centroid,:]))/free.sound
+
+    return mach_resultant
