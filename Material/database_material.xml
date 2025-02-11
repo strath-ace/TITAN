@@ -282,19 +282,19 @@
 
 	<metalMaterial>
 		<name>Aluminum-test3</name>
-		<density>2710.0</density>
+		<density>2700.0</density>
 		<specificHeatCapacity>
-			<values>293,897;10000,897;</values>
+			<values>293,1100;10000,1100;</values>
 		</specificHeatCapacity>
-		<meltingHeat>397000.0</meltingHeat>
-		<meltingTemperature>10000</meltingTemperature>
+		<meltingHeat>390000.0</meltingHeat>
+		<meltingTemperature>850</meltingTemperature>
 		<vaporizationHeat>10500000.0</vaporizationHeat>
 		<vaporizationTemperature>10000</vaporizationTemperature>
 		<emissivity>
-			<values>250.0,0.1;10000,0.1;</values>
+			<values>250.0,0.3;10000,0.3;</values>
 		</emissivity>
 		<heatConductivity>
-			<values>293,235;10000,235;</values>
+			<values>293,140;10000,140;</values>
 		</heatConductivity>
 		<oxideActivationTemperature>0.0</oxideActivationTemperature>
 		<oxideEmissivity>

@@ -982,7 +982,6 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
             f.write('"xw (m)"\n')
             f.write('"yw (m)"\n')
             f.write('"zw (m)"\n')
-            f.write('"pw (Pa)"\n')
             f.write('"qConv (W/m^2)"\n')
             f.write('"emissivity (-)"\n')
             f.write('"Tbackground (K)"\n')

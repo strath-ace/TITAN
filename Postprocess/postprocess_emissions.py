@@ -48,9 +48,9 @@ def postprocess_emissions(options):
     files = glob.glob(path)
 
     # Iterate and delete each file that contains the search_string
-    for file in files:
-        if os.path.isfile(file) and search_string in os.path.basename(file):
-            os.remove(file)
+    #for file in files:
+    #    if os.path.isfile(file) and search_string in os.path.basename(file):
+    #        os.remove(file)
 
     data = pd.read_csv(options.output_folder + '/Data/data.csv', index_col=False)
 
@@ -60,10 +60,11 @@ def postprocess_emissions(options):
         print('No available solutions for the chosen frequency.')
         exit()
 
-    for iter_value in range(1, max(iter_interval) + 2, options.radiation.spectral_freq):
+    #for iter_value in range(options.radiation.spectral_freq, max(iter_interval) + 1, options.radiation.spectral_freq):
+    for iter_value in range(837, max(iter_interval) + 1, options.radiation.spectral_freq):
         iter_value = int(iter_value)
         titan = read_state(options, iter_value)
-        view_direction(titan, options)
+        #view_direction(titan, options)
         line_of_sight(titan, options, iter_value)
         element_gas_densities(titan)
         emissions(titan, options, iter_value)
@@ -137,23 +138,27 @@ def element_gas_densities(titan):
 
     for assembly in titan.assembly:
 
-        for obj in assembly.objects:
-            assembly.LOS[obj.facet_index] = obj.LOS
+        assembly.aerothermo.rhoe_i = np.zeros((len(assembly.mesh.facets), len(assembly.aerothermo.ce_i[0])))
 
-        gas_volume = assembly.mesh.facet_area * assembly.LOS
-        gas_mass = assembly.aerothermo.rhoe * gas_volume
-        # before adding melted material
-        species_mass = assembly.aerothermo.ce_i * gas_mass[:, np.newaxis]
-        # add melted material mass
-        species_mass[:, -1] = assembly.mMelt
-        gas_mass = species_mass.sum(axis=1)
-        assembly.aerothermo.ce_i = species_mass / gas_mass[:, np.newaxis]
-        assembly.aerothermo.ce_i[np.isnan(assembly.aerothermo.ce_i)] = 0
-        assembly.aerothermo.ce_i[np.isinf(assembly.aerothermo.ce_i)] = 0
-        # updated gas density after ablation
-        # Avoid division by zero for gas_volume
-        assembly.updated_gas_density = np.where(gas_volume != 0, gas_mass / gas_volume, 0)
-        assembly.aerothermo.rhoe_i = np.where( assembly.updated_gas_density[:, np.newaxis] != 0, assembly.aerothermo.ce_i * assembly.updated_gas_density[:, np.newaxis], 0 )
+        if assembly.freestream.mach > 1.1:
+
+            for obj in assembly.objects:
+                assembly.LOS[obj.facet_index] = obj.LOS
+
+            gas_volume = assembly.mesh.facet_area * assembly.LOS
+            gas_mass = assembly.aerothermo.rhoe * gas_volume
+            # before adding melted material
+            species_mass = assembly.aerothermo.ce_i * gas_mass[:, np.newaxis]
+            # add melted material mass
+            #species_mass[:, -1] = assembly.mMelt
+            gas_mass = species_mass.sum(axis=1)
+            assembly.aerothermo.ce_i = species_mass / gas_mass[:, np.newaxis]
+            assembly.aerothermo.ce_i[np.isnan(assembly.aerothermo.ce_i)] = 0
+            assembly.aerothermo.ce_i[np.isinf(assembly.aerothermo.ce_i)] = 0
+            # updated gas density after ablation
+            # Avoid division by zero for gas_volume
+            assembly.updated_gas_density = np.where(gas_volume != 0, gas_mass / gas_volume, 0)
+            assembly.aerothermo.rhoe_i = np.where( assembly.updated_gas_density[:, np.newaxis] != 0, assembly.aerothermo.ce_i * assembly.updated_gas_density[:, np.newaxis], 0 )
 
 def read_state(options, i=0):
     """
@@ -175,10 +180,14 @@ def read_state(options, i=0):
 
 def emissions(titan, options, iter_value):
 
-    wavelengths_OI = [777.194e-9, 777.417e-9, 777.539e-9]
-    wavelengths_AlI = [394.40058e-9, 396.152e-9]
+    wavelengths_OI    = [777.194e-9, 777.417e-9, 777.539e-9]
+    wavelengths_AlI   = [394.40058e-9, 396.152e-9]
+    wavelengths_AlI_1 = [394.40058e-9]
+    wavelengths_AlI_2 = [396.152e-9]
 
     for assembly in titan.assembly:
+
+        print('\nAssembly:', assembly.id)
 
         if options.radiation.spectral:
             print('\nComputing spectral blackbody emissions for O I wavelengths ...')
@@ -186,28 +195,52 @@ def emissions(titan, options, iter_value):
                 assembly, wavelengths_OI
             )
 
-            print('\nComputing spectral blackbody emissions for Al I wavelengths ...')
-            assembly.blackbody_emissions_AlI, assembly.blackbody_emissions_AlI_surf = thermal.compute_black_body_spectral_emissions(
-                assembly, wavelengths_AlI
+            print('assembly.blackbody_emissions_OI:', assembly.blackbody_emissions_OI)
+
+            print('\nComputing spectral blackbody emissions for Al I wavelength 1 ...')
+            assembly.blackbody_emissions_AlI_1, assembly.blackbody_emissions_AlI_1_surf = thermal.compute_black_body_spectral_emissions(
+                assembly, wavelengths_AlI_1
             )
+
+            print('assembly.blackbody_emissions_AlI_1:', assembly.blackbody_emissions_AlI_1)
+
+            print('\nComputing spectral blackbody emissions for Al I wavelength 2 ...')
+            assembly.blackbody_emissions_AlI_2, assembly.blackbody_emissions_AlI_2_surf = thermal.compute_black_body_spectral_emissions(
+                assembly, wavelengths_AlI_2
+            )   
+
+            print('assembly.blackbody_emissions_AlI_2:', assembly.blackbody_emissions_AlI_2)
 
         if options.radiation.spectral and options.thermal.ablation and options.radiation.particle_emissions and options.pato.flag:
             assembly.OI_atomic_emissions, assembly.atomic_emissions_OI_surf = thermal.compute_particle_spectral_emissions_OI(
                 assembly, wavelengths_OI
             )
 
-            assembly.AlI_atomic_emissions, assembly.atomic_emissions_AlI_surf = thermal.compute_particle_spectral_emissions_AlI(
-                assembly, wavelengths_AlI
+            print('assembly.OI_atomic_emissions:', assembly.OI_atomic_emissions)
+
+            assembly.AlI_1_atomic_emissions, assembly.atomic_emissions_AlI_1_surf = thermal.compute_particle_spectral_emissions_AlI(
+                assembly, wavelengths_AlI, 0
             )
 
-        output.generate_surface_solution_emissions(titan=titan, options=options, folder='Postprocess_emissions', iter_value = titan.iter)
+            print('assembly.AlI_1_atomic_emissions:', assembly.AlI_1_atomic_emissions)
+
+            assembly.AlI_2_atomic_emissions, assembly.atomic_emissions_AlI_2_surf = thermal.compute_particle_spectral_emissions_AlI(
+                assembly, wavelengths_AlI, 1
+            )
+
+            print('assembly.AlI_2_atomic_emissions:', assembly.AlI_2_atomic_emissions)
+
+
+        #output.generate_surface_solution_emissions(titan=titan, options=options, folder='Postprocess_emissions', iter_value = titan.iter)
 
         d = {
             'Assembly_ID': [assembly.id],
             'OI_emissions_blackbody':  [np.sum(assembly.blackbody_emissions_OI)],
-            'AlI_emissions_blackbody': [np.sum(assembly.blackbody_emissions_AlI)],
+            'AlI_1_emissions_blackbody': [np.sum(assembly.blackbody_emissions_AlI_1)],
+            'AlI_2_emissions_blackbody': [np.sum(assembly.blackbody_emissions_AlI_2)],
             'OI_emissions_atomic':     [np.sum(assembly.OI_atomic_emissions)],
-            'AlI_emissions_atomic':    [np.sum(assembly.AlI_atomic_emissions)],
+            'AlI_1_emissions_atomic':    [np.sum(assembly.AlI_1_atomic_emissions)],
+            'AlI_2_emissions_atomic':    [np.sum(assembly.AlI_2_atomic_emissions)],
         }
 
         df = pd.DataFrame(data=d)
@@ -225,72 +258,80 @@ def line_of_sight(titan, options, iteration):
 
     print('Calculating line-of-sight ...')
 
+    for assembly in titan.assembly:
+        for obj in assembly.objects:
+            obj.LOS = np.zeros(len(obj.mesh.facets))
+
+
     titan_windframe = deepcopy(titan)
 
     for index, assembly in enumerate(titan_windframe.assembly):
 
-        R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
-
-        lat = assembly.trajectory.latitude
-        lon = assembly.trajectory.longitude
-        chi = assembly.trajectory.chi
-        gamma = assembly.trajectory.gamma
-
-        R_ECEF_NED = frames.R_NED_ECEF(lat=lat, lon=lon).inv()
-        R_NED_W = frames.R_W_NED(ha=chi, fpa=gamma).inv()
-        R_ECEF_W = R_NED_W * R_ECEF_NED
-
         M = assembly.freestream.mach
-        theta = 0.0001
 
-        p = np.intersect1d(assembly.index_atomic, np.where(assembly.aerothermo.theta > 0.001)[0])
+        if M > 1.1:
 
-        for index_object, obj in enumerate(assembly.objects):
+            R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
 
-            print("\nObject:", obj.name)
+            lat = assembly.trajectory.latitude
+            lon = assembly.trajectory.longitude
+            chi = assembly.trajectory.chi
+            gamma = assembly.trajectory.gamma
 
-            obj.mesh.nodes = R_B_ECEF.apply(obj.mesh.nodes)
-            obj.mesh.nodes = (R_ECEF_W).apply(obj.mesh.nodes)
+            R_ECEF_NED = frames.R_NED_ECEF(lat=lat, lon=lon).inv()
+            R_NED_W = frames.R_W_NED(ha=chi, fpa=gamma).inv()
+            R_ECEF_W = R_NED_W * R_ECEF_NED
 
-            obj.mesh.facet_normal = R_B_ECEF.apply(obj.mesh.facet_normal)
-            obj.mesh.facet_normal = (R_ECEF_W).apply(obj.mesh.facet_normal)
+            
+            theta = 0.0001
 
-            obj.mesh.facet_COG = R_B_ECEF.apply(obj.mesh.facet_COG)
-            obj.mesh.facet_COG = (R_ECEF_W).apply(obj.mesh.facet_COG)
+            #p = np.intersect1d(assembly.index_atomic, np.where(assembly.aerothermo.theta > 0.001)[0])
+            p = np.where(assembly.aerothermo.theta > 0.001)
 
-            obj.LOS = np.zeros(len(obj.mesh.facets))
+            for index_object, obj in enumerate(assembly.objects):
 
-            min_coords = np.min(obj.mesh.nodes, axis=0)
-            max_coords = np.max(obj.mesh.nodes, axis=0)
+                print("\nObject:", obj.name)
 
-            # Creation of the virtual Sphere
-            center = np.zeros((3))
-            center[1:] = (min_coords[1:] + max_coords[1:]) / 2.0
-            center[0] = max_coords[0]
+                obj.mesh.nodes = R_B_ECEF.apply(obj.mesh.nodes)
+                obj.mesh.nodes = (R_ECEF_W).apply(obj.mesh.nodes)
 
-            dist_center = np.linalg.norm(obj.mesh.nodes[:, 1:] - center[1:], axis=1)
-            radius = np.max(dist_center)
+                obj.mesh.facet_normal = R_B_ECEF.apply(obj.mesh.facet_normal)
+                obj.mesh.facet_normal = (R_ECEF_W).apply(obj.mesh.facet_normal)
 
-            xmax = np.max(obj.mesh.nodes, axis=0)
-            xmin = np.min(obj.mesh.nodes, axis=0)
+                obj.mesh.facet_COG = R_B_ECEF.apply(obj.mesh.facet_COG)
+                obj.mesh.facet_COG = (R_ECEF_W).apply(obj.mesh.facet_COG)
 
-            Lref = np.max(xmax - xmin)
+                min_coords = np.min(obj.mesh.nodes, axis=0)
+                max_coords = np.max(obj.mesh.nodes, axis=0)
 
-            # Compute billig formula and retrieve the bodies that are inside the computed shock envelopes
-            Switch.sphere_surface(radius, center, index, index_object, titan.iter, assembly, options)
-            billig_points, billig_facets = compute_billig(
-                M, theta, center, radius, index, Lref, index_object, titan.iter, assembly.freestream, options
-            )
+                # Creation of the virtual Sphere
+                center = np.zeros((3))
+                center[1:] = (min_coords[1:] + max_coords[1:]) / 2.0
+                center[0] = max_coords[0]
 
-            index_aero_obj = np.intersect1d(p, obj.facet_index)
+                dist_center = np.linalg.norm(obj.mesh.nodes[:, 1:] - center[1:], axis=1)
+                radius = np.max(dist_center)
 
-            index_aero_obj = np.where(np.isin(obj.facet_index, index_aero_obj))[0]
+                xmax = np.max(obj.mesh.nodes, axis=0)
+                xmin = np.min(obj.mesh.nodes, axis=0)
 
-            obj.LOS[index_aero_obj] = compute_shock_distance(obj, index_aero_obj, billig_points, billig_facets)
+                Lref = np.max(xmax - xmin)
 
-            output.generate_surface_solution_object(
-                obj, obj.LOS, options, iter_value=iteration, folder='Postprocess_emissions'
-            )
+                # Compute billig formula and retrieve the bodies that are inside the computed shock envelopes
+                Switch.sphere_surface(radius, center, index, index_object, titan.iter, assembly, options)
+                billig_points, billig_facets = compute_billig(
+                    M, theta, center, radius, index, Lref, obj.global_ID, titan.iter, assembly.freestream, options
+                )
+
+                index_aero_obj = np.intersect1d(p, obj.facet_index)
+
+                index_aero_obj = np.where(np.isin(obj.facet_index, index_aero_obj))[0]
+
+                obj.LOS[index_aero_obj] = compute_shock_distance(obj, index_aero_obj, billig_points, billig_facets)
+
+                output.generate_surface_solution_object(
+                    obj, obj.LOS, options, iter_value=iteration, folder='Postprocess_emissions'
+                )
 
     for assembly, assembly_wf in zip(titan.assembly, titan_windframe.assembly):
         for obj, obj_wf in zip(assembly.objects, assembly_wf.objects):
@@ -422,18 +463,27 @@ def compute_billig(M,theta, center, sphere_radius, index_assembly, Lref, index_o
     delta = sphere_radius*(0.143*np.exp(3.24/(M**2)))
     Rc = sphere_radius*(1.143*np.exp(0.54/(M-1)**1.2))
 
+    print('M:',M)
+
     x_coord = np.array([])
     y_coord = np.array([])
     z_coord = np.array([])
     cells = []
 
     r = sympy.Symbol("r")
-    x_limit = 2*Lref
+    x_limit = 10*Lref
 
     #Blast Wave implementation here
     #x_limit = Switch.compute_blast_wave_limit(sphere_radius, freestream, options) - delta - sphere_radius
 
     exp = 1*(sphere_radius+delta-Rc*(1/tan(theta))**2*(sqrt(1+(r**2)*(tan(theta)**2)/(Rc**2))-1))+x_limit
+    print('delta:',delta)
+    print('Rc:',Rc)
+    print('theta:',theta)
+    print('r:',r)
+    print('x_limit:',x_limit)
+    print('sphere_radius:', sphere_radius)
+    print('exp:',exp)
     sol = sympy.solve(exp)
 
     num_points_r = 15 #50
@@ -479,6 +529,8 @@ def compute_billig(M,theta, center, sphere_radius, index_assembly, Lref, index_o
 
     folder_path = options.output_folder+'/Surface_solution'
     Path(folder_path).mkdir(parents=True, exist_ok=True)
+
+    print('Generating Billig .vtk solution, iteration:', i, ' object global_ID:', index_object)
 
     vol_mesh_filepath = f"{folder_path}/Billig_{i}_{index_object}.vtk"
     meshio.write(vol_mesh_filepath, trimesh)
