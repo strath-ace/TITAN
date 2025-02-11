@@ -67,7 +67,7 @@ def loop(options = [], titan = []):
         titan.assembly[0].mass = options.vehicle.mass   
 
     # This auto-updating plot has been vital for debugging, it can turned off by setting plot = False
-    plot = True
+    plot = False
     if plot:
         plt.ion()
         fig, ax  = plt.subplots()
@@ -102,16 +102,11 @@ def loop(options = [], titan = []):
         else:
             advanced_integrators.propagate(titan = titan, options = options)
 
-        output.generate_surface_solution(titan = titan, options = options)
+        #output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)
         if hasattr(titan,'end_trigger'): return
         
-        if options.ablation:
-            if options.ablation_mode == "tetra":
-                thermal.compute_thermal_tetra(titan = titan, options = options)
-            elif options.ablation_mode == "0d":
-                thermal.compute_thermal_0D(titan = titan, options = options)
-            else:
-                raise ValueError("Ablation Mode can only be 0D or Tetra")
+        if options.thermal.ablation:
+            thermal.compute_thermal(titan = titan, options = options)
 
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO
