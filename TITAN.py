@@ -22,7 +22,7 @@ import configparser
 from argparse import ArgumentParser, RawTextHelpFormatter
 from Configuration import configuration
 from Output import output
-from Dynamics import dynamics, advanced_integrators
+from Dynamics import dynamics, propagation
 from Fragmentation import fragmentation
 from Postprocess import postprocess as pp
 from Thermal import thermal
@@ -69,14 +69,14 @@ def loop(options = [], titan = []):
     if plot:
         plt.ion()
         fig, ax  = plt.subplots()
-        aoa_plot, = ax.plot([0.0], [0.0], label="AoA",color='b')
-        ss_plot, = ax.plot([0.0],[0.0], label='SS',color='r')
+        aoa_plot, = ax.plot([0.0], [0.0], label="Altitude",color='b',linestyle='None',marker = 'x')
+        ss_plot, = ax.plot([0.0],[0.0], label='(Velocity)',color='r',linestyle='None',marker = 'o')
         aoas = [0.0]
         sss = [0.0]
         iters = [0]
-        ax.set_title("Live Angle of Attack Updates!")
+        ax.set_title("Live plot updates!")
         ax.set_xlabel("Time")
-        ax.set_ylabel("Degrees")
+        ax.set_ylabel("Metres (per second)")
         ax.legend()
         ax.grid(True)
 
@@ -94,7 +94,7 @@ def loop(options = [], titan = []):
 
         if 'legacy' in options.dynamics.propagator: dynamics.integrate(titan = titan, options = options)
         else:
-            advanced_integrators.propagate(titan = titan, options = options)
+            propagation.propagate(titan = titan, options = options)
 
         output.generate_surface_solution(titan = titan, options = options)
         if hasattr(titan,'end_trigger'): return
@@ -117,17 +117,19 @@ def loop(options = [], titan = []):
 
 
         if plot:
-            aoas.append(titan.assembly[0].aoa*(360/(2*3.14159)))
-            sss.append(titan.assembly[0].slip*(360/(2*3.14159)))
-            iters.append(titan.time)
-            aoa_plot.set_data(iters,aoas)
-            ss_plot.set_data(iters,sss)
-            ax.relim()
-            ax.autoscale_view()
-            fig.canvas.draw()
-            fig.canvas.flush_events()
+            for _assembly in titan.assembly:
+                aoas.append(_assembly.trajectory.altitude)#*(360/(2*3.14159)))
+                sss.append(_assembly.trajectory.velocity)#*(360/(2*3.14159)))
+                iters.append(titan.time)
+                aoa_plot.set_data(iters,aoas)
+                ss_plot.set_data(iters,sss)
+                ax.relim()
+                ax.autoscale_view()
+                fig.canvas.draw()
+                fig.canvas.flush_events()
 
         titan.iter += 1
+        titan.post_event_iter +=1
         options.current_iter = titan.iter
         if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
             options.save_state(titan, options.current_iter)
