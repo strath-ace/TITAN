@@ -15,6 +15,7 @@ from warnings import warn
 ## - euler  : Euler method
 ## - bwd    : Backward difference, using information from 1 previous time step (2nd order)
 ## - AB[N]  : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
+## - RK[N]  : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
 
 ## Adaptive time-step methods (via scipy.integrate)
 ## - RK23   : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
@@ -271,6 +272,28 @@ def get_integrator_func(options, choice):
             warn_msg = 'The AB5 Method can exhibit strange behaviour near ground, this is being investigated. \nIf your simulation involves ground impacts consider another method'
             warn(warn_msg)
         return partial(explicit_adams_bashforth_n,n)
+
+    print('...propagator Not recognised! See available options ↓')
+    print('''
+    ## Current implented time integrators (define in cfg under [Time] as Time_integration='')...
+
+    ## Constant time-step methods  
+    ## - euler      : Euler method
+    ## - bwd        : Backward difference, using information from 1 previous time step (2nd order)
+    ## - AB[N]      : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
+    ## - RK[N]      : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
+
+    ## Adaptive time-step methods (via scipy.integrate)
+    ## - RK23       : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
+    ## - RK45       : Time stepping according to 5th order Runge-Kutta with 4th order error control
+    ## - DOP853     : The DOP8(5,3) adaptive algorithm 
+    ## See docs.scipy.org/doc/scipy/reference/integrate.html for more info
+        
+    ## Legacy Dynamics Implementation (deprecated)
+    ## legacy_euler : Prior Euler method
+    ## legacy_bwd   : Prior backward difference method for position updates
+    ''')
+    raise Exception('Invalid propagator')
 #############################################################################################################################################
 #############################################################################################################################################
 ###########################################################  ALGORITHMS  ####################################################################

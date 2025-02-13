@@ -112,7 +112,7 @@ class Dynamics():
         A class to store the user-defined dynamics options for the simulation
     """
 
-    def __init__(self, time_step = 0, time = 0, propagator = 'euler'):
+    def __init__(self, time_step = 0, time = 0, propagator = 'help'):
 
         #: [seconds] Physical time of the simulation.
         self.time = time
@@ -733,7 +733,7 @@ def read_config_file(configParser, postprocess = ""):
     #Read Dynamics options
     options.dynamics.time = 0
     options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
-    options.dynamics.propagator = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
+    options.dynamics.propagator = get_config_value(configParser, 'help', 'Time', 'Time_integration', 'str')
     options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
 
     #Read Low-fidelity aerothermo options
