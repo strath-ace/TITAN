@@ -37,6 +37,7 @@ def compute_aerodynamic_forces(titan, options):
 
     if options.vehicle and options.vehicle.Cd:
         for assembly in titan.assembly:
+            if not assembly.compute: continue
             Aref = options.vehicle.Aref
             Cd = options.vehicle.Cd(assembly.freestream.mach)
             drag = 0.5 *  Aref * Cd * assembly.freestream.density * assembly.freestream.velocity ** 2
@@ -48,7 +49,7 @@ def compute_aerodynamic_forces(titan, options):
 
     else:
         for assembly in titan.assembly:
-
+            if not assembly.compute: continue
             force_facets = -assembly.aerothermo.pressure[:,None]*assembly.mesh.facet_normal+assembly.aerothermo.shear*np.linalg.norm(assembly.mesh.facet_normal, axis=1)[:,None]
             force = np.sum(force_facets, axis = 0)
             assembly.body_force.force = force
@@ -67,9 +68,6 @@ def compute_aerodynamic_forces(titan, options):
             assembly.wind_force.crosswind = aerodynamic_forces[1]
             assembly.wind_force.lift      = aerodynamic_forces[2]
 
-    # It's neater for state equation implementation if we get forces returned directly
-    return force
-
 def compute_aerodynamic_moments(titan, options):
     """
     Computes the aerodynamic moments in the wind Body frame
@@ -86,7 +84,7 @@ def compute_aerodynamic_moments(titan, options):
     #Computed on the Body Frame
 
     for assembly in titan.assembly:
-
+        if not assembly.compute: continue
         Moment = np.zeros((len(assembly.mesh.facets),3))
 
         #TODO missing skin friction

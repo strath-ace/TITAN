@@ -219,6 +219,11 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].state_vector_prior = titan.assembly[i].state_vector_prior
         titan.assembly[-1].derivs_prior = titan.assembly[i].derivs_prior
 
+        titan.post_event_iter = 0
+
+        if options.dynamics.uncertain:
+            titan.assembly[-1].gaussian_library = titan.assembly[-1].gaussian_library
+
 
 def check_breakup_v2(titan, options):
 

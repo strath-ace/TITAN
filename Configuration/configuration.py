@@ -139,6 +139,9 @@ class Dynamics():
         #: [int] Number of previous derivatives to hold
         self.n_derivs_to_hold = 0
 
+        #: [bool] Whether to propagate dynamical uncertainty
+        self.uncertain = False
+
 class CFD():
     def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1, cfd_restart = False, restart_grid = 0, restart_iter = 0):
         
@@ -361,6 +364,7 @@ class Uncertainty():
         self.qoi_filepath = qoi_filepath
         self.qoi_flag = flag
         self.yaml_path = yaml_path
+        self.GMM_library = 3
     
     def build_quantities(self, path):
         self.outputs = [name.strip() for name in self.outputs.split(',')] if not self.outputs=='demise_points' else ['Latitude','Longitude','Altitude']
@@ -886,7 +890,8 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.dynamics.time = 0
     options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
     options.dynamics.propagator = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
-    advanced_integrators.setup_integrator(options)
+    options.dynamics.prop_func = advanced_integrators.get_integrator_func(options,options.dynamics.propagator.lower())
+    if 'ut' in options.dynamics.propagator.lower(): options.dynamics.uncertain = True
 
     #Read Thermal options
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
@@ -1034,13 +1039,17 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
     options.wrap_propagator = get_config_value(configParser,False,'Time','Wrap_propagator','boolean')
 
-    if options.wrap_propagator:
-        options.uncertainty.ut_DoF = get_config_value(configParser,6,'Uncertainty','UT_DoF','int')
-        options.uncertainty.cov_UT = get_config_value(configParser,False,'Uncertainty','UT_use_covariance','boolean')
-        from Uncertainty.UT import setupUT
-        options=setupUT(options)
-        
-    
+    if options.dynamics.uncertain:
+        options.uncertainty.UT_alpha            = get_config_value(configParser,0.001,'Uncertainty','UT_alpha','float')
+        options.uncertainty.UT_beta             = get_config_value(configParser,2,    'Uncertainty','UT_beta','float')
+        options.uncertainty.UT_kappa            = get_config_value(configParser,0,    'Uncertainty','UT_kappa','float')
+        options.uncertainty.n_procs             = get_config_value(configParser,1,    'Uncertainty','N_processors','int')
+        options.uncertainty.use_GMM             = get_config_value(configParser,False,'Uncertainty','Use_GMM','bool')
+        options.uncertainty.GMM_eps             = get_config_value(configParser,0.001,'Uncertainty','GMM_splitting_epsilon','float')
+        options.uncertainty.GMM_n_splits        = get_config_value(configParser,1,    'Uncertainty','GMM_N_splits','int')
+        options.uncertainty.GMM_library         = get_config_value(configParser,3,    'Uncertainty','GMM_library','int')
+        options.uncertainty.GMM_a_priori_splits = get_config_value(configParser,0,    'Uncertainty','GMM_a_priori_splits','int')
+
     if options.load_state:
         titan = options.read_state()
 
@@ -1079,9 +1088,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             dynamics.compute_quaternion(assembly)
             dynamics.compute_cartesian(assembly, options)
 
-            if options.wrap_propagator:
-                from Uncertainty.UT import setupAssembly
-                setupAssembly(assembly,options)
+            # if options.wrap_propagator:
+            #     from Uncertainty.UT import setupAssembly
+            #     setupAssembly(assembly,options)
             
 
         

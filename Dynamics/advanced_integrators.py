@@ -14,6 +14,7 @@ from Output import output
 ## - euler  : Euler method
 ## - bwd    : Backward difference, using information from 1 previous time step (2nd order)
 ## - AB[N]  : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
+## - RK4    : 4th order Runge-Kutta with 4 function evaluations (flow solves) per time step
 
 ## Adaptive time-step methods (via scipy.integrate)
 ## - RK23   : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
@@ -78,7 +79,7 @@ def state_equation(titan,options,time,state_vectors):
 
     # First we communicate the state vector to assembly attributes
     for _assembly, state_vector in zip(titan.assembly,state_vectors):
-        update_dynamic_attributes(_assembly,state_vector,options)
+        if _assembly.compute: update_dynamic_attributes(_assembly,state_vector,options)  
     
     # Then business as usual for computing forces...
     aerothermo.compute_aerothermo(titan, options)
@@ -89,6 +90,7 @@ def state_equation(titan,options,time,state_vectors):
     # Then determine the necessary derivatives to return the state vector(s)
     d_dt_state_vectors = []
     for _assembly in titan.assembly:
+        if not _assembly.compute: continue
         angularDerivatives = dynamics.compute_angular_derivatives(_assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(_assembly, options)
 
@@ -169,7 +171,7 @@ def update_dynamic_attributes(assembly,state_vector,options):
 
     return assembly
 
-def construct_state_vector(assembly):
+def construct_state_vector(assembly, options):
     assembly.state_vector = [0 for _ in range(13)]
 
     assembly.state_vector[0]  = assembly.position[0]
@@ -192,18 +194,24 @@ def construct_state_vector(assembly):
     assembly.state_vector_prior = []
     assembly.derivs_prior = []
 
+    if options.dynamics.uncertain:
+        from Uncertainty.UT import create_distribution
+        create_distribution(assembly,options)
+
 def collect_state_vectors(titan,options):
     # Collect state vectors
 
     current_state_vectors = []
-    n_prior = titan.iter if titan.iter<options.dynamics.n_states_to_hold else options.dynamics.n_states_to_hold
-    n_derivs = titan.iter if titan.iter<options.dynamics.n_derivs_to_hold else options.dynamics.n_derivs_to_hold
+
+    n_prior = titan.post_event_iter if titan.post_event_iter<options.dynamics.n_states_to_hold else options.dynamics.n_states_to_hold
+    n_derivs = titan.post_event_iter if titan.post_event_iter<options.dynamics.n_derivs_to_hold else options.dynamics.n_derivs_to_hold
+    print(n_derivs)
     state_vectors_prior = [[] for i_states in range(n_prior)] # It's easier to do this with lists as the shape of our priors can change
     derivatives_prior = [[] for i_derivs in range(n_derivs)] # Even if it is very ugly
 
     for _assembly in titan.assembly:
 
-        if not hasattr(_assembly,'state_vector'): construct_state_vector(_assembly) 
+        if not hasattr(_assembly,'state_vector'): construct_state_vector(_assembly, options) 
         #^ Something of a hack but assemblies must be fully instantiated *before* the state vectors can be constructed
         current_state_vectors.append(_assembly.state_vector)
 
@@ -223,42 +231,61 @@ def collect_state_vectors(titan,options):
     return current_state_vectors, state_vectors_prior, derivatives_prior
 
 def append_derivatives(titan,options,new_derivs):
-    n_derivs = titan.iter if titan.iter<options.dynamics.n_derivs_to_hold else options.dynamics.n_derivs_to_hold
+    n_derivs = titan.post_event_iter if titan.post_event_iter<options.dynamics.n_derivs_to_hold else options.dynamics.n_derivs_to_hold
     for i_assem, _assembly, in enumerate(titan.assembly):
         if n_derivs==options.dynamics.n_derivs_to_hold and len(_assembly.derivs_prior)>0:
             _assembly.derivs_prior.pop(0)
         _assembly.derivs_prior.append(new_derivs[i_assem])
 
-def setup_integrator(options):
+def compute_fd_jacobian(state_1,state_2,d_dt_state_1,d_dt_state_2):
+    ### Not very sure how well motivated this is but we're essentially doing...
+    # J_ij = delta[d/dt(S_i)]/delta[S_j]
+    delta_state = np.array(state_2)-np.array(state_1)
+    delta_derivative = np.array(d_dt_state_2) - np.array(d_dt_state_1)
+    Jacobian = np.zeros([len(state_1),len(state_1)])
+    for i, delta_dtS_i in enumerate(delta_derivative):
+        for j, delta_S_j in enumerate(delta_state):
+            Jacobian[i,j] = delta_dtS_i/delta_S_j
+    return Jacobian
 
-    choice = options.dynamics.propagator
-    if choice == 'euler': 
-        options.dynamics.prop_func = explicit_euler_propagate
-        print('Selected Euler propagation')
-    elif 'bwd' in choice and not 'legacy' in choice: 
-        options.dynamics.prop_func = explicit_bwd_diff_propagate
+def get_integrator_func(options,choice):
+
+    ### Write 'UT' to wrap propagator in unscented transform
+    if 'ut' in choice:        
+        options.dynamics.use_UT = True
+        from Uncertainty.UT import UT_propagator
+        print('Wrapping propagator using Unscented Transform, selecting subpropagator next!')
+        return partial(UT_propagator,get_integrator_func(options,choice.replace('ut','')))
+    print('Selected...')
+    if 'euler' in choice: 
+        print('...Euler propagation')
+        return explicit_euler_propagate
+    if 'bwd' in choice and not 'legacy' in choice: 
         options.dynamics.n_states_to_hold = 1
-        print('Selected backward difference propagation')
-    elif 'RK' in choice or 'DOP' in choice: 
+        print('...backward difference propagation')
+        return explicit_bwd_diff_propagate
+    if 'rk4' in choice and not 'RK45' in choice: 
+        print('...RK4 propagation')
+        return explicit_rk_4
+    if 'rk' in choice or 'dop' in choice: 
         if '45' in choice: 
             algo = integrate.RK45
-            print('Selected scipy RK45 propagation')
-        elif choice == 'DOP853': 
+            print('...scipy RK45 propagation')
+        elif 'dop853' in choice: 
             algo = integrate.DOP853
-            print('Selected scipy DOP853 propagation')
+            print('...scipy DOP853 propagation')
         elif '23' in choice: 
             algo = integrate.RK23
-            print('Selected scipy RK23 propagation')
-        options.dynamics.prop_func = partial(explicit_rk_adapt_wrapper,algo)
-        
-    elif 'AB' in choice: 
+            print('...scipy RK23 propagation')
+        return partial(explicit_rk_adapt_wrapper,algo)
+    if 'ab' in choice: 
         n = int(choice[2:])
         if n>5:
-            print('Only Adams-Bashforth methods of order 2-5 are implemented! Setting order to 5...')
+            print('NB: Only Adams-Bashforth methods of order 2-5 are implemented! Setting order to 5 to use...')
             n = 5
         options.dynamics.n_derivs_to_hold = n - 1
-        options.dynamics.prop_func = partial(explicit_adams_bashforth_n,n)
-        print('Selected Adams-Bashforth {}th order propagation'.format(n))
+        print('...Adams-Bashforth {}th order propagation'.format(n))
+        return partial(explicit_adams_bashforth_n,n)
 #############################################################################################################################################
 #############################################################################################################################################
 ###########################################################  ALGORITHMS  ####################################################################
@@ -277,7 +304,7 @@ def explicit_euler_propagate(state_vectors,state_vectors_prior,derivatives_prior
 
 def explicit_bwd_diff_propagate(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     new_state_vectors = []
-    if titan.iter==0: 
+    if titan.post_event_iter==0: 
         new_state_vectors, d_dt_state_vectors = explicit_euler_propagate(state_vectors,state_vectors_prior,
                                                                          derivatives_prior,dt,titan,options)
     else:
@@ -293,12 +320,12 @@ def explicit_adams_bashforth_n(n,state_vectors,state_vectors_prior,derivatives_p
     coeffs = {2 : [-0.5,1.5], 3 : [5.0/12.0,-16.0/12.0,23.0/12.0], 4 : [-9.0/24.0,37.0/24.0,-59.0/24.0,55.0/24.0],
               5 : [251.0/720.0, -1274.0/720.0,2616.0/720.0,-2774.0/720.0,1901.0/720.0]}
     new_state_vectors = []
-    if titan.iter<n-1: 
-        if titan.iter==0: 
+    if titan.post_event_iter<n-1: 
+        if titan.post_event_iter==0: 
             new_state_vectors, d_dt_state_vectors = explicit_euler_propagate(state_vectors,state_vectors_prior,
                                                                              derivatives_prior,dt,titan,options)
         else:
-            new_state_vectors, d_dt_state_vectors = explicit_adams_bashforth_n(titan.iter+1,state_vectors,state_vectors_prior,
+            new_state_vectors, d_dt_state_vectors = explicit_adams_bashforth_n(titan.post_event_iter+1,state_vectors,state_vectors_prior,
                                                                                derivatives_prior,dt,titan,options)
     else:
         d_dt_state_vectors = state_equation(titan,options,dt,state_vectors)
@@ -337,6 +364,25 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
         titan.end_trigger = True
     titan.time = titan.rk_adapt.t
     return np.reshape(titan.rk_adapt.y,[-1,13]), None
+
+## TODO Implement generic Butcher Tableau propagation
+def explicit_rk_4(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    tableau =  [[0.0],
+                [0.5,0.5],
+                [0.5,0.0,0.5],
+                [1.0,0.0,0.0,1.0]]
+    k_factors = [1/6,1/3,1/3,1/6]
+    new_state_vectors = []
+    k_n = []
+    for i_k in range(4):
+        k_state_vectors = np.array(state_vectors)
+        for i_coeff in range(i_k): k_state_vectors+= tableau[i_k][i_coeff]*dt*k_n[i_coeff]
+        k_n.append(np.array(state_equation(titan,options,dt + tableau[i_k][0]*dt,k_state_vectors)))
+
+    new_state_vectors = np.array(state_vectors)
+
+    for i_k in range(4): new_state_vectors+= (1/6) * k_factors[i_k] * dt * k_n[i_k]
+    return new_state_vectors, k_n[0]
 
 #############################################################################################################################################
 #############################################################################################################################################

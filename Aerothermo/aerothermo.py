@@ -311,17 +311,16 @@ def compute_aerothermo(titan, options):
     options: Options
         Object of class Options
     """
-    if titan.iter==1342 or titan.iter==1343:
-        print('Iter of interest!')
     atmo_model = options.freestream.model
     
     for assembly in titan.assembly:
-        #Compute the freestream properties and stagnation quantities
-        mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
-        mix_properties.compute_stagnation(assembly.freestream, options.freestream)
+        if assembly.compute:
+            #Compute the freestream properties and stagnation quantities
+            mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
+            mix_properties.compute_stagnation(assembly.freestream, options.freestream)
 
-        if options.freestream.model=='GRAM':
-            add_wind(assembly,options)
+            if options.freestream.model=='GRAM':
+                add_wind(assembly,options)
 
     if options.fidelity.lower() == 'low':
         compute_low_fidelity_aerothermo(titan.assembly, options)
@@ -440,6 +439,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
     n = options.aerothermo.subdivision_triangle
 
     for it, _assembly in enumerate(assembly):
+        if not _assembly.compute: continue
         _assembly.aerothermo.heatflux *= 0
         _assembly.aerothermo.pressure *= 0
         _assembly.aerothermo.shear    *= 0
@@ -457,13 +457,12 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         _assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
         #TODO change to facets
         #Check the wet facets/vertex
-        p = backfaceculling(_assembly, _assembly.mesh.nodes, _assembly.mesh.nodes_normal, flow_direction , 2000)
         
         #Loop the components of each assembly
-        for obj in _assembly.objects:
-            p2 = np.intersect1d(p, obj.node_index)
-        mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
-        ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
+        # for obj in _assembly.objects:
+        #     p2 = np.intersect1d(p, obj.node_index)
+        #mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
+        #ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
 
         index = ray_trace(_assembly, flow_direction, n)
 
@@ -1112,7 +1111,7 @@ def aerothermodynamics_module_freemolecular(assembly, p, flow_direction):
 
     Stfm = Q_fm/StConst
     Stfm.shape = (-1)
-    print('Rarefied St : {}'.format(np.mean(Stfm)))
+    #print('Rarefied St : {}'.format(np.mean(Stfm)))
     return Stfm
 
 def aerodynamics_module_freemolecular(assembly, p, flow_direction):
@@ -1415,17 +1414,17 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
         sns.kdeplot(St, color='m')
         print(free.knudsen)
     St.shape = (-1)
-    print('Continuum St : {}, Rarefied St : {}, Bridging Factor : {}, Bridged St : {}'.format(np.std(Stc),
-                                                                                          np.std(Stfm),
-                                                                                          np.mean(BridgeReq),
-                                                                                          np.std(St)))
-    import pandas as pd
-    import os
-    data_array = [[np.std(Stc),np.std(Stfm),np.mean(BridgeReq),np.std(St)]]
-    columns = [['St Cont','St FMF','Bridging Func','St Final']]
-    data=pd.DataFrame(data_array,columns=columns)
-    doHeader = False if os.path.exists(options.output_folder+'/St.csv') else True
-    data.to_csv(options.output_folder+'/St.csv',mode='a',index=False,header=doHeader)
+    # print('Continuum St : {}, Rarefied St : {}, Bridging Factor : {}, Bridged St : {}'.format(np.std(Stc),
+    #                                                                                       np.std(Stfm),
+    #                                                                                       np.mean(BridgeReq),
+    #                                                                                       np.std(St)))
+    # import pandas as pd
+    # import os
+    # data_array = [[np.std(Stc),np.std(Stfm),np.mean(BridgeReq),np.std(St)]]
+    # columns = [['St Cont','St FMF','Bridging Func','St Final']]
+    # data=pd.DataFrame(data_array,columns=columns)
+    # doHeader = False if os.path.exists(options.output_folder+'/St.csv') else True
+    # data.to_csv(options.output_folder+'/St.csv',mode='a',index=False,header=doHeader)
 
     return Stfm
 

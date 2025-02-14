@@ -99,6 +99,9 @@ class Assembly_list():
         #: [int] Iteration
         self.iter = 0
 
+        #: [int] Iterations in reference to a fragmentation event, necessary for backward difference-style propagators
+        self.post_event_iter = self.iter
+
         #: [array] List of the linkage information between the different components
         self.connectivity = np.array([], dtype = int)
 
@@ -494,6 +497,8 @@ class Assembly():
         self.distance_travelled = 0
 
         self.quaternion_prev = np.array([])
+
+        self.compute = True
 
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):

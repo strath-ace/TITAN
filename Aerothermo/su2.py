@@ -611,7 +611,9 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     
     #TODO:
     # ---> size ref should also be in the options config file
-    assembly_list = titan.assembly
+    assembly_list = []
+    for assem in titan.assembly:
+        if assem.compute: assembly_list.append(assem)
 
     iteration = options.current_iter
     su2 = options.cfd 
@@ -627,7 +629,7 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     restart = False
 
     for index,assembly in enumerate(assembly_list):
-        if assembly.trajectory.altitude < altitude:
+        if assembly.trajectory.altitude < altitude and assembly.compute:
             altitude = assembly.trajectory.altitude
             it = index
             lref = assembly.Lref
@@ -641,7 +643,6 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
 
     #Reconstruct the surface to be able to perform BL if ablation = Tetra
     for i, assembly in enumerate(assembly_list):
-
         mesh = trimesh.Trimesh()
         for obj in assembly.objects:
             mesh += trimesh.Trimesh(vertices = obj.mesh.nodes, faces = obj.mesh.facets) 
@@ -727,7 +728,6 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     pos = assembly_list[it].position
     
     for i, assembly in enumerate(assembly_windframe):
-
         R_B_ECEF = Rot.from_quat(assembly.quaternion)
 
         assembly.cfd_mesh.nodes -= assembly.COG
@@ -854,7 +854,9 @@ def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
     
     #TODO:
     # ---> size ref should also be in the options config file
-    assembly_list = titan.assembly
+    assembly_list = []
+    for assem in titan.assembly:
+        if assem.compute: assembly_list.append(assem)
     iteration = options.current_iter
     su2 = options.cfd 
 
