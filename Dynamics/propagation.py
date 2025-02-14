@@ -358,7 +358,7 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
     if recompute_params: titan.rk_params = [titan.time, 
                                             np.array(state_vectors).flatten(),
                                             titan.time + dt*options.iters, 
-                                            dt]
+                                            0.01*dt] # Small initial timestep to combat discontinuities at fragmentation
         
     if not hasattr(titan, 'rk_fun')   or recompute_params: titan.rk_fun=partial(state_equation,titan,options)
     if not hasattr(titan, 'rk_adapt') or recompute_params: titan.rk_adapt=algorithm(fun=titan.rk_fun,

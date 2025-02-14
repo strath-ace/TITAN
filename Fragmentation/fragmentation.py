@@ -526,7 +526,6 @@ def fragmentation(titan, options):
         for _id, obj in enumerate(titan.assembly[it].objects):
 
             if obj.type == "Joint":
-
                 if obj.trigger_type.lower() == 'altitude' and titan.assembly[it].trajectory.altitude <= obj.trigger_value:
 
                     print ('Altitude Fragmentation occured ')
@@ -611,3 +610,6 @@ def fragmentation(titan, options):
                 options.time_counter = options.collision.post_fragmentation_iters
 
         output.generate_volume(titan = titan, options = options)
+
+        if 'dop' or 'rk' in options.dynamics.propagator and len(options.dynamics.propagator.replace('rk',''))>1:
+            titan.time -= options.dynamics.time_step
