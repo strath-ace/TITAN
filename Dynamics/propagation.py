@@ -7,6 +7,7 @@ from scipy.spatial.transform import Rotation as Rot
 from scipy import integrate
 from functools import partial
 from Output import output
+from warnings import warn
 
 ## Current implented integrators (define in cfg under [Time] as Time_integration='')...
 
@@ -14,7 +15,7 @@ from Output import output
 ## - euler  : Euler method
 ## - bwd    : Backward difference, using information from 1 previous time step (2nd order)
 ## - AB[N]  : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
-## - RK4    : 4th order Runge-Kutta with 4 function evaluations (flow solves) per time step
+## - RK[N]  : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
 
 ## Adaptive time-step methods (via scipy.integrate)
 ## - RK23   : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
@@ -205,7 +206,6 @@ def collect_state_vectors(titan,options):
 
     n_prior = titan.post_event_iter if titan.post_event_iter<options.dynamics.n_states_to_hold else options.dynamics.n_states_to_hold
     n_derivs = titan.post_event_iter if titan.post_event_iter<options.dynamics.n_derivs_to_hold else options.dynamics.n_derivs_to_hold
-    print(n_derivs)
     state_vectors_prior = [[] for i_states in range(n_prior)] # It's easier to do this with lists as the shape of our priors can change
     derivatives_prior = [[] for i_derivs in range(n_derivs)] # Even if it is very ugly
 
@@ -257,6 +257,9 @@ def get_integrator_func(options,choice):
         print('Wrapping propagator using Unscented Transform, selecting subpropagator next!')
         return partial(UT_propagator,get_integrator_func(options,choice.replace('ut','')))
     print('Selected...')
+    if 'legacy' in choice:
+        print('...legacy propagation, note these methods are deprecated.')
+        return None
     if 'euler' in choice: 
         print('...Euler propagation')
         return explicit_euler_propagate
@@ -264,20 +267,22 @@ def get_integrator_func(options,choice):
         options.dynamics.n_states_to_hold = 1
         print('...backward difference propagation')
         return explicit_bwd_diff_propagate
-    if 'rk4' in choice and not 'RK45' in choice: 
-        print('...RK4 propagation')
-        return explicit_rk_4
     if 'rk' in choice or 'dop' in choice: 
-        if '45' in choice: 
-            algo = integrate.RK45
-            print('...scipy RK45 propagation')
-        elif 'dop853' in choice: 
-            algo = integrate.DOP853
-            print('...scipy DOP853 propagation')
-        elif '23' in choice: 
-            algo = integrate.RK23
-            print('...scipy RK23 propagation')
-        return partial(explicit_rk_adapt_wrapper,algo)
+        if len(choice.replace('rk',''))>1:
+            if '45' in choice: 
+                algo = integrate.RK45
+                print('...scipy RK45 propagation')
+            elif 'dop853' in choice: 
+                algo = integrate.DOP853
+                print('...scipy DOP853 propagation')
+            elif '23' in choice: 
+                algo = integrate.RK23
+                print('...scipy RK23 propagation')
+            return partial(explicit_rk_adapt_wrapper,algo)
+        else:
+            N = int(choice.replace('rk',''))
+            print ('... RK{} propagation'.format(N))
+            return partial(explicit_rk_N,N)
     if 'ab' in choice: 
         n = int(choice[2:])
         if n>5:
@@ -285,7 +290,32 @@ def get_integrator_func(options,choice):
             n = 5
         options.dynamics.n_derivs_to_hold = n - 1
         print('...Adams-Bashforth {}th order propagation'.format(n))
+        if n == 5 :
+            warn_msg = 'The AB5 Method can exhibit strange behaviour near ground, this is being investigated. \nIf your simulation involves ground impacts consider another method'
+            warn(warn_msg)
         return partial(explicit_adams_bashforth_n,n)
+
+    print('...propagator Not recognised! See available options ↓')
+    print('''
+    ## Current implented time integrators (define in cfg under [Time] as Time_integration='')...
+
+    ## Constant time-step methods  
+    ## - euler      : Euler method
+    ## - bwd        : Backward difference, using information from 1 previous time step (2nd order)
+    ## - AB[N]      : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
+    ## - RK[N]      : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
+
+    ## Adaptive time-step methods (via scipy.integrate)
+    ## - RK23       : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
+    ## - RK45       : Time stepping according to 5th order Runge-Kutta with 4th order error control
+    ## - DOP853     : The DOP8(5,3) adaptive algorithm 
+    ## See docs.scipy.org/doc/scipy/reference/integrate.html for more info
+        
+    ## Legacy Dynamics Implementation (deprecated)
+    ## legacy_euler : Prior Euler method
+    ## legacy_bwd   : Prior backward difference method for position updates
+    ''')
+    raise Exception('Invalid propagator')
 #############################################################################################################################################
 #############################################################################################################################################
 ###########################################################  ALGORITHMS  ####################################################################
@@ -304,7 +334,7 @@ def explicit_euler_propagate(state_vectors,state_vectors_prior,derivatives_prior
 
 def explicit_bwd_diff_propagate(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     new_state_vectors = []
-    if titan.post_event_iter==0: 
+    if titan.post_event_iter==0:
         new_state_vectors, d_dt_state_vectors = explicit_euler_propagate(state_vectors,state_vectors_prior,
                                                                          derivatives_prior,dt,titan,options)
     else:
@@ -317,8 +347,10 @@ def explicit_bwd_diff_propagate(state_vectors,state_vectors_prior,derivatives_pr
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_adams_bashforth_n(n,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
-    coeffs = {2 : [-0.5,1.5], 3 : [5.0/12.0,-16.0/12.0,23.0/12.0], 4 : [-9.0/24.0,37.0/24.0,-59.0/24.0,55.0/24.0],
-              5 : [251.0/720.0, -1274.0/720.0,2616.0/720.0,-2774.0/720.0,1901.0/720.0]}
+    coeffs = {2 : [  -0.5,1.5], 
+              3 : [   5.0/12.0,    -16.0/12.0,    23.0/12.0], 
+              4 : [  -9.0/24.0,     37.0/24.0,   -59.0/24.0,     55.0/24.0],
+              5 : [251.0/720.0, -1274.0/720.0, 2616.0/720.0, -2774.0/720.0, 1901.0/720.0]}
     new_state_vectors = []
     if titan.post_event_iter<n-1: 
         if titan.post_event_iter==0: 
@@ -348,7 +380,7 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
     if recompute_params: titan.rk_params = [titan.time, 
                                             np.array(state_vectors).flatten(),
                                             titan.time + dt*options.iters, 
-                                            dt]
+                                            0.01*dt] # Small initial timestep to combat discontinuities at fragmentation
         
     if not hasattr(titan, 'rk_fun')   or recompute_params: titan.rk_fun=partial(state_equation,titan,options)
     if not hasattr(titan, 'rk_adapt') or recompute_params: titan.rk_adapt=algorithm(fun=titan.rk_fun,
@@ -365,23 +397,40 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
     titan.time = titan.rk_adapt.t
     return np.reshape(titan.rk_adapt.y,[-1,13]), None
 
-## TODO Implement generic Butcher Tableau propagation
-def explicit_rk_4(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
-    tableau =  [[0.0],
-                [0.5,0.5],
-                [0.5,0.0,0.5],
-                [1.0,0.0,0.0,1.0]]
-    k_factors = [1/6,1/3,1/3,1/6]
+
+def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    if N==5: N+=1 # Fifth order method actually has 6 fevals
+    ## Butcher tableaus, can be added to just make sure you correctly set N (e.g. Heun's method etc.)
+    tableaus =  {2:[[0.0],
+                    [2/3,  2/3]],
+                 3:[[0.0],
+                    [0.5,  0.5],
+                    [1.0, -1.0,   -2.0]],
+                 4:[[0.0],
+                    [0.5,  0.5],
+                    [0.5,  0.0,    0.5],
+                    [1.0,  0.0,    0.0,   1.0]],
+                 5:[[0,0],
+                    [1/3,  1/3],
+                    [2/5,  4/25,  6/25],
+                    [1,    1/4,     -3,  15/4],
+                    [4/5,  2/25, 12/15,  2/15,  8/75]]
+                }
+    ## Bottom row of Butcher tableaus
+    k_factors = {2:[1/4,    3/4],
+                 3:[1/6,    2/3,  1/6],
+                 4:[1/6,    1/3,  1/3,     1/6],
+                 5:[23/192, 0,    125/192, 0,   -27/64, 125/192]}
     new_state_vectors = []
     k_n = []
-    for i_k in range(4):
+    for i_k in range(N):
         k_state_vectors = np.array(state_vectors)
-        for i_coeff in range(i_k): k_state_vectors+= tableau[i_k][i_coeff]*dt*k_n[i_coeff]
-        k_n.append(np.array(state_equation(titan,options,dt + tableau[i_k][0]*dt,k_state_vectors)))
+        for i_coeff in range(i_k): k_state_vectors+= tableaus[N][i_k][i_coeff]*dt*k_n[i_coeff]
+        k_n.append(np.array(state_equation(titan,options,dt + tableaus[N][i_k][0]*dt,k_state_vectors)))
 
     new_state_vectors = np.array(state_vectors)
 
-    for i_k in range(4): new_state_vectors+= (1/6) * k_factors[i_k] * dt * k_n[i_k]
+    for i_k in range(N): new_state_vectors+= k_factors[N][i_k] * dt * k_n[i_k]
     return new_state_vectors, k_n[0]
 
 #############################################################################################################################################

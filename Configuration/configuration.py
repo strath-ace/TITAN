@@ -30,7 +30,7 @@ except:
 import copy
 from Geometry import component as Component
 from Geometry import assembly as Assembly
-from Dynamics import dynamics, advanced_integrators
+from Dynamics import dynamics, propagation
 from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
@@ -118,7 +118,7 @@ class Dynamics():
         A class to store the user-defined dynamics options for the simulation
     """
 
-    def __init__(self, time_step = 0, time = 0, propagator = 'euler'):
+    def __init__(self, time_step = 0, time = 0, propagator = 'help'):
 
         #: [seconds] Physical time of the simulation.
         self.time = time
@@ -130,7 +130,7 @@ class Dynamics():
         self.propagator = propagator
 
         #: [callable] The function that is called for propagation, 
-        self.prop_func = advanced_integrators.explicit_euler_propagate
+        self.prop_func = propagation.explicit_euler_propagate
         # ^ of signature prop_func(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options) -> new_state_vectors, new_derivatives
         
         #: [int] Number of previous states to hold
@@ -890,7 +890,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.dynamics.time = 0
     options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
     options.dynamics.propagator = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
-    options.dynamics.prop_func = advanced_integrators.get_integrator_func(options,options.dynamics.propagator.lower())
+    options.dynamics.prop_func = propagation.get_integrator_func(options,options.dynamics.propagator.lower())
     if 'ut' in options.dynamics.propagator.lower(): options.dynamics.uncertain = True
 
     #Read Thermal options
