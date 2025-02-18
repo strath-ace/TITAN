@@ -206,9 +206,11 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].aoa = titan.assembly[i].aoa
         titan.assembly[-1].slip = titan.assembly[i].slip
 
-        titan.assembly[-1].state_vector = titan.assembly[i].state_vector
-        titan.assembly[-1].state_vector_prior = titan.assembly[i].state_vector_prior
-        titan.assembly[-1].derivs_prior = titan.assembly[i].derivs_prior
+        titan.post_event_iter = 0
+        from Dynamics.propagation import construct_state_vector
+        construct_state_vector(titan.assembly[-1])
+        # titan.assembly[-1].state_vector_prior = titan.assembly[i].state_vector_prior
+        # titan.assembly[-1].derivs_prior = titan.assembly[i].derivs_prior
 
 
 def check_breakup_v2(titan, options):
@@ -531,7 +533,6 @@ def fragmentation(titan, options):
         for _id, obj in enumerate(titan.assembly[it].objects):
 
             if obj.type == "Joint":
-
                 if obj.trigger_type.lower() == 'altitude' and titan.assembly[it].trajectory.altitude <= obj.trigger_value:
 
                     print ('Joint altitude Fragmentation occured ')
@@ -617,6 +618,9 @@ def fragmentation(titan, options):
                 options.time_counter = options.collision.post_fragmentation_iters
 
         output.generate_volume(titan = titan, options = options)
+
+        if 'dop' or 'rk' in options.dynamics.propagator and len(options.dynamics.propagator.replace('rk',''))>1:
+            titan.time -= options.dynamics.time_step
 
     if options.thermal.ablation and options.pato.flag:
         for assembly in titan.assembly:
