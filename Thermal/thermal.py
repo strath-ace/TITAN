@@ -541,10 +541,11 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, wavelength_ind
     #distribution[index] += seen_intensity
 
     #weighing facet contribution by its area
-    #weighted_seen_intensity = seen_intensity*facet_area # [W/sr]
+
+    weighted_seen_intensity = intensity*facet_area # [W/sr]
 
     #sum contributions of all facets
-    #emissions[wavelength_i] += np.sum(weighted_seen_intensity)
+    emissions[wavelength_i] += np.sum(weighted_seen_intensity)
 
     #emissions[wavelength_i] += np.sum(intensity)/len(facet_area)#W/m2-sr
 
@@ -552,7 +553,7 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, wavelength_ind
 
     #emissions[wavelength_i] += np.sum(intensity)/np.sum(assembly.mesh.facet_area) # W/m2-sr
 
-    emissions[wavelength_i] += np.sum(intensity)/len(assembly.mesh.facet_area) # W/m2-sr
+    #emissions[wavelength_i] += np.sum(intensity)/len(assembly.mesh.facet_area) # W/m2-sr
     
     return emissions, distribution
 
@@ -631,15 +632,15 @@ def compute_particle_spectral_emissions_OI(assembly, wavelength):
         #distribution[index] += seen_intensity
 
         #weighing facet contribution by its area
-        #weighted_seen_intensity = seen_intensity*facet_area # [W/sr]
+        weighted_seen_intensity = intensity*facet_area # [W/sr]
 
         #sum contributions of all facets
-        #emissions[wavelength_i] += np.sum(weighted_seen_intensity)
+        emissions[wavelength_i] += np.sum(weighted_seen_intensity)
 
         #intensity = intensity*facet_area
 
         #emissions[wavelength_i] += np.sum(intensity)/np.sum(assembly.mesh.facet_area) # W/m2-sr
-        emissions[wavelength_i] += np.sum(intensity)/len(assembly.mesh.facet_area[index]) # W/m2-sr
+        #emissions[wavelength_i] += np.sum(intensity)/len(assembly.mesh.facet_area[index]) # W/m2-sr
 
     return emissions, distribution
 
