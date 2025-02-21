@@ -610,6 +610,3 @@ def fragmentation(titan, options):
                 options.time_counter = options.collision.post_fragmentation_iters
 
         output.generate_volume(titan = titan, options = options)
-
-        if 'dop' or 'rk' in options.dynamics.propagator and len(options.dynamics.propagator.replace('rk',''))>1:
-            titan.time -= options.dynamics.time_step

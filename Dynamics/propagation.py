@@ -355,10 +355,12 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
     if not hasattr(titan,'rk_params'): recompute_params = True
     elif not np.shape(titan.rk_params[1])==np.shape(np.array(state_vectors).flatten()): recompute_params = True
     else: recompute_params = False
-    if recompute_params: titan.rk_params = [titan.time, 
-                                            np.array(state_vectors).flatten(),
-                                            titan.time + dt*options.iters, 
-                                            0.01*dt] # Small initial timestep to combat discontinuities at fragmentation
+    if recompute_params: 
+        if titan.time>0: titan.time-=dt
+        titan.rk_params = [titan.time, 
+                           np.array(state_vectors).flatten(),
+                           titan.time + dt*options.iters, 
+                           0.01*dt] # Small initial timestep to combat discontinuities at fragmentation
         
     if not hasattr(titan, 'rk_fun')   or recompute_params: titan.rk_fun=partial(state_equation,titan,options)
     if not hasattr(titan, 'rk_adapt') or recompute_params: titan.rk_adapt=algorithm(fun=titan.rk_fun,

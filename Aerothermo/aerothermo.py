@@ -1146,8 +1146,8 @@ def compute_per_facet_mach(assembly,flow_direction):
     # This models a dissipative effect to rotation to prevent unbounded spinning.
     free = assembly.freestream
     mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
-
-    if free.mach>1:  # neglect rotational effects below Mach 1
+    ### Function currently disabled due to instability at low Mach, will look into in future
+    if free.mach<0:  # neglect rotational effects below Mach 1
         v_linear = free.mach * free.sound
         angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
         v_tangential = np.zeros_like(assembly.mesh.facet_COG)
