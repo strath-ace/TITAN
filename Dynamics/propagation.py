@@ -197,7 +197,7 @@ def construct_state_vector(assembly, options):
 
     if options.dynamics.uncertain:
         from Uncertainty.UT import create_distribution
-        create_distribution(assembly,options)
+        create_distribution(assembly,options,is_Library=True)
 
 def collect_state_vectors(titan,options):
     # Collect state vectors
@@ -223,33 +223,37 @@ def collect_state_vectors(titan,options):
             derivatives_prior[i_states].append(_assembly.derivs_prior[i_states])
 
     # Append states to prior
-    for _assembly in titan.assembly: 
-        if n_prior==options.dynamics.n_states_to_hold and len(_assembly.state_vector_prior)>0:
-            _assembly.state_vector_prior.pop(0)
-        _assembly.state_vector_prior.append(_assembly.state_vector)
+    for _assembly in titan.assembly:
+        if n_prior>0:
+            if n_prior==options.dynamics.n_states_to_hold and len(_assembly.state_vector_prior)>0:
+                _assembly.state_vector_prior.pop(0)
+            _assembly.state_vector_prior.append(_assembly.state_vector)
 
     return current_state_vectors, state_vectors_prior, derivatives_prior
 
 def append_derivatives(titan,options,new_derivs):
     n_derivs = titan.post_event_iter if titan.post_event_iter<options.dynamics.n_derivs_to_hold else options.dynamics.n_derivs_to_hold
     for i_assem, _assembly, in enumerate(titan.assembly):
-        if n_derivs==options.dynamics.n_derivs_to_hold and len(_assembly.derivs_prior)>0:
-            _assembly.derivs_prior.pop(0)
-        _assembly.derivs_prior.append(new_derivs[i_assem])
+        if n_derivs>0:
+            if n_derivs==options.dynamics.n_derivs_to_hold and len(_assembly.derivs_prior)>0:
+                _assembly.derivs_prior.pop(0)
+            _assembly.derivs_prior.append(new_derivs[i_assem])
 
-def compute_fd_jacobian(state_1,state_2,d_dt_state_1,d_dt_state_2):
+def compute_jacobian_diagonal(states,time_derivatives):
+    ## Take as input a set of 2*D+1 states (ordered as sigma points) and their time derivatives
+    # Specifically the i+1th point is a positive deflection in the ith dimension and i+1+Nth point is a negative deflection
     ### Not very sure how well motivated this is but we're essentially doing...
     # J_ij = delta[d/dt(S_i)]/delta[S_j]
-    delta_state = np.array(state_2)-np.array(state_1)
-    delta_derivative = np.array(d_dt_state_2) - np.array(d_dt_state_1)
-    Jacobian = np.zeros([len(state_1),len(state_1)])
-    for i, delta_dtS_i in enumerate(delta_derivative):
-        for j, delta_S_j in enumerate(delta_state):
-            Jacobian[i,j] = delta_dtS_i/delta_S_j
-    return Jacobian
+    dim = np.shape(states)[1]
+    J_diag = []
+    for i_axis in range(dim):
+        eps = abs(states[i_axis+1,i_axis]-states[0,i_axis])+abs(states[i_axis+dim+1,i_axis]-states[0,i_axis])
+        J_ii = (time_derivatives[i_axis+1,i_axis]-time_derivatives[i_axis+1+dim,i_axis])/eps
+        J_diag.append(J_ii)
+    return np.diag(J_diag)
 
 def get_integrator_func(options,choice):
-
+    choice = choice.strip('_')
     ### Write 'UT' to wrap propagator in unscented transform
     if 'ut' in choice:        
         options.dynamics.use_UT = True
@@ -267,7 +271,7 @@ def get_integrator_func(options,choice):
         options.dynamics.n_states_to_hold = 1
         print('...backward difference propagation')
         return explicit_bwd_diff_propagate
-    if 'rk' in choice or 'dop' in choice: 
+    if 'rk' in choice or 'dop' in choice:
         if len(choice.replace('rk',''))>1:
             if '45' in choice: 
                 algo = integrate.RK45
@@ -377,10 +381,12 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
     if not hasattr(titan,'rk_params'): recompute_params = True
     elif not np.shape(titan.rk_params[1])==np.shape(np.array(state_vectors).flatten()): recompute_params = True
     else: recompute_params = False
-    if recompute_params: titan.rk_params = [titan.time, 
-                                            np.array(state_vectors).flatten(),
-                                            titan.time + dt*options.iters, 
-                                            0.01*dt] # Small initial timestep to combat discontinuities at fragmentation
+    if recompute_params:
+        titan.time-=dt
+        titan.rk_params = [titan.time, 
+                           np.array(state_vectors).flatten(),
+                           titan.time + dt*options.iters, 
+                           0.01*dt] # Small initial timestep to combat discontinuities at fragmentation
         
     if not hasattr(titan, 'rk_fun')   or recompute_params: titan.rk_fun=partial(state_equation,titan,options)
     if not hasattr(titan, 'rk_adapt') or recompute_params: titan.rk_adapt=algorithm(fun=titan.rk_fun,

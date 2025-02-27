@@ -84,7 +84,8 @@ def load_atmosphere(name):
 def retrieve_atmosphere_data(name, altitude, assembly, options):
 
     #This function only returns the data for a single altitude
-
+    if altitude<0: altitude = 0
+    if altitude>999000: altitude = 999000
     if name.upper() == "NRLMSISE00":
         if options.planet.name != "earth": raise Exception("The model NRLMSISE00 contains Earth atmopshere. Please choose the GRAM model")
         

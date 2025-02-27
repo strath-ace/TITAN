@@ -216,15 +216,18 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].slip = titan.assembly[i].slip
 
         titan.post_event_iter = 0
-        from Dynamics.propagation import construct_state_vector
-        construct_state_vector(titan.assembly[-1])
-        # titan.assembly[-1].state_vector_prior = titan.assembly[i].state_vector_prior
-        # titan.assembly[-1].derivs_prior = titan.assembly[i].derivs_prior
+        titan.assembly[-1].state_vector = titan.assembly[i].state_vector
+        for ax, delta in enumerate(dx_ECEF): titan.assembly[-1].state_vector[ax]+=delta
 
         titan.post_event_iter = 0
 
         if options.dynamics.uncertain:
-            titan.assembly[-1].gaussian_library = titan.assembly[-1].gaussian_library
+            from Uncertainty.UT import create_distribution
+            create_distribution(titan.assembly[-1],
+                                options,
+                                mean=titan.assembly[-1].state_vector,
+                                cov=titan.assembly[i].gaussian_library.cov,
+                                is_Library=True)
 
 
 def check_breakup_v2(titan, options):
@@ -642,5 +645,3 @@ def fragmentation(titan, options):
     if options.thermal.ablation and options.pato.flag:
         for assembly in titan.assembly:
             pato.identify_object_connections(assembly)
-    if 'dop' or 'rk' in options.dynamics.propagator and len(options.dynamics.propagator.replace('rk',''))>1:
-        titan.time -= options.dynamics.time_step

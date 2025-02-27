@@ -528,13 +528,21 @@ class Options():
             del titan.rk_fun
             del titan.rk_adapt
 
-
-        outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
-        pickle.dump(titan, outfile)
-        outfile.close()
-        outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb')
-        pickle.dump(titan, outfile)
-        outfile.close()
+        for file in [self.output_folder + '/Restart/'+ 'Assembly_State.p','wb',self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb']:
+            recursion_limit = sys.getrecursionlimit()
+            outfile = open(file)
+            is_saved = False
+            while not is_saved:
+                try:
+                    pickle.dump(titan, outfile)
+                    is_saved=True
+                except:
+                    print('Saving failed at recursion limit: {}'.format(recursion_limit))
+                    is_saved=False
+                    recursion_limit=int(np.ceil(1.1*recursion_limit))
+                    sys.setrecursionlimit(recursion_limit)
+            outfile.close()
+            
 
         if CFD:
             outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','wb')
@@ -563,12 +571,13 @@ class Options():
 
         if self.fidelity.lower() == 'high' and self.cfd.cfd_restart:
             infile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','rb')
-            titan = pickle.load(infile)
-            infile.close()
         else: 
             infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
-            titan = pickle.load(infile)
-            infile.close()
+        
+        
+        
+        titan = pickle.load(infile)
+        infile.close()
 
         return titan
 
@@ -892,6 +901,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.dynamics.propagator = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
     options.dynamics.prop_func = propagation.get_integrator_func(options,options.dynamics.propagator.lower())
     if 'ut' in options.dynamics.propagator.lower(): options.dynamics.uncertain = True
+    
 
     #Read Thermal options
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
@@ -1029,8 +1039,10 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
     # Quantities of interest for uncertainty propagation
     if configParser.has_section('Uncertainty'):
+        options.uncertainty.plot = get_config_value(configParser, False, 'Uncertainty', 'Plot', 'bool')
         options.uncertainty.yaml_path = get_config_value(configParser, options.uncertainty.yaml_path, 'Uncertainty', 'Yaml_path', 'str')
         options.uncertainty.qoi_flag = get_config_value(configParser, False, 'Uncertainty', 'Extract_QoI', 'boolean')
+        options.uncertainty.n_procs             = get_config_value(configParser,1,    'Uncertainty','N_processors','int')
         if options.uncertainty.qoi_flag:
             options.uncertainty.objects = get_config_value(configParser, options.uncertainty.objects, 'Uncertainty', 'Objects', 'str')
             options.uncertainty.outputs = get_config_value(configParser, options.uncertainty.outputs, 'Uncertainty', 'Outputs', 'str')
@@ -1043,8 +1055,8 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.uncertainty.UT_alpha            = get_config_value(configParser,0.001,'Uncertainty','UT_alpha','float')
         options.uncertainty.UT_beta             = get_config_value(configParser,2,    'Uncertainty','UT_beta','float')
         options.uncertainty.UT_kappa            = get_config_value(configParser,0,    'Uncertainty','UT_kappa','float')
-        options.uncertainty.n_procs             = get_config_value(configParser,1,    'Uncertainty','N_processors','int')
         options.uncertainty.use_GMM             = get_config_value(configParser,False,'Uncertainty','Use_GMM','bool')
+        options.uncertainty.split_GMM           = get_config_value(configParser,False,'Uncertainty','Split_GMM','bool')
         options.uncertainty.GMM_eps             = get_config_value(configParser,0.001,'Uncertainty','GMM_splitting_epsilon','float')
         options.uncertainty.GMM_n_splits        = get_config_value(configParser,1,    'Uncertainty','GMM_N_splits','int')
         options.uncertainty.GMM_library         = get_config_value(configParser,3,    'Uncertainty','GMM_library','int')

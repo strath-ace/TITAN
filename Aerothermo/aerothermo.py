@@ -1047,17 +1047,17 @@ def aerothermodynamics_module_continuum(assembly, p, flow_direction, options):
 
     Stc[Stc < 0] = 0
     Stc.shape = (-1)
-    import seaborn as sns
-    if free.knudsen<0.001:
-        sns.kdeplot(Stc,color='g')
-        print('Continuum St : {}'.format(np.std(Stc)))
-        import pandas as pd
-        import os
-        data_array = [[np.std(Stc),0.0,0.0,np.std(Stc)]]
-        columns = [['St Cont','St FMF','Bridging Func','St Final']]
-        data=pd.DataFrame(data_array,columns=columns)
-        doHeader = False if os.path.exists(options.output_folder+'/St.csv') else True
-        data.to_csv(options.output_folder+'/St.csv',mode='a',index=False,header=doHeader)
+    # import seaborn as sns
+    # if free.knudsen<0.001:
+    #     sns.kdeplot(Stc,color='g')
+    #     print('Continuum St : {}'.format(np.std(Stc)))
+    #     import pandas as pd
+    #     import os
+    #     data_array = [[np.std(Stc),0.0,0.0,np.std(Stc)]]
+    #     columns = [['St Cont','St FMF','Bridging Func','St Final']]
+    #     data=pd.DataFrame(data_array,columns=columns)
+    #     doHeader = False if os.path.exists(options.output_folder+'/St.csv') else True
+    #     data.to_csv(options.output_folder+'/St.csv',mode='a',index=False,header=doHeader)
     return Stc
 
 def aerothermodynamics_module_freemolecular(assembly, p, flow_direction):
@@ -1408,11 +1408,11 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     Stc = aerothermodynamics_module_continuum(assembly, p, flow_direction, options)
     Stfm = aerothermodynamics_module_freemolecular(assembly, p, flow_direction)
     St = Stc + (Stfm - Stc) * BridgeReq[p]
-    if free.knudsen<0.0013:
-        sns.kdeplot(Stc,color='b')
-        sns.kdeplot(Stfm, color='r')
-        sns.kdeplot(St, color='m')
-        print(free.knudsen)
+    # if free.knudsen<0.0013:
+    #     sns.kdeplot(Stc,color='b')
+    #     sns.kdeplot(Stfm, color='r')
+    #     sns.kdeplot(St, color='m')
+    #     print(free.knudsen)
     St.shape = (-1)
     # print('Continuum St : {}, Rarefied St : {}, Bridging Factor : {}, Bridged St : {}'.format(np.std(Stc),
     #                                                                                       np.std(Stfm),

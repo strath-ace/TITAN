@@ -66,16 +66,16 @@ def loop(options = [], titan = []):
         titan.assembly[0].mass = options.vehicle.mass   
 
     # This auto-updating plot has been vital for debugging, it can turned off by setting plot = False
-    plot = True
-    if plot:
+    if options.uncertainty.plot:
+        plt.style.use('dark_background')
         plt.ion()
         fig, ax  = plt.subplots()
-        aoa_plot, = ax.plot([0.0], [0.0], label="Altitude",color='b',linestyle='None',marker = 'x')
-        ss_plot, = ax.plot([0.0],[0.0], label='(Velocity)',color='r',linestyle='None',marker = 'o')
+        aoa_plot, = ax.plot([0.0], [0.0], label="Altitude",color=[0.0,1.0,0.0],linestyle='None',marker = 'o',markersize=1)
+        ss_plot, = ax.plot([0.0],[0.0], label='(Velocity)',color='c',linestyle='None',marker = 'x',markersize=1)
         aoas = [0.0]
         sss = [0.0]
         iters = [0]
-        ax.set_title("Live plot updates!")
+        ax.set_title('Simulation ' + options.output_folder.split('/')[-1])
         ax.set_xlabel("Time")
         ax.set_ylabel("Metres (per second)")
         ax.legend()
@@ -116,7 +116,7 @@ def loop(options = [], titan = []):
         output.iteration(titan = titan, options = options)
 
 
-        if plot:
+        if options.uncertainty.plot:
             for _assembly in titan.assembly:
                 aoas.append(_assembly.trajectory.altitude)#*(360/(2*3.14159)))
                 sss.append(_assembly.trajectory.velocity)#*(360/(2*3.14159)))
@@ -200,6 +200,10 @@ if __name__ == "__main__":
     parser.add_argument("-em", "--emissions",
                         dest="emissions",
                         action="store_true")
+    parser.add_argument("-MC", "--montecarlo",
+                        dest="n_samples",
+                        help = "run a Monte Carlo campaign of N simulations",
+                        metavar="n_samples")
     
     args=parser.parse_args()
 
@@ -210,6 +214,12 @@ if __name__ == "__main__":
     postprocess = args.postprocess
     filter_name = args.filtername
     emissions = args.emissions
+
+    if args.n_samples is not None:
+        from Uncertainty import MC_wrapper
+        MC_wrapper.run(filename,args.n_samples)
+        exit()
+
     if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef"):
         raise Exception("Postprocess can only be WIND or ECEF")
 

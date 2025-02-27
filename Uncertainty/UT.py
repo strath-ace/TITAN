@@ -3,7 +3,7 @@ import concurrent.futures, psutil
 from Dynamics.euler import compute_Euler
 from Dynamics.dynamics import compute_quaternion
 from Dynamics import frames
-from Dynamics.advanced_integrators import quaternion_mult, quaternion_normalize, compute_fd_jacobian
+from Dynamics.propagation import quaternion_mult, quaternion_normalize, compute_jacobian_diagonal
 import pandas as pd
 import os
 import numpy as np
@@ -14,6 +14,7 @@ from scipy.linalg import sqrtm, cholesky
 from scipy.stats import multivariate_normal
 from sklearn.mixture import GaussianMixture
 from Dynamics.frames import R_NED_ECEF
+from warnings import warn
 import yaml
 try: from yaml import CLoader as Loader
 except: from yaml import Loader
@@ -25,17 +26,19 @@ n_assem = 0
 
 class dynamicDistribution():
     
-    def __init__(self, assembly, mean_states, cov, is_quaternionic=False, conversion_samples = 10000, DOF = 6):
+    def __init__(self, assembly, mean_states, cov, RNG = np.random.RandomState(42069), is_quaternionic=False, conversion_samples = 10000, DOF = 6, distribution = multivariate_normal):
         self.mean = mean_states
         self.cov = cov
         self.R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
         self.DOF = DOF
         self.n = 13 if self.DOF==6 else 6
         if self.DOF==6 and not is_quaternionic: self.mean, self.cov = self.propagate_to_quaternion(mean_states, cov, conversion_samples)
+        self.RNG = RNG
+        self.distri = distribution(self.mean,self.cov,seed=self.RNG, allow_singular = True)
 
 
     def propagate_to_quaternion(self,mean_states,cov, n_samples): # Sometimes Monte Carlo really is the best way
-        distri_euler_angles = multivariate_normal(mean_states,cov)
+        distri_euler_angles = multivariate_normal(mean_states,cov, allow_singular = True)
         states_euler_angles = distri_euler_angles.rvs(n_samples)
         set_of_states = np.zeros((n_samples,13))
 
@@ -49,6 +52,10 @@ class dynamicDistribution():
         cov = np.cov(set_of_states, rowvar=False)
 
         return mean, np.diag(np.diag(cov))
+    
+    def rvs(self, N = 1, RNG = None):
+        if RNG is None: RNG = self.RNG
+        return self.distri.rvs(N, RNG)
 
 class recursive_gaussan_mixture():
     def __init__(self, mean, cov, weight = 1.0, is_leaf = True, is_root = False, library_size = 3, tree_size = 1, rng = np.random.RandomState(seed=42069)):
@@ -69,6 +76,7 @@ class recursive_gaussan_mixture():
         self.dynamical_entropy = None
         self.distribution = None
         self.children = []
+        self.GSR = []
 
         # Standard splitting libraries with 3 and 5 from DeMars et al, doi.org/10.2514/1.58987
         # 4 element library from Huber et al, doi.org/10.1109/MFI.2008.4648062
@@ -107,26 +115,25 @@ class recursive_gaussan_mixture():
         dH = self.shannon_entropy[-1] - self.shannon_entropy[-2] if len(self.shannon_entropy)>1 else None
         return dH
     
-    def get_dynamical_entropy_change(self, dt = 1.0):
-        jac = compute_fd_jacobian(self.mean_prev2,self.mean_prev1,self.d_dt_mean_prev2,self.d_dt_mean_prev1)
-        print(np.diag(jac))
-        self.dynamical_entropy = 0
-        for i in range(np.shape(jac)[0]): self.dynamical_entropy += jac[i,i]
-        return self.dynamical_entropy * dt
+    def recalculate_dynamical_entropy(self,sigma_points, sigma_derivatives):
+        jac = compute_jacobian_diagonal(sigma_points,sigma_derivatives)
+        self.dynamical_entropy = -1*np.trace(jac)
     
     def update_distribution(self):
         self.distribution = multivariate_normal(self.mean,self.cov, allow_singular = True)
 
-    def rvs(self,n):
-        if self.is_leaf: return self.distribution.rvs(n)
+    def rvs(self,n=1):
+        if self.is_leaf: 
+            result = self.distribution.rvs(n)
         else:
             result = np.zeros([n,len(self.mean)])
             for child in self.children:
-                result += child.rvs()
+                result += child.rvs(n)
             # if self.is_root: # Rescale to true distri
             #     result *= self.cov
             #     result += self.mean
-            return result
+        print(result)
+        return result
 
     def get_leaf_by_index(self,index):
         if index < len(self.leaf_list): return self.leaf_list[index]
@@ -191,22 +198,23 @@ class recursive_gaussan_mixture():
             return mean
 
 
-def create_distribution(assembly,options):
-    with open(options.uncertainty.yaml_path,'r') as file: dynamic_distri_data = yaml.load(file,Loader)['Covariances']['dynamic']
-    #Get our means and cov...
-    try: 
-        mean = dynamic_distri_data['distribution']['multivariate_normal']['mean']
-        cov  = dynamic_distri_data['distribution']['multivariate_normal']['cov']
-    except:
+def create_distribution(assembly,options, mean= None, cov = None, is_Library=True):
+    if mean is None and cov is None:
+        with open(options.uncertainty.yaml_path,'r') as file: dynamic_distri_data = yaml.load(file,Loader)['Covariances']['dynamic']
+        #Get our means and cov...
         try: 
-            mean = dynamic_distri_data['distribution']['mean']
-            cov = dynamic_distri_data['distribution']['cov']
-        except Exception as e: 
-            raise Exception('Error generating dynamical distribution! Perhaps your yaml file is not set up correctly. Error: {}'.format(e))
+            mean = dynamic_distri_data['distribution']['multivariate_normal']['mean']
+            cov  = dynamic_distri_data['distribution']['multivariate_normal']['cov']
+        except:
+            try: 
+                mean = dynamic_distri_data['distribution']['mean']
+                cov = dynamic_distri_data['distribution']['cov']
+            except Exception as e: 
+                raise Exception('Error generating dynamical distribution! Perhaps your yaml file is not set up correctly. Error: {}'.format(e))
     DOF = 3 if len(mean)<12 else 6
     is_quaternionic = False if len(mean)<13 else True
-
     distri =  dynamicDistribution(assembly,mean,cov,is_quaternionic=is_quaternionic,DOF=DOF)
+    if not is_Library: return distri
     assembly.gaussian_library = recursive_gaussan_mixture(mean = distri.mean,
                                                           cov = distri.cov,
                                                           is_leaf=True,
@@ -214,6 +222,7 @@ def create_distribution(assembly,options):
                                                           library_size=options.uncertainty.GMM_library)
     if options.uncertainty.use_GMM:
         for _ in range(options.uncertainty.GMM_a_priori_splits): assembly.gaussian_library.split_leaf()
+    return assembly.gaussian_library
 class sigmaPosition(MutableSequence):
 
     def __init__(self, dims=6,alpha=0.5,beta=2,kappa=0,position=[0,0,0],cov=[[1,0,0],[0,1,0],[0,0,1]]):
@@ -469,19 +478,16 @@ def unscentedPropagation(titan, options):
 
 def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     ## Determnine the number of propagations to do (this can get very high)
-    n_calcs = 1
+    n_calcs = np.max([_assembly.gaussian_library.n_leaf_nodes for _assembly in titan.assembly])
     dim = len(state_vectors[0])
-    for _assembly in titan.assembly:
-        adaptive_entropy_splitting(_assembly, options,dt=dt)
-        n_calcs = _assembly.gaussian_library.n_leaf_nodes if _assembly.gaussian_library.n_leaf_nodes>n_calcs else n_calcs
-
+    point_generator = MerweScaledSigmaPoints(n=dim, alpha=options.uncertainty.UT_alpha, 
+                                             beta=options.uncertainty.UT_beta, kappa=options.uncertainty.UT_kappa)
     # Everything in this script is wrapped in this i_calc iterator which is called for each Gaussian in the biggest gaussian library
     for i_calc in range(n_calcs):
         
         ##  First collect our big old list of points
         sigmas_per_assembly = []
         distri_per_assembly = []
-        point_generator_per_assembly = []
         for i_assem, _assembly in enumerate(titan.assembly): 
             if _assembly.gaussian_library.n_leaf_nodes<=i_calc:
                 _assembly.compute = False
@@ -489,14 +495,9 @@ def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_p
                 distri_per_assembly.append(None)
             else:
                 _assembly.compute = True
-                distri_per_assembly.append(_assembly.gaussian_library.get_leaf_by_index(i_calc))
-                point_generator_per_assembly.append(MerweScaledSigmaPoints(n=dim, 
-                                                                           alpha=options.uncertainty.UT_alpha, 
-                                                                           beta=options.uncertainty.UT_beta, 
-                                                                           kappa=options.uncertainty.UT_kappa))
-                
-                sigmas_per_assembly.append(point_generator_per_assembly[i_assem].sigma_points(distri_per_assembly[i_assem].mean,
-                                                                                              distri_per_assembly[i_assem].cov))
+                distri_per_assembly.append(_assembly.gaussian_library.get_leaf_by_index(i_calc))        
+                sigmas_per_assembly.append(point_generator.sigma_points(distri_per_assembly[i_assem].mean,
+                                                                        distri_per_assembly[i_assem].cov))
                 
                 distri_per_assembly[i_assem].mean_prev2 = copy(distri_per_assembly[i_assem].mean_prev1)
                 distri_per_assembly[i_assem].mean_prev1 = copy(distri_per_assembly[i_assem].mean)
@@ -507,6 +508,7 @@ def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_p
         mean_vectors_per_assembly = [sigmas_per_assembly[i_assem][0,:] for i_assem, assem in enumerate(titan.assembly)]
         new_state, new_dt = subpropagator(mean_vectors_per_assembly,None,None,dt,titan,options)
         if isinstance(new_state,np.ndarray): new_state = new_state.tolist()
+        if isinstance(new_dt,np.ndarray): new_dt = new_dt.tolist()
         ## And assign to distris
         sigma_point_iterable = []
         for i_assem, _assembly in enumerate(titan.assembly):
@@ -514,6 +516,7 @@ def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_p
                 distri_per_assembly[i_assem].d_dt_mean_prev1 = new_dt[i_assem]
                 distri_per_assembly[i_assem].mean = new_state[i_assem]
                 new_state[i_assem] = [new_state[i_assem]]
+                new_dt[i_assem] = [new_dt[i_assem]]
         
 
         ## Then we need to reformat our sigma points so they are parallelisable
@@ -530,40 +533,71 @@ def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_p
         
             for i_future, future in enumerate(output_futures):
                 if future._exception:
-                    print('Error on result number {}: {}'.format(i_future,future.exception()))
+                    raise Exception('Error on result number {}: {}'.format(i_future,future.exception()))
                 else:
                     for i_assem, _assembly in enumerate(titan.assembly):
-                        new_state[i_assem] = np.vstack((new_state[i_assem],future.result()[0]))
+                        new_state[i_assem] = np.vstack((new_state[i_assem],future.result()[0][i_assem]))
+                        new_dt[i_assem] = np.vstack((new_dt[i_assem],future.result()[1][i_assem]))
         else:
             for sigma_point in sigma_point_iterable[1:]:
 
-                sigma_state, _ = subpropagator(sigma_point, None, None, dt, titan, options)
+                sigma_state, sigma_dt = subpropagator(sigma_point, None, None, dt, titan, options)
                 for i_assem, _assembly in enumerate(titan.assembly):
                     new_state[i_assem] = np.vstack((new_state[i_assem],sigma_state[i_assem]))
+                    new_dt[i_assem] = np.vstack((new_dt[i_assem],sigma_dt[i_assem]))
 
 
         ## Finally we can recombine our sigma points to get our new distribution
-        output_vector = []
         for i_assem, _assembly in enumerate(titan.assembly):
-
-            mu, cov = unscented_transform(sigmas=new_state[i_assem],
-                                          Wm=point_generator_per_assembly[i_assem].Wm,
-                                          Wc=point_generator_per_assembly[i_assem].Wc)
+            distri_per_assembly[i_assem].recalculate_dynamical_entropy(sigmas_per_assembly[i_assem],new_dt[i_assem])
+            mu, cov = unscented_transform(sigmas=new_state[i_assem],Wm=point_generator.Wm, Wc=point_generator.Wc)
             distri_per_assembly[i_assem].mean = mu
-            print(np.trace(distri_per_assembly[i_assem].cov))
-            print(np.trace(cov))
-            distri_per_assembly[i_assem].cov  = cov_nearest(cov)
+            #distri_per_assembly[i_assem].cov = update_cov(titan, options, distri_per_assembly[i_assem], cov)
+            distri_per_assembly[i_assem].cov = cov_nearest((reject_small_eigenvalues(cov,2)))
+            
     output_vector = []
     for i_assem, _assembly in enumerate(titan.assembly):
         _assembly.gaussian_library.mean = _assembly.gaussian_library.recalculate_mean()
         output_vector.append(_assembly.gaussian_library.mean)
+        #rvs = _assembly.gaussian_library.rvs(1500)
+        # t = np.transpose([titan.time*np.ones(1500)])
+        # columns = [['Time','X','Y','Z','U','V','W','Q_w','Q_i','Q_j','Q_k','Omega_roll','Omega_pitch','Omega_yaw']]
+        # data_array = np.hstack((t,rvs))
+        # write_to_series(data_array,columns,options.output_folder+'/UT_Assem_{}_rvs.csv'.format(_assembly.id,))
+        for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
+            leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
+            
+            [latitude, longitude, altitude] = pymap3d.ecef2geodetic(leaf.mean[0], 
+                                                                    leaf.mean[1], 
+                                                                    leaf.mean[2],
+                                                                    ell=pymap3d.Ellipsoid(semimajor_axis = options.planet.ellipsoid()['a'], semiminor_axis = options.planet.ellipsoid()['b']),
+                                                                    deg = True);
+            data_array = np.hstack(([titan.time, altitude, latitude, longitude],leaf.mean,leaf.cov.flatten())).reshape(1,-1)
+            columns = [['Time','Alt','Lat','Lon','X','Y','Z','U','V','W','Q_w','Q_i','Q_j','Q_k','Roll_omega','Pitch_omega','Yaw_omega']]
 
-        import pandas as pd
-        import os
-        data_array = np.hstack((_assembly.gaussian_library.mean,[_assembly.gaussian_library.n_leaf_nodes])).reshape(1,-1)
-        columns = [['x','y','z','u','v','w','q_w','q_i','q_j','q_k','omega_roll','omega_pitch','omega_yaw','n_gaussians']]
-        write_to_series(data_array,columns,options.output_folder+'/UT_{}.csv'.format(i_assem))
+            for ax1 in     ['x','y','z','u','v','w','qw','qi','qj','qk','ox','oy','oz']:
+                for ax2 in ['x','y','z','u','v','w','qw','qi','qj','qk','ox','oy','oz']:
+                    columns[0].append('cov_{}/{}'.format(ax1,ax2))
+            write_to_series(data_array,columns,options.output_folder+'/UT_Assem_{}_Gaussian_{}.csv'.format(_assembly.id,i_leaf))
     return output_vector, None
+
+def update_cov(titan, options, distri, input_cov):
+    grandsum_ratio = np.sum(input_cov,(0,1))/np.sum(distri.cov,(0,1))
+    new_cov  = cov_nearest(abs(input_cov))# + np.eye(np.shape(cov)[0])*1e-9
+    if len(distri.GSR)>2:
+        delta_sum = [distri.GSR[-i-1]-distri.GSR[-i-2] for i in range(len(distri.GSR) - 1)]
+        new_dS = delta_sum[0]
+        print(delta_sum)
+        comparison_dS = np.array(delta_sum[1:])[np.nonzero(delta_sum[1:])][0]
+        print('Delta sum factor is {} ({} / {})'.format(new_dS/comparison_dS,new_dS,comparison_dS))
+        if abs(new_dS)>25*abs(comparison_dS):# or (distri_per_assembly[i_assem].TR[-2]-distri_per_assembly[i_assem].TR[-1])>0.01:
+            print('Skipping cov!!!')
+            new_cov = None
+            distri.GSR.append(distri.GSR[-1])
+    if new_cov is not None:
+        distri.GSR.append(grandsum_ratio)
+        distri.cov = new_cov
+    write_to_series([[titan.time,grandsum_ratio,distri.GSR[-1]]],[['Time','Sum_Ratio','Smoothed Ratio']],options.output_folder+'/GSR.csv')
         
 
 def adaptive_entropy_splitting(assembly,options,dt=1.0):
@@ -572,15 +606,16 @@ def adaptive_entropy_splitting(assembly,options,dt=1.0):
     for i_leaf in range(assembly.gaussian_library.n_leaf_nodes):
         leaf = assembly.gaussian_library.get_leaf_by_index(i_leaf)
         dH_distri = leaf.get_shannon_entropy_change()
-        if leaf.mean_prev2 is None or leaf.d_dt_mean_prev2 is None or dH_distri is None: continue
-        dH_prop = leaf.get_dynamical_entropy_change(dt=dt)
+        if leaf.dynamical_entropy is None or dH_distri is None: continue
+        dH_prop = leaf.dynamical_entropy * dt
+        print(dH_distri,dH_prop)
         delta_H = abs(dH_distri - dH_prop) - abs(options.uncertainty.GMM_eps * dH_prop)
         print('dH is {} (|{} - {}| - |{} * {}|)'.format(delta_H,dH_distri,dH_prop,options.uncertainty.GMM_eps,dH_prop))
         if delta_H >0: 
             do_split = True
             break
 
-    if do_split and options.uncertainty.use_GMM:
+    if do_split and options.uncertainty.split_GMM:
         for _ in range(options.uncertainty.GMM_n_splits): assembly.gaussian_library.split_leaf()
 
 def write_to_series(data_array,columns,filename):
@@ -589,3 +624,44 @@ def write_to_series(data_array,columns,filename):
     data=pd.DataFrame(data_array,columns=columns)
     doHeader = False if os.path.exists(filename) else True
     data.to_csv(filename,mode='a',index=False,header=doHeader)
+
+def untwist_sigmas(sigma_points):
+    # If our sigma points cross over we can do terrible topological crimes to our coviariance matrix
+    # Need to make sure that doesn't happen
+    n = np.shape(sigma_points)[1]
+    mean = sigma_points[0,:]
+    # Sigmas points are an N x 2N +1 array of where the first element is the mean
+    simplex = sigma_points[1:,:]
+    # This remaining N x 2N array has as its ith element a positive displacement in the ith dimension
+    # ...and its i+Nth element as a negative displacement in the ith dimension
+    
+    new_sigmas = np.zeros_like(sigma_points)
+    new_sigmas[0,:] = mean
+    available_slots = [i for i in range(2*n)]
+
+    for i_axis in range(n):
+        plus_point = simplex[i_axis,:]
+        minus_point = simplex[i_axis+n,:]
+        delta_plus = plus_point[i_axis] - mean[i_axis]
+        delta_minus = minus_point[i_axis] - mean[i_axis]
+        
+        ## Nominal Case, no untwisting needed
+        if delta_plus>0 and delta_minus<0:
+            new_sigmas[i_axis+1,:]   = plus_point
+            new_sigmas[i_axis+n+1,:] = minus_point
+        ## Points have crossed the axis, flip to avoid an inverted covariance
+        elif delta_plus<0 and delta_minus>0:
+            print('Untwisting Covariance in axis {}'.format(i_axis))
+            new_sigmas[i_axis+1,:]   = minus_point
+            new_sigmas[i_axis+n+1,:] = plus_point
+        ## Worst case scenario, if both points are on one side of the mean
+        elif delta_plus<0 and delta_minus<0 or delta_plus>0 and delta_minus>0:
+            warn('Sigma points are lopsided! Unphysical behaviour may occur')
+            new_sigmas[i_axis+1,:]   = [plus_point,minus_point][np.argmax([delta_plus,delta_minus])]
+            new_sigmas[i_axis+n+1,:] = [plus_point,minus_point][np.argmin([delta_plus,delta_minus])]
+    return new_sigmas
+
+def reject_small_eigenvalues(Cov,n_to_clip):
+    eigenvalues, eigenvectors = np.linalg.eigh(Cov)
+    for clip in range(n_to_clip): eigenvalues[clip] = 0
+    return eigenvectors @ np.diag(eigenvalues) @ np.transpose(eigenvectors)      

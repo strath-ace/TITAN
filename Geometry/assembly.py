@@ -410,6 +410,8 @@ class Assembly():
         #: [Aerothermo] Object of class Aerothermo to store the surface quantities
         self.aerothermo = None
 
+        self.compute = True
+
         # TODO
         # Need to check if these are used. They are repeated in the Dynamics function
         self.roll = roll
@@ -498,7 +500,6 @@ class Assembly():
 
         self.quaternion_prev = np.array([])
 
-        self.compute = True
 
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
