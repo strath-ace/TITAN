@@ -388,7 +388,18 @@ class Options():
 
     def save_mesh(self,titan):
         outfile = open(self.output_folder + '/Restart/'+'Mesh.p','wb')
-        pickle.dump(titan, outfile)
+        is_saved = False
+        recursion_limit = sys.getrecursionlimit()
+        while not is_saved:
+            try:
+                pickle.dump(titan, outfile)
+                is_saved=True
+            except:
+                print('Mesh saving failed at recursion limit: {}'.format(recursion_limit))
+                is_saved=False
+                recursion_limit=int(np.ceil(1.1*recursion_limit))
+                sys.setrecursionlimit(recursion_limit)
+            
         outfile.close() 
 
     def save_state(self, titan, i = 0):
@@ -417,21 +428,38 @@ class Options():
             del titan.rk_fun
             del titan.rk_adapt
 
-
-        outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
-        pickle.dump(titan, outfile)
-        outfile.close()
-        outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb')
-        pickle.dump(titan, outfile)
-        outfile.close()
-
+        for file in [self.output_folder + '/Restart/'+ 'Assembly_State.p',self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p']:
+            recursion_limit = sys.getrecursionlimit()
+            outfile = open(file,'wb')
+            is_saved = False
+            while not is_saved:
+                try:
+                    pickle.dump(titan, outfile)
+                    is_saved=True
+                except:
+                    print('Saving failed at recursion limit: {}'.format(recursion_limit))
+                    is_saved=False
+                    recursion_limit=int(np.ceil(1.1*recursion_limit))
+                    sys.setrecursionlimit(recursion_limit)
+            outfile.close()
         if self.collision.flag:
             for assembly in titan.assembly: collision.generate_collision_mesh(assembly, self)
             collision.generate_collision_handler(titan, self)
 
     def read_mesh(self):
         infile = open(self.output_folder + '/Restart/'+ 'Mesh.p','rb')
-        titan = pickle.load(infile)
+                
+        is_loaded = False
+        recursion_limit = sys.getrecursionlimit()
+        while not is_loaded:
+            try:
+                titan = pickle.load(infile)
+                is_loaded=True
+            except:
+                print('Mesh loading failed at recursion limit: {}'.format(recursion_limit))
+                is_loaded=False
+                recursion_limit=int(np.ceil(1.1*recursion_limit))
+                sys.setrecursionlimit(recursion_limit)
         infile.close()
 
         return titan
@@ -447,7 +475,17 @@ class Options():
         """
 
         infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
-        titan = pickle.load(infile)
+        is_loaded = False
+        recursion_limit = sys.getrecursionlimit()
+        while not is_loaded:
+            try:
+                titan = pickle.load(infile)
+                is_loaded=True
+            except:
+                print('Mesh loading failed at recursion limit: {}'.format(recursion_limit))
+                is_loaded=False
+                recursion_limit=int(np.ceil(1.1*recursion_limit))
+                sys.setrecursionlimit(recursion_limit)
         infile.close()
 
         return titan
@@ -720,6 +758,7 @@ def read_config_file(configParser, postprocess = ""):
     options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
     options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
+    options.dynamic_plots  = get_config_value(configParser, False, 'Options', 'Plot', 'boolean')
     options.time_counter   = 0
 
     #Read FENICS options
@@ -735,6 +774,8 @@ def read_config_file(configParser, postprocess = ""):
     options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
     options.dynamics.propagator = get_config_value(configParser, 'help', 'Time', 'Time_integration', 'str')
     options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
+    if 'adapt' in options.dynamics.propagator.lower(): 
+        options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
