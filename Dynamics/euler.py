@@ -54,26 +54,26 @@ def compute_Euler(titan, options):
         for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
         collision.generate_collision_handler(titan, options)
 
-#    forces.compute_aerodynamic_forces(titan, options)
-#    forces.compute_aerodynamic_moments(titan, options)
-#
-#    # Writes the output data before
-#    output.write_output_data(titan = titan, options = options)
-#
-#    time_step = options.dynamics.time_step
-#    if options.collision.flag and len(titan.assembly)>1:
-#
-#        #Check collision for future time intervals with respect to current time-step velocity
-#        __, time_step = collision.check_collision(titan, options, time_step)
-#    
-#    titan.time += time_step
-#    titan.time = round(titan.time, 5)
-#
-#    # Loop over the assemblies and compute the dericatives
-#    for assembly in titan.assembly:
-#        angularDerivatives = dynamics.compute_angular_derivatives(assembly)
-#        cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)     
-#        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, titan.iter)
+    forces.compute_aerodynamic_forces(titan, options)
+    forces.compute_aerodynamic_moments(titan, options)
+
+    # Writes the output data before
+    output.write_output_data(titan = titan, options = options)
+
+    time_step = options.dynamics.time_step
+    if options.collision.flag and len(titan.assembly)>1:
+
+        #Check collision for future time intervals with respect to current time-step velocity
+        __, time_step = collision.check_collision(titan, options, time_step)
+    
+    titan.time += time_step
+    titan.time = round(titan.time, 5)
+
+    # Loop over the assemblies and compute the dericatives
+    for assembly in titan.assembly:
+        angularDerivatives = dynamics.compute_angular_derivatives(assembly)
+        cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)     
+        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, titan.iter)
         
 def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, iter_num):
     """
