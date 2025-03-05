@@ -400,6 +400,8 @@ def compute_black_body_spectral_emissions(assembly, wavelength):
 
     temperature = assembly.aerothermo.temperature[index]
 
+    print('max T:', max(temperature))
+
     for obj in assembly.objects:
         emissivity_obj = obj.material.emissivity(obj.temperature)
         assembly.emissivity[obj.facet_index] = emissivity_obj
@@ -479,7 +481,7 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, wavelength_ind
     #ntot = rhoe_i[:,-1]*Na/molarMass_Al
     #ntot = 1e13 #rhoe_i*Na/molarMass_Al
 
-    ntot = np.where(mMelt == 0, 0, 1e13)
+    ntot = np.where(mMelt == 0, 0, 7e16)
 
     #print('ntot:', ntot)
     #print('mMelt:', np.shape(mMelt))
@@ -546,6 +548,8 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, wavelength_ind
 
     #sum contributions of all facets
     emissions[wavelength_i] += np.sum(weighted_seen_intensity)
+
+    print('emissions[wavelength_i]:',emissions[wavelength_i])
 
     #emissions[wavelength_i] += np.sum(intensity)/len(facet_area)#W/m2-sr
 

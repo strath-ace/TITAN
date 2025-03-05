@@ -441,6 +441,7 @@ class Options():
         Path(self.output_folder+'/Restart/').mkdir(parents=True, exist_ok=True)
         Path(self.output_folder+'/Surface_solution/').mkdir(parents=True, exist_ok=True)
         Path(self.output_folder+'/Volume/').mkdir(parents=True, exist_ok=True)
+        Path(self.output_folder+'/Restart/').mkdir(parents=True, exist_ok=True)
     
         if self.freestream.model.lower() == "gram": 
             Path(self.output_folder+'/GRAM/').mkdir(parents=True, exist_ok=True)
@@ -993,13 +994,15 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             titan = options.read_mesh()
 
         else:
+            print('hello1')
             #Reads the user-defined geometries, properties and connectivity
             #to generate an assembly. The information is stored in the titan object
             titan = read_geometry(configParser, options)
+            print('hello2')
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
-                assembly.generate_inner_domain(write = options.pato.flag, output_folder = options.output_folder)
-                assembly.compute_mass_properties()
+                #assembly.generate_inner_domain(write = options.pato.flag, output_folder = options.output_folder)
+                #assembly.compute_mass_properties()
                 if options.pato.flag:
                     for obj in assembly.objects:
                         if obj.pato.flag:
@@ -1010,19 +1013,23 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
                     #for each object, define connectivity to connected objects for heat conduction between objects
                     pato.identify_object_connections(assembly)
-            options.save_mesh(titan)
+            #options.save_mesh(titan)
+
+            print('hello3')
         
         #Reads the Initial pitch/yaw/roll 
-        read_initial_conditions(titan, options, configParser)
+        #read_initial_conditions(titan, options, configParser)
 
         #Computes the quaternion and cartesian for the initial position
         for assembly in titan.assembly:
             assembly.trajectory = copy.deepcopy(trajectory)
             dynamics.compute_quaternion(assembly)
             dynamics.compute_cartesian(assembly, options)
+
+        print('hello4')
             
-        options.save_state(titan)
-        output.generate_volume(titan = titan, options = options)
+        #options.save_state(titan)
+        #output.generate_volume(titan = titan, options = options)
 
     if options.collision.flag:
         for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
