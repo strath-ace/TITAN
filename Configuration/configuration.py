@@ -493,7 +493,6 @@ class Options():
             try:
                 pickle.dump(titan, outfile)
                 is_saved=True
-                print('Mesh saving succeeded at recursion limit: {}'.format(recursion_limit))
             except:
                 print('Mesh saving failed at recursion limit: {}'.format(recursion_limit))
                 is_saved=False
@@ -528,9 +527,9 @@ class Options():
             del titan.rk_fun
             del titan.rk_adapt
 
-        for file in [self.output_folder + '/Restart/'+ 'Assembly_State.p','wb',self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb']:
+        for file in [self.output_folder + '/Restart/'+ 'Assembly_State.p',self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p']:
             recursion_limit = sys.getrecursionlimit()
-            outfile = open(file)
+            outfile = open(file,'wb')
             is_saved = False
             while not is_saved:
                 try:
@@ -555,7 +554,18 @@ class Options():
 
     def read_mesh(self):
         infile = open(self.output_folder + '/Restart/'+ 'Mesh.p','rb')
-        titan = pickle.load(infile)
+                
+        is_loaded = False
+        recursion_limit = sys.getrecursionlimit()
+        while not is_loaded:
+            try:
+                titan = pickle.load(infile)
+                is_loaded=True
+            except:
+                print('Mesh loading failed at recursion limit: {}'.format(recursion_limit))
+                is_loaded=False
+                recursion_limit=int(np.ceil(1.1*recursion_limit))
+                sys.setrecursionlimit(recursion_limit)
         infile.close()
         return titan
 
@@ -574,9 +584,17 @@ class Options():
         else: 
             infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
         
-        
-        
-        titan = pickle.load(infile)
+        is_loaded = False
+        recursion_limit = sys.getrecursionlimit()
+        while not is_loaded:
+            try:
+                titan = pickle.load(infile)
+                is_loaded=True
+            except:
+                print('Mesh loading failed at recursion limit: {}'.format(recursion_limit))
+                is_loaded=False
+                recursion_limit=int(np.ceil(1.1*recursion_limit))
+                sys.setrecursionlimit(recursion_limit)
         infile.close()
 
         return titan
@@ -883,6 +901,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
     options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
+    options.dynamic_plots  = get_config_value(configParser, False, 'Options', 'Plot', 'boolean')
     options.time_counter   = 0
 
     options.write_solutions     = get_config_value(configParser, True, 'Options', 'Write_solutions', 'boolean')
@@ -901,6 +920,8 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.dynamics.propagator = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
     options.dynamics.prop_func = propagation.get_integrator_func(options,options.dynamics.propagator.lower())
     if 'ut' in options.dynamics.propagator.lower(): options.dynamics.uncertain = True
+    if 'adapt' in options.dynamics.propagator.lower(): 
+        options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
     
 
     #Read Thermal options
@@ -1061,6 +1082,8 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.uncertainty.GMM_n_splits        = get_config_value(configParser,1,    'Uncertainty','GMM_N_splits','int')
         options.uncertainty.GMM_library         = get_config_value(configParser,3,    'Uncertainty','GMM_library','int')
         options.uncertainty.GMM_a_priori_splits = get_config_value(configParser,0,    'Uncertainty','GMM_a_priori_splits','int')
+        options.uncertainty.DOF                 = get_config_value(configParser,0,    'Uncertainty','DOF','int')
+        options.uncertainty.max_points          = get_config_value(configParser,0,    'Uncertainty','Max_points','int')
 
     if options.load_state:
         titan = options.read_state()

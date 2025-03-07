@@ -182,6 +182,13 @@ def write_output_data(titan, options):
             df = df.round(decimals = 6)
             df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
 
+def write_to_series(data_array,columns,filename):
+    import pandas as pd
+    import os
+    data=pd.DataFrame(data_array,columns=columns)
+    doHeader = False if os.path.exists(filename) else True
+    data.to_csv(filename,mode='a',index=False,header=doHeader)
+
 def generate_surface_solution(titan, options, folder = 'Surface_solution'):
     points = np.array([])
     facets = np.array([])

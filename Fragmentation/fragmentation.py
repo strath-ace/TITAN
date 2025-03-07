@@ -223,9 +223,11 @@ def demise_components(titan, i, joints_id, options):
 
         if options.dynamics.uncertain:
             from Uncertainty.UT import create_distribution
+            dim = 13 if options.uncertainty.DOF == 6 else 6
+            mean = titan.assembly[-1].state_vector[:dim]
             create_distribution(titan.assembly[-1],
                                 options,
-                                mean=titan.assembly[-1].state_vector,
+                                mean=mean,
                                 cov=titan.assembly[i].gaussian_library.cov,
                                 is_Library=True)
 

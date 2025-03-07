@@ -314,13 +314,13 @@ def compute_aerothermo(titan, options):
     atmo_model = options.freestream.model
     
     for assembly in titan.assembly:
-        if assembly.compute:
-            #Compute the freestream properties and stagnation quantities
-            mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
-            mix_properties.compute_stagnation(assembly.freestream, options.freestream)
+        if not assembly.compute: continue
+        #Compute the freestream properties and stagnation quantities
+        mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
+        mix_properties.compute_stagnation(assembly.freestream, options.freestream)
 
-            if options.freestream.model=='GRAM':
-                add_wind(assembly,options)
+        if options.freestream.model=='GRAM':
+            add_wind(assembly,options)
 
     if options.fidelity.lower() == 'low':
         compute_low_fidelity_aerothermo(titan.assembly, options)
@@ -394,7 +394,6 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
 
     StConst = assembly.freestream.density*assembly.freestream.velocity**3 / 2.0
     if StConst<0.05: StConst = 0.05 # Neglect Cooling effect    
-    plt.ion()
     # Heatflux calculation for Earth
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
@@ -413,8 +412,6 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)
             assembly.aerothermo.heatflux[index] *= StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
-        plt.show()
-        plt.ioff()
     elif options.planet.name == "neptune" or options.planet.name == "uranus":
         #https://sci.esa.int/documents/34923/36148/1567260384517-Ice_Giants_CDF_study_report.pdf        
         assembly.aerothermo.heatflux[index] = aerothermodynamics_module_ice_giants(assembly, index, flow_direction, options)
@@ -1520,8 +1517,8 @@ def compute_per_facet_mach(assembly,flow_direction):
     # This models a dissipative effect to rotation to prevent unbounded spinning.
     free = assembly.freestream
     mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
-
-    if free.mach>1:  # neglect rotational effects below Mach 1
+    ### Function currently disabled due to instability at low Mach, will look into in future
+    if free.mach<0:  # neglect rotational effects below Mach 1
         v_linear = free.mach * free.sound
         angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
         v_tangential = np.zeros_like(assembly.mesh.facet_COG)
