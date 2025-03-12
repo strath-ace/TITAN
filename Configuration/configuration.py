@@ -543,17 +543,7 @@ class Options():
         titan: Assembly_list
             Object of class Assembly_list
         """
-
-<<<<<<< HEAD
-        if self.fidelity.lower() == 'high' and self.cfd.cfd_restart:
-            infile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','rb')
-            titan = pickle.load(infile)
-            infile.close()
-        else: 
-            infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
-            titan = pickle.load(infile)
-            infile.close()
-=======
+        
         infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
         is_loaded = False
         recursion_limit = sys.getrecursionlimit()
@@ -567,7 +557,6 @@ class Options():
                 recursion_limit=int(np.ceil(1.1*recursion_limit))
                 sys.setrecursionlimit(recursion_limit)
         infile.close()
->>>>>>> state_equation_dynamics
 
         return titan
 
