@@ -46,7 +46,7 @@ def mixture_mpp(mixture = "air5"):
 
     mix = mpp.Mixture(opts)
 
-    print("Mixture:", mixture)
+    #print("Mixture:", mixture)
     
     return mix
 
@@ -584,7 +584,7 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
     free = assembly.freestream
     Twall = assembly.aerothermo.temperature
 
-    print('chemistry mixture:', mixture)
+    #print('chemistry mixture:', mixture)
 
     mix = mixture_mpp('air5')
 

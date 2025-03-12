@@ -851,7 +851,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     #Read Dynamics options
     options.dynamics.time = 0
     options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
-    options.dynamics.propagator = get_config_value(configParser, 'help', 'Time', 'Time_integration', 'str')
+    options.dynamics.propagator = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Time_integration', 'str')
     options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
 
     #Read Thermal options
