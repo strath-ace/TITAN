@@ -21,7 +21,7 @@ import sys
 import configparser
 from argparse import ArgumentParser, RawTextHelpFormatter
 from Configuration import configuration
-from Output import output
+from Output import output, dynamic_plots
 from Dynamics import dynamics, propagation
 from Fragmentation import fragmentation
 from Postprocess import postprocess as pp
@@ -66,21 +66,7 @@ def loop(options = [], titan = []):
     if options.vehicle:
         titan.assembly[0].mass = options.vehicle.mass   
 
-    # This auto-updating plot has been vital for debugging, it can turned off by setting plot = False
-    plot = False
-    if plot:
-        plt.ion()
-        fig, ax  = plt.subplots()
-        aoa_plot, = ax.plot([0.0], [0.0], label="Altitude",color='b',linestyle='None',marker = 'x')
-        ss_plot, = ax.plot([0.0],[0.0], label='(Velocity)',color='r',linestyle='None',marker = 'o')
-        aoas = [0.0]
-        sss = [0.0]
-        iters = [0]
-        ax.set_title("Live plot updates!")
-        ax.set_xlabel("Time")
-        ax.set_ylabel("Metres (per second)")
-        ax.legend()
-        ax.grid(True)
+    if options.dynamic_plots: plot = dynamic_plots.initialise_figs(titan)
 
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
@@ -120,17 +106,8 @@ def loop(options = [], titan = []):
         output.iteration(titan = titan, options = options)
 
 
-        if plot:
-            for _assembly in titan.assembly:
-                aoas.append(_assembly.trajectory.altitude)#*(360/(2*3.14159)))
-                sss.append(_assembly.trajectory.velocity)#*(360/(2*3.14159)))
-                iters.append(titan.time)
-                aoa_plot.set_data(iters,aoas)
-                ss_plot.set_data(iters,sss)
-                ax.relim()
-                ax.autoscale_view()
-                fig.canvas.draw()
-                fig.canvas.flush_events()
+        if options.dynamic_plots:
+            for _assembly in titan.assembly: plot = dynamic_plots.update_plot(_assembly, plot, titan.time)
 
         titan.iter += 1
         titan.post_event_iter +=1

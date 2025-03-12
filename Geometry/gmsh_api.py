@@ -34,7 +34,7 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     gmsh.initialize()
     mesh_Settings(gmsh)
 
-    ref_objects = 1.0
+    ref_objects = 0.15
     ref_joint = 0.5
     ref_panel = 0.05
     density_elem = []
