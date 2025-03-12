@@ -1084,6 +1084,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.uncertainty.GMM_a_priori_splits = get_config_value(configParser,0,    'Uncertainty','GMM_a_priori_splits','int')
         options.uncertainty.DOF                 = get_config_value(configParser,0,    'Uncertainty','DOF','int')
         options.uncertainty.max_points          = get_config_value(configParser,0,    'Uncertainty','Max_points','int')
+        options.uncertainty.propagate_geodetic  = get_config_value(configParser,True, 'Uncertainty','Propagate_geodetic','bool')
 
     if options.load_state:
         titan = options.read_state()

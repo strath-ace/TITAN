@@ -524,14 +524,20 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
 def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     new_state_vectors = []
     k_n = []
+    if titan.post_event_iter==0: print('Looping k calculations...')
     for i_k in range(RK_N_actual[str(N)]):
+        if titan.post_event_iter==0: print(k_n)
         k_state_vectors = np.array(state_vectors)
         for i_coeff in range(i_k): k_state_vectors += RK_tableaus[str(N)][i_k][i_coeff] * dt * k_n[i_coeff]
         k_n.append(np.array(state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt, k_state_vectors)))
-
+    if titan.post_event_iter==0: print('Final vectors are...')
+    if titan.post_event_iter==0: print(state_vectors)
     new_state_vectors = np.array(state_vectors)
-
+    if titan.post_event_iter==0: print('Summing vectors...')
     for i_k in range(N): new_state_vectors+= RK_k_factors[str(N)][i_k] * dt * k_n[i_k]
+    if titan.post_event_iter==0: 
+        print('Final state is...')
+        print(new_state_vectors)
     return new_state_vectors, k_n[0]
 
 def adaptive_integrator_selector(N_AB, N_RK,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):

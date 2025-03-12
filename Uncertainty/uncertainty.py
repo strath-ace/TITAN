@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from pyapprox import variables
+#from pyapprox import variables
 from scipy.stats import *
 from scipy.stats._multivariate import multi_rv_frozen
 from statsmodels.stats.correlation_tools import cov_nearest
