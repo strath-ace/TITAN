@@ -343,9 +343,9 @@ def get_integrator_func(options,choice):
     ### Write 'UT' to wrap propagator in unscented transform
     if 'ut' in choice:        
         options.dynamics.use_UT = True
-        from Uncertainty.UT import UT_propagator
+        from Uncertainty.UT import UT_propagator, altitude_sliced_UT_propagator
         print('Wrapping propagator using Unscented Transform, selecting subpropagator next!')
-        return partial(UT_propagator,get_integrator_func(options,choice.replace('ut','')))
+        return partial(altitude_sliced_UT_propagator,get_integrator_func(options,choice.replace('ut','')))
     print('Selected...')
     if 'legacy' in choice:
         print('...legacy propagation, note these methods are deprecated.')

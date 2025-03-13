@@ -323,7 +323,7 @@ def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_p
             
     return output_vector, None
 
-def propagate_sigmas(titan, options, wrapper_func, dim, point_generator,propagation_iterable,distribution_id_iterable,compute_flag_iterable):
+def propagate_sigmas(titan, options, wrapper_func, dim, point_generator,propagation_iterable,distribution_id_iterable,compute_flag_iterable, return_states=False):
     n_points = len(distribution_id_iterable)
     options.n_points = n_points
     n_distris = len(np.unique(distribution_id_iterable))
@@ -340,7 +340,7 @@ def propagate_sigmas(titan, options, wrapper_func, dim, point_generator,propagat
         new_states, new_d_dt, = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
                                                    titan, propagation_iterable, compute_flag_iterable)
     else: new_states, new_d_dt = wrapper_func(propagation_iterable, compute_flag_iterable)
-    
+    if return_states: return new_states
     n_sigmas_per_distri = 2*dim+1
     nominal_state = []
     for i_distri, point_pointer in zip(range(n_distris),np.arange(0,n_points,n_sigmas_per_distri)):
@@ -520,3 +520,73 @@ def write_mini_monte_carlo(_assembly, options, time):
     else: columns = [['Time','X','Y','Z','U','V','W']]
     data_array = np.hstack((t,rvs))
     write_to_series(data_array,columns,options.output_folder+'/UT_Assem_{}_rvs.csv'.format(_assembly.id))
+
+def altitude_sliced_UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    ## This code transforms based on altitude, not time, works only with ECEF presently but a GEO version would be nice
+
+    if not hasattr(options, "n_points"): options.n_points = 0
+
+    ## Determine the number of propagations to do (this can get very high)
+    for _assembly in titan.assembly: adaptive_entropy_splitting(_assembly,options,dt)
+    n_calcs = np.max([_assembly.gaussian_library.n_leaf_nodes for _assembly in titan.assembly])
+    dim = 13 if options.uncertainty.DOF==6 else 6
+    point_generator = MerweScaledSigmaPoints(n=dim, alpha=options.uncertainty.UT_alpha, 
+                                             beta=options.uncertainty.UT_beta, kappa=options.uncertainty.UT_kappa)
+    
+
+    propagation_iterable = []
+    distribution_id_iterable = []
+    compute_flag_iterable = []
+    for i_calc in range(n_calcs):
+        ## Generate our points
+        sigmas_per_assembly, distri_per_assembly, compute_flags = extract_propagation_points(titan,dim,i_calc,point_generator)
+        
+        sigma_point_iterable = []
+        mean_iterable = []
+        for i_sigma in range(2*dim+1):
+            sigma_point_iterable.append([])
+            for i_assem, _assembly in enumerate(titan.assembly): 
+                sigma_point_iterable[i_sigma].append(sigmas_per_assembly[i_assem][i_sigma,:])
+            propagation_iterable.append(sigma_point_iterable[i_sigma])
+            distribution_id_iterable.append(i_calc)
+            compute_flag_iterable.append(compute_flags)
+    if options.uncertainty.n_procs>1:
+        wrapper_func = partial(propagation_wrapper,subpropagator, dt, options, titan)   
+    else: wrapper_func = partial(serial_propagator,subpropagator,dt,titan, options)
+    points_as_list = np.reshape(propagation_iterable,[-1,13])
+    lowest_alt = np.min(pymap3d.ecef2geodetic(points_as_list[:,0],points_as_list[:,1],points_as_list[:,2])[2])
+    if lowest_alt<0: lowest_alt = 0
+    halt_propagation = False
+    n_props = 0
+    in_propagation = propagation_iterable
+    propagated_states = np.zeros_like(in_propagation)
+    state_ids = range(np.shape(propagated_states)[0])
+
+    while not halt_propagation:
+        in_propagation = propagate_sigmas(titan, options, wrapper_func, dim, point_generator,
+                                          in_propagation,distribution_id_iterable,compute_flag_iterable)
+        n_props+=1
+        for i_point, state_id in enumerate(state_ids):
+            if np.max(pymap3d(*np.reshape(in_propagation[i_point],[-1,13])[:,2]))<=lowest_alt:
+                propagated_states[:,state_ids[i_point],:] = in_propagation[i_point]
+                in_propagation = np.delete(in_propagation,i_point,axis=1)
+                state_ids = np.delete(state_ids,i_point)
+                distribution_id_iterable = np.delete(distribution_id_iterable, i_point, axis=0)
+                compute_flag_iterable = np.delete(compute_flag_iterable,i_point,axis=0)
+        if np.shape(in_propagation)[1]==0: halt_propagation = True
+        
+
+
+    
+    output_vector = []
+    for i_assem, _assembly in enumerate(titan.assembly):    
+        _assembly.gaussian_library.mean = _assembly.gaussian_library.recalculate_mean()
+        output_vector.append(_assembly.gaussian_library.mean)
+        output_vector[i_assem] = np.hstack((output_vector[i_assem],propagated_states[i_assem][dim:])) 
+        print(output_vector[i_assem])
+        write_mini_monte_carlo(_assembly,options,titan.time)
+        for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
+            leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
+            leaf.write_to_series(options, titan.time, _assembly.id, i_leaf)
+            
+    return output_vector, None
