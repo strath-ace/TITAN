@@ -1085,6 +1085,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.uncertainty.DOF                 = get_config_value(configParser,0,    'Uncertainty','DOF','int')
         options.uncertainty.max_points          = get_config_value(configParser,0,    'Uncertainty','Max_points','int')
         options.uncertainty.propagate_geodetic  = get_config_value(configParser,True, 'Uncertainty','Propagate_geodetic','bool')
+        options.uncertainty.altitudinal         = True#get_config_value(configParser,True, 'Uncertainty','Propagate_geodetic','bool')
 
     if options.load_state:
         titan = options.read_state()

@@ -26,18 +26,19 @@ n_assem = 0
 
 class dynamicDistribution():
     
-    def __init__(self, assembly, mean_states, cov, RNG = np.random.RandomState(42069), convert_quaternionic=False, convert_geodetic=False, conversion_samples = 10000, DOF = 6, distribution = multivariate_normal):
+    def __init__(self, assembly, mean_states, cov, RNG = np.random.RandomState(42069), convert_quaternionic=False, convert_geodetic=False, conversion_samples = 10000, DOF = 6, distribution = multivariate_normal, altitudinal=False):
         self.mean = mean_states
         self.cov = cov
         self.R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
         self.DOF = DOF
         self.n = 13 if self.DOF==6 else 6
-        
+        if altitudinal: convert_geodetic = True
+
         set_of_states = None
         if convert_geodetic or convert_quaternionic: mc_states = distribution(mean_states,cov,allow_singular = True).rvs(conversion_samples)
         if convert_geodetic: set_of_states = self.propagate_to_geodetic(mc_states)
-        if convert_quaternionic: set_of_states = self.propagate_to_quaternion(mc_states,set_of_states)
-        
+        if convert_quaternionic and self.DOF==6: set_of_states = self.propagate_to_quaternion(mc_states,set_of_states)
+        if altitudinal: set_of_states = set_of_states[:,1:]
         self.mean = np.mean(set_of_states, axis=0)
         self.cov = np.cov(set_of_states, rowvar=False)
     
@@ -45,11 +46,14 @@ class dynamicDistribution():
         self.distri = distribution(self.mean,self.cov,seed=self.RNG, allow_singular = True)
 
 
-    def propagate_to_quaternion(self,mc_states,set_of_states = None): # Sometimes Monte Carlo really is the best way
-        if set_of_states is None: set_of_states = np.zeros((np.shape(mc_states)[0],13))
+    def propagate_to_quaternion(self,mc_states,set_of_states=None): # Sometimes Monte Carlo really is the best way
+        no_existing_states = False
+        if set_of_states is None: 
+            no_existing_states = True
+            set_of_states = np.zeros((np.shape(mc_states)[0],13))
 
         for i_state, euler_state in enumerate(mc_states):
-            set_of_states[i_state,:6] = euler_state[:6]
+            if no_existing_states: set_of_states[i_state,:6] = euler_state[:6]
             set_of_states[i_state,-3:] = euler_state[-3:]
             R_B_NED =   frames.R_B_NED(roll = euler_state[6], pitch = euler_state[7], yaw = euler_state[8]) 
             q = quaternion_normalize((self.R_NED_ECEF*R_B_NED).as_quat())
@@ -90,9 +94,9 @@ def create_distribution(assembly,options, mean= None, cov = None, is_Library=Tru
     options.uncertainty.DOF = 3 if len(mean)<12 else 6
     convert_quaternionic = True if len(mean)<13 else True
     convert_geodetic = True if options.uncertainty.propagate_geodetic else False
-
+    altitudinal = True if options.uncertainty.altitudinal else False
     distri =  dynamicDistribution(assembly,mean,cov,convert_quaternionic=convert_quaternionic,
-                                  convert_geodetic=convert_geodetic,DOF=options.uncertainty.DOF)
+                                  convert_geodetic=convert_geodetic,DOF=options.uncertainty.DOF, altitudinal=altitudinal)
     if not is_Library: return distri
     assembly.gaussian_library = recursive_gaussan_mixture(mean = distri.mean,
                                                           cov = distri.cov,
@@ -272,8 +276,10 @@ class recursive_gaussan_mixture():
         
         write_to_series(data_array,columns,options.output_folder+'/UT_Assem_{}_Gaussian_{}.csv'.format(assem_id,leaf_id))
     
-    def do_unscented_transform(self,sigmas,Wm,Wc,):
-        if self.dim<13: sigmas = sigmas[:,:self.dim]
+    def do_unscented_transform(self,sigmas,Wm,Wc,altitudinal):
+        if self.dim<13: 
+            if altitudinal: sigmas=sigmas[:,1:self.dim+1]
+            else: sigmas = sigmas[:,:self.dim]
         mu, cov = unscented_transform(sigmas=sigmas, Wm=Wm, Wc=Wc)
         self.mean = mu
         self.cov = cov_nearest((reject_small_eigenvalues(cov,2)))
@@ -294,7 +300,7 @@ def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_p
     compute_flag_iterable = []
     for i_calc in range(n_calcs):
         ## Generate our points
-        sigmas_per_assembly, distri_per_assembly, compute_flags = extract_propagation_points(titan,dim,i_calc,point_generator)
+        sigmas_per_assembly, compute_flags = extract_propagation_points(titan,dim,i_calc,point_generator)
         
         sigma_point_iterable = []
         for i_sigma in range(2*dim+1):
@@ -307,7 +313,7 @@ def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_p
     if options.uncertainty.n_procs>1:
         wrapper_func = partial(propagation_wrapper,subpropagator, dt, options, titan)   
     else: wrapper_func = partial(serial_propagator,subpropagator,dt,titan, options)
-    nominal_state = propagate_sigmas(titan, options, wrapper_func, dim, point_generator,
+    nominal_state = update_mixtures(titan, options, wrapper_func, dim, point_generator,
                                             propagation_iterable,distribution_id_iterable,compute_flag_iterable)
     
     output_vector = []
@@ -315,15 +321,16 @@ def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_p
         _assembly.gaussian_library.mean = _assembly.gaussian_library.recalculate_mean()
         output_vector.append(_assembly.gaussian_library.mean)
         output_vector[i_assem] = np.hstack((output_vector[i_assem],nominal_state[i_assem][dim:])) 
-        print(output_vector[i_assem])
-        write_mini_monte_carlo(_assembly,options,titan.time)
+        fixed_alt = _assembly.gaussian_library.mean[0]
+
+        write_mini_monte_carlo(_assembly,options,titan.time,fixed_alt)
         for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
             leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
             leaf.write_to_series(options, titan.time, _assembly.id, i_leaf)
-            
+    if options.uncertainty.propagate_geodetic: output_vector = convert_to_ecef(output_vector)
     return output_vector, None
 
-def propagate_sigmas(titan, options, wrapper_func, dim, point_generator,propagation_iterable,distribution_id_iterable,compute_flag_iterable, return_states=False):
+def update_mixtures(titan, options, wrapper_func, dim, point_generator,propagation_iterable,distribution_id_iterable,compute_flag_iterable, return_states=False):
     n_points = len(distribution_id_iterable)
     options.n_points = n_points
     n_distris = len(np.unique(distribution_id_iterable))
@@ -353,11 +360,11 @@ def propagate_sigmas(titan, options, wrapper_func, dim, point_generator,propagat
                 distri.recalculate_dynamical_entropy(old_points[:,i_assem,:],derivatives[i_assem,:,:])
                 ## Finally we can recombine our sigma points to get our new distribution
                 if options.uncertainty.propagate_geodetic: new_points[i_assem,:,:] = convert_to_geodetic(new_points[i_assem,:,:])
-                distri.do_unscented_transform(sigmas=new_points[i_assem,:,:],Wm=point_generator.Wm,Wc=point_generator.Wc)
+                distri.do_unscented_transform(sigmas=new_points[i_assem,:,:],Wm=point_generator.Wm,Wc=point_generator.Wc,altitudinal=options.uncertainty.altitudinal)
                 if i_distri==0: nominal_state.append(new_points[i_assem,0,:])
     return nominal_state
 
-def extract_propagation_points(titan,dim,i_calc,point_generator):
+def extract_propagation_points(titan,dim,i_calc,point_generator,alt = None):
 ##  Collect all the sigma points to propagate
     sigmas_per_assembly = []
     distri_per_assembly = []
@@ -370,13 +377,14 @@ def extract_propagation_points(titan,dim,i_calc,point_generator):
         else:
             compute_flags.append(True)
             distri_per_assembly.append(_assembly.gaussian_library.get_leaf_by_index(i_calc))        
-            sigmas_per_assembly.append(point_generator.sigma_points(distri_per_assembly[i_assem].mean,
-                                                                    distri_per_assembly[i_assem].cov))
-            if dim==6:
+            points = point_generator.sigma_points(distri_per_assembly[i_assem].mean,distri_per_assembly[i_assem].cov)
+            if alt is not None: points = np.hstack((alt*np.ones([2*dim+1,1]),points))
+            sigmas_per_assembly.append(points)
+            if dim<12:
                 assembly_rotation = np.array([_assembly.state_vector[6:] for _ in range(2*dim+1)])
                 sigmas_per_assembly[-1] = np.hstack((sigmas_per_assembly[-1],assembly_rotation))
 
-    return sigmas_per_assembly, distri_per_assembly, compute_flags
+    return sigmas_per_assembly, compute_flags
 
 def propagation_wrapper(subpropagator, dt, options, titan, sigma_points, compute_flags):
     states = np.zeros_like(sigma_points)
@@ -384,16 +392,11 @@ def propagation_wrapper(subpropagator, dt, options, titan, sigma_points, compute
     for i_point, sigma_point in enumerate(np.rollaxis(sigma_points,1,0)):
         for _assembly,compute in zip(titan.assembly,compute_flags[i_point]):
             _assembly.compute = True if compute==True else False
-        print('Propagating')
         state, d_dt = subpropagator(sigma_point,None,None,dt,titan,options)
         for i_assem, _assembly in enumerate(titan.assembly):
             if titan.post_event_iter==0:
-                print(i_assem)
-                print(state)
-                print(d_dt)
-                print(states[i_assem,i_point,:])
-            states[i_assem,i_point,:] = state[i_assem]
-            d_dts[i_assem,i_point,:] = d_dt[i_assem]
+                states[i_assem,i_point,:] = state[i_assem]
+                d_dts[i_assem,i_point,:] = d_dt[i_assem]
         del state, d_dt
     return states, d_dts, titan
 
@@ -423,19 +426,18 @@ def parallel_propagator(wrapper_func, n_procs, titan, sigma_points, compute_flag
     sigmas_per_proc = [np.zeros([len(titan.assembly),batches,13]) for _ in range(n_procs)]
     point_index = [[] for _ in range(n_procs)]
     flags_per_proc = [[] for _ in range(n_procs)]
-    sigma_points = np.array(sigma_points)
     for i_proc in range(remainder):
         sigmas_per_proc[i_proc] = np.hstack((sigmas_per_proc[i_proc],np.zeros([len(titan.assembly),1,13])))
 
     for i_batch in range(batches):
         for i_proc in range(n_procs):
             index = i_batch*n_procs+i_proc
-            sigmas_per_proc[i_proc][:,i_batch,:] = sigma_points[index]
+            sigmas_per_proc[i_proc][:,i_batch,:] = sigma_points[:,index,:]
             point_index[i_proc].append(index)
             flags_per_proc[i_proc].append(compute_flags[index])
     for i_proc in range(remainder):
         index = batches*n_procs+i_proc
-        sigmas_per_proc[i_proc][:,batches,:] = sigma_points[index]
+        sigmas_per_proc[i_proc][:,batches,:] = sigma_points[:,index,:]
         point_index[i_proc].append(index)
         flags_per_proc[i_proc].append(compute_flags[index])
 
@@ -467,27 +469,28 @@ def serial_propagator(subpropagator,dt,titan, options, sigma_points, compute_fla
                     print('Progress {}/{} ({}%)'.format(finished_points,total_points,round(100*finished_points/total_points,2)))
     return new_state, new_d_dt
 
-def convert_to_ecef(states):
+def convert_to_ecef(states, alt = None):
+    state_shape = np.shape(states)
     states = np.reshape(states,[-1,13])
-    e = states[:,3]*np.cos(states[:,4])*np.sin(states[:,5])
-    n = states[:,3]*np.cos(states[:,4])*np.cos(states[:,5])
-    u = states[:,3]*np.sin(states[:,4])
-
-    for i_state, state in enumerate(states):
-        x, y, z = pymap3d.geodetic2ecef(alt=state[0],lat=state[1],lon=state[2],deg=False)
-        u, v, w = pymap3d.enu2uvw(e[i_state],n[i_state],u[i_state],state[1],state[2],deg=False)
-        states[i_state,:6] = [x,y,z,u,v,w]
-
+    alt = states[:,0] if alt is None else alt*np.ones(states.shape[0])
+    E = states[:,3]*np.cos(states[:,4])*np.sin(states[:,5])
+    N = states[:,3]*np.cos(states[:,4])*np.cos(states[:,5])
+    U = states[:,3]*np.sin(states[:,4])
+    x, y, z = pymap3d.geodetic2ecef(alt=alt,lat=states[:,1],lon=states[:,2],deg=False)
+    u, v, w = pymap3d.enu2uvw(E,N,U,states[:,1],states[:,2],deg=False)
+    states[:,:6] = np.transpose([x,y,z,u,v,w])
+    return np.reshape(states, state_shape)
 
 def convert_to_geodetic(states):
-    np.reshape(states,[-1,13])
-    for i_state, state in enumerate(states):
-        lat, lon, alt = pymap3d.ecef2geodetic(state[0],state[1],state[2],deg=False)
-        e, n, u = pymap3d.enu2uvw(state[3],state[4],state[5],lat,lon,deg=False)
-        vel = np.linalg.norm(state[3:6])
-        fpa = np.arcsin(np.dot(state[:6], state[3:6])/(np.linalg.norm(state[:3])*np.linalg.norm(state[3:6])))
-        ha = np.arctan2(e,n)
-        states[i_state,:6] = [alt, lat, lon, vel, fpa, ha]
+    state_shape = np.shape(states)
+    states = np.reshape(states,[-1,13])
+    lat, lon, alt = pymap3d.ecef2geodetic(states[:,0],states[:,1],states[:,2],deg=False)
+    e, n, u = pymap3d.uvw2enu(states[:,3],states[:,4],states[:,5],lat,lon,deg=False)
+    vel = np.linalg.norm(states[:,3:6],axis=1)
+    fpa = [np.arcsin(np.dot(state[:3], state[3:6])/(np.linalg.norm(state[:3])*np.linalg.norm(state[3:6]))) for state in states]
+    ha = np.arctan2(e,n)
+    states[:,:6] = np.transpose([alt, lat, lon, vel, fpa, ha])
+    return np.reshape(states,state_shape)
 
 def adaptive_entropy_splitting(assembly,options,dt=1.0):
     do_split = False
@@ -497,7 +500,6 @@ def adaptive_entropy_splitting(assembly,options,dt=1.0):
         dH_distri = leaf.get_shannon_entropy_change()
         if leaf.dynamical_entropy is None or dH_distri is None: continue
         dH_prop = leaf.dynamical_entropy * dt
-        print(dH_distri,dH_prop)
         delta_H = abs(dH_distri - dH_prop) - abs(options.uncertainty.GMM_eps * dH_prop)
         print('dH is {} (|{} - {}| - |{} * {}|)'.format(delta_H,dH_distri,dH_prop,options.uncertainty.GMM_eps,dH_prop))
         if delta_H >0: 
@@ -512,12 +514,21 @@ def reject_small_eigenvalues(Cov,n_to_clip):
     for clip in range(n_to_clip): eigenvalues[clip] = 0
     return eigenvectors @ np.diag(eigenvalues) @ np.transpose(eigenvectors)
 
-def write_mini_monte_carlo(_assembly, options, time):
+def write_mini_monte_carlo(_assembly, options, time, mean_alt= None):
     # We sample our Gaussian mixture to describe the true distribution
     rvs = _assembly.gaussian_library.rvs(1500)
     t = np.transpose([time*np.ones(1500)])
-    if _assembly.gaussian_library.dim==13: columns = [['Time','X','Y','Z','U','V','W','Q_w','Q_i','Q_j','Q_k','P','Q','R']]
-    else: columns = [['Time','X','Y','Z','U','V','W']]
+    if _assembly.gaussian_library.dim==13: 
+        if options.uncertainty.propagate_geodetic:
+            if options.uncertainty.altitudinal: rvs = np.hstack((mean_alt*np.ones((1500,1)),rvs))
+            rvs[:,[1,2,4,5]] *= 180/np.pi
+            columns = [['Time','Alt','Lat','Lon','Vel','FPA','HA','Q_w','Q_i','Q_j','Q_k','P','Q','R']]
+        else: columns = [['Time','X','Y','Z','U','V','W','Q_w','Q_i','Q_j','Q_k','P','Q','R']]
+    else: 
+        if options.uncertainty.propagate_geodetic:
+            if options.uncertainty.altitudinal: rvs = np.hstack((mean_alt*np.ones((1500,1)),rvs))
+            columns = [['Time','Alt','Lat','Lon','Vel','FPA','HA']]
+        else: columns = [['Time','X','Y','Z','U','V','W']]
     data_array = np.hstack((t,rvs))
     write_to_series(data_array,columns,options.output_folder+'/UT_Assem_{}_rvs.csv'.format(_assembly.id))
 
@@ -530,6 +541,10 @@ def altitude_sliced_UT_propagator(subpropagator, state_vectors,state_vectors_pri
     for _assembly in titan.assembly: adaptive_entropy_splitting(_assembly,options,dt)
     n_calcs = np.max([_assembly.gaussian_library.n_leaf_nodes for _assembly in titan.assembly])
     dim = 13 if options.uncertainty.DOF==6 else 6
+    alt = None
+    if options.uncertainty.altitudinal: 
+        dim-=1
+        alt = titan.assembly[0].trajectory.altitude
     point_generator = MerweScaledSigmaPoints(n=dim, alpha=options.uncertainty.UT_alpha, 
                                              beta=options.uncertainty.UT_beta, kappa=options.uncertainty.UT_kappa)
     
@@ -539,7 +554,7 @@ def altitude_sliced_UT_propagator(subpropagator, state_vectors,state_vectors_pri
     compute_flag_iterable = []
     for i_calc in range(n_calcs):
         ## Generate our points
-        sigmas_per_assembly, distri_per_assembly, compute_flags = extract_propagation_points(titan,dim,i_calc,point_generator)
+        sigmas_per_assembly, compute_flags = extract_propagation_points(titan,dim,i_calc,point_generator, alt=alt)
         
         sigma_point_iterable = []
         mean_iterable = []
@@ -553,40 +568,87 @@ def altitude_sliced_UT_propagator(subpropagator, state_vectors,state_vectors_pri
     if options.uncertainty.n_procs>1:
         wrapper_func = partial(propagation_wrapper,subpropagator, dt, options, titan)   
     else: wrapper_func = partial(serial_propagator,subpropagator,dt,titan, options)
-    points_as_list = np.reshape(propagation_iterable,[-1,13])
-    lowest_alt = np.min(pymap3d.ecef2geodetic(points_as_list[:,0],points_as_list[:,1],points_as_list[:,2])[2])
-    if lowest_alt<0: lowest_alt = 0
-    halt_propagation = False
-    n_props = 0
-    in_propagation = propagation_iterable
-    propagated_states = np.zeros_like(in_propagation)
-    state_ids = range(np.shape(propagated_states)[0])
 
-    while not halt_propagation:
-        in_propagation = propagate_sigmas(titan, options, wrapper_func, dim, point_generator,
-                                          in_propagation,distribution_id_iterable,compute_flag_iterable)
-        n_props+=1
-        for i_point, state_id in enumerate(state_ids):
-            if np.max(pymap3d(*np.reshape(in_propagation[i_point],[-1,13])[:,2]))<=lowest_alt:
-                propagated_states[:,state_ids[i_point],:] = in_propagation[i_point]
-                in_propagation = np.delete(in_propagation,i_point,axis=1)
-                state_ids = np.delete(state_ids,i_point)
-                distribution_id_iterable = np.delete(distribution_id_iterable, i_point, axis=0)
-                compute_flag_iterable = np.delete(compute_flag_iterable,i_point,axis=0)
-        if np.shape(in_propagation)[1]==0: halt_propagation = True
-        
+    nominal_state, alt = update_mixtures_alt(titan, options, wrapper_func, dim, point_generator,
+                                        propagation_iterable,distribution_id_iterable,compute_flag_iterable)
 
-
-    
     output_vector = []
     for i_assem, _assembly in enumerate(titan.assembly):    
         _assembly.gaussian_library.mean = _assembly.gaussian_library.recalculate_mean()
-        output_vector.append(_assembly.gaussian_library.mean)
-        output_vector[i_assem] = np.hstack((output_vector[i_assem],propagated_states[i_assem][dim:])) 
-        print(output_vector[i_assem])
+        if not options.uncertainty.altitudinal: alt = None
+        if options.uncertainty.propagate_geodetic: mean = convert_to_ecef(_assembly.gaussian_library.mean,alt=alt)
+        else: mean = _assembly.gaussian_library.mean
+        output_vector.append(mean)
+        output_vector[i_assem] = np.hstack((output_vector[i_assem],nominal_state[i_assem][dim:])) 
         write_mini_monte_carlo(_assembly,options,titan.time)
         for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
             leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
             leaf.write_to_series(options, titan.time, _assembly.id, i_leaf)
             
     return output_vector, None
+
+def update_mixtures_alt(titan, options, wrapper_func, dim, point_generator,propagation_iterable,distribution_id_iterable,compute_flag_iterable, return_states=False):
+    n_points = len(distribution_id_iterable)
+    options.n_points = n_points
+    n_distris = len(np.unique(distribution_id_iterable))
+    if n_points>100: 
+        from messaging import messenger
+        message = 'Propagating {} points(!) for {} Gaussians (iter {})'.format(n_points, n_distris, titan.iter)
+        msg = messenger('',threshold=900)
+        msg.print_n_send(message)
+    else: print('Propagating {} points for {} Gaussians'.format(n_points, n_distris))
+    
+
+    lowest_alt = None
+    if options.uncertainty.propagate_geodetic: 
+        alt = titan.assembly[0].trajectory.altitude if options.uncertainty.altitudinal else None
+        propagation_iterable = convert_to_ecef(propagation_iterable, alt)
+    else:
+        points_as_list = np.reshape(propagation_iterable,[-1,13])
+        initial_alts = pymap3d.ecef2geodetic(points_as_list[:,0],points_as_list[:,1],points_as_list[:,2])[2]
+        lowest_alt = np.min(initial_alts)
+        if lowest_alt<0: lowest_alt = 0
+
+    halt_propagation = False
+    n_props = 0
+    propagation_iterable = np.rollaxis(np.array(propagation_iterable),1,0)
+    in_propagation = propagation_iterable
+    in_compute = np.array(compute_flag_iterable)
+    propagated_states = np.zeros_like(propagation_iterable)
+    iterable_indices = np.arange(0,np.shape(in_propagation)[1])
+ 
+    while not halt_propagation:
+        if options.uncertainty.n_procs>1: 
+            in_propagation, _, = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
+                                                            titan, in_propagation, in_compute)
+        else: in_propagation, _ = wrapper_func(in_propagation, in_compute)
+
+        alts = [pymap3d.ecef2geodetic(in_propagation[i_assem,:,0],
+                                       in_propagation[i_assem,:,1],
+                                       in_propagation[i_assem,:,2])[2] for i_assem in range(len(titan.assembly))]
+        if lowest_alt is None: lowest_alt = np.min(alts)
+        below_alt = np.argwhere(alts<lowest_alt)
+        for completed in below_alt:
+            propagated_states[completed[0],iterable_indices[completed[1]],:] = in_propagation[completed[0],completed[1],:]
+            in_compute[completed[1],completed[0]] = False
+        to_delete = np.argwhere(np.all(~in_compute,axis=1))
+        if len(to_delete)>0:
+            to_delete = to_delete.flatten()
+            in_propagation = np.delete(in_propagation,to_delete,axis=1)
+            iterable_indices = np.delete(iterable_indices,to_delete)
+            in_compute = np.delete(in_compute,to_delete,axis=0)
+            if np.shape(in_propagation)[1]==0: halt_propagation = True
+
+    n_sigmas_per_distri = 2*dim+1
+    nominal_state = []
+    for i_distri, point_pointer in zip(range(n_distris),np.arange(0,n_points,n_sigmas_per_distri)):
+        new_points = propagated_states[:,point_pointer:point_pointer+n_sigmas_per_distri,:]
+        for i_assem, _assembly in enumerate(titan.assembly):
+            if compute_flag_iterable[point_pointer][i_assem]:
+                distri = _assembly.gaussian_library.get_leaf_by_index(i_distri)
+                distri.dynamical_entropy = 0.0
+                ## Finally we can recombine our sigma points to get our new distribution
+                if options.uncertainty.propagate_geodetic: new_points[i_assem,:,:] = convert_to_geodetic(new_points[i_assem,:,:])
+                distri.do_unscented_transform(sigmas=new_points[i_assem,:,:],Wm=point_generator.Wm,Wc=point_generator.Wc, altitudinal = options.uncertainty.altitudinal)
+                if i_distri==0: nominal_state.append(new_points[i_assem,0,:])
+    return nominal_state, np.mean(alts)
