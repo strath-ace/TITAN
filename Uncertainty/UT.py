@@ -521,6 +521,7 @@ def write_mini_monte_carlo(_assembly, options, time, mean_alt= None):
     if _assembly.gaussian_library.dim==13: 
         if options.uncertainty.propagate_geodetic:
             if options.uncertainty.altitudinal: rvs = np.hstack((mean_alt*np.ones((1500,1)),rvs))
+            print(np.shape(rvs))
             rvs[:,[1,2,4,5]] *= 180/np.pi
             columns = [['Time','Alt','Lat','Lon','Vel','FPA','HA','Q_w','Q_i','Q_j','Q_k','P','Q','R']]
         else: columns = [['Time','X','Y','Z','U','V','W','Q_w','Q_i','Q_j','Q_k','P','Q','R']]
@@ -530,6 +531,7 @@ def write_mini_monte_carlo(_assembly, options, time, mean_alt= None):
             columns = [['Time','Alt','Lat','Lon','Vel','FPA','HA']]
         else: columns = [['Time','X','Y','Z','U','V','W']]
     data_array = np.hstack((t,rvs))
+    print(data_array)
     write_to_series(data_array,columns,options.output_folder+'/UT_Assem_{}_rvs.csv'.format(_assembly.id))
 
 def altitude_sliced_UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
@@ -575,12 +577,13 @@ def altitude_sliced_UT_propagator(subpropagator, state_vectors,state_vectors_pri
     output_vector = []
     for i_assem, _assembly in enumerate(titan.assembly):    
         _assembly.gaussian_library.mean = _assembly.gaussian_library.recalculate_mean()
-        if not options.uncertainty.altitudinal: alt = None
-        if options.uncertainty.propagate_geodetic: mean = convert_to_ecef(_assembly.gaussian_library.mean,alt=alt)
+        if options.uncertainty.propagate_geodetic:
+            if options.uncertainty.altitudinal: mean = convert_to_ecef(np.hstack((alt,_assembly.gaussian_library.mean)))
+            else: mean = convert_to_ecef(_assembly.gaussian_library.mean,alt=alt)
         else: mean = _assembly.gaussian_library.mean
         output_vector.append(mean)
         output_vector[i_assem] = np.hstack((output_vector[i_assem],nominal_state[i_assem][dim:])) 
-        write_mini_monte_carlo(_assembly,options,titan.time)
+        write_mini_monte_carlo(_assembly,options,titan.time, alt)
         for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
             leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
             leaf.write_to_series(options, titan.time, _assembly.id, i_leaf)
