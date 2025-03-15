@@ -222,15 +222,16 @@ def demise_components(titan, i, joints_id, options):
         titan.post_event_iter = 0
 
         if options.dynamics.uncertain:
-            from Uncertainty.UT import create_distribution
-            dim = 13 if options.uncertainty.DOF == 6 else 6
-            mean = titan.assembly[-1].state_vector[:dim]
-            create_distribution(titan.assembly[-1],
-                                options,
-                                mean=mean,
-                                cov=titan.assembly[i].gaussian_library.cov,
-                                is_Library=True)
-
+            titan.assembly[-1].gaussian_library = deepcopy(titan.assembly[i].gaussian_library)
+            new_state = titan.assembly[-1].state_vector
+            if options.uncertainty.propagate_geodetic:
+                 # Alt/Lat/Lon just makes more sense to me OK?
+                new_state[1],new_state[2],new_state[0] = pymap3d.ecef2geodetic(new_state[0],new_state[1],new_state[2],deg=False)
+                if options.uncertainty.altitudinal: new_state = new_state[1:titan.assembly[-1].gaussian_library.dim+1]
+                else: new_state = new_state[:titan.assembly[-1].gaussian_library.dim]
+            else: new_state = new_state[:titan.assembly[-1].gaussian_library.dim]
+            titan.assembly[-1].gaussian_library.mean = new_state
+            
 
 def check_breakup_v2(titan, options):
 

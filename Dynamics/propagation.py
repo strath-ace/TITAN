@@ -77,8 +77,8 @@ def propagate(titan, options):
 
 def state_equation(titan,options,time,state_vectors):
     # This state equation will for each assembly compute the rate of change of a state vector (at that state),
-    
     # State vectors can be passed flattened, need to account for this
+    
     state_vectors = np.array(state_vectors)
     reshape_flat = False
     if len(state_vectors.shape)<2: 
@@ -87,8 +87,10 @@ def state_equation(titan,options,time,state_vectors):
 
     # First we communicate the state vector to assembly attributes
     for _assembly, state_vector in zip(titan.assembly,state_vectors):
+        #print(state_vector[6:10])
         if _assembly.compute: 
-            update_dynamic_attributes(_assembly,state_vector,options)  
+            update_dynamic_attributes(_assembly,state_vector,options)
+        else: print('Not computing!')
     
     # Then business as usual for computing forces...
     aerothermo.compute_aerothermo(titan, options)
@@ -120,7 +122,6 @@ def state_equation(titan,options,time,state_vectors):
                                    angularDerivatives.ddroll,
                                    angularDerivatives.ddpitch,
                                    angularDerivatives.ddyaw,])
-        
     if reshape_flat: d_dt_state_vectors = np.array(d_dt_state_vectors).flatten()
     return d_dt_state_vectors
 
@@ -522,11 +523,13 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
 
 
 def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    
     new_state_vectors = []
     k_n = []
     for i_k in range(RK_N_actual[str(N)]):
         k_state_vectors = np.array(state_vectors)
         for i_coeff in range(i_k): k_state_vectors += RK_tableaus[str(N)][i_k][i_coeff] * dt * k_n[i_coeff]
+        
         k_n.append(np.array(state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt, k_state_vectors)))
     new_state_vectors = np.array(state_vectors)
     for i_k in range(N): new_state_vectors+= RK_k_factors[str(N)][i_k] * dt * k_n[i_k]

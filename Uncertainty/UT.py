@@ -256,7 +256,7 @@ class recursive_gaussan_mixture():
     def run_empirical_cov(self,fidelity=10000):
         return np.cov(self.rvs(fidelity),rowvar=False)
         
-    def write_to_series(self, options, time, assem_id, leaf_id):
+    def write_to_series(self, options, time, assem_id, leaf_id, alt=None):
         [latitude, longitude, altitude] = pymap3d.ecef2geodetic(self.mean[0], 
                                                                 self.mean[1], 
                                                                 self.mean[2],
@@ -282,7 +282,8 @@ class recursive_gaussan_mixture():
             else: sigmas = sigmas[:,:self.dim]
         mu, cov = unscented_transform(sigmas=sigmas, Wm=Wm, Wc=Wc)
         self.mean = mu
-        self.cov = cov_nearest((reject_small_eigenvalues(cov,2)))
+        #self.cov = cov_nearest((reject_small_eigenvalues(cov,2)))
+        self.cov = cov_nearest(cov)
         self.update_distribution()       
 
 def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
@@ -324,9 +325,9 @@ def UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_p
         fixed_alt = _assembly.gaussian_library.mean[0]
 
         write_mini_monte_carlo(_assembly,options,titan.time,fixed_alt)
-        for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
-            leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
-            leaf.write_to_series(options, titan.time, _assembly.id, i_leaf)
+        # for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
+        #     leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
+        #     leaf.write_to_series(options, titan.time, _assembly.id, i_leaf)
     if options.uncertainty.propagate_geodetic: output_vector = convert_to_ecef(output_vector)
     return output_vector, None
 
@@ -367,17 +368,15 @@ def update_mixtures(titan, options, wrapper_func, dim, point_generator,propagati
 def extract_propagation_points(titan,dim,i_calc,point_generator,alt = None):
 ##  Collect all the sigma points to propagate
     sigmas_per_assembly = []
-    distri_per_assembly = []
     compute_flags = []
     for i_assem, _assembly in enumerate(titan.assembly): 
         if _assembly.gaussian_library.n_leaf_nodes<=i_calc:
             compute_flags.append(False)
             sigmas_per_assembly.append(np.zeros([2*dim+1,13]))
-            distri_per_assembly.append(None)
         else:
             compute_flags.append(True)
-            distri_per_assembly.append(_assembly.gaussian_library.get_leaf_by_index(i_calc))        
-            points = point_generator.sigma_points(distri_per_assembly[i_assem].mean,distri_per_assembly[i_assem].cov)
+            dist = _assembly.gaussian_library.get_leaf_by_index(i_calc)        
+            points = point_generator.sigma_points(dist.mean,dist.cov)
             if alt is not None: points = np.hstack((alt*np.ones([2*dim+1,1]),points))
             sigmas_per_assembly.append(points)
             if dim<12:
@@ -394,10 +393,9 @@ def propagation_wrapper(subpropagator, dt, options, titan, sigma_points, compute
             _assembly.compute = True if compute==True else False
         state, d_dt = subpropagator(sigma_point,None,None,dt,titan,options)
         for i_assem, _assembly in enumerate(titan.assembly):
-            if titan.post_event_iter==0:
-                states[i_assem,i_point,:] = state[i_assem]
-                d_dts[i_assem,i_point,:] = d_dt[i_assem]
-        del state, d_dt
+            states[i_assem,i_point,:] = state[i_assem]
+            d_dts[i_assem,i_point,:] = d_dt[i_assem]
+        #del state, d_dt
     return states, d_dts, titan
 
 def parallel_propagator(wrapper_func, n_procs, titan, sigma_points, compute_flags):
@@ -454,7 +452,7 @@ def parallel_propagator(wrapper_func, n_procs, titan, sigma_points, compute_flag
 def serial_propagator(subpropagator,dt,titan, options, sigma_points, compute_flags):
     new_state = np.zeros([len(titan.assembly),len(compute_flags),13])
     new_d_dt  = np.zeros_like(new_state)
-    for sigma_point, compute_flag, i_point in zip(sigma_points, compute_flags, range(len(compute_flags))):
+    for sigma_point, compute_flag, i_point in zip(np.rollaxis(sigma_points,1,0), compute_flags, range(len(compute_flags))):
         for _assembly,compute in zip(titan.assembly,compute_flag):
             _assembly.compute = True if compute==True else False
         state, d_dt = subpropagator(sigma_point,None,None,dt,titan,options)
@@ -518,20 +516,23 @@ def write_mini_monte_carlo(_assembly, options, time, mean_alt= None):
     # We sample our Gaussian mixture to describe the true distribution
     rvs = _assembly.gaussian_library.rvs(1500)
     t = np.transpose([time*np.ones(1500)])
-    if _assembly.gaussian_library.dim==13: 
-        if options.uncertainty.propagate_geodetic:
-            if options.uncertainty.altitudinal: rvs = np.hstack((mean_alt*np.ones((1500,1)),rvs))
-            print(np.shape(rvs))
-            rvs[:,[1,2,4,5]] *= 180/np.pi
-            columns = [['Time','Alt','Lat','Lon','Vel','FPA','HA','Q_w','Q_i','Q_j','Q_k','P','Q','R']]
-        else: columns = [['Time','X','Y','Z','U','V','W','Q_w','Q_i','Q_j','Q_k','P','Q','R']]
-    else: 
-        if options.uncertainty.propagate_geodetic:
-            if options.uncertainty.altitudinal: rvs = np.hstack((mean_alt*np.ones((1500,1)),rvs))
-            columns = [['Time','Alt','Lat','Lon','Vel','FPA','HA']]
-        else: columns = [['Time','X','Y','Z','U','V','W']]
-    data_array = np.hstack((t,rvs))
-    print(data_array)
+    if options.uncertainty.propagate_geodetic:
+        if options.uncertainty.altitudinal: rvs = np.hstack((mean_alt*np.ones((1500,1)),rvs))
+        geo = copy(rvs[:,:6])
+        ecef = convert_to_ecef(rvs)[:,:6]
+        
+    else:
+        ecef = copy(rvs[:,:6])
+        geo = convert_to_geodetic(rvs)[:,:6]
+        
+    geo[:,[1,2,4,5]] *= 180/np.pi
+    if _assembly.gaussian_library.dim>6: 
+        rot = rvs[:,6:]
+        columns = [['Time','Alt','Lat','Lon','Vel','FPA','HA','X','Y','Z','U','V','W','Q_w','Q_i','Q_j','Q_k','P','Q','R']]
+        data_array = np.hstack((t,geo,ecef,rot))
+    else:
+        columns = [['Time','Alt','Lat','Lon','Vel','FPA','HA','X','Y','Z','U','V','W']]
+        data_array = np.hstack((t,geo,ecef))
     write_to_series(data_array,columns,options.output_folder+'/UT_Assem_{}_rvs.csv'.format(_assembly.id))
 
 def altitude_sliced_UT_propagator(subpropagator, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
@@ -582,11 +583,11 @@ def altitude_sliced_UT_propagator(subpropagator, state_vectors,state_vectors_pri
             else: mean = convert_to_ecef(_assembly.gaussian_library.mean,alt=alt)
         else: mean = _assembly.gaussian_library.mean
         output_vector.append(mean)
-        output_vector[i_assem] = np.hstack((output_vector[i_assem],nominal_state[i_assem][dim:])) 
+        if dim<12: output_vector[i_assem] = np.hstack((output_vector[i_assem],nominal_state[i_assem][dim:])) 
         write_mini_monte_carlo(_assembly,options,titan.time, alt)
-        for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
-            leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
-            leaf.write_to_series(options, titan.time, _assembly.id, i_leaf)
+        # for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
+        #     leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
+        #     leaf.write_to_series(options, titan.time, _assembly.id, i_leaf)
             
     return output_vector, None
 
@@ -595,10 +596,11 @@ def update_mixtures_alt(titan, options, wrapper_func, dim, point_generator,propa
     options.n_points = n_points
     n_distris = len(np.unique(distribution_id_iterable))
     if n_points>100: 
-        from messaging import messenger
+        #from messaging import messenger
         message = 'Propagating {} points(!) for {} Gaussians (iter {})'.format(n_points, n_distris, titan.iter)
-        msg = messenger('',threshold=900)
-        msg.print_n_send(message)
+        #msg = messenger('',threshold=900)
+        #msg.print_n_send(message)
+        print(message)
     else: print('Propagating {} points for {} Gaussians'.format(n_points, n_distris))
     
 
