@@ -70,6 +70,9 @@ def propagate(titan, options):
     output.write_output_data(titan = titan, options = options)
 
     # Increment time step
+    if options.dynamics.uncertain: 
+        options.dynamics.time_step = options.uncertainty.time_step
+        time_step = options.uncertainty.time_step
     titan.time += time_step
     now = dt.datetime.now()
     print('Duration was {}'.format(now - titan.now))
@@ -90,7 +93,6 @@ def state_equation(titan,options,time,state_vectors):
         #print(state_vector[6:10])
         if _assembly.compute: 
             update_dynamic_attributes(_assembly,state_vector,options)
-        else: print('Not computing!')
     
     # Then business as usual for computing forces...
     aerothermo.compute_aerothermo(titan, options)

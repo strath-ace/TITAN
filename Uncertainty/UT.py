@@ -95,6 +95,7 @@ def create_distribution(assembly,options, mean= None, cov = None, is_Library=Tru
     convert_quaternionic = True if len(mean)<13 else True
     convert_geodetic = True if options.uncertainty.propagate_geodetic else False
     altitudinal = True if options.uncertainty.altitudinal else False
+    #assembly.trajectory.altitude = 123300
     distri =  dynamicDistribution(assembly,mean,cov,convert_quaternionic=convert_quaternionic,
                                   convert_geodetic=convert_geodetic,DOF=options.uncertainty.DOF, altitudinal=altitudinal)
     if not is_Library: return distri
@@ -387,38 +388,36 @@ def extract_propagation_points(titan,dim,i_calc,point_generator,alt = None):
 
 def propagation_wrapper(subpropagator, dt, options, titan, sigma_points, compute_flags):
     states = np.zeros_like(sigma_points)
-    d_dts  = np.zeros_like(sigma_points)
+    #_dts  = np.zeros_like(sigma_points)
     for i_point, sigma_point in enumerate(np.rollaxis(sigma_points,1,0)):
         for _assembly,compute in zip(titan.assembly,compute_flags[i_point]):
             _assembly.compute = True if compute==True else False
         state, d_dt = subpropagator(sigma_point,None,None,dt,titan,options)
         for i_assem, _assembly in enumerate(titan.assembly):
             states[i_assem,i_point,:] = state[i_assem]
-            d_dts[i_assem,i_point,:] = d_dt[i_assem]
+            #d_dts[i_assem,i_point,:] = d_dt[i_assem]
         #del state, d_dt
-    return states, d_dts, titan
+    return states, None, titan
 
 def parallel_propagator(wrapper_func, n_procs, titan, sigma_points, compute_flags):
     def parallel_collation(i_future,point_index,future):
         nonlocal new_d_dt, new_state, titan
-        if future._exception:
-            raise Exception('Error on result number {}: {}'.format(i_future,future.exception()))
-        else:
-            result = future.result()
-            for i_assem, _assembly in enumerate(titan.assembly):
-                if i_future==0: 
-                    titan.assembly[i_assem] = copy(result[2].assembly[i_assem])
-                for i_point, index in enumerate(point_index):
-                    new_state[i_assem,index,:] = result[0][i_assem,i_point,:]
-                    new_d_dt[i_assem,index,:] = result[1][i_assem,i_point,:]
-                finished_points = np.count_nonzero(new_state,axis=1)[0][0]
-                total_points = np.shape(new_state)[1]
-                print('Propagated {}/{} ({}%)'.format(finished_points,total_points,round(100*finished_points/total_points,2)))
+        result = future.result()
+        for i_assem, _assembly in enumerate(titan.assembly):
+            if i_future==0: 
+                titan.assembly[i_assem] = copy(result[2].assembly[i_assem])
+            for i_point, index in enumerate(point_index):
+                new_state[i_assem,index,:] = result[0][i_assem,i_point,:]
+                #new_d_dt[i_assem,index,:] = result[1][i_assem,i_point,:]
+            finished_points = np.count_nonzero(new_state,axis=1)[0][0]
+            total_points = np.shape(new_state)[1]
+            print('Propagated {}/{} ({}%)'.format(finished_points,total_points,round(100*finished_points/total_points,2)))
         del future
         del result
         gc.collect()
         
     n_points = len(compute_flags)
+    if n_points<n_procs: n_procs = n_points
     batches  = int(np.floor(n_points / n_procs))
     remainder = n_points % n_procs
     sigmas_per_proc = [np.zeros([len(titan.assembly),batches,13]) for _ in range(n_procs)]
@@ -467,9 +466,9 @@ def serial_propagator(subpropagator,dt,titan, options, sigma_points, compute_fla
                     print('Progress {}/{} ({}%)'.format(finished_points,total_points,round(100*finished_points/total_points,2)))
     return new_state, new_d_dt
 
-def convert_to_ecef(states, alt = None):
+def convert_to_ecef(states, alt = None,dim=13):
     state_shape = np.shape(states)
-    states = np.reshape(states,[-1,13])
+    states = np.reshape(states,[-1,dim])
     alt = states[:,0] if alt is None else alt*np.ones(states.shape[0])
     E = states[:,3]*np.cos(states[:,4])*np.sin(states[:,5])
     N = states[:,3]*np.cos(states[:,4])*np.cos(states[:,5])
@@ -479,9 +478,9 @@ def convert_to_ecef(states, alt = None):
     states[:,:6] = np.transpose([x,y,z,u,v,w])
     return np.reshape(states, state_shape)
 
-def convert_to_geodetic(states):
+def convert_to_geodetic(states,dim=13):
     state_shape = np.shape(states)
-    states = np.reshape(states,[-1,13])
+    states = np.reshape(states,[-1,dim])
     lat, lon, alt = pymap3d.ecef2geodetic(states[:,0],states[:,1],states[:,2],deg=False)
     e, n, u = pymap3d.uvw2enu(states[:,3],states[:,4],states[:,5],lat,lon,deg=False)
     vel = np.linalg.norm(states[:,3:6],axis=1)
@@ -519,10 +518,10 @@ def write_mini_monte_carlo(_assembly, options, time, mean_alt= None):
     if options.uncertainty.propagate_geodetic:
         if options.uncertainty.altitudinal: rvs = np.hstack((mean_alt*np.ones((1500,1)),rvs))
         geo = copy(rvs[:,:6])
-        ecef = convert_to_ecef(rvs)[:,:6]
+        ecef = convert_to_ecef(rvs,dim=np.shape(rvs)[0])[:,:6]
         
     else:
-        ecef = copy(rvs[:,:6])
+        ecef = copy(rvs[:,:6],dim=np.shape(rvs)[0])
         geo = convert_to_geodetic(rvs)[:,:6]
         
     geo[:,[1,2,4,5]] *= 180/np.pi
@@ -571,19 +570,22 @@ def altitude_sliced_UT_propagator(subpropagator, state_vectors,state_vectors_pri
     if options.uncertainty.n_procs>1:
         wrapper_func = partial(propagation_wrapper,subpropagator, dt, options, titan)   
     else: wrapper_func = partial(serial_propagator,subpropagator,dt,titan, options)
-
-    nominal_state, alt = update_mixtures_alt(titan, options, wrapper_func, dim, point_generator,
+    nominal_state, alt, mean_props = update_mixtures_alt(titan, options, wrapper_func, dim, point_generator,
                                         propagation_iterable,distribution_id_iterable,compute_flag_iterable)
-
+    options.uncertainty.time_step = dt*mean_props
     output_vector = []
     for i_assem, _assembly in enumerate(titan.assembly):    
         _assembly.gaussian_library.mean = _assembly.gaussian_library.recalculate_mean()
         if options.uncertainty.propagate_geodetic:
-            if options.uncertainty.altitudinal: mean = convert_to_ecef(np.hstack((alt,_assembly.gaussian_library.mean)))
-            else: mean = convert_to_ecef(_assembly.gaussian_library.mean,alt=alt)
+            if options.uncertainty.altitudinal: mean = convert_to_ecef(np.hstack((alt,_assembly.gaussian_library.mean)),dim=dim+1)
+            else: mean = convert_to_ecef(_assembly.gaussian_library.mean,dim=dim)
         else: mean = _assembly.gaussian_library.mean
         output_vector.append(mean)
-        if dim<12: output_vector[i_assem] = np.hstack((output_vector[i_assem],nominal_state[i_assem][dim:])) 
+        if dim<12: 
+            if options.uncertainty.altitudinal:
+                output_vector[i_assem] = np.hstack((output_vector[i_assem],nominal_state[i_assem][dim+1:]))
+            else:
+                output_vector[i_assem] = np.hstack((output_vector[i_assem],nominal_state[i_assem][dim:]))
         write_mini_monte_carlo(_assembly,options,titan.time, alt)
         # for i_leaf in range(_assembly.gaussian_library.n_leaf_nodes):
         #     leaf = _assembly.gaussian_library.get_leaf_by_index(i_leaf)
@@ -603,46 +605,29 @@ def update_mixtures_alt(titan, options, wrapper_func, dim, point_generator,propa
         print(message)
     else: print('Propagating {} points for {} Gaussians'.format(n_points, n_distris))
     
-
+    propagation_iterable = np.rollaxis(np.array(propagation_iterable),1,0)
     lowest_alt = None
+    print(np.shape(propagation_iterable))
     if options.uncertainty.propagate_geodetic: 
-        alt = titan.assembly[0].trajectory.altitude if options.uncertainty.altitudinal else None
-        propagation_iterable = convert_to_ecef(propagation_iterable, alt)
+        if options.uncertainty.altitudinal:
+            # alt = np.ones(n_points)*titan.assembly[0].trajectory.altitude
+            # propagation_iterable = np.reshape(convert_to_ecef(np.hstack((alt,np.reshape(propagation_iterable,[-1,dim]))),dim=dim+1),
+            #                                   np.shape(propagation_iterable))
+            propagation_iterable = convert_to_ecef(propagation_iterable)
+        else: propagation_iterable = np.reshape(convert_to_ecef(np.reshape(propagation_iterable,[-1,dim]),dim=dim+1),
+                                                np.shape(propagation_iterable))
     else:
         points_as_list = np.reshape(propagation_iterable,[-1,13])
         initial_alts = pymap3d.ecef2geodetic(points_as_list[:,0],points_as_list[:,1],points_as_list[:,2])[2]
         lowest_alt = np.min(initial_alts)
         if lowest_alt<0: lowest_alt = 0
-
-    halt_propagation = False
-    n_props = 0
-    propagation_iterable = np.rollaxis(np.array(propagation_iterable),1,0)
+    
     in_propagation = propagation_iterable
     in_compute = np.array(compute_flag_iterable)
-    propagated_states = np.zeros_like(propagation_iterable)
-    iterable_indices = np.arange(0,np.shape(in_propagation)[1])
- 
-    while not halt_propagation:
-        if options.uncertainty.n_procs>1: 
-            in_propagation, _, = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
-                                                            titan, in_propagation, in_compute)
-        else: in_propagation, _ = wrapper_func(in_propagation, in_compute)
+    
+    #propagated_states, output_alt = altitude_binning(titan, options, wrapper_func, in_compute, in_propagation, lowest_alt=lowest_alt)
+    propagated_states, output_alt, mean_props = altitude_lerping(titan, options, wrapper_func, in_compute, in_propagation, lowest_alt=lowest_alt)
 
-        alts = [pymap3d.ecef2geodetic(in_propagation[i_assem,:,0],
-                                       in_propagation[i_assem,:,1],
-                                       in_propagation[i_assem,:,2])[2] for i_assem in range(len(titan.assembly))]
-        if lowest_alt is None: lowest_alt = np.min(alts)
-        below_alt = np.argwhere(alts<lowest_alt)
-        for completed in below_alt:
-            propagated_states[completed[0],iterable_indices[completed[1]],:] = in_propagation[completed[0],completed[1],:]
-            in_compute[completed[1],completed[0]] = False
-        to_delete = np.argwhere(np.all(~in_compute,axis=1))
-        if len(to_delete)>0:
-            to_delete = to_delete.flatten()
-            in_propagation = np.delete(in_propagation,to_delete,axis=1)
-            iterable_indices = np.delete(iterable_indices,to_delete)
-            in_compute = np.delete(in_compute,to_delete,axis=0)
-            if np.shape(in_propagation)[1]==0: halt_propagation = True
 
     n_sigmas_per_distri = 2*dim+1
     nominal_state = []
@@ -656,4 +641,78 @@ def update_mixtures_alt(titan, options, wrapper_func, dim, point_generator,propa
                 if options.uncertainty.propagate_geodetic: new_points[i_assem,:,:] = convert_to_geodetic(new_points[i_assem,:,:])
                 distri.do_unscented_transform(sigmas=new_points[i_assem,:,:],Wm=point_generator.Wm,Wc=point_generator.Wc, altitudinal = options.uncertainty.altitudinal)
                 if i_distri==0: nominal_state.append(new_points[i_assem,0,:])
-    return nominal_state, np.mean(alts)
+    
+    return nominal_state, output_alt, mean_props
+
+def altitude_binning(titan, options, wrapper_func, in_compute, in_propagation, lowest_alt=None):
+    propagated_states = np.zeros_like(in_propagation)
+    iterable_indices = np.arange(0,np.shape(in_propagation)[1])
+    halt_propagation = False
+    while not halt_propagation:
+        if options.uncertainty.n_procs>1: 
+            in_propagation, _, = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
+                                                            titan, in_propagation, in_compute)
+        else: in_propagation, _ = wrapper_func(in_propagation, in_compute)
+
+        alts = [pymap3d.ecef2geodetic(in_propagation[i_assem,:,0],
+                                       in_propagation[i_assem,:,1],
+                                       in_propagation[i_assem,:,2])[2] for i_assem in range(len(titan.assembly))]
+        if lowest_alt is None: 
+            lowest_alt = np.mean(alts)-3*np.std(alts)
+            output_alt = np.mean(alts)
+        below_alt = np.argwhere(alts<lowest_alt)
+        for completed in below_alt:
+            propagated_states[completed[0],iterable_indices[completed[1]],:] = in_propagation[completed[0],completed[1],:]
+            in_compute[completed[1],completed[0]] = False
+        to_delete = np.argwhere(np.all(~in_compute,axis=1))
+        if len(to_delete)>0:
+            to_delete = to_delete.flatten()
+            in_propagation = np.delete(in_propagation,to_delete,axis=1)
+            iterable_indices = np.delete(iterable_indices,to_delete)
+            in_compute = np.delete(in_compute,to_delete,axis=0)
+            if np.shape(in_propagation)[1]==0: halt_propagation = True
+    return propagated_states, output_alt
+
+def altitude_lerping(titan, options, wrapper_func, in_compute, before_points, lowest_alt=None):
+    propagated_states = np.zeros_like(before_points)
+    before_alts = np.array([pymap3d.ecef2geodetic(before_points[i_assem,:,0],
+                                                  before_points[i_assem,:,1],
+                                                  before_points[i_assem,:,2])[2] for i_assem in range(len(titan.assembly))])
+
+    if options.uncertainty.n_procs>1: 
+        after_points, _, = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
+                                               titan, before_points, in_compute)
+    else: after_points, _ = wrapper_func(before_points, in_compute)
+
+    after_alts = np.array([pymap3d.ecef2geodetic(after_points[i_assem,:,0],
+                                                 after_points[i_assem,:,1],
+                                                 after_points[i_assem,:,2])[2] for i_assem in range(len(titan.assembly))])
+    dh = after_alts-before_alts
+    downward_points = np.argwhere(dh<0)
+    target_alt = np.max(after_alts[downward_points[:,0],downward_points[:,1]])
+    
+    propagate_again = np.argwhere(after_alts>target_alt)
+    n_props = np.zeros_like(after_alts)
+    while len(propagate_again)>0:
+        print('Propagating {} points again'.format(len(propagate_again[1])))
+        in_compute = np.full_like(before_alts,False)
+        in_compute[propagate_again[:,0],propagate_again[:,1]] = True
+        in_compute = in_compute[:,propagate_again[:,1]]
+        if options.uncertainty.n_procs>1:
+            after_points[propagate_again[:,0],propagate_again[:,1],:] , _ = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
+                                                                                          titan, before_points[:,propagate_again[:,1],:], in_compute)
+        else: after_points[propagate_again[0],propagate_again[1],:], _ = wrapper_func(before_points[:,propagate_again[:,1],:], in_compute)
+        n_props[propagate_again[:,0],propagate_again[:,1]]+=1
+        after_alts = np.array([pymap3d.ecef2geodetic(after_points[i_assem,:,0],
+                                                 after_points[i_assem,:,1],
+                                                 after_points[i_assem,:,2])[2] for i_assem in range(len(titan.assembly))])
+        dh = after_alts-before_alts
+        propagate_again = np.argwhere(after_alts>target_alt)
+
+    ds_dh = (after_points-before_points)/np.moveaxis(np.tile(dh,[13,1,1]),0,2)
+    
+    delta_h = target_alt - before_alts
+    target_dh = delta_h/(after_alts-before_alts)
+    n_props+=target_dh
+    propagated_states = before_points + ds_dh * np.moveaxis(np.tile(dh,[13,1,1]),0,2)
+    return propagated_states, target_alt, np.mean(n_props)
