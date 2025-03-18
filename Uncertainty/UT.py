@@ -694,14 +694,15 @@ def altitude_lerping(titan, options, wrapper_func, in_compute, before_points, lo
     propagate_again = np.argwhere(after_alts>target_alt)
     n_props = np.zeros_like(after_alts)
     while len(propagate_again)>0:
-        print('Propagating {} points again'.format(len(propagate_again[1])))
-        in_compute = np.full_like(before_alts,False)
-        in_compute[propagate_again[:,0],propagate_again[:,1]] = True
+        print('Propagating {} points again'.format(np.shape(propagate_again)[1]))
+        in_compute = np.full_like(before_alts,True)
+        #in_compute[propagate_again[:,0],propagate_again[:,1]] = True
         in_compute = in_compute[:,propagate_again[:,1]]
         if options.uncertainty.n_procs>1:
-            after_points[propagate_again[:,0],propagate_again[:,1],:] , _ = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
+            recompute , _ = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
                                                                                           titan, before_points[:,propagate_again[:,1],:], in_compute)
-        else: after_points[propagate_again[0],propagate_again[1],:], _ = wrapper_func(before_points[:,propagate_again[:,1],:], in_compute)
+        else: recompute, _ = wrapper_func(before_points[:,propagate_again[:,1],:], in_compute)
+        after_points[propagate_again[:,0],propagate_again[:,1],:] = recompute[propagate_again[:,0],:,:]
         n_props[propagate_again[:,0],propagate_again[:,1]]+=1
         after_alts = np.array([pymap3d.ecef2geodetic(after_points[i_assem,:,0],
                                                  after_points[i_assem,:,1],
