@@ -215,7 +215,7 @@ class Thermal():
 
 
 class PATO():
-    def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = True):
+    def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = False):
 
 
         #: [boolean] Flag to perform PATO simulation
