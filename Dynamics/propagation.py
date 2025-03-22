@@ -70,7 +70,7 @@ def propagate(titan, options):
     output.write_output_data(titan = titan, options = options)
 
     # Increment time step
-    if options.dynamics.uncertain: 
+    if options.uncertainty.altitudinal: 
         options.dynamics.time_step = options.uncertainty.time_step
         time_step = options.uncertainty.time_step
     titan.time += time_step
@@ -348,7 +348,10 @@ def get_integrator_func(options,choice):
         options.dynamics.use_UT = True
         from Uncertainty.UT import UT_propagator, altitude_sliced_UT_propagator
         print('Wrapping propagator using Unscented Transform, selecting subpropagator next!')
-        return partial(altitude_sliced_UT_propagator,get_integrator_func(options,choice.replace('ut','')))
+        if options.uncertainty.altitudinal:
+            return partial(altitude_sliced_UT_propagator,get_integrator_func(options,choice.replace('ut','')))
+        else:
+            return partial(UT_propagator,get_integrator_func(options,choice.replace('ut','')))
     print('Selected...')
     if 'legacy' in choice:
         print('...legacy propagation, note these methods are deprecated.')

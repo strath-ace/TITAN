@@ -277,10 +277,13 @@ class recursive_gaussan_mixture():
         
         write_to_series(data_array,columns,options.output_folder+'/UT_Assem_{}_Gaussian_{}.csv'.format(assem_id,leaf_id))
     
-    def do_unscented_transform(self,sigmas,Wm,Wc,altitudinal):
+    def do_unscented_transform(self,sigmas,Wm,Wc,altitudinal,t=0.0,filename='sigmas.csv'):
+        columns = [['Time','Pos1','Pos2','Pos3','Vel1','Vel2','Vel3','Q_w','Q_i','Q_j','Q_k','P','Q','R']]
+        write_to_series(np.hstack((t*np.ones((sigmas.shape[0],1)),sigmas)),columns,filename)
         if self.dim<13: 
             if altitudinal: sigmas=sigmas[:,1:self.dim+1]
             else: sigmas = sigmas[:,:self.dim]
+
         mu, cov = unscented_transform(sigmas=sigmas, Wm=Wm, Wc=Wc)
         self.mean = mu
         #self.cov = cov_nearest((reject_small_eigenvalues(cov,2)))
@@ -343,8 +346,12 @@ def update_mixtures(titan, options, wrapper_func, dim, point_generator,propagati
         #msg.print_n_send(message)
         print(message)
     else: print('Propagating {} points for {} Gaussians'.format(n_points, n_distris))
-    
-    if options.uncertainty.propagate_geodetic: propagation_iterable = convert_to_ecef(propagation_iterable)
+    propagation_iterable = np.moveaxis(propagation_iterable,0,1)
+    if options.uncertainty.propagate_geodetic: 
+        for _ in range(10):
+            propagation_iterable = convert_to_ecef(propagation_iterable)
+            propagation_iterable = convert_to_geodetic(propagation_iterable)
+        propagation_iterable = convert_to_ecef(propagation_iterable)
     if options.uncertainty.n_procs>1: 
         new_states, new_d_dt, = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
                                                    titan, propagation_iterable, compute_flag_iterable)
@@ -359,10 +366,12 @@ def update_mixtures(titan, options, wrapper_func, dim, point_generator,propagati
         for i_assem, _assembly in enumerate(titan.assembly):
             if compute_flag_iterable[point_pointer][i_assem]:
                 distri = _assembly.gaussian_library.get_leaf_by_index(i_distri)
-                distri.recalculate_dynamical_entropy(old_points[:,i_assem,:],derivatives[i_assem,:,:])
+                #distri.recalculate_dynamical_entropy(old_points[:,i_assem,:],derivatives[i_assem,:,:])
+                distri.dynamical_entropy = 0.0
                 ## Finally we can recombine our sigma points to get our new distribution
                 if options.uncertainty.propagate_geodetic: new_points[i_assem,:,:] = convert_to_geodetic(new_points[i_assem,:,:])
-                distri.do_unscented_transform(sigmas=new_points[i_assem,:,:],Wm=point_generator.Wm,Wc=point_generator.Wc,altitudinal=options.uncertainty.altitudinal)
+                distri.do_unscented_transform(sigmas=new_points[i_assem,:,:],Wm=point_generator.Wm,Wc=point_generator.Wc,altitudinal=options.uncertainty.altitudinal,
+                                              t=titan.time,filename=options.output_folder+'/sigmas_{}_{}.csv'.format(i_distri,_assembly.id))
                 if i_distri==0: nominal_state.append(new_points[i_assem,0,:])
     return nominal_state
 
@@ -415,11 +424,14 @@ def parallel_propagator(wrapper_func, n_procs, titan, sigma_points, compute_flag
         del future
         del result
         gc.collect()
-        
     n_points = len(compute_flags)
-    if n_points<n_procs: n_procs = n_points
-    batches  = int(np.floor(n_points / n_procs))
-    remainder = n_points % n_procs
+    if n_points<n_procs: 
+        n_procs = n_points
+        batches = 1
+        remainder = 0
+    else:
+        batches  = int(np.floor(n_points / n_procs))
+        remainder = n_points % n_procs
     sigmas_per_proc = [np.zeros([len(titan.assembly),batches,13]) for _ in range(n_procs)]
     point_index = [[] for _ in range(n_procs)]
     flags_per_proc = [[] for _ in range(n_procs)]
@@ -486,7 +498,8 @@ def convert_to_geodetic(states,dim=13):
     vel = np.linalg.norm(states[:,3:6],axis=1)
     fpa = [np.arcsin(np.dot(state[:3], state[3:6])/(np.linalg.norm(state[:3])*np.linalg.norm(state[3:6]))) for state in states]
     ha = np.arctan2(e,n)
-    states[:,:6] = np.transpose([alt, lat, lon, vel, fpa, ha])
+    try: states[:,:6] = np.transpose([alt, lat, lon, vel, fpa, ha])
+    except: states[:,:6] = np.transpose([alt, [lat], lon, vel, fpa, ha])
     return np.reshape(states,state_shape)
 
 def adaptive_entropy_splitting(assembly,options,dt=1.0):
@@ -518,11 +531,11 @@ def write_mini_monte_carlo(_assembly, options, time, mean_alt= None):
     if options.uncertainty.propagate_geodetic:
         if options.uncertainty.altitudinal: rvs = np.hstack((mean_alt*np.ones((1500,1)),rvs))
         geo = copy(rvs[:,:6])
-        ecef = convert_to_ecef(rvs,dim=np.shape(rvs)[0])[:,:6]
+        ecef = convert_to_ecef(rvs,dim=np.shape(rvs)[1])[:,:6]
         
     else:
-        ecef = copy(rvs[:,:6],dim=np.shape(rvs)[0])
-        geo = convert_to_geodetic(rvs)[:,:6]
+        ecef = copy(rvs[:,:6])
+        geo = convert_to_geodetic(rvs,dim=np.shape(rvs)[1])[:,:6]
         
     geo[:,[1,2,4,5]] *= 180/np.pi
     if _assembly.gaussian_library.dim>6: 
@@ -639,7 +652,7 @@ def update_mixtures_alt(titan, options, wrapper_func, dim, point_generator,propa
                 distri.dynamical_entropy = 0.0
                 ## Finally we can recombine our sigma points to get our new distribution
                 if options.uncertainty.propagate_geodetic: new_points[i_assem,:,:] = convert_to_geodetic(new_points[i_assem,:,:])
-                distri.do_unscented_transform(sigmas=new_points[i_assem,:,:],Wm=point_generator.Wm,Wc=point_generator.Wc, altitudinal = options.uncertainty.altitudinal)
+                distri.do_unscented_transform(sigmas=new_points[i_assem,:,:],Wm=point_generator.Wm,Wc=point_generator.Wc, altitudinal = options.uncertainty.altitudinal,assem_id=_assembly.id,leaf_id = i_distri)
                 if i_distri==0: nominal_state.append(new_points[i_assem,0,:])
     
     return nominal_state, output_alt, mean_props
@@ -652,7 +665,7 @@ def altitude_binning(titan, options, wrapper_func, in_compute, in_propagation, l
         if options.uncertainty.n_procs>1: 
             in_propagation, _, = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
                                                             titan, in_propagation, in_compute)
-        else: in_propagation, _ = wrapper_func(in_propagation, in_compute)
+        else: in_propagation, _, _ = wrapper_func(in_propagation, in_compute)
 
         alts = [pymap3d.ecef2geodetic(in_propagation[i_assem,:,0],
                                        in_propagation[i_assem,:,1],
@@ -673,16 +686,18 @@ def altitude_binning(titan, options, wrapper_func, in_compute, in_propagation, l
             if np.shape(in_propagation)[1]==0: halt_propagation = True
     return propagated_states, output_alt
 
-def altitude_lerping(titan, options, wrapper_func, in_compute, before_points, lowest_alt=None):
+def altitude_lerping(titan, options, wrapper_func, in_compute, before_points):
     propagated_states = np.zeros_like(before_points)
     before_alts = np.array([pymap3d.ecef2geodetic(before_points[i_assem,:,0],
                                                   before_points[i_assem,:,1],
                                                   before_points[i_assem,:,2])[2] for i_assem in range(len(titan.assembly))])
-
-    if options.uncertainty.n_procs>1: 
-        after_points, _, = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
-                                               titan, before_points, in_compute)
-    else: after_points, _ = wrapper_func(before_points, in_compute)
+    after_points = before_points
+    n_steps = 5
+    for i_prop in range(n_steps):
+        if options.uncertainty.n_procs>1: 
+            after_points, _, = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
+                                                titan, after_points, in_compute)
+        else: after_points, _, _ = wrapper_func(after_points, in_compute)
 
     after_alts = np.array([pymap3d.ecef2geodetic(after_points[i_assem,:,0],
                                                  after_points[i_assem,:,1],
@@ -692,28 +707,40 @@ def altitude_lerping(titan, options, wrapper_func, in_compute, before_points, lo
     target_alt = np.max(after_alts[downward_points[:,0],downward_points[:,1]])
     
     propagate_again = np.argwhere(after_alts>target_alt)
-    n_props = np.zeros_like(after_alts)
+    n_props = (n_steps-1)*np.ones_like(after_alts,dtype=float)
     while len(propagate_again)>0:
-        print('Propagating {} points again'.format(np.shape(propagate_again)[1]))
-        in_compute = np.full_like(before_alts,True)
+        print('Propagating {} points again'.format(np.shape(propagate_again)[0]))
+        input_again = np.zeros_like(after_points)
+        for i_update, point_update, in enumerate(propagate_again[:,1]):
+            input_again[:,i_update,:] = after_points[:,point_update,:]
+        input_again = input_again[input_again.astype(bool)]
+        input_again = input_again.reshape([-1,np.shape(propagate_again)[0],13])
+        in_compute = np.full_like(before_alts,False)
+        in_compute[propagate_again[:,0],propagate_again[:,1]] = True
         #in_compute[propagate_again[:,0],propagate_again[:,1]] = True
         in_compute = in_compute[:,propagate_again[:,1]]
-        if options.uncertainty.n_procs>1:
-            recompute , _ = parallel_propagator(wrapper_func, options.uncertainty.n_procs, 
-                                                                                          titan, before_points[:,propagate_again[:,1],:], in_compute)
-        else: recompute, _ = wrapper_func(before_points[:,propagate_again[:,1],:], in_compute)
-        after_points[propagate_again[:,0],propagate_again[:,1],:] = recompute[propagate_again[:,0],:,:]
-        n_props[propagate_again[:,0],propagate_again[:,1]]+=1
+        if options.uncertainty.n_procs>1 and np.shape(propagate_again)[0]>1:
+            print(np.shape(after_points[:,propagate_again[:,1],:]))
+            recompute , _ = parallel_propagator(wrapper_func, options.uncertainty.n_procs, titan, input_again, in_compute.T)
+        else: recompute, _, _ = wrapper_func(input_again, in_compute)
+        for i_update, assem_update, in enumerate(propagate_again[:,0]):
+            after_points[assem_update,propagate_again[i_update,1],:] = recompute[assem_update,i_update,:]
+            n_props[assem_update,propagate_again[i_update,1]]+=1
         after_alts = np.array([pymap3d.ecef2geodetic(after_points[i_assem,:,0],
                                                  after_points[i_assem,:,1],
                                                  after_points[i_assem,:,2])[2] for i_assem in range(len(titan.assembly))])
         dh = after_alts-before_alts
         propagate_again = np.argwhere(after_alts>target_alt)
+        print('Arrived at altitudes {} (target is {})'.format(after_alts[propagate_again[:,0],propagate_again[:,1]],target_alt))
 
     ds_dh = (after_points-before_points)/np.moveaxis(np.tile(dh,[13,1,1]),0,2)
     
     delta_h = target_alt - before_alts
     target_dh = delta_h/(after_alts-before_alts)
     n_props+=target_dh
-    propagated_states = before_points + ds_dh * np.moveaxis(np.tile(dh,[13,1,1]),0,2)
-    return propagated_states, target_alt, np.mean(n_props)
+    propagated_states = before_points + ds_dh * np.moveaxis(np.tile(delta_h,[13,1,1]),0,2)
+
+    final_alts = np.array([pymap3d.ecef2geodetic(propagated_states[i_assem,:,0],
+                                                 propagated_states[i_assem,:,1],
+                                                 propagated_states[i_assem,:,2])[2] for i_assem in range(len(titan.assembly))])
+    return propagated_states, np.mean(final_alts), np.mean(n_props)

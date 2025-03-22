@@ -1,11 +1,11 @@
 from Uncertainty.HDMR import HDMR_sampling, HDMR_ROM, HDMR_postprocessing, HDMR_data_processing
-from Uncertainty.atmosphere import pull_freestream_stats, mpp_solve_freestream
+from Uncertainty.UT import convert_to_ecef, convert_to_geodetic
 from Uncertainty.double_loop import double_loop_UQ, plot_pbox
 from Uncertainty.function_helpers import partial_helper
 from Aerothermo import su2,aerothermo
 from Configuration import configuration
 from Freestream import mix_properties, atmosphere
-from Dynamics.dynamics import compute_quaternion
+from Dynamics.propagation import explicit_rk_N
 import concurrent.futures
 import configparser
 from functools import partial
@@ -31,30 +31,6 @@ n_procs = psutil.cpu_count(logical=False)
 
 
 ## TODO Surrogates: Fix double loop to be single output, restructure HDMR and surrogates scripts for co
-
-def compute_fluxes(assembly,dt):
-    Tref = 273
-
-    for obj in assembly.objects:
-        facet_area = np.linalg.norm(obj.mesh.facet_normal, ord = 2, axis = 1)
-        heatflux = assembly.aerothermo.heatflux[obj.facet_index]
-        Qin = np.sum(heatflux*facet_area)
-        
-        cp  = obj.material.specificHeatCapacity(obj.temperature)
-        emissivity = obj.material.emissivity
-
-        Atot = np.sum(facet_area)
-
-        # Estimating the radiation heat-flux
-        Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
-        T_ss = (Qin/(5.670373e-8*emissivity*Atot)-Tref**4)**(0.25)
-        #print('T_ss is {}'.format(T_ss))
-
-        # Computing temperature change
-        dT = (Qin-Qrad)*dt/(obj.mass*cp)
-
-        new_T = obj.temperature + dT
-    return Qin-Qrad, T_ss
 
 def check_input(parameter_vector,db_name):
 
@@ -87,69 +63,19 @@ def add_output(parameter_vector,output_vector,db_name):
     except Exception as e:
         print('Error writing file: {}'.format(e))
 
+def state_vector_dynamics(propagator,titan,options,dt,loc_scale_vector,db_name,parameter_vector):
+    output = check_input(parameter_vector,db_name)
+    if output is None:
+        rebased_vector = np.zeros_like(parameter_vector)
+        for i_value, rebase in enumerate(loc_scale_vector.items()):
+            name, loc_scale = rebase
+            rebased_vector[i_value] = loc_scale[0]+parameter_vector[i_value]*loc_scale[1]
+        
+        output, _ = propagator(convert_to_ecef(rebased_vector),None,None,dt,titan,options)
+        output = convert_to_geodetic(output)
+        add_output(parameter_vector,output,db_name)
+    return output
 
-def rebase_parameters(parameter_vector,loc_scale_vector,assembly):
-    freestream_vector = [0,0,0]
-    for value, param in zip(parameter_vector, loc_scale_vector.items()):
-        name, loc_scale = param
-        if name in is_freestream:
-            freestream_vector[is_freestream.index(name)] = loc_scale[0]+value*loc_scale[1]
-        elif name in is_material:
-            setattr(assembly.objects[0].material,name,loc_scale[0]+value*loc_scale[1])
-        else: setattr(assembly,name,loc_scale[0]+value*loc_scale[1])
-
-    assembly.freestream = mpp_solve_freestream(*freestream_vector,assembly.freestream)
-    mix_properties.compute_stagnation(assembly.freestream,options)
-    compute_quaternion(assembly)
-    return assembly
-
-def flow_lofi(extra_args,parameter_vector):
-    
-    [assem,titan,options,loc_scale_vector,csv] = extra_args
-    
-    output = check_input(parameter_vector,csv)
-    if output is not None:
-        #print('Found existing solve at {}'.format(parameter_vector))
-        return output
-    assem = rebase_parameters(parameter_vector,loc_scale_vector,assem)
-    aerothermo.compute_low_fidelity_aerothermo([assem],options)
-    q_integrated, body_temp = compute_fluxes(assembly=assem,dt=options.dynamics.time_step)
-    #body_temp+=norm(loc=0,scale=0.03*body_temp).rvs()
-    try: add_output(parameter_vector,[body_temp],csv)
-    except Exception as e: print('Error adding data! {}'.format(e))
-    return np.array([body_temp])
-
-
-def borehole_func(is_hifi,loc_scale_vector,parameter_vector):
-    var ={}
-    for i_param, (name,[loc, scale]) in enumerate(loc_scale_vector.items()):
-        var[name]=loc+parameter_vector[i_param]*scale
-
-    fidelity_vars = [2 * np.pi, 1] if is_hifi else [5,1.5]
-    flow_rate_numerator = fidelity_vars[0] * var['trans_aquifer_u'] * (var['head_aquifer_u'] - var['head_aquifer_l'])
-
-    radius_ratio_ln = np.log(var['r'] / var['RoI'])
-
-    flow_rate_denominator = radius_ratio_ln*(fidelity_vars[1]+(2*var['L']*var['trans_aquifer_u'])/(radius_ratio_ln*var['cond_hydro']*var['r']**2)+(var['trans_aquifer_u']/var['trans_aquifer_l']))
-    flow_rate = flow_rate_numerator / flow_rate_denominator
-    
-    #csv = 'hifi_ORACLE.csv' if is_hifi else 'lofi_ORACLE.csv'
-    #add_output(parameter_vector,[flow_rate],csv)
-    return flow_rate
-
-def flow_hifi(extra_args,parameter_vector):
-
-    [assem,titan,options,loc_scale_vector,csv] = extra_args
-    output = check_input(parameter_vector,csv)
-    if output is not None: return output
-    assem = rebase_parameters(parameter_vector,loc_scale_vector,assem)
-
-    su2.compute_cfd_aerothermo([assem],titan,options)
-
-    assem.aerothermo.heatflux = assem.aerothermo_cfd.heatflux
-    q_integrated, body_temp = compute_fluxes(assembly=assem,dt=options.dynamics.time_step)
-    add_output(parameter_vector,[body_temp],csv)
-    return np.array([body_temp])
 
 def build_surrogates(n_params, outputs, lofi_callable, additive_multifi_callable, hf_order, lf_order, use_direct_error=False, output_epsilon='mean', error_criterion=1.0,plot_conv=False):
     # Note you should always pass an additive multifi callable, not a hifi or scale one
@@ -177,15 +103,15 @@ def build_surrogates(n_params, outputs, lofi_callable, additive_multifi_callable
     n_hifi_enrichmented = 100*(hf_order**2)
     previous_error = np.Inf
     print('Finished construction, enriching high fidelity from {} to {} samples...'.format(n_hifi,n_hifi_enrichmented))
-
+    recomp = HDMR_data_processing
     while n_hifi<n_hifi_enrichmented:
         DoE, subdomains, _ = sampler_add.enrich(rom=hdmr_add, samples_per_enrichment=n_procs,output_name=outputs[-1])
         #hdmr_add=HDMR_ROM(order=hf_order,output_names=outputs,surrogate_type='kriging',read_data_filename='discrepancy.csv')
         n_hifi = len(pd.read_csv('discrepancy.csv', header=None).index)
         print('{} / {}...'.format(n_hifi,n_hifi_enrichmented))
     try:    
-        hdmr_scale = HDMR_ROM(order=hf_order,output_names=outputs,surrogate_type='kriging',initial_data=recompose_multifi('discrepancy.csv','lofi_ORACLE.csv','distance','scale'))
-        hdmr_hf = HDMR_ROM(order=hf_order,output_names=outputs,surrogate_type='kriging',initial_data=recompose_multifi('discrepancy.csv','lofi_ORACLE.csv','distance','hifi'))
+        hdmr_scale = HDMR_ROM(order=hf_order,output_names=outputs,surrogate_type='kriging',initial_data=recomp.recompose_multifi('discrepancy.csv','lofi_ORACLE.csv','distance','scale'))
+        hdmr_hf = HDMR_ROM(order=hf_order,output_names=outputs,surrogate_type='kriging',initial_data=recomp.recompose_multifi('discrepancy.csv','lofi_ORACLE.csv','distance','hifi'))
         hdmr_scale_callable = helper.construct_callable(type='corrected_surrogate',comparison_method='scale',
                                                         arguments=[helper.construct_callable(arguments=[hdmr_lf,outputs]),
                                                                 helper.construct_callable(arguments=[hdmr_scale,outputs])])
@@ -303,7 +229,7 @@ def build_surrogates(n_params, outputs, lofi_callable, additive_multifi_callable
     print('Finished enrichment! Writing models...')
     n_lofi = len(pd.read_csv('lofi.csv', header=None).index)
     with open('error_history.pkl','wb') as file: pickle.dump(list_of_errors,file)
-    recomp = HDMR_data_processing
+
     hdmr_lf=HDMR_ROM(order=lf_order,output_names=outputs,surrogate_type='kriging',read_data_filename='lofi.csv')
     lofi_hdmr_callable = helper.construct_callable(arguments=[hdmr_lf,outputs])
     hdmr_add=HDMR_ROM(order=hf_order,output_names=outputs,surrogate_type='kriging',read_data_filename='discrepancy.csv')
@@ -364,79 +290,29 @@ def model_comparison(n_params, surrogates, ground_truth_callable,n_samples=2000)
 
 if __name__=='__main__':
 
-    hfpath = '/home/ckb18135/uq/aviation_HDMR.cfg'
-    lfpath = '/home/ckb18135/uq/aviation_HDMR_lofi.cfg'
+    hfpath = '/home/ckb18135/uq/hayabusa.cfg'
 
     configParser = configparser.RawConfigParser()   
 
     configParser.read(hfpath)
-    options_hf,titan_hf=configuration.read_config_file(configParser,'')
-    options_hf.method=options_hf.freestream.method
-    assem_hf = titan_hf.assembly[0]
-
-    configParser.read(lfpath)
-    options_lf,titan_lf=configuration.read_config_file(configParser,'')
-    options_lf.method=options_lf.freestream.method
-    assem_lf = titan_lf.assembly[0]
+    options_in,titan_in=configuration.read_config_file(configParser,'')
+    titan_in.assembly[0].state_vector = np.zeros(13)
     msg = messenger()
-    # Note one cfg must be taken as reference, here is lf purely for convenience
-    for options, assem in zip([options_hf,options_lf],[assem_hf,assem_lf]):
-    # The object also needs to have a freestream object thus...
-        mix_properties.compute_freestream(model=options.freestream.model,
-                                            altitude=assem.trajectory.altitude,
-                                            velocity=assem.trajectory.velocity,
-                                            lref=1.26,
-                                            assembly=assem,
-                                            freestream=assem.freestream,
-                                            options=options)
-        
-    fs_stats = pull_freestream_stats(options,assem.trajectory.velocity)
-    # Surface data for ZrB2-SiC EDM from https://doi.org/10.1111/j.1551-2916.2008.02325.x
-    # e = 0.81+-0.04, catalycity = 0.00191+-0.3*0.00191
-    # Thermal Data from https://doi.org/10.1111/j.1551-2916.2008.02268.x
-    # cp = 0.70+-0.03*0.70, k = 
-    # Yes I know, it's a vector that's actually a dict, sue me
-    # location_scale_vector = {'temperature' : [0,0],'density' : [0,0],'velocity' :[0,0],'aoa' : [0,np.deg2rad(15)],'slip' : [0,np.deg2rad(3)],
-    #                          'catalycity' : [0.00417,0.00327], 'specificHeatCapacity' : [628,1], 'emissivity' : [0.81,0.04]} # Need to find some values for material props, currently using ZrB2
-    location_scale_vector = {'temperature' : [0,0],'density' : [0,0],'velocity' :[0,0],'aoa' : [0,np.deg2rad(15)],'slip' : [0,np.deg2rad(3)],
-                             'catalycity' : [0.00417,0.00327], 'emissivity' : [0.81,0.04]} # Need to find some values for material props, currently using ZrB2
-    # it's also not a vector its a matrix so double sue me
-    
-    # Borehole function data from https://www.sfu.ca/~ssurjano/borehole.html
-    borehole_vector = {'r' : [0.1,0.05],'RoI':[25050,24950],'trans_aquifer_u':[89335,26265],
-                       'head_aquifer_u':[1050,60],'trans_aquifer_l':[89.55,26.45],'head_aquifer_l':[760,60],
-                       'L':[1400,280],'cond_hydro':[10950,1095]}
-    
-    use_borehole = True
 
-    if not use_borehole:
-        fs_stats = pull_freestream_stats(options,assem.trajectory.velocity)
-        n_params = len(location_scale_vector)
-        outputs = ['Surface Temperature']
-        for freestream_param, stats in fs_stats.items():
-            if freestream_param in location_scale_vector: location_scale_vector[freestream_param] = stats
-        # Bound problem by +/- 5 sigma for aleatory parameters
-        aleatory_flags =[]
-        for param, location_scale in location_scale_vector.items():
-            if param in is_aleatory:
-                location_scale[1] *= 10
-                aleatory_flags.append(True)
-            else: aleatory_flags.append(False)
-    
+    location_scale_vector = {'alt' : [60000,120000],'lat' : [0,np.pi],'lon' :[np.pi,2*np.pi],'v' : [3950,7900],'fpa' : [0,np.pi],
+                             'ha'  : [0, np.pi], 'w' : [0.5,1.0],'i' : [0.5,1.0],'j' : [0.5,1.0],'k':[0.5,1.0],'p' : [15,30],'q' : [15,30],'r' : [15,30]}
+    n_params = 13
+    outputs = location_scale_vector.keys()
+    # Use partial to construct functions that only accept our parameter vector
+    dt = 10.0
+    lofi_prop = partial(explicit_rk_N,2)
+    hifi_prop = partial(explicit_rk_N,4)
+    lofi = partial(state_vector_dynamics,lofi_prop,titan_in,options_in,dt,location_scale_vector,'lofi_ORACLE.csv')
+    hifi = partial(state_vector_dynamics,hifi_prop,titan_in,options_in,dt,location_scale_vector,'hifi_ORACLE.csv')
 
-        # Use partial to construct functions that only accept our parameter vector
-        lofi = partial(flow_lofi,[assem_lf,titan_lf,options_lf,location_scale_vector,'lofi_ORACLE.csv'])
-        hifi_mesh = partial(flow_lofi,[assem_hf,titan_hf,options_hf,location_scale_vector,'hifi_ORACLE.csv'])
 
-    else:
-        n_params = len(borehole_vector)
-        outputs = ['Flow Rate (m^3/s)']
-
-        lofi = partial(borehole_func, False, borehole_vector)
-        hifi_mesh = partial(borehole_func, True, borehole_vector)
-
-    multifi_dist = helper.construct_callable(type='model_discrepancies',comparison_method='distance',arguments=[hifi_mesh,lofi])
-    multifi_scal = helper.construct_callable(type='model_discrepancies',comparison_method='scale',arguments=[hifi_mesh,lofi])
+    multifi_dist = helper.construct_callable(type='model_discrepancies',comparison_method='distance',arguments=[hifi,lofi])
+    multifi_scal = helper.construct_callable(type='model_discrepancies',comparison_method='scale',arguments=[hifi,lofi])
     
     hf_order = 2 # be wary of changing this number lol
     lf_order = 3
@@ -471,7 +347,7 @@ if __name__=='__main__':
     print('Convergence assured! Here are all model statistics...')
     
     n_error_samples = 2000
-    data = model_comparison(n_params, hetero_models, hifi_mesh, n_samples=n_error_samples)
+    data = model_comparison(n_params, hetero_models, hifi, n_samples=n_error_samples)
     fig = plt.figure()
     ax = sns.ecdfplot(data,complementary=True,legend=True,palette="Paired",linewidth=3.0)
     ax.set_xlabel('Percentage Error in Temperature Prediction (%)')

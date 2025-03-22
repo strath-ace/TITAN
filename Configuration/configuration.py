@@ -914,14 +914,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.fenics.FE_verbose   = get_config_value(configParser, options.fenics.FE_verbose, 'FENICS', 'FENICS_verbose', 'boolean')
         options.fenics.FE_freq      = get_config_value(configParser, options.fenics.FE_freq, 'FENICS', 'FENICS_freq', 'int')
 
-    #Read Dynamics options
-    options.dynamics.time = 0
-    options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
-    options.dynamics.propagator = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
-    options.dynamics.prop_func = propagation.get_integrator_func(options,options.dynamics.propagator.lower())
-    if 'ut' in options.dynamics.propagator.lower(): options.dynamics.uncertain = True
-    if 'adapt' in options.dynamics.propagator.lower(): 
-        options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
+
     
 
     #Read Thermal options
@@ -1069,9 +1062,14 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             options.uncertainty.outputs = get_config_value(configParser, options.uncertainty.outputs, 'Uncertainty', 'Outputs', 'str')
             options.uncertainty.qoi_filepath = options.output_folder +'/Data/'+ options.uncertainty.qoi_filepath
             options.uncertainty.build_quantities(get_config_value(configParser, '', 'Assembly', 'Path', 'str'))
-
+    options.dynamics.time = 0
+    options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
+    options.dynamics.propagator = get_config_value(configParser, 'euler', 'Time', 'Time_integration', 'str')
     options.wrap_propagator = get_config_value(configParser,False,'Time','Wrap_propagator','boolean')
+    options.uncertainty.propagate_geodetic  = get_config_value(configParser,True, 'Uncertainty','Propagate_geodetic','bool')
+    options.uncertainty.altitudinal         = get_config_value(configParser,False, 'Uncertainty','altitudinal','bool')
 
+    if 'ut' in options.dynamics.propagator.lower(): options.dynamics.uncertain = True
     if options.dynamics.uncertain:
         options.uncertainty.UT_alpha            = get_config_value(configParser,0.001,'Uncertainty','UT_alpha','float')
         options.uncertainty.UT_beta             = get_config_value(configParser,2,    'Uncertainty','UT_beta','float')
@@ -1084,9 +1082,13 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.uncertainty.GMM_a_priori_splits = get_config_value(configParser,0,    'Uncertainty','GMM_a_priori_splits','int')
         options.uncertainty.DOF                 = get_config_value(configParser,0,    'Uncertainty','DOF','int')
         options.uncertainty.max_points          = get_config_value(configParser,0,    'Uncertainty','Max_points','int')
-        options.uncertainty.propagate_geodetic  = get_config_value(configParser,True, 'Uncertainty','Propagate_geodetic','bool')
-        options.uncertainty.altitudinal         = True#get_config_value(configParser,True, 'Uncertainty','Propagate_geodetic','bool')
+        
+        #Read Dynamics options
 
+    options.dynamics.prop_func = propagation.get_integrator_func(options,options.dynamics.propagator.lower())
+
+    if 'adapt' in options.dynamics.propagator.lower(): 
+        options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
     if options.load_state:
         titan = options.read_state()
 

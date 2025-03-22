@@ -265,7 +265,7 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
         vol_mesh_filepath = f"{folder_path}/solution_iter_{str(titan.iter).zfill(3)}.xdmf"
-        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+        if options.write_solutions: meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 #Generate volume for FENICS
 def generate_volume(titan, options):
