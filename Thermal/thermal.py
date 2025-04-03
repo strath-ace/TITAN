@@ -22,7 +22,7 @@ from Geometry import mesh
 
 def compute_thermal_tetra(titan, options):
   
-    dt = options.dynamics.time_step
+    dt = titan.delta_t
 
     for assembly in titan.assembly:
         if assembly.ablation_mode != 'tetra': continue
@@ -124,7 +124,7 @@ def compute_thermal_tetra(titan, options):
 
 def compute_thermal_0D(titan, options):
 
-    dt = options.dynamics.time_step
+    dt = titan.delta_t
     Tref = 273
 
     for assembly in titan.assembly:

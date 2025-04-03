@@ -31,7 +31,7 @@ def propagate(titan, options):
     #  a 13-D state vector of form [Position(x/y/z),Velocity(u/v/w),Quaternion(w/i/j/k),Angular velocity(roll_vel,pitch_vel,yaw_vel)]
     #  a propagator specified by options.dynamics.propagator
 
-    # TODO: Manage collision handling properly
+    #TODO: Manage collision handling properly
     if options.collision.flag and len(titan.assembly)>1:
         flag_collision, __ = collision.check_collision(titan, options, 0)
         if flag_collision: collision.collision_physics(titan, options)
@@ -54,7 +54,6 @@ def propagate(titan, options):
     
     # Propagate according to propagator function...
     new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,state_vectors_prior,derivatives_prior,time_step,titan,options)
-
     # Update prior derivatives
     if new_derivs is not None: append_derivatives(titan,options,new_derivs)
 
@@ -67,7 +66,11 @@ def propagate(titan, options):
     output.write_output_data(titan = titan, options = options)
 
     # Increment time step
+    if hasattr(titan,'rk_params'): time_step = titan.delta_t
+    else: titan.delta_t = time_step
+    
     titan.time += time_step
+    
 
 def state_equation(titan,options,time,state_vectors):
     # This state equation will for each assembly compute the rate of change of a state vector (at that state),
@@ -75,7 +78,7 @@ def state_equation(titan,options,time,state_vectors):
     # State vectors can be passed flattened, need to account for this
     state_vectors = np.array(state_vectors)
     reshape_flat = False
-    if len(state_vectors.shape)<2: 
+    if len(state_vectors.shape)<2:
         reshape_flat = True
         state_vectors = np.reshape(state_vectors,[-1,13])
 
@@ -84,8 +87,9 @@ def state_equation(titan,options,time,state_vectors):
         update_dynamic_attributes(_assembly,state_vector,options)
     
     # Then business as usual for computing forces...
+    
     aerothermo.compute_aerothermo(titan, options)
-
+    aero_states = [_assembly.aerothermo.copy() for _assembly in titan.assembly]
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
 
@@ -114,7 +118,7 @@ def state_equation(titan,options,time,state_vectors):
                                    angularDerivatives.ddyaw,])
         
     if reshape_flat: d_dt_state_vectors = np.array(d_dt_state_vectors).flatten()
-    return d_dt_state_vectors
+    return d_dt_state_vectors, aero_states
 
 def cartesian_state_equation(titan,options,time,position_state_vectors):
     # This state equation will for each assembly compute the rate of change of a 3DOF state vector (at that state),
@@ -320,11 +324,11 @@ def get_integrator_func(options, choice):
         return None
     if 'euler' in choice: 
         print('...Euler propagation')
-        return explicit_euler_propagate
+        return explicit_euler
     if 'bwd' in choice and not 'legacy' in choice: 
         options.dynamics.n_states_to_hold = 1
         print('...backward difference propagation')
-        return explicit_bwd_diff_propagate
+        return explicit_bwd_diff
     if 'adapt' in choice:
         n_rk = int(choice.partition('rk')[-1][0])
         n_ab = int(choice.partition('ab')[-1][0])
@@ -425,32 +429,33 @@ AB_coeffs = {'1' : [       1.0],
 ###########################################################  ALGORITHMS  ####################################################################
 #############################################################################################################################################
 #############################################################################################################################################
-
-def explicit_euler_propagate(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+def explicit_euler(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     new_state_vectors = []
-    d_dt_state_vectors = state_equation(titan,options,dt,state_vectors)
+    d_dt_state_vectors, aero_states = state_equation(titan,options,dt,state_vectors)
     for i_assem, _assembly in enumerate(titan.assembly):
         new_vector = []
         new_vector = np.array(state_vectors[i_assem])+dt*np.array(d_dt_state_vectors[i_assem])
         new_state_vectors.append(new_vector)
+        _assembly.aerothermo = aero_states[i_assem].copy()
     return new_state_vectors, d_dt_state_vectors
 
-def explicit_bwd_diff_propagate(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+def explicit_bwd_diff(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     new_state_vectors = []
     if titan.post_event_iter==0:
-        new_state_vectors, d_dt_state_vectors = explicit_euler_propagate(state_vectors,state_vectors_prior,
+        new_state_vectors, d_dt_state_vectors = explicit_euler(state_vectors,state_vectors_prior,
                                                                          derivatives_prior,dt,titan,options)
     else:
-        d_dt_state_vectors = state_equation(titan,options,dt,state_vectors)
+        d_dt_state_vectors, aero_states = state_equation(titan,options,dt,state_vectors)
         for i_assem, _assembly in enumerate(titan.assembly):
             new_vector = np.array(state_vectors_prior[0][i_assem])+2*dt*np.array(d_dt_state_vectors[i_assem])
             new_state_vectors.append(new_vector)
+            _assembly.aerothermo = aero_states[i_assem].copy()
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_adams_bashforth_n(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     new_state_vectors = []
 
-    d_dt_state_vectors = state_equation(titan,options,dt,state_vectors)
+    d_dt_state_vectors, aero_states = state_equation(titan,options,dt,state_vectors)
     derivatives_prior.append(d_dt_state_vectors)
     N_derivs = len(derivatives_prior) if len(derivatives_prior) < N else N
 
@@ -459,6 +464,7 @@ def explicit_adams_bashforth_n(N,state_vectors,state_vectors_prior,derivatives_p
         for i_prior in range(N_derivs):
             new_vector += dt*AB_coeffs[str(N_derivs)][i_prior] * np.array(derivatives_prior[i_prior][i_assem])
         new_state_vectors.append(new_vector)
+        _assembly.aerothermo = aero_states[i_assem].copy()
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
@@ -467,24 +473,26 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
     else: recompute_params = False
     if recompute_params: 
         if titan.time>0: titan.time-=dt
-        titan.rk_params = [titan.time, 
-                           np.array(state_vectors).flatten(),
-                           titan.time + dt*options.iters, 
-                           0.01*dt] # Small initial timestep to combat discontinuities at fragmentation
+        titan.rk_params = {'time'    : titan.time, 
+                           'state'   : np.array(state_vectors).flatten(),
+                           't_end'   : titan.time + dt*options.iters, 
+                           't_first' : 0.01*dt,  # Small initial timestep to combat discontinuities at fragmentation
+                           't_max'   : dt}
         
     if not hasattr(titan, 'rk_fun')   or recompute_params: titan.rk_fun=partial(state_equation,titan,options)
     if not hasattr(titan, 'rk_adapt') or recompute_params: titan.rk_adapt=algorithm(fun=titan.rk_fun,
-                                                                                    t0=titan.rk_params[0],
-                                                                                    y0=titan.rk_params[1],
-                                                                                    t_bound=titan.rk_params[2],
-                                                                                    first_step=titan.rk_params[3])
+                                                                                    t0=titan.rk_params['t_first'],
+                                                                                    y0=titan.rk_params['state'],
+                                                                                    t_bound=titan.rk_params['t_end'],
+                                                                                    first_step=titan.rk_params['t_first'],
+                                                                                    max_step=titan.rk_params['t_max'])
 
     if titan.rk_adapt.status == 'running':
         titan.rk_adapt.step()
     else: 
         print('Propagator concluded with status {} ({} function evaluations)'.format(titan.rk_adapt.status,titan.rk_adapt.nfev))
         titan.end_trigger = True
-    titan.time = titan.rk_adapt.t
+    titan.delta_t = titan.rk_adapt.step_size
     return np.reshape(titan.rk_adapt.y,[-1,13]), None
 
 
@@ -494,11 +502,14 @@ def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan
     for i_k in range(RK_N_actual[str(N)]):
         k_state_vectors = np.array(state_vectors)
         for i_coeff in range(i_k): k_state_vectors += RK_tableaus[str(N)][i_k][i_coeff] * dt * k_n[i_coeff]
-        k_n.append(np.array(state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt, k_state_vectors)))
-
+        if i_k==0:
+            d_dt_state_vectors, aero_states = state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt,k_state_vectors)
+        else: d_dt_state_vectors, _ = state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt,k_state_vectors)
+        k_n.append(np.array(d_dt_state_vectors))
     new_state_vectors = np.array(state_vectors)
 
     for i_k in range(N): new_state_vectors+= RK_k_factors[str(N)][i_k] * dt * k_n[i_k]
+    for i_assem, _assembly in enumerate(titan.assembly): _assembly.aerothermo = aero_states[i_assem]
     return new_state_vectors, k_n[0]
 
 def adaptive_integrator_selector(N_AB, N_RK,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
