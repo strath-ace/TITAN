@@ -31,13 +31,13 @@ try:
 except:
     exit("Mutationpp library not set up")
 
-def mixture_mpp():
+def mixture_mpp(mixture= "air5"):
     """
     Retrieve the mixture object of the Mutation++ library
     With the chemical reactions for air5
     """
 
-    opts = mpp.MixtureOptions("air_5")
+    opts = mpp.MixtureOptions(mixture)
     opts.setThermodynamicDatabase("RRHO")
     opts.setStateModel("ChemNonEq1T")
     opts.setViscosityAlgorithm("Gupta-Yos")
@@ -1144,16 +1144,19 @@ def LAF(flow, method, cat_rate = 0, vel_grad = 0):
 def compute_per_facet_mach(assembly,flow_direction):
     # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
     # This models a dissipative effect to rotation to prevent unbounded spinning.
+    
     free = assembly.freestream
     mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
-    ### Function currently disabled due to instability at low Mach, will look into in future
-    if free.mach<0:  # neglect rotational effects below Mach 1
-        v_linear = free.mach * free.sound
-        angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
-        v_tangential = np.zeros_like(assembly.mesh.facet_COG)
+    mach_addition  = np.zeros_like(assembly.mesh.facet_area)
+    
 
-        for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
-            v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
-            mach_resultant[i_centroid] = (v_linear + np.dot(flow_direction,v_tangential[i_centroid,:]))/free.sound
+    v_linear = free.mach * free.sound
+    angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
+    v_tangential = np.zeros_like(assembly.mesh.facet_COG)
 
+    for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
+        v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
+        mach_addition[i_centroid] = (np.dot(flow_direction,v_tangential[i_centroid,:]))/free.sound
+    bridging = 0.5*(special.erf(free.mach+mach_addition-1)+1)
+    mach_resultant += bridging*mach_addition
     return mach_resultant

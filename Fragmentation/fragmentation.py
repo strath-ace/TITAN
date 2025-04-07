@@ -203,7 +203,7 @@ def demise_components(titan, i, joints_id, options):
         titan.post_event_iter = 0
         from Dynamics.propagation import construct_state_vector
         construct_state_vector(titan.assembly[-1])
-        # titan.assembly[-1].state_vector_prior = titan.assembly[i].state_vector_prior
+        titan.assembly[-1].unmodded_angles = titan.assembly[i].unmodded_angles
         # titan.assembly[-1].derivs_prior = titan.assembly[i].derivs_prior
 
 
@@ -522,7 +522,9 @@ def fragmentation(titan, options):
     for it in range(lenght_assembly):
         objs_id = np.array([], dtype = int)
         primitive_separation = False
-
+        if titan.assembly[it].freestream.mach <= 0.0 and titan.assembly[it].freestream.mach>0:
+            print('Low Mach fragmentation occured at {}'.format(titan.assembly[it].freestream.mach))
+            objs_id = np.array([i for i in range(len(titan.assembly[it].objects))])
         for _id, obj in enumerate(titan.assembly[it].objects):
 
             if obj.type == "Joint":
@@ -583,7 +585,6 @@ def fragmentation(titan, options):
             if obj.mass <= 0 or len(obj.mesh.nodes) <= 3:
                 print ('Mass demise occured')
                 objs_id = np.append(objs_id, _id)
-                print(objs_id)
                         
             elif titan.assembly[it].trajectory.altitude <= 0:
                 print ('Object reached ground')

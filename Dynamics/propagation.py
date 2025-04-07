@@ -4,11 +4,13 @@ from Forces import forces
 import pymap3d
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
+from scipy.special import erf
 from scipy import integrate
+from scipy.stats import uniform_direction
 from functools import partial
 from Output import output
 from warnings import warn
-from scipy.special import erf
+
 
 ## Current implented integrators (define in cfg under [Time] as Time_integration='')...
 
@@ -59,9 +61,16 @@ def propagate(titan, options):
 
     # Communicate new vectors to assemblies
     for i_assem, _assembly in enumerate(titan.assembly):
+        angle_names = ['roll','pitch','yaw']
+        if not hasattr(_assembly,'unmodded_angles'):
+            _assembly.unmodded_angles  = np.array([getattr(_assembly,angle) for angle in angle_names])
+            
         update_dynamic_attributes(_assembly,new_state_vectors[i_assem],options)
         _assembly.state_vector = new_state_vectors[i_assem]
-    
+        for i_angle, angle in enumerate(angle_names): 
+            _assembly.unmodded_angles[i_angle]+=time_step*_assembly.state_vector[10+i_angle]
+        from Output.output import write_to_series
+        write_to_series([np.hstack([titan.time,_assembly.unmodded_angles])],[['Time','Roll','Pitch','Yaw']],options.output_folder+'/Angles_{}.csv'.format(_assembly.id))
     # Writes the output data
     output.write_output_data(titan = titan, options = options)
 
@@ -522,18 +531,29 @@ def adaptive_integrator_selector(N_AB, N_RK,state_vectors,state_vectors_prior,de
     for _assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(_assembly)
         spins.append([angularDerivatives.ddroll,angularDerivatives.ddpitch,angularDerivatives.ddyaw])
-    
+    spin_max = np.max(np.abs(spins))
 
     AB_new_state_vectors, AB_d_dt_state_vectors = explicit_adams_bashforth_n(N_AB,state_vectors,state_vectors_prior,
                                                                              derivatives_prior,dt,titan,options)
     RK_new_state_vectors = np.zeros_like(AB_new_state_vectors)
     RK_d_dt_state_vectors = np.zeros_like(AB_d_dt_state_vectors)
 
-    spin_max = np.max(np.abs(spins))
+    
     bridging = [(erf(150*(options.dynamics.acceleration_threshold-spin_max))+1)/2]
     bridging.append(1-bridging[0])
     thresholds = np.array([i/(N_RK-1) for i in range(N_RK-1)])
-    if bridging[1]>0:
+
+    if spin_max > options.dynamics.tumbling_criterion and options.dynamics.tumbling_criterion > 0:
+        print('Performing random tumbling!!')
+        angles = uniform_direction(4).rvs()
+        accelerations = [0.0,0.0,0.0]
+        new_state_vectors = AB_new_state_vectors
+        d_dt_state_vectors = AB_d_dt_state_vectors
+        new_state_vectors[6:10] = angles
+        new_state_vectors[10:] = accelerations
+        d_dt_state_vectors[6:] = np.zeros(7)
+        return new_state_vectors, d_dt_state_vectors
+    elif bridging[1]>0:
         print('Switched to RK{}'.format(np.where(bridging[1]>=thresholds)[0][-1]+2))
         RK_new_state_vectors, RK_d_dt_state_vectors = explicit_rk_N(np.where(bridging[1]>=thresholds)[0][-1]+2,
                                                                     state_vectors,state_vectors_prior,

@@ -802,6 +802,7 @@ def read_config_file(configParser, postprocess = ""):
     options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
     if 'adapt' in options.dynamics.propagator.lower(): 
         options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
+        options.dynamics.tumbling_criterion = get_config_value(configParser, 0.0, 'Time', 'Tumble_threshold', 'float')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')

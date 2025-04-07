@@ -35,7 +35,7 @@ def initialise_figs(titan):
     Y = R * np.sin(PHI) * np.sin(THETA)
     Z = R * np.cos(PHI)
 
-    plot = ax2.plot_surface(X, Y, Z, rstride=1, cstride=1, linewidth=1.0, shade=False, color='green', alpha=0.6)
+    plot = ax2.plot_wireframe(X, Y, Z, rstride=1, linewidth=1.0, color='green', alpha=0.6)
     plot_parameters = {'fig1':fig,'fig2':fig2,'times':times,'aoa':aoas,'ss':sss,'pos':positions,'aoaplot':aoa_plot,'ssplot':ss_plot,'posplot':position_plot,'ax1':ax,'ax2':ax2}
     return plot_parameters
 
