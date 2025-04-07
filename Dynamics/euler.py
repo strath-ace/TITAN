@@ -67,7 +67,7 @@ def compute_Euler(titan, options):
         __, time_step = collision.check_collision(titan, options, time_step)
     
     titan.time += time_step
-
+    titan.delta_t = time_step
     # Loop over the assemblies and compute the dericatives
     for assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(assembly)

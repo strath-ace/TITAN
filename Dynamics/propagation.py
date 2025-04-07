@@ -409,23 +409,31 @@ def get_integrator_func(options, choice):
 #############################################################################################################################################
 
 ## Butcher tableaus, can be added to just make sure you correctly set N (e.g. Heun's method etc.)
-RK_tableaus =  {'1':[[0.0]],
-                '2':[[0.0],
-                     [2/3,  2/3]],
-                '3':[[0.0],
-                    [0.5,  0.5],
-                    [1.0, -1.0,   -2.0]],
-                '4':[[0.0],
-                    [0.5,  0.5],
-                    [0.5,  0.0,    0.5],
-                    [1.0,  0.0,    0.0,   1.0]],
+RK_tableaus =  {'1': [[0.0]],
+                '2': [[0.0],
+                      [2/3,  2/3]],
+                '3': [[0.0],
+                      [0.5,  0.5],
+                      [1.0, -1.0,   -2.0]],
+	            '23':[[0.5,  0.5],
+                      [0.75, 0,      0.75],
+                      [1.0,  2/9,    1/3,   4/9]],
+                '4': [[0.0],
+                      [0.5,  0.5],
+                      [0.5,  0.0,    0.5],
+                      [1.0,  0.0,    0.0,   1.0]],
                 }
 ## Bottom row of Butcher tableaus
-RK_k_factors = {'2':[1/4,    3/4],
-                '3':[1/6,    2/3,  1/6],
-                '4':[1/6,    1/3,  1/3,     1/6]
+RK_k_factors = {'2' :[1/4,    3/4],
+                '23':[7/24,   1/4,  1/3,     1/8],
+                '3' :[1/6,    2/3,  1/6],
+                '4' :[1/6,    1/3,  1/3,     1/6]
                 }
-RK_N_actual = {'2':2, '3':3, '4':4}
+## Number of fevals for each RK model (written like this for extensibility)
+RK_N_actual = {'2':2, '23':3, '3':3, '4':4}
+## Adaptive error coefficients for RK models
+RK_Error = {'23':[2/9, 1/3, 4/9,0],
+            '45':[]}
 ## Adams - Bashforth Coefficients
 AB_coeffs = {'1' : [       1.0],
              '2' : [  -0.5,1.5], 
@@ -503,6 +511,32 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
         titan.end_trigger = True
     titan.delta_t = titan.rk_adapt.step_size
     return np.reshape(titan.rk_adapt.y,[-1,13]), None
+
+def proj_area_adapt_wrapper(N, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    from scipy.integrate._ivp.rk import RungeKutta
+
+    ## Should firstly recover the current timestep projected area from aerothermo class
+    previous_areas = []
+    for _assembly in titan.assembly:
+        if not hasattr(_assembly.aerothermo,'proj_area'): _assembly.aerothermo.proj_area = 1
+        previous_areas.append(_assembly.aerothermo.proj_area)
+    ## Then we want to do get our derivatives based upon some RK model
+    dt = titan.delta_t
+    k_n = state_vectors_prior[-1] ## Via FSAL
+    for i_k in range(RK_N_actual[str(N)]):
+        k_state_vectors = np.array(state_vectors)
+        for i_coeff in range(i_k): k_state_vectors += RK_tableaus[str(N)][i_k][i_coeff] * dt * k_n[i_coeff]
+        if i_k==0:
+            d_dt_state_vectors, aero_states = state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt,k_state_vectors)
+        else: d_dt_state_vectors, _ = state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt,k_state_vectors)
+        k_n.append(np.array(d_dt_state_vectors))
+    rk_derivs = np.sum(RK_k_factors[str(N)] * k_n)
+    rk_errors = np.sum(RK_Error[str(N)] * k_n)
+    ## We can then get our candidate timesteps...
+    error_6DoF = 
+    error_3DoF
+
+    return new_state_vectors, k_n[0]
 
 
 def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):

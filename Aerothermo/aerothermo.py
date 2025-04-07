@@ -289,6 +289,70 @@ def backfaceculling(body, nodes, nodes_normal, free_vector, npix):
 
     return node_points
 
+def COG_subdivision(v0,v1,v2, COG, start, n, i = 1):
+
+    v0v1 = (v0 + v1) / 2.0
+    v0v2 = (v0 + v2) / 2.0
+    v1v2 = (v1 + v2) / 2.0
+
+    if i == n:
+
+        COG[start+0::4**n,:] = (v0v1 + v0v2 + v0)/3.0
+        COG[start+1::4**n,:] = (v0v1 + v1v2 + v1)/3.0
+        COG[start+2::4**n,:] = (v0v2 + v1v2 + v2)/3.0
+        COG[start+3::4**n,:] = (v0v1 + v0v2 + v1v2)/3.0
+
+        return start + 4
+
+    else:
+        start = COG_subdivision(v0v1,v0v2, v0, COG, start, n, i+1)
+        start = COG_subdivision(v0v1,v1, v1v2, COG, start, n, i+1)
+        start = COG_subdivision(v0v2,v1v2, v2, COG, start, n, i+1)
+        start = COG_subdivision(v0v1,v1v2, v0v2, COG, start, n, i+1)
+
+def edge_subdivision(v0,v1,v2, n):
+    # Each subdivision level divides the triangle into 4 parts with equal areas
+    # Function returns the number of triangles and the geometrical center of each generated triangle
+
+    if n == 0:
+        COG = (v0+v1+v2)/3.0
+
+    else:
+        COG = np.zeros((len(v0)*4**n,3))
+        COG_subdivision(v0,v1,v2,COG, 0, n)
+
+    return COG
+
+def compute_rays(_assembly, flow_direction,n):
+    flow_dirs, pfm = compute_per_facet_mach(_assembly,flow_direction)
+    _assembly.per_facet_mach = pfm
+    #Loop the components of each assembly
+    for obj in _assembly.objects:
+        p2 = np.intersect1d(p, obj.node_index)
+    mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
+    ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
+
+    COG = edge_subdivision(_assembly.mesh.v0, _assembly.mesh.v1, _assembly.mesh.v2, n)
+
+    ray_list = COG - 1E-4*flow_dirs  #flow_direction*3*_assembly.Lref
+    ray_directions = -flow_dirs
+    #ray_directions = np.tile(-flow_direction,len(ray_list))
+    ray_directions.shape = (-1,3)
+
+    index = ~ray.intersects_any(ray_origins = ray_list, ray_directions = ray_directions)
+    index.shape = (-1, 4**n)
+    index = np.sum(index, axis = 1)
+
+    _assembly.aerothermo.partial_factor = np.zeros(len(_assembly.mesh.facets)) + index/(4**n)
+
+    index = np.arange(len(_assembly.mesh.facets))[index != 0]
+
+    _assembly.proj_area = 0
+    for i_facet in index:
+        _assembly.proj_area+=abs(_assembly.mesh.facet_area[i_facet]*np.dot(_assembly.mesh.facet_normal[i_facet],flow_direction))
+
+    return index
+
 def compute_aerothermo(titan, options):
     """
     Fidelity selection for aerothermo computation
@@ -418,41 +482,6 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         Object of class Options
     """
 
-    def COG_subdivision(v0,v1,v2, COG, start, n, i = 1):
-
-        v0v1 = (v0 + v1) / 2.0
-        v0v2 = (v0 + v2) / 2.0
-        v1v2 = (v1 + v2) / 2.0
-
-        if i == n:
-
-            COG[start+0::4**n,:] = (v0v1 + v0v2 + v0)/3.0
-            COG[start+1::4**n,:] = (v0v1 + v1v2 + v1)/3.0
-            COG[start+2::4**n,:] = (v0v2 + v1v2 + v2)/3.0
-            COG[start+3::4**n,:] = (v0v1 + v0v2 + v1v2)/3.0
-
-            return start + 4
-
-        else:
-            start = COG_subdivision(v0v1,v0v2, v0, COG, start, n, i+1)
-            start = COG_subdivision(v0v1,v1, v1v2, COG, start, n, i+1)
-            start = COG_subdivision(v0v2,v1v2, v2, COG, start, n, i+1)
-            start = COG_subdivision(v0v1,v1v2, v0v2, COG, start, n, i+1)
-
-
-    def edge_subdivision(v0,v1,v2, n):
-    # Each subdivision level divides the triangle into 4 parts with equal areas
-    # Function returns the number of triangles and the geometrical center of each generated triangle
-
-        if n == 0:
-            COG = (v0+v1+v2)/3.0
-
-        else:
-            COG = np.zeros((len(v0)*4**n,3))
-            COG_subdivision(v0,v1,v2,COG, 0, n)
-
-        return COG
-
     #Number of subdivisions
     n = options.aerothermo.subdivision_triangle
 
@@ -463,32 +492,7 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
-        _assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
-        #TODO change to facets
-        #Check the wet facets/vertex
-        p = backfaceculling(_assembly, _assembly.mesh.nodes, _assembly.mesh.nodes_normal, flow_direction , 2000)
-        
-        #Loop the components of each assembly
-        for obj in _assembly.objects:
-            p2 = np.intersect1d(p, obj.node_index)
-        mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
-        ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
-
-        COG = edge_subdivision(_assembly.mesh.v0, _assembly.mesh.v1, _assembly.mesh.v2, n)
-
-        ray_list = COG - 1E-4*flow_direction  #flow_direction*3*_assembly.Lref
-
-        ray_directions = np.tile(-flow_direction,len(ray_list))
-        ray_directions.shape = (-1,3)
-
-        index = ~ray.intersects_any(ray_origins = ray_list, ray_directions = ray_directions)
-        index.shape = (-1, 4**n)
-        index = np.sum(index, axis = 1)
-
-        _assembly.aerothermo.partial_factor = np.zeros(len(_assembly.mesh.facets)) + index/(4**n)
-
-        index = np.arange(len(_assembly.mesh.facets))[index != 0]
-
+        index = compute_rays(_assembly,flow_direction,n)
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
 
@@ -1160,3 +1164,19 @@ def compute_per_facet_mach(assembly,flow_direction):
     bridging = 0.5*(special.erf(free.mach+mach_addition-1)+1)
     mach_resultant += bridging*mach_addition
     return mach_resultant
+
+def compute_per_facet_flow_dir(assembly,flow_direction):
+    # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
+    # This models a dissipative effect to rotation to prevent unbounded spinning.
+    free = assembly.freestream
+    velocity_resultant = free.mach*free.sound*np.tile(flow_direction,len(assembly.mesh.facet_area),1)
+    ### Function currently disabled due to instability at low Mach, will look into in future
+    angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
+
+    for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
+        velocity_resultant[i_centroid,:] -= np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
+        
+    mach_resultant = np.linalg.norm(velocity_resultant,axis=0)/free.sound
+    for i_v, v in enumerate(velocity_resultant):
+        velocity_resultant[i_v,:] = v / np.linalg.norm(v)
+    return velocity_resultant,mach_resultant
