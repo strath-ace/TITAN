@@ -31,6 +31,8 @@ from scipy.spatial import KDTree
 from Material import material as Material
 import pandas as pd
 
+conda_preamble = ['conda', 'run', '-n', 'pato'] # Better ideally to separate pato env from TITAN?
+
 def compute_thermal(obj, time, iteration, options, hf, Tinf):
 
     """
@@ -165,7 +167,7 @@ def write_All_run_init(options, object_id):
         f.write('cd ' + options.output_folder + '/PATO_'+str(object_id)+' \n')
         f.write('cp -r origin.0 0 \n')
         f.write('cd verification/unstructured_gmsh/ \n')
-        f.write('ln -s ' + path + '/' + options.output_folder + 'PATO_'+str(object_id)+'/mesh/mesh.msh \n')
+        f.write('ln -s ' + options.output_folder + '/PATO_'+str(object_id)+'/mesh/mesh.msh \n')
         f.write('cd ../.. \n')
         f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
         f.write('mv constant/polyMesh constant/subMat1 \n')
@@ -252,7 +254,7 @@ def write_All_run(options, obj, time, iteration):
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+' -useTimeName\n')
-        #f.write('cp qconv/BC* qconv-bkp/ \n')
+        f.write('cp qconv/BC* qconv-bkp/ \n')
         f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         #f.write('rm mesh/*meshb \n')
@@ -951,7 +953,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
 
     if ((time).is_integer()): time = int(time)  
 
-    with open(options.output_folder + 'PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:
+    with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:
 
         if options.pato.Ta_bc == "qconv":
 
@@ -1402,7 +1404,12 @@ def initialize(options, obj):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init', str(n_proc)], text = True)
+
+    pato_test = subprocess.run(conda_preamble+['echo', 'PATO environment working!'])
+    if pato_test.returncode>0: raise Exception('Error could not find PATO environment! Check you have a conda env named \'pato\'')
+    print('Running PATO initialisation...')
+
+    subprocess.run(conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun_init', str(n_proc)], text = True)
     #subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init'], text = True)
 
 def run_PATO(options, object_id):
@@ -1416,7 +1423,12 @@ def run_PATO(options, object_id):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)], text = True)
+    cmd = ' '.join(conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)])
+    # for arg in conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)]: 
+    #     cmd+=arg
+    #     cmd+=' '
+    print(cmd)
+    subprocess.run(cmd, text = True,shell=True)
     #subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun'], text = True)
 
 def postprocess_PATO_solution(options, obj, time_to_read):
@@ -1430,7 +1442,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 
     if options.pato.Ta_bc == 'ablation': postprocess_mass_inertia(obj, options, time_to_read)
 
-    path = options.output_folder+"PATO_"+str(obj.global_ID)+"/"
+    path = options.output_folder+"/PATO_"+str(obj.global_ID)+"/"
 
     #iteration_to_read = int(round((iteration+1)*options.dynamics.time_step/options.pato.time_step))
 
@@ -1487,7 +1499,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 def postprocess_mass_inertia(obj, options, time_to_read):
 
     # Define the file path
-    file_path = options.output_folder + "PATO_" + str(obj.global_ID) + "/processor0/" + str(time_to_read) + "/subMat1/uniform/massFile" 
+    file_path = options.output_folder + "/PATO_" + str(obj.global_ID) + "/processor0/" + str(time_to_read) + "/subMat1/uniform/massFile" 
     #file_path = options.output_folder + "PATO_" + str(obj.global_ID) + "/" + str(time_to_read) + "/subMat1/uniform/massFile"    
     # Initialize variables to store mass and density
     new_mass = None

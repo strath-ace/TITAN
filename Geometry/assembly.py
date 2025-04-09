@@ -96,6 +96,9 @@ class Assembly_list():
         #: [float] simulation physical time 
         self.time = 0
 
+        #: [float] nominal time step
+        self.delta_t = 1.0
+
         #: [int] Iteration
         self.iter = 0
 
@@ -152,6 +155,7 @@ class Assembly_list():
             if len(connectivity_assembly) != 0:
                 self.assembly[-1].connectivity = connectivity[(np.sum(connectivity_assembly, axis = 1) >= 2)]
             else: self.assembly[-1].connectivity = []
+        if options is not None: self.delta_t = options.dynamics.time_step
 
 class Dynamics():
     """ Class Dynamics

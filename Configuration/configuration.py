@@ -121,11 +121,37 @@ class Dynamics():
         #: [seconds] Value of the time-step.
         self.time_step = time_step
 
-        #: [str] Name of the propagator to be used in the dynamics (options - euler).
+        #: [str] Name of the propagator to be used in the dynamics (options - euler, ).
+        if propagator=='help':
+            print('Available options for propagator are below↓')
+            print('''
+            ## Current implented time integrators (define in cfg under [Time] as Time_integration='')...
+
+            ## Constant time-step methods  
+            ## - euler : Euler method
+            ## - bwd   : Backward difference, using information from 1 previous time step (2nd order)
+            ## - AB[N] : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
+            ## - RK[N] : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
+                
+            ## Adaptive integration methods  
+            ## - adapt_AB[N_AB]_RK[N_RK] : High angular accelerations trigger a switch from AB[N] to a determined RK method up to order N
+
+            ## Adaptive time-step methods (via scipy.integrate)
+            ## - RK23    : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
+            ## - RK45    : Time stepping according to 5th order Runge-Kutta with 4th order error control
+            ## - DOP853  : The DOP8(5,3) adaptive algorithm 
+            ## See docs.scipy.org/doc/scipy/reference/integrate.html for more info
+            
+            ## Legacy Dynamics Implementation (deprecated)
+            ## legacy_euler : Prior Euler method
+            ## legacy_bwd   : Prior backward difference method for position updates
+            ''')
+            propagator = 'euler'
+
         self.propagator = propagator
 
         #: [callable] The function that is called for propagation, 
-        self.prop_func = propagation.explicit_euler_propagate
+        self.prop_func = propagation.explicit_euler
         # ^ of signature prop_func(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options) -> new_state_vectors, new_derivatives
         
         #: [int] Number of previous states to hold
@@ -491,8 +517,8 @@ class Options():
             for assembly in titan.assembly:
                 assembly.collision = None
         if hasattr(titan, 'rk_adapt'):
-            titan.rk_params[0] = titan.time
-            titan.rk_params[1] = titan.rk_adapt.y
+            titan.rk_params['time'] = titan.time
+            titan.rk_params['state'] = titan.rk_adapt.y
             del titan.rk_fun
             del titan.rk_adapt
 
@@ -886,6 +912,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
     if 'adapt' in options.dynamics.propagator.lower(): 
         options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
+        options.dynamics.tumbling_criterion = get_config_value(configParser, 0.0, 'Time', 'Tumble_threshold', 'float')
 
     #Read Thermal options
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
