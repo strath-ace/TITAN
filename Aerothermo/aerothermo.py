@@ -324,11 +324,11 @@ def edge_subdivision(v0,v1,v2, n):
     return COG
 
 def compute_rays(_assembly, flow_direction,n):
-    flow_dirs, pfm = compute_per_facet_mach(_assembly,flow_direction)
-    _assembly.per_facet_mach = pfm
+    flow_dirs, pfm = compute_per_facet_flow_dir(_assembly,flow_direction)
+    _assembly.freestream.per_facet_mach = pfm
     #Loop the components of each assembly
-    for obj in _assembly.objects:
-        p2 = np.intersect1d(p, obj.node_index)
+    # for obj in _assembly.objects:
+    #     p2 = np.intersect1d(p, obj.node_index)
     mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
     ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
 
@@ -347,9 +347,9 @@ def compute_rays(_assembly, flow_direction,n):
 
     index = np.arange(len(_assembly.mesh.facets))[index != 0]
 
-    _assembly.proj_area = 0
+    _assembly.aerothermo.proj_area = 0
     for i_facet in index:
-        _assembly.proj_area+=abs(_assembly.mesh.facet_area[i_facet]*np.dot(_assembly.mesh.facet_normal[i_facet],flow_direction))
+        _assembly.aerothermo.proj_area+=abs(_assembly.mesh.facet_area[i_facet]*np.dot(_assembly.mesh.facet_normal[i_facet],flow_direction))
 
     return index
 
@@ -1169,14 +1169,14 @@ def compute_per_facet_flow_dir(assembly,flow_direction):
     # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
     # This models a dissipative effect to rotation to prevent unbounded spinning.
     free = assembly.freestream
-    velocity_resultant = free.mach*free.sound*np.tile(flow_direction,len(assembly.mesh.facet_area),1)
+    velocity_resultant = free.mach*free.sound*np.tile(flow_direction,[len(assembly.mesh.facet_area),1])
     ### Function currently disabled due to instability at low Mach, will look into in future
-    angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
+    # angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
 
-    for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
-        velocity_resultant[i_centroid,:] -= np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
+    # for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
+    #     velocity_resultant[i_centroid,:] -= np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
         
-    mach_resultant = np.linalg.norm(velocity_resultant,axis=0)/free.sound
+    mach_resultant = np.linalg.norm(velocity_resultant,axis=1)/free.sound
     for i_v, v in enumerate(velocity_resultant):
         velocity_resultant[i_v,:] = v / np.linalg.norm(v)
     return velocity_resultant,mach_resultant

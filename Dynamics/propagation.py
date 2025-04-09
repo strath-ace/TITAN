@@ -10,7 +10,7 @@ from scipy.stats import uniform_direction
 from functools import partial
 from Output import output
 from warnings import warn
-
+from copy import copy
 
 ## Current implented integrators (define in cfg under [Time] as Time_integration='')...
 
@@ -82,6 +82,8 @@ def propagate(titan, options):
     
 
 def state_equation(titan,options,time,state_vectors):
+    if not hasattr(titan,'nfeval'): titan.nfeval = 1
+    else: titan.nfeval +=1
     # This state equation will for each assembly compute the rate of change of a state vector (at that state),
     
     # State vectors can be passed flattened, need to account for this
@@ -91,6 +93,11 @@ def state_equation(titan,options,time,state_vectors):
         reshape_flat = True
         state_vectors = np.reshape(state_vectors,[-1,13])
 
+    # n_states = np.shape(state_vectors)[0]
+    # from scipy.stats import uniform_direction
+    # quat = uniform_direction(4).rvs(n_states)
+    # state_vectors[:,6:10] = quat
+
     # First we communicate the state vector to assembly attributes
     for _assembly, state_vector in zip(titan.assembly,state_vectors):
         update_dynamic_attributes(_assembly,state_vector,options)
@@ -98,7 +105,7 @@ def state_equation(titan,options,time,state_vectors):
     # Then business as usual for computing forces...
     
     aerothermo.compute_aerothermo(titan, options)
-    aero_states = [_assembly.aerothermo.copy() for _assembly in titan.assembly]
+    aero_states = [copy(_assembly.aerothermo) for _assembly in titan.assembly]
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
 
@@ -328,6 +335,9 @@ def append_derivatives(titan,options,new_derivs):
 def get_integrator_func(options, choice):
 
     print('Selected...')
+    if 'area' in choice:
+        options.dynamics.n_derivs_to_hold = 1
+        return partial(proj_area_adapt_wrapper,23)
     if 'legacy' in choice:
         print('...legacy propagation, note these methods are deprecated.')
         return None
@@ -434,6 +444,11 @@ RK_N_actual = {'2':2, '23':3, '3':3, '4':4}
 ## Adaptive error coefficients for RK models
 RK_Error = {'23':[2/9, 1/3, 4/9,0],
             '45':[]}
+## Adaptive error orders for RK models
+RK_order = {'23':2}
+## Adaptive tolerances
+Atol = 1e-3
+Rtol = 0.1
 ## Adams - Bashforth Coefficients
 AB_coeffs = {'1' : [       1.0],
              '2' : [  -0.5,1.5], 
@@ -453,7 +468,7 @@ def explicit_euler(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,
         new_vector = []
         new_vector = np.array(state_vectors[i_assem])+dt*np.array(d_dt_state_vectors[i_assem])
         new_state_vectors.append(new_vector)
-        _assembly.aerothermo = aero_states[i_assem].copy()
+        _assembly.aerothermo = copy(aero_states[i_assem])
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_bwd_diff(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
@@ -466,7 +481,7 @@ def explicit_bwd_diff(state_vectors,state_vectors_prior,derivatives_prior,dt,tit
         for i_assem, _assembly in enumerate(titan.assembly):
             new_vector = np.array(state_vectors_prior[0][i_assem])+2*dt*np.array(d_dt_state_vectors[i_assem])
             new_state_vectors.append(new_vector)
-            _assembly.aerothermo = aero_states[i_assem].copy()
+            _assembly.aerothermo = copy(aero_states[i_assem])
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_adams_bashforth_n(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
@@ -481,12 +496,12 @@ def explicit_adams_bashforth_n(N,state_vectors,state_vectors_prior,derivatives_p
         for i_prior in range(N_derivs):
             new_vector += dt*AB_coeffs[str(N_derivs)][i_prior] * np.array(derivatives_prior[i_prior][i_assem])
         new_state_vectors.append(new_vector)
-        _assembly.aerothermo = aero_states[i_assem].copy()
+        _assembly.aerothermo = copy(aero_states[i_assem])
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     if not hasattr(titan,'rk_params'): recompute_params = True
-    elif not np.shape(titan.rk_params[1])==np.shape(np.array(state_vectors).flatten()): recompute_params = True
+    elif not np.shape(titan.rk_params['state'])==np.shape(np.array(state_vectors).flatten()): recompute_params = True
     else: recompute_params = False
     if recompute_params: 
         if titan.time>0: titan.time-=dt
@@ -495,8 +510,10 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
                            't_end'   : titan.time + dt*options.iters, 
                            't_first' : 0.01*dt,  # Small initial timestep to combat discontinuities at fragmentation
                            't_max'   : dt}
-        
-    if not hasattr(titan, 'rk_fun')   or recompute_params: titan.rk_fun=partial(state_equation,titan,options)
+
+    if not hasattr(titan, 'rk_fun')   or recompute_params: 
+        def rk_wrapper(titan,options,time,vector): return state_equation(titan,options,time,vector)[0]
+        titan.rk_fun=partial(rk_wrapper,titan,options)
     if not hasattr(titan, 'rk_adapt') or recompute_params: titan.rk_adapt=algorithm(fun=titan.rk_fun,
                                                                                     t0=titan.rk_params['t_first'],
                                                                                     y0=titan.rk_params['state'],
@@ -513,30 +530,75 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
     return np.reshape(titan.rk_adapt.y,[-1,13]), None
 
 def proj_area_adapt_wrapper(N, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
-    from scipy.integrate._ivp.rk import RungeKutta
-
-    ## Should firstly recover the current timestep projected area from aerothermo class
-    previous_areas = []
+    if titan.post_event_iter==0:
+        new_state_vectors, d_dt_state_vectors = explicit_euler(state_vectors,state_vectors_prior,
+                                                                         derivatives_prior,dt,titan,options)
+        titan.rk_params = 'Pip'
+        return new_state_vectors, d_dt_state_vectors
+    state_vectors = np.array(state_vectors)
+    ## Should first recover the current timestep projected area from aerothermo class
+    area_divergence = []
     for _assembly in titan.assembly:
         if not hasattr(_assembly.aerothermo,'proj_area'): _assembly.aerothermo.proj_area = 1
-        previous_areas.append(_assembly.aerothermo.proj_area)
+        area_divergence.append(1/_assembly.aerothermo.proj_area)
     ## Then we want to do get our derivatives based upon some RK model
-    dt = titan.delta_t
-    k_n = state_vectors_prior[-1] ## Via FSAL
+    dt = 0.001*titan.delta_t if titan.iter==0 else titan.delta_t
+    k_n = [np.array(derivatives_prior[-1])] ## Via FSAL
     for i_k in range(RK_N_actual[str(N)]):
         k_state_vectors = np.array(state_vectors)
         for i_coeff in range(i_k): k_state_vectors += RK_tableaus[str(N)][i_k][i_coeff] * dt * k_n[i_coeff]
         if i_k==0:
             d_dt_state_vectors, aero_states = state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt,k_state_vectors)
-        else: d_dt_state_vectors, _ = state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt,k_state_vectors)
+        else: d_dt_state_vectors, final_states = state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt,k_state_vectors)
         k_n.append(np.array(d_dt_state_vectors))
-    rk_derivs = np.sum(RK_k_factors[str(N)] * k_n)
-    rk_errors = np.sum(RK_Error[str(N)] * k_n)
-    ## We can then get our candidate timesteps...
-    error_6DoF = 
-    error_3DoF
 
-    return new_state_vectors, k_n[0]
+    derivs_high_order = np.zeros_like(derivatives_prior[-1])
+    derivs_low_order  = np.zeros_like(derivatives_prior[-1])
+    for i_factor, factor in enumerate(RK_k_factors[str(N)]):
+        derivs_high_order += factor*k_n[i_factor]
+        derivs_low_order  += RK_Error[str(N)][i_factor]*k_n[i_factor]
+    new_state_vectors = state_vectors+dt*derivs_high_order
+    new_derivatives = derivs_high_order
+
+    ## Afterwards we can compare the errors of 3dof and 6dof propagation
+    error_6DoF = np.max(abs(derivs_high_order-derivs_low_order),axis=0)
+    error_3DoF = np.max(abs(derivs_high_order[:,:6]-derivs_low_order[:,:6]),axis=0)
+
+    magnitude_previous = np.max(abs(state_vectors),axis=0)
+    magnitude_current = np.max(abs(new_state_vectors),axis=0)
+    
+    tol_6dof = Atol+Rtol*dt*np.max([magnitude_current,magnitude_previous],axis=0)
+    tol_3dof = Atol+Rtol*dt*np.max([magnitude_previous[:6],magnitude_current[:6]],axis=0)
+
+    scaled_E_6dof = np.linalg.norm(error_6DoF/tol_6dof)
+    scaled_E_3dof = np.linalg.norm(error_3DoF/tol_3dof)
+    print('Errors of {} 6Dof, {} 3Dof'.format(scaled_E_6dof,scaled_E_3dof))
+    ## Finally we can recover our candidate step sizes
+    factor_3dof = 0.9*(1/scaled_E_6dof)**(1/(RK_order[str(N)]+1))
+    factor_6dof = 0.9*(1/scaled_E_3dof)**(1/(RK_order[str(N)]+1))
+    # h_6dof = dt*0.9*(1/scaled_E_6dof)**(1/(RK_order[str(N)]+1))
+    # h_3dof = dt*0.9*(1/scaled_E_3dof)**(1/(RK_order[str(N)]+1))
+    print('Factors are 6Dof = {}, 3Dof = {}'.format(factor_6dof,factor_3dof))
+    ## Now to decide which one to use, compare the rate of change of projected areas...
+    high_factor = max(factor_6dof,factor_3dof)
+    low_factor = min(factor_6dof,factor_3dof)
+    for i_area, aero in enumerate(final_states):
+        area_divergence[i_area]=abs(area_divergence[i_area]*aero.proj_area-1)
+    ## "Area divergence" represents the level of change in projected area the flow "sees", 0 is no change, higher values are bigger changes
+    print('AD of {}'.format(area_divergence))
+    AD = max(area_divergence)
+    threshold = 0.0
+    k=5.0
+    ## For a high area divergence we need to accurately resolve the attitude motion
+    bridged_h = high_factor*np.exp(k*(threshold-AD))
+    print('Bridged dt of {}'.format(bridged_h))
+    factor = min(high_factor,max(bridged_h,low_factor,0.2),10)
+    titan.delta_t = min(titan.delta_t*factor,options.dynamics.time_step)
+    print('Factor {} gives a dt of {}'.format(factor,titan.delta_t))
+    new_state_vectors = state_vectors+titan.delta_t*derivs_high_order
+    #if AD<threshold: new_state_vectors[:,:6] = state_vectors[:,:6]+titan.delta_t*k_n[0][:,:6]
+    for i_assem, _assembly in enumerate(titan.assembly): _assembly.aerothermo = aero_states[i_assem]
+    return new_state_vectors, new_derivatives
 
 
 def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):

@@ -99,7 +99,7 @@ def loop(options = [], titan = []):
 
         output.generate_surface_solution(titan = titan, options = options)
         output.iteration(titan = titan, options = options)
-
+        if titan.iter>0: print('Total of {} flow solves'.format(titan.nfeval))
 
         if options.dynamic_plots:
             for _assembly in titan.assembly: plot = dynamic_plots.update_plot(_assembly, plot, titan.time)
@@ -136,6 +136,7 @@ def main(filename = "", postprocess = "", filter_name = None):
     if not postprocess:
         loop(options, titan)
         print("Finished simulation")
+        print(titan.nfeval)
         return options, titan
 
     #Postprocess of the simulated solution to pass from Body-frame
