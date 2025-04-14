@@ -31,15 +31,17 @@ from Geometry.tetra import inertia_tetra
 import requests
 
 def compute_thermal(titan, options):
-
-    if options.thermal.ablation_mode == "tetra":
-        compute_thermal_tetra(titan = titan, options = options)
-    elif options.thermal.ablation_mode == "0d":
-        compute_thermal_0D(titan = titan, options = options)
-    elif options.thermal.ablation_mode == "pato":
-        compute_thermal_PATO(titan = titan, options = options)
-    else:
-        raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
+    thermal_delta_t = titan.time - options.thermal.prev_thermal_time
+    if thermal_delta_t>=options.thermal.time_fidelity: 
+        if options.thermal.ablation_mode == "tetra":
+            compute_thermal_tetra(titan = titan, options = options)
+        elif options.thermal.ablation_mode == "0d":
+            compute_thermal_0D(titan = titan, options = options)
+        elif options.thermal.ablation_mode == "pato":
+            compute_thermal_PATO(titan = titan, options = options)
+        else:
+            raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
+        options.thermal.prev_thermal_time = round(titan.time,5)
 
 def compute_thermal_0D(titan, options):
 
@@ -257,7 +259,10 @@ def compute_thermal_PATO(titan, options):
                 rhoe = assembly.aerothermo.rhoe[obj.facet_index]
                 ue = assembly.aerothermo.ue[obj.facet_index]
                 pw = assembly.aerothermo.pressure[obj.facet_index]
-                pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
+                print('##### PATO from {} to {} (dt of {})'.format(options.thermal.prev_thermal_time,
+                                                                   titan.time,
+                                                                   round(titan.time-options.thermal.prev_thermal_time,5)))
+                pato.compute_thermal(obj, options.thermal.prev_thermal_time, titan.time, titan.iter, options, hf, Tinf)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
 
                 if options.pato.Ta_bc == 'ablation':

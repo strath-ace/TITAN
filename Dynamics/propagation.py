@@ -79,6 +79,7 @@ def propagate(titan, options):
     else: titan.delta_t = time_step
     
     titan.time += time_step
+    titan.time = round(titan.time,5)
     
 
 def state_equation(titan,options,time,state_vectors):
@@ -508,7 +509,7 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
         titan.rk_params = {'time'    : titan.time, 
                            'state'   : np.array(state_vectors).flatten(),
                            't_end'   : titan.time + dt*options.iters, 
-                           't_first' : 0.01*dt,  # Small initial timestep to combat discontinuities at fragmentation
+                           't_first' : dt,  # Small initial timestep to combat discontinuities at fragmentation
                            't_max'   : dt}
 
     if not hasattr(titan, 'rk_fun')   or recompute_params: 

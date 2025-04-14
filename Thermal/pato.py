@@ -33,7 +33,7 @@ import pandas as pd
 
 conda_preamble = ['conda', 'run', '-n', 'pato'] # Better ideally to separate pato env from TITAN?
 
-def compute_thermal(obj, time, iteration, options, hf, Tinf):
+def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf):
 
     """
     Compute the aerothermodynamic properties using the CFD software
@@ -45,13 +45,22 @@ def compute_thermal(obj, time, iteration, options, hf, Tinf):
     options: Options
         Object of class Options
     """
-    time_to_postprocess = setup_PATO_simulation(obj, time, iteration, options, hf, Tinf)
+    start_time = round(start_time,5)
+    end_time = round(end_time, 5)
+    time_step = round(end_time - start_time,5)
+    if not hasattr(options.pato, 'prev_dt'): options.pato.prev_dt = time_step
+    
+    print('##### PATO from {} to {} (dt of {})'.format(start_time,
+                                                       end_time,
+                                                       time_step))
 
+    time_to_postprocess = setup_PATO_simulation(obj, start_time, time_step, iteration, options, hf, Tinf)
     run_PATO(options, obj.global_ID)
 
     postprocess_PATO_solution(options, obj, time_to_postprocess)
+    options.pato.prev_dt = time_step
 
-def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
+def setup_PATO_simulation(obj, time, time_step, iteration, options, hf, Tinf):
     """
     Sets up the PATO simulation - creates PATO simulation folders and required input files
 
@@ -61,8 +70,8 @@ def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
     """
 
     write_PATO_BC(options, obj, time, hf, Tinf)
-    time_to_postprocess = write_All_run(options, obj, time - options.dynamics.time_step, iteration)
-    write_system_folder(options, obj.global_ID, time - options.dynamics.time_step)
+    time_to_postprocess = write_All_run(options, obj, time, time_step, iteration)
+    write_system_folder(options, obj.global_ID, time, time_step)
 
     return time_to_postprocess
 
@@ -185,7 +194,7 @@ def write_All_run_init(options, object_id):
 
     pass
 
-def write_All_run(options, obj, time, iteration):
+def write_All_run(options, obj, time, time_step, iteration):
     """
     Write the Allrun PATO file
 
@@ -199,11 +208,11 @@ def write_All_run(options, obj, time, iteration):
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    end_time = time + options.dynamics.time_step
-    start_time = time
+    end_time = round(time + time_step, 5)
+    start_time = round(time, 5)
 
-    time_step_to_delete = time - options.dynamics.time_step
-    iteration_to_delete = int((iteration-1)*options.dynamics.time_step/options.pato.time_step)
+    time_step_to_delete = round(start_time - options.pato.prev_dt, 5)
+    iteration_to_delete = int((iteration-1)*time_step/options.pato.time_step)
 
     print('copying BC:', end_time, ' - ', start_time)
 
@@ -241,7 +250,7 @@ def write_All_run(options, obj, time, iteration):
         f.write('    sed_cmd=sed\n')
         f.write('fi\n')
         f.write('$sed_cmd -i "s/numberOfSubdomains \+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
-        f.write('cp qconv/BC_'+str(end_time) + ' qconv/BC_' + str(start_time) + '\n')
+        f.write('cp qconv/BC_'+str(start_time) + ' qconv/BC_' + str(end_time) + '\n')
         f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
         f.write('TIME_STEP='+str(end_time)+' \n')
         f.write('MAT_NAME=subMat1 \n')
@@ -1005,7 +1014,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
 
     pass
 
-def write_system_folder(options, object_id, time):
+def write_system_folder(options, object_id, time, time_step):
     """
     Write the system/ PATO folder
 
@@ -1017,9 +1026,10 @@ def write_system_folder(options, object_id, time):
         Object of class Options
     """
     start_time = time
-    end_time = time + options.dynamics.time_step
-    wrt_interval = end_time - start_time
-    pato_time_step = options.pato.time_step
+    end_time = time+time_step
+    wrt_interval = time_step
+    pato_time_step = round(time_step*options.pato.time_step,6)
+    print('#### PATO STEP {} ####'.format(pato_time_step))
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/system/controlDict', 'w') as f:
 
@@ -1064,17 +1074,17 @@ def write_system_folder(options, object_id, time):
         f.write('\n')
         f.write('timeFormat      general;\n')
         f.write('\n')
-        f.write('timePrecision   6;\n')
+        f.write('timePrecision   7;\n')
         f.write('\n')
         f.write('graphFormat     xmgr;\n')
         f.write('\n')
         f.write('runTimeModifiable yes;\n')
         f.write('\n')
-        f.write('adjustTimeStep  yes; // you can turn it off but its going to be very slow\n')
+        f.write('adjustTimeStep  no; // you can turn it off but its going to be very slow\n')
         f.write('\n')
         f.write('maxCo           10;\n')
         f.write('\n')
-        f.write('maxDeltaT   0.1; // reduce it if the surface temperature starts oscilliating\n')
+        f.write('maxDeltaT   '+str(pato_time_step)+'; // reduce it if the surface temperature starts oscilliating\n')
         f.write('\n')
         f.write('minDeltaT   1e-6;\n')
         f.write('\n')
@@ -1399,7 +1409,7 @@ def initialize(options, obj):
     write_constant_folder(options, object_id)
     write_origin_folder(options, obj)
     write_material_properties(options, obj)
-    write_system_folder(options, object_id, 0)
+    write_system_folder(options, object_id, 0, options.dynamics.time_step)
 
     n_proc = options.pato.n_cores
 

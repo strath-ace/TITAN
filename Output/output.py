@@ -193,7 +193,7 @@ def write_to_series(data_array,columns,filename):
     doHeader = False if os.path.exists(filename) else True
     data.to_csv(filename,mode='a',index=False,header=doHeader)
 
-def generate_surface_solution(titan, options):
+def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solution'):
     points = np.array([])
     facets = np.array([])
     pressure = np.array([])

@@ -239,6 +239,10 @@ class Thermal():
 
         self.post_fragment_tetra_ablation = False
 
+        self.time_fidelity = 1.0
+
+        self.prev_thermal_time = 0.0
+
 
 class PATO():
     def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = False):
@@ -918,7 +922,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
     if options.thermal.ablation:
         options.thermal.ablation_mode  = get_config_value(configParser, "0D",  'Thermal', 'Ablation_mode', 'str').lower()
-        
+        options.thermal.time_fidelity  = get_config_value(configParser, options.thermal.time_fidelity,'Thermal', 'Time_fidelity','float')
         if (options.thermal.ablation_mode == "pato"):
             options.pato.flag = True
             options.pato.Ta_bc  = get_config_value(configParser, options.pato.Ta_bc,  'PATO', 'PATO_mode', 'str').lower()
