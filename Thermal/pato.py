@@ -278,9 +278,9 @@ def write_All_run(options, obj, time, time_step, iteration):
                 f.write('rm -rf processor'+str(n)+'/restart/* \n')
                 f.write('cp -r  processor'+str(n)+'/'+str(start_time)+'/ processor'+str(n)+'/restart/ \n')
                 f.write('cp -r  processor'+str(n)+'/'+str(end_time)+'/ processor'+str(n)+'/restart/ \n')
-                f.write('mv  processor'+str(n)+'/VTK/proce* processor'+str(n)+'/restart/ \n')
+                f.write('cp  processor'+str(n)+'/VTK/proce* processor'+str(n)+'/restart/ \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-            f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
         #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
         #if time_step_to_delete/options.dynamics.time_step != options.save_freq:
             #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
@@ -1028,7 +1028,7 @@ def write_system_folder(options, object_id, time, time_step):
     start_time = time
     end_time = time+time_step
     wrt_interval = time_step
-    pato_time_step = round(time_step*options.pato.time_step,6)
+    pato_time_step = options.pato.time_step#round(time_step*options.pato.time_step,6)
     print('#### PATO STEP {} ####'.format(pato_time_step))
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/system/controlDict', 'w') as f:
@@ -1458,7 +1458,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 
     n_proc = options.pato.n_cores
 
-    solution = 'surface'
+    solution = 'volume'
 
     if solution == 'surface':
         data = retrieve_surface_vtk_data(n_proc, path, time_to_read)
@@ -1668,6 +1668,14 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
     appendFilter.SetMergePoints(True)
     appendFilter.Update()
     data = appendFilter.GetOutput()
+
+    writer = vtk.vtkUnstructuredGridWriter()
+    pato_output_folder = path + '/Output'
+    if not os.path.exists(pato_output_folder): os.mkdir(pato_output_folder)
+    time_to_write = str(float(time_to_read)).replace('.','').rjust(5,'0')
+    writer.SetFileName(pato_output_folder+'/volume_solution_'+time_to_write+'.vtk')
+    writer.SetInputData(data)
+    writer.Write()
 
     # extract surface data
     extractSurface=vtk.vtkGeometryFilter()
