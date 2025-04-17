@@ -90,6 +90,8 @@ def generate_BL_CFD(j, options, num_obj, bloom, input_grid, output_grid):
 
 def generate_PATO_mesh(options, object_id, bloom):
 
+    print('Generating PATO mesh ...')
+
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     path_folder = '/PATO_'+str(object_id)+'/mesh/'

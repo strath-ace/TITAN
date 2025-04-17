@@ -39,7 +39,6 @@ from Aerothermo import bloom
 from Thermal import pato
 from Geometry import gmsh_api as GMSH
 
-
 class Collision_options():
 
     def __init__(self, post_fragmentation_iters = 0,
@@ -126,11 +125,37 @@ class Dynamics():
         #: [seconds] Value of the time-step.
         self.time_step = time_step
 
-        #: [str] Name of the propagator to be used in the dynamics (options - euler).
+        #: [str] Name of the propagator to be used in the dynamics (options - euler, ).
+        if propagator=='help':
+            print('Available options for propagator are below↓')
+            print('''
+            ## Current implented time integrators (define in cfg under [Time] as Time_integration='')...
+
+            ## Constant time-step methods  
+            ## - euler : Euler method
+            ## - bwd   : Backward difference, using information from 1 previous time step (2nd order)
+            ## - AB[N] : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
+            ## - RK[N] : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
+                
+            ## Adaptive integration methods  
+            ## - adapt_AB[N_AB]_RK[N_RK] : High angular accelerations trigger a switch from AB[N] to a determined RK method up to order N
+
+            ## Adaptive time-step methods (via scipy.integrate)
+            ## - RK23    : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
+            ## - RK45    : Time stepping according to 5th order Runge-Kutta with 4th order error control
+            ## - DOP853  : The DOP8(5,3) adaptive algorithm 
+            ## See docs.scipy.org/doc/scipy/reference/integrate.html for more info
+            
+            ## Legacy Dynamics Implementation (deprecated)
+            ## legacy_euler : Prior Euler method
+            ## legacy_bwd   : Prior backward difference method for position updates
+            ''')
+            propagator = 'euler'
+
         self.propagator = propagator
 
         #: [callable] The function that is called for propagation, 
-        self.prop_func = propagation.explicit_euler_propagate
+        self.prop_func = propagation.explicit_euler
         # ^ of signature prop_func(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options) -> new_state_vectors, new_derivatives
         
         #: [int] Number of previous states to hold
@@ -221,9 +246,13 @@ class Thermal():
 
         self.post_fragment_tetra_ablation = False
 
+        self.time_fidelity = 1.0
+
+        self.prev_thermal_time = 0.0
+
 
 class PATO():
-    def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1):
+    def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = False):
 
 
         #: [boolean] Flag to perform PATO simulation
@@ -240,6 +269,9 @@ class PATO():
 
         #Fraction of the melted material that is stripped away
         self.fstrip = fstrip
+
+        #: [boolean] Flag to model heat conduction between objects
+        self.conduction_flag = conduction_flag
 
 
 class Radiation():
@@ -473,6 +505,7 @@ class Options():
         Path(self.output_folder+'/Restart/').mkdir(parents=True, exist_ok=True)
         Path(self.output_folder+'/Surface_solution/').mkdir(parents=True, exist_ok=True)
         Path(self.output_folder+'/Volume/').mkdir(parents=True, exist_ok=True)
+        Path(self.output_folder+'/Restart/').mkdir(parents=True, exist_ok=True)
     
         if self.freestream.model.lower() == "gram": 
             Path(self.output_folder+'/GRAM/').mkdir(parents=True, exist_ok=True)
@@ -522,8 +555,8 @@ class Options():
             for assembly in titan.assembly:
                 assembly.collision = None
         if hasattr(titan, 'rk_adapt'):
-            titan.rk_params[0] = titan.time
-            titan.rk_params[1] = titan.rk_adapt.y
+            titan.rk_params['time'] = titan.time
+            titan.rk_params['state'] = titan.rk_adapt.y
             del titan.rk_fun
             del titan.rk_adapt
 
@@ -790,6 +823,9 @@ def read_geometry(configParser, options):
                                 bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]       
                     except:
                         bloom = [False, 0, 0, 0]               
+
+                    if options.pato.flag and bloom[0] == False:
+                        print('Need to set up BLOOM if using PATO!'); exit()
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
                         fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom)
@@ -837,6 +873,8 @@ def read_geometry(configParser, options):
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom) 
 
+
+                print('bloom:', bloom)
                 obj_global_ID += 1
 
 
@@ -914,26 +952,38 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.fenics.FE_verbose   = get_config_value(configParser, options.fenics.FE_verbose, 'FENICS', 'FENICS_verbose', 'boolean')
         options.fenics.FE_freq      = get_config_value(configParser, options.fenics.FE_freq, 'FENICS', 'FENICS_freq', 'int')
 
-
-    
+    #Read Dynamics options
+    options.dynamics.time = 0
+    options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
+    options.dynamics.propagator = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Time_integration', 'str')
+    options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
+    if 'adapt' in options.dynamics.propagator.lower(): 
+        options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
+        options.dynamics.tumbling_criterion = get_config_value(configParser, 0.0, 'Time', 'Tumble_threshold', 'float')
 
     #Read Thermal options
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
     if options.thermal.ablation:
         options.thermal.ablation_mode  = get_config_value(configParser, "0D",  'Thermal', 'Ablation_mode', 'str').lower()
-        
+        options.thermal.time_fidelity  = get_config_value(configParser, options.thermal.time_fidelity,'Thermal', 'Time_fidelity','float')
         if (options.thermal.ablation_mode == "pato"):
             options.pato.flag = True
             options.pato.Ta_bc  = get_config_value(configParser, options.pato.Ta_bc,  'PATO', 'PATO_mode', 'str').lower()
             #PATO and TITAN time-step need to be the same for the consistency of the heat conduction and density change algorithm
-            options.pato.time_step = options.dynamics.time_step#get_config_value(configParser, 0.1, 'PATO', 'Time_step', 'float')
+            options.pato.time_step = get_config_value(configParser, options.pato.time_step, 'PATO', 'Time_step', 'float')
             options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
             options.pato.fstrip = get_config_value(configParser, options.pato.fstrip, 'PATO', 'fStrip', 'float')
             if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
+            options.pato.conduction_flag = get_config_value(configParser, options.pato.conduction_flag, 'PATO', 'Conduction_objects', 'boolean')
             options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
             
             options.pato.solution_type = get_config_value(configParser, 'surface', 'PATO', 'Solution_type', 'str').lower()
             
+
+            if options.pato.conduction_flag and (options.dynamics.time_step != options.pato.time_step):
+                print("If modelling conduction between objects, time-step in TITAN and PATO must be the same."); exit()  
+
+
         options.radiation.spectral               = get_config_value(configParser, options.radiation.spectral, 'Radiation', 'Spectral_emissions', 'boolean')
 
         if(options.radiation.spectral):
@@ -1110,6 +1160,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
                 if options.pato.flag:
                     for obj in assembly.objects:
                         if obj.pato.flag:
+                            print('blooming name:', obj.name)
                             GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)                          
                             bloom.generate_PATO_mesh(options, obj.global_ID, bloom = obj.bloom)
                             pato.initialize(options, obj)
@@ -1131,8 +1182,6 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             #     from Uncertainty.UT import setupAssembly
             #     setupAssembly(assembly,options)
             
-
-        
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)
 
@@ -1145,7 +1194,4 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     ### else:
     ###     fenics = None
 
-    # from Uncertainty.uncertainty import uncertaintyHandler
-    # uH = uncertaintyHandler(titan=titan,options=options,filepath=options.uncertainty.yaml_path)
-    # uH.communicate_sample(assembly=titan.assembly[0])
     return options, titan

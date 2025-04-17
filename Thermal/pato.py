@@ -29,10 +29,11 @@ import os, pathlib
 import re
 from scipy.spatial import KDTree
 from Material import material as Material
+import pandas as pd
 
 conda_preamble = ['conda', 'run', '-n', 'pato'] # Better ideally to separate pato env from TITAN?
 
-def compute_thermal(obj, time, iteration, options, hf, Tinf):
+def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf):
 
     """
     Compute the aerothermodynamic properties using the CFD software
@@ -44,13 +45,22 @@ def compute_thermal(obj, time, iteration, options, hf, Tinf):
     options: Options
         Object of class Options
     """
-    time_to_postprocess = setup_PATO_simulation(obj, time, iteration, options, hf, Tinf)
+    start_time = round(start_time,5)
+    end_time = round(end_time, 5)
+    time_step = round(end_time - start_time,5)
+    if not hasattr(options.pato, 'prev_dt'): options.pato.prev_dt = time_step
+    
+    print('##### PATO from {} to {} (dt of {})'.format(start_time,
+                                                       end_time,
+                                                       time_step))
 
+    time_to_postprocess = setup_PATO_simulation(obj, start_time, time_step, iteration, options, hf, Tinf)
     run_PATO(options, obj.global_ID)
 
     postprocess_PATO_solution(options, obj, time_to_postprocess)
+    options.pato.prev_dt = time_step
 
-def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
+def setup_PATO_simulation(obj, time, time_step, iteration, options, hf, Tinf):
     """
     Sets up the PATO simulation - creates PATO simulation folders and required input files
 
@@ -60,8 +70,8 @@ def setup_PATO_simulation(obj, time, iteration, options, hf, Tinf):
     """
 
     write_PATO_BC(options, obj, time, hf, Tinf)
-    time_to_postprocess = write_All_run(options, obj, time - options.dynamics.time_step, iteration)
-    write_system_folder(options, obj.global_ID, time - options.dynamics.time_step)
+    time_to_postprocess = write_All_run(options, obj, time, time_step, iteration)
+    write_system_folder(options, obj.global_ID, time, time_step)
 
     return time_to_postprocess
 
@@ -73,11 +83,22 @@ def write_material_properties(options, obj):
     k_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'heatConductivity', 4)
     density = obj.material.density
 
-    cp = obj.material.specificHeatCapacity(300+(obj.material.meltingTemperature-300)/2)
-    em = obj.material.emissivity(300+(obj.material.meltingTemperature-300)/2)
-    tc = obj.material.heatConductivity(300+(obj.material.meltingTemperature-300)/2)
+    T0 = obj.pato.initial_temperature
+
+    cp = obj.material.specificHeatCapacity(T0+(obj.material.meltingTemperature-T0)/2)
+    em = obj.material.emissivity(T0+(obj.material.meltingTemperature-T0)/2)
+    tc = obj.material.heatConductivity(T0+(obj.material.meltingTemperature-T0)/2)
 
     object_id = obj.global_ID
+
+    # If initial temperature is larger than melting temperature, we want PATO to skip melting algorithm and instantly
+    # go to vaporization algorithm
+
+    if obj.pato.initial_temperature > obj.material.meltingTemperature:
+        Tmelt = 1e10
+        obj.pato.molten[:] = 1
+    else:
+        Tmelt = obj.material.meltingTemperature
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/data/constantProperties', 'w') as f:
 
@@ -125,7 +146,7 @@ def write_material_properties(options, obj):
         f.write('e_sub_n[3]  0;\n')
         f.write('e_sub_n[4]  0;\n')
         f.write('\n')
-        f.write('Tmelt ' + str(obj.material.meltingTemperature) + ';\n')
+        f.write('Tmelt ' + str(Tmelt) + ';\n')
         f.write('Tboil ' + str(obj.material.vaporizationTemperature) + ';\n')
         f.write('Hfusion ' + str(obj.material.meltingHeat) + ';\n')
         f.write('Hboil ' + str(obj.material.vaporizationHeat) + ';\n')
@@ -155,7 +176,7 @@ def write_All_run_init(options, object_id):
         f.write('cd ' + options.output_folder + '/PATO_'+str(object_id)+' \n')
         f.write('cp -r origin.0 0 \n')
         f.write('cd verification/unstructured_gmsh/ \n')
-        f.write('ln -s ' + os.path.abspath(options.output_folder) + '/PATO_'+str(object_id)+'/mesh/mesh.msh \n')
+        f.write('ln -s ' + options.output_folder + '/PATO_'+str(object_id)+'/mesh/mesh.msh \n')
         f.write('cd ../.. \n')
         f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
         f.write('mv constant/polyMesh constant/subMat1 \n')
@@ -173,7 +194,7 @@ def write_All_run_init(options, object_id):
 
     pass
 
-def write_All_run(options, obj, time, iteration):
+def write_All_run(options, obj, time, time_step, iteration):
     """
     Write the Allrun PATO file
 
@@ -187,11 +208,11 @@ def write_All_run(options, obj, time, iteration):
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    end_time = time + options.dynamics.time_step
-    start_time = time
+    end_time = round(time + time_step, 5)
+    start_time = round(time, 5)
 
-    time_step_to_delete = np.round(time - options.dynamics.time_step, len(str(options.dynamics.time_step).lstrip('0.'))) # Round to time step sig figs
-    #iteration_to_delete = int((iteration-1)*options.dynamics.time_step/options.pato.time_step)
+    time_step_to_delete = round(start_time - options.pato.prev_dt, 5)
+    iteration_to_delete = int((iteration-1)*time_step/options.pato.time_step)
 
     #print('copying BC:', end_time, ' - ', start_time)
 
@@ -229,7 +250,7 @@ def write_All_run(options, obj, time, iteration):
         f.write('    sed_cmd=sed\n')
         f.write('fi\n')
         f.write('$sed_cmd -i "s/numberOfSubdomains \+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
-        f.write('cp qconv/BC_'+str(end_time) + ' qconv/BC_' + str(start_time) + '\n')
+        f.write('cp qconv/BC_'+str(start_time) + ' qconv/BC_' + str(end_time) + '\n')
         f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
         f.write('TIME_STEP='+str(end_time)+' \n')
         f.write('MAT_NAME=subMat1 \n')
@@ -250,14 +271,16 @@ def write_All_run(options, obj, time, iteration):
         #print('end_time:', end_time)
         #print('start_time:', start_time)
         for n in range(options.pato.n_cores):
-            if not options.pato.solution_type=='volume':
-                f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
+            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
             #f.write('rm -rf processor'+str(n)+'/restart/* \n')
             if options.current_iter%options.save_freq == 0:
                 f.write('rm -rf processor'+str(n)+'/restart/* \n')
                 f.write('cp -r  processor'+str(n)+'/'+str(start_time)+'/ processor'+str(n)+'/restart/ \n')
+                f.write('cp -r  processor'+str(n)+'/'+str(end_time)+'/ processor'+str(n)+'/restart/ \n')
+                f.write('cp  processor'+str(n)+'/VTK/proce* processor'+str(n)+'/restart/ \n')
             f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
+            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
         #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
         #if time_step_to_delete/options.dynamics.time_step != options.save_freq:
             #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
@@ -576,7 +599,7 @@ def write_origin_folder(options, obj):
             f.write('p 101325;\n')
             f.write('chemistryOn 1;\n')
             f.write('qRad 0;\n')
-            f.write('value           uniform 300;\n')
+            f.write('value           uniform '+str(obj.pato.initial_temperature)+';\n')
         elif Ta_bc == "ablation":
             f.write('type             Bprime;\n')
             f.write('mixtureMutationBprime '+(mix_file)+';\n')
@@ -592,11 +615,12 @@ def write_origin_folder(options, obj):
             f.write('    (molten "6")\n')
             f.write(');\n')
             f.write('chemistryOn 1;\n')
+            f.write('p 101325;\n')
             f.write('qRad 0;\n')
             f.write('lambda 0.5;\n')
             f.write('Tedge 300;\n')
             f.write('hconv 0;\n')
-            f.write('value uniform 300;\n')
+            f.write('value uniform '+str(obj.pato.initial_temperature)+';\n')
             f.write('moleFractionGasInMaterial ( ("O"  0.115) ("N" 0) ("C" 0.206) ("H" 0.679));\n')  
         f.write('  }\n')
         f.write('}\n')
@@ -969,7 +993,6 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
             f.write('"xw (m)"\n')
             f.write('"yw (m)"\n')
             f.write('"zw (m)"\n')
-            f.write('"pw (Pa)"\n')
             f.write('"qConv (W/m^2)"\n')
             f.write('"emissivity (-)"\n')
             f.write('"Tbackground (K)"\n')
@@ -991,7 +1014,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
 
     pass
 
-def write_system_folder(options, object_id, time):
+def write_system_folder(options, object_id, time, time_step):
     """
     Write the system/ PATO folder
 
@@ -1003,9 +1026,10 @@ def write_system_folder(options, object_id, time):
         Object of class Options
     """
     start_time = time
-    end_time = time + options.dynamics.time_step
-    wrt_interval = end_time - start_time
-    pato_time_step = options.pato.time_step
+    end_time = time+time_step
+    wrt_interval = time_step
+    pato_time_step = options.pato.time_step#round(time_step*options.pato.time_step,6)
+    print('#### PATO STEP {} ####'.format(pato_time_step))
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/system/controlDict', 'w') as f:
 
@@ -1050,17 +1074,17 @@ def write_system_folder(options, object_id, time):
         f.write('\n')
         f.write('timeFormat      general;\n')
         f.write('\n')
-        f.write('timePrecision   6;\n')
+        f.write('timePrecision   7;\n')
         f.write('\n')
         f.write('graphFormat     xmgr;\n')
         f.write('\n')
         f.write('runTimeModifiable yes;\n')
         f.write('\n')
-        f.write('adjustTimeStep  yes; // you can turn it off but its going to be very slow\n')
+        f.write('adjustTimeStep  no; // you can turn it off but its going to be very slow\n')
         f.write('\n')
         f.write('maxCo           10;\n')
         f.write('\n')
-        f.write('maxDeltaT   0.1; // reduce it if the surface temperature starts oscilliating\n')
+        f.write('maxDeltaT   '+str(pato_time_step)+'; // reduce it if the surface temperature starts oscilliating\n')
         f.write('\n')
         f.write('minDeltaT   1e-6;\n')
         f.write('\n')
@@ -1385,15 +1409,18 @@ def initialize(options, obj):
     write_constant_folder(options, object_id)
     write_origin_folder(options, obj)
     write_material_properties(options, obj)
-    write_system_folder(options, object_id, 0)
+    write_system_folder(options, object_id, 0, options.dynamics.time_step)
 
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
     pato_test = subprocess.run(conda_preamble+['echo', 'PATO environment working!'])
     if pato_test.returncode>0: raise Exception('Error could not find PATO environment! Check you have a conda env named \'pato\'')
     print('Running PATO initialisation...')
-    subprocess.run(conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun_init',str(n_proc)],text = True,stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    subprocess.run(conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun_init', str(n_proc)], text = True)
+    #subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init'], text = True)
 
 def run_PATO(options, object_id):
     """
@@ -1406,15 +1433,14 @@ def run_PATO(options, object_id):
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    print('Running PATO simulation...')
-    subprocess.run(conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun',str(n_proc)], text = False, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    
-    dir_VTK = pathlib.Path(options.output_folder + '/PATO_'+str(object_id)+'/VTK').glob('**/*.vtk')
-    for link in dir_VTK:
-        if link.is_symlink():
-            link.unlink() # Remove broken symlinks
-            if not link.exists(): 
-                pass
+    cmd = ' '.join(conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)])
+    # for arg in conda_preamble+[options.output_folder + '/PATO_'+str(object_id)+'/Allrun', str(n_proc)]: 
+    #     cmd+=arg
+    #     cmd+=' '
+    print(cmd)
+    subprocess.run(cmd, text = True,shell=True)
+    #subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun'], text = True)
+
 def postprocess_PATO_solution(options, obj, time_to_read):
     """
     Postprocesses the PATO output
@@ -1432,7 +1458,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 
     n_proc = options.pato.n_cores
 
-    solution = options.pato.solution_type
+    solution = 'volume'
 
     if solution == 'surface':
         data = retrieve_surface_vtk_data(n_proc, path, time_to_read)
@@ -1507,9 +1533,9 @@ def postprocess_mass_inertia(obj, options, time_to_read):
     print(f"Mass: {new_mass}")
     print(f"Density_ratio: {density_ratio}")
 
-    if obj.density_ratio < 1:
+    if obj.density_ratio != 1:
 
-        print('Ablation melting')
+        print('Ablation')
 
         obj.pato.mass_loss = obj.mass - new_mass if new_mass >= 0 else obj.mass
         print('mass loss:', obj.pato.mass_loss)
@@ -1528,11 +1554,22 @@ def postprocess_mass_inertia(obj, options, time_to_read):
 
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/data/constantProperties', 'r+', encoding='utf-8') as f:
         lines = f.readlines()
-        lines[48] = 'mass ' + str(obj.mass) + ';\n'
-        lines[49] = 'density ' + str(obj.material.density) + ';\n'
-        lines[30] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
-        f.seek(0)
+        #lines[48] = 'mass ' + str(obj.mass) + ';\n'
+        #lines[49] = 'density ' + str(obj.material.density) + ';\n'
+        #lines[30] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
+        #f.seek(0)
+        #f.writelines(lines)
+        for i, line in enumerate(lines):
+            if 'rho_sub_n[0]' in line:
+                lines[i] = 'rho_sub_n[0]    '+str(obj.material.density)+';\n'
+            if 'mass' in line:
+                lines[i] = 'mass ' + str(obj.mass) + ';\n'
+            if 'density' in line:
+                lines[i] = 'density ' + str(obj.material.density) + ';\n'
+
+        f.seek(0)  # Go back to the start of the file
         f.writelines(lines)
+        f.truncate()  # Truncate the file to remove any leftover content
 
 def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
 
@@ -1639,7 +1676,7 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
     appendFilter.SetMergePoints(True)
     appendFilter.Update()
     data = appendFilter.GetOutput()
-    
+
     writer = vtk.vtkUnstructuredGridWriter()
     pato_output_folder = path + '/Output'
     if not os.path.exists(pato_output_folder): os.mkdir(pato_output_folder)
@@ -1662,6 +1699,8 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
     return vtk_data
 
 def compute_heat_conduction(assembly):
+
+    print('Computing heat conduction between objects ...')
 
     objects = assembly.objects
     assembly.hf_cond[:] = 0

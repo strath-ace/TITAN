@@ -31,19 +31,21 @@ from Geometry.tetra import inertia_tetra
 import requests
 
 def compute_thermal(titan, options):
-
-    if options.thermal.ablation_mode == "tetra":
-        compute_thermal_tetra(titan = titan, options = options)
-    elif options.thermal.ablation_mode == "0d":
-        compute_thermal_0D(titan = titan, options = options)
-    elif options.thermal.ablation_mode == "pato":
-        compute_thermal_PATO(titan = titan, options = options)
-    else:
-        raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
+    thermal_delta_t = titan.time - options.thermal.prev_thermal_time
+    if thermal_delta_t>=options.thermal.time_fidelity: 
+        if options.thermal.ablation_mode == "tetra":
+            compute_thermal_tetra(titan = titan, options = options)
+        elif options.thermal.ablation_mode == "0d":
+            compute_thermal_0D(titan = titan, options = options)
+        elif options.thermal.ablation_mode == "pato":
+            compute_thermal_PATO(titan = titan, options = options)
+        else:
+            raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
+        options.thermal.prev_thermal_time = round(titan.time,5)
 
 def compute_thermal_0D(titan, options):
 
-    dt = options.dynamics.time_step
+    dt = titan.delta_t
     Tref = 273
 
     for assembly in titan.assembly:
@@ -97,7 +99,7 @@ def compute_thermal_0D(titan, options):
 
 def compute_thermal_tetra(titan, options):
   
-    dt = options.dynamics.time_step
+    dt = titan.delta_t
 
     for assembly in titan.assembly:
         if assembly.ablation_mode != 'tetra': continue
@@ -242,9 +244,14 @@ def compute_thermal_tetra(titan, options):
 def compute_thermal_PATO(titan, options):
 
     for assembly in titan.assembly: 
-        pato.compute_heat_conduction(assembly)
-        Tinf = assembly.freestream.temperature           
+
+        if options.pato.conduction_flag:
+            pato.compute_heat_conduction(assembly)
+
+        Tinf = assembly.freestream.temperature        
+
         for obj in assembly.objects:
+
             if obj.pato.flag: 
                 hf = obj.pato.hf_cond + assembly.aerothermo.heatflux[obj.facet_index]
                 he = assembly.aerothermo.he[obj.facet_index]
@@ -252,8 +259,12 @@ def compute_thermal_PATO(titan, options):
                 rhoe = assembly.aerothermo.rhoe[obj.facet_index]
                 ue = assembly.aerothermo.ue[obj.facet_index]
                 pw = assembly.aerothermo.pressure[obj.facet_index]
-                pato.compute_thermal(obj, titan.time, titan.iter, options, hf, Tinf)
+                print('##### PATO from {} to {} (dt of {})'.format(options.thermal.prev_thermal_time,
+                                                                   titan.time,
+                                                                   round(titan.time-options.thermal.prev_thermal_time,5)))
+                pato.compute_thermal(obj, options.thermal.prev_thermal_time, titan.time, titan.iter, options, hf, Tinf)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+
                 if options.pato.Ta_bc == 'ablation':
                     assembly.mDotVapor[obj.facet_index] = obj.pato.mDotVapor
                     assembly.mDotMelt[obj.facet_index] = obj.pato.mDotMelt
@@ -287,17 +298,7 @@ def compute_thermal_PATO(titan, options):
             #Update gas mass fractions to include vaporized material from ablation
 
             assembly.mVapor = assembly.mDotVapor*options.dynamics.time_step
-            shock_distance = 0.1
-            gas_volume = assembly.mesh.facet_area * shock_distance
-            gas_mass = assembly.aerothermo.rhoe * gas_volume
-            #before adding vaporized material
-            species_mass = assembly.aerothermo.ce_i * gas_mass[:,np.newaxis]
-            #add vaporized material mass
-            species_mass[:,-1] = assembly.mVapor
-            gas_mass = species_mass.sum(axis=1)
-            assembly.aerothermo.ce_i = species_mass / gas_mass[:, np.newaxis] 
-            assembly.aerothermo.ce_i[np.isnan(assembly.aerothermo.ce_i)] = 0
-            assembly.aerothermo.ce_i[np.isinf(assembly.aerothermo.ce_i)] = 0
+            assembly.mMelt  = assembly.mDotMelt*options.dynamics.time_step
 
     return
 
@@ -389,98 +390,230 @@ def black_body(wavelength, T):
 
     return b
 
-def compute_black_body_spectral_emissions(assembly, options, emissions):
+def compute_black_body_spectral_emissions(assembly, wavelength):
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
     k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
 
-    phi   = options.radiation.phi
-    theta = options.radiation.theta
-    wavelength = options.radiation.wavelengths
+    #index = assembly.index_blackbody
+    #angle = assembly.angle_blackbody[index]
 
-    print('Computing spectral blackbody emissions ...')
+    #cosine = np.cos(angle*np.pi/180)
 
-    for wavelength_i in range(len(wavelength)):
+    index = np.arange(len(assembly.aerothermo.temperature))
 
-        lamb = wavelength[wavelength_i]
+    temperature = assembly.aerothermo.temperature[index]
 
-        for obj in assembly.objects:
-            emissivity_obj = obj.material.emissivity(obj.temperature)
-            assembly.emissivity[obj.facet_index] = emissivity_obj
-            assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
-    
-        #define viewpoint on the basis of angles
-        viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
-    
-        #retrive index of facets seen from viewpoint
-        index = Aerothermo.ray_trace(assembly, viewpoint)
-    
-        #calculate blackbody spectral radiance
-        temperature = assembly.aerothermo.temperature[index]
-        exp = np.exp((h*c)/(k*lamb*temperature))   
-        b = (((2*h*c*c)/(np.power(lamb, 5))) * (1/(exp-1)))/1e9 # units W.sr−1.m−2.nm−1 #Spectral radiance in terms of wavelength
-
-        #grey-body radiation seen from viewpoint
-        vec1 = -viewpoint
-        vec2 = np.array(assembly.mesh.facet_normal[index])
-        angle = vg.angle(vec1, vec2) #degrees
-        cosine = np.cos(angle*np.pi/180)
-        emissivity = assembly.emissivity[index]
-        seen_b = b*cosine*emissivity
-
-        #weighing facet contribution by its area
-        facet_area = assembly.mesh.facet_area[index]
-        weighted_b = seen_b*facet_area
-
-        #sum contributions of all facets
-        emissions[wavelength_i] += np.sum(weighted_b)
-
-    return emissions
-
-def compute_particle_spectral_emissions(assembly, options, emissions):
-
-    h = 6.62607015e-34 # m2.kg.s-1        planck constant
-    c = 3e8            # m.s-1           light speed in vaccum
-    print('h*c:', h*c)
-    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
-    Na = 6.023e23      # 1/mol Avogadro number
-
-    #A_O = [3.69e+07, 3.69e+07, 3.69e+07] #s-1
-    #E_O = [86631.454*1.986e-23, 86627.778*1.986e-23, 86627.778*1.986e-23] #J
-    #g_O = [7, 5, 3]
-
-    A_O = [3.69e+07] #s-1
-    E_O = [86631.454*1.986e-23] #J
-    g_O = [7]
-
-    molarMass_O = 16*1e-3 #kg/mol
-
-    phi   = options.radiation.phi
-    theta = options.radiation.theta
-    wavelength = options.radiation.wavelengths
-
-    print('Computing spectral particle emissions ...')
-
-    #define viewpoint on the basis of angles
-    viewpoint = np.array([np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)])
-    
-    #retrive index of facets seen from viewpoint
-    index = Aerothermo.ray_trace(assembly, viewpoint)
-    
-    #calculate blackbody spectral radiance
-    temperature = np.full(len(index), 5000) #assembly.aerothermo.temperature[index]
-    print('temperature:', temperature)
-    
+    print('max T:', max(temperature))
 
     for obj in assembly.objects:
         emissivity_obj = obj.material.emissivity(obj.temperature)
         assembly.emissivity[obj.facet_index] = emissivity_obj
         assembly.emissivity[obj.facet_index] = np.clip(assembly.emissivity[obj.facet_index], 0, 1)
     
-        density_obj = obj.material.density
-        assembly.material_density[obj.facet_index] = density_obj
-    density = assembly.material_density[index]
+    emissivity = assembly.emissivity[index]
+    facet_area = assembly.mesh.facet_area[index]
+
+    emissions = np.zeros(len(wavelength))
+    distribution = np.zeros(len(assembly.mesh.facets))
+
+    for wavelength_i in range(len(wavelength)):
+
+        lamb = wavelength[wavelength_i]
+
+        exp = np.exp((h*c)/(k*lamb*temperature))   
+
+        b = (((2*c)/(np.power(lamb, 4))) * (1/(exp-1)))*emissivity # units photons/[s*m2*m*sr]  #Spectral radiance in terms of wavelength
+
+        #seen_b = b*cosine
+
+        #distribution[index] += seen_b
+
+        #weighing facet contribution by its area
+        #facet_area = assembly.mesh.facet_area[index]
+        #weighted_b = seen_b*facet_area # units photons/[s*m*sr]
+
+        #sum contributions of all facets
+        #emissions[wavelength_i] += np.sum(weighted_b) #photons/[s*m*sr]
+
+        #b = b * facet_area
+
+
+        #emissions[wavelength_i] += np.sum(b)/np.sum(assembly.mesh.facet_area) #photons/[s*m2*m*sr]
+
+        emissions[wavelength_i] += np.sum(b)/len(assembly.mesh.facet_area[index]) #photons/[s*m2*m*sr]
+
+    return emissions, distribution
+
+def compute_particle_spectral_emissions_AlI(assembly, wavelength, wavelength_index):
+
+    #index = assembly.index_atomic
+    #angle = assembly.angle_atomic[index]
+
+    index = assembly.aero_index #np.arange(len(assembly.aerothermo.temperature))
+
+    h = 6.62607015e-34 # m2.kg.s-1        planck constant
+    c = 3e8            # m.s-1           light speed in vaccum
+    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
+
+    Na = 6.023e23      # 1/mol Avogadro number
+
+    A_O = [4.99e+07, 9.85e+07] #s-1
+    E_O = [25347.756, 25347.756] #cm-1
+    g_O = [2, 2]
+
+    molarMass_Al = 26.98*1e-3 #kg/mol
+
+    print('\nComputing spectral particle emissions Al I ...')
+
+    #cosine = np.cos(angle*np.pi/180)
+
+    for obj in assembly.objects:    
+        assembly.LOS[obj.facet_index] = obj.LOS
+    
+    facet_area   = assembly.mesh.facet_area[index]
+    temperature  = assembly.aerothermo.Te[index]
+    #temperature = assembly.aerothermo.temperature[index]
+    rhoe_i       = assembly.aerothermo.rhoe_i[index]
+    LOS          = assembly.LOS[index]
+    mMelt        = assembly.mMelt[index]
+
+    #print('Al:', rhoe_i[:,-1])
+    
+
+    # ntot for Al
+    #ntot = rhoe_i[:,-1]*Na/molarMass_Al
+    #ntot = 1e13 #rhoe_i*Na/molarMass_Al
+
+    ntot = np.where(mMelt == 0, 0, 7e16)
+
+    #print('ntot:', ntot)
+    #print('mMelt:', np.shape(mMelt))
+    #print('ntot:', np.shape(ntot))
+    #exit()
+
+    emissions = np.zeros(len(wavelength))
+    distribution = np.zeros(len(assembly.mesh.facets))
+
+    max_index = np.argmax(assembly.aerothermo.heatflux[index])
+
+    heatflux = assembly.aerothermo.heatflux[index]
+
+    print('\nData for maximum heat flux point:')
+    print('q:', heatflux[max_index])
+    print('Te:', temperature[max_index])
+    #print('ntot:', ntot[max_index])
+    print('LOS:', LOS[max_index])
+
+
+    wavelength_i = wavelength_index
+
+    lamb = wavelength[wavelength_i]
+    A    = A_O[wavelength_i]
+    E    = E_O[wavelength_i]
+    g    = g_O[wavelength_i]
+
+    ZZ = partition('Al I', temperature)
+
+    exp = np.exp(-h*c*E*100/(k*temperature))
+
+    nn = g * exp * ntot / ZZ
+
+
+    intensity = (h * c * A * nn / lamb)/(4*np.pi) # W/m3-sr
+
+    #print('h:', h)
+    #print('c:', c)
+    print('A:', A)
+    print('E:', E)
+    print('g:', g)
+    print('nn:', nn[max_index])
+    #print('lamb:', lamb)
+    #print('\ntemperature:', temperature)
+    #print('Z:', ZZ)
+    #print('exp:', exp)
+    
+    print('intensity:', intensity[max_index])
+
+    intensity = intensity * LOS #W/m2-sr
+
+    print('intensity*LOS:', intensity[max_index])
+
+    
+
+    #grey-body radiation seen from viewpoint
+    #seen_intensity = intensity*cosine
+
+    #distribution[index] += seen_intensity
+
+    #weighing facet contribution by its area
+
+    weighted_seen_intensity = intensity*facet_area # [W/sr]
+
+    #sum contributions of all facets
+    emissions[wavelength_i] += np.sum(weighted_seen_intensity)
+
+    print('emissions[wavelength_i]:',emissions[wavelength_i])
+
+    #emissions[wavelength_i] += np.sum(intensity)/len(facet_area)#W/m2-sr
+
+    #intensity = intensity*facet_area
+
+    #emissions[wavelength_i] += np.sum(intensity)/np.sum(assembly.mesh.facet_area) # W/m2-sr
+
+    #emissions[wavelength_i] += np.sum(intensity)/len(assembly.mesh.facet_area) # W/m2-sr
+    
+    return emissions, distribution
+
+def compute_particle_spectral_emissions_OI(assembly, wavelength):
+
+    #index = assembly.index_atomic
+    #angle = assembly.angle_atomic[index]
+
+    index = assembly.aero_index #np.arange(len(assembly.aerothermo.temperature))
+
+    max_index = np.argmax(assembly.aerothermo.heatflux[index])
+
+    h = 6.62607015e-34 # m2.kg.s-1        planck constant
+    c = 3e8            # m.s-1           light speed in vaccum
+    k = 1.380649e-23   # m2.kg.s-2.K-1 boltzmann constant
+
+    Na = 6.023e23      # 1/mol Avogadro number
+
+    A_O = [3.69e+07, 3.69e+07, 3.69e+07] #s-1
+    E_O = [86631.454, 86627.778, 86625.757] #cm-1
+    g_O = [7, 5, 3]
+
+    molarMass_O = 16*1e-3 #kg/mol
+
+    print('\nComputing spectral particle emissions O I ...')
+
+    #cosine = np.cos(angle*np.pi/180)
+    
+    for obj in assembly.objects:
+        assembly.LOS[obj.facet_index] = obj.LOS
+    
+    facet_area = assembly.mesh.facet_area[index]
+    temperature = assembly.aerothermo.Te[index]
+    rhoe_i = assembly.aerothermo.rhoe_i[index]
+    LOS = assembly.LOS[index]
+
+    # ntot for O
+    ntot = rhoe_i[:,1]*Na/molarMass_O
+
+    emissions = np.zeros(len(wavelength))
+    distribution = np.zeros(len(assembly.mesh.facets))
+
+    heatflux = assembly.aerothermo.heatflux[index]
+
+    print('\nData for maximum heat flux point:')
+    print('q:', heatflux[max_index])
+    print('Te:', temperature[max_index])
+    print('rhoe_i:', rhoe_i[max_index])
+    print('ntot:', ntot[max_index])
+    print('LOS:', LOS[max_index])
+    
 
     for wavelength_i in range(len(wavelength)):
 
@@ -489,58 +622,36 @@ def compute_particle_spectral_emissions(assembly, options, emissions):
         E    = E_O[wavelength_i]
         g    = g_O[wavelength_i]
 
-        print('wavelength:', wavelength)
-        print('A:', A)
-        print('E:', E)
-        print('g:', g)
-
         ZZ = partition('O I', temperature)
 
-        line = 1.0
-
-        print('density:', density)
-        print('Na:', Na)
-        print('molarMass_O:', molarMass_O)
-
-        ntot = 1e22 #density*Na/molarMass_O
-
-        print('ntot:', ntot)
-
-        test1 = E/(k*temperature)
-        print('E/(k*temperature):', test1)
-
-        exp = g*np.exp(-E/(k*temperature))
-
-        print('exp:', exp)
-
-        print('ZZ:', ZZ)
+        exp = np.exp(-h*c*E*100/(k*temperature))
 
         nn = g * exp * ntot / ZZ
 
-        print('nn:', nn)
+        intensity = (h * c * A * nn / lamb)/(4*np.pi) # W/m3-sr
 
-        intensity = (h * c * A * nn * line / lamb)/(4*np.pi)
+        intensity = intensity * LOS # W/m2-sr
 
-        print('intensity:', intensity) #424,430,279.95 [W/m3/sr/m] 
+        print('wavelength:', lamb)
+        print('intensity:', intensity[max_index])
 
         #grey-body radiation seen from viewpoint
-        vec1 = -viewpoint
-        vec2 = np.array(assembly.mesh.facet_normal[index])
-        angle = vg.angle(vec1, vec2) #degrees
-        cosine = np.cos(angle*np.pi/180)
-        emissivity = assembly.emissivity[index]
-        intensity = intensity*cosine*emissivity
+        #seen_intensity = intensity*cosine
 
-        exit()
+        #distribution[index] += seen_intensity
 
         #weighing facet contribution by its area
-        facet_area = assembly.mesh.facet_area[index]
-        weighted_b = seen_intensity*facet_area
+        weighted_seen_intensity = intensity*facet_area # [W/sr]
 
         #sum contributions of all facets
-        emissions[wavelength_i] += np.sum(weighted_b)
-    
-    return emissions
+        emissions[wavelength_i] += np.sum(weighted_seen_intensity)
+
+        #intensity = intensity*facet_area
+
+        #emissions[wavelength_i] += np.sum(intensity)/np.sum(assembly.mesh.facet_area) # W/m2-sr
+        #emissions[wavelength_i] += np.sum(intensity)/len(assembly.mesh.facet_area[index]) # W/m2-sr
+
+    return emissions, distribution
 
 def get_energy_levels(element):
     # Define the NIST Levels Tool URL

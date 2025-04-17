@@ -73,6 +73,7 @@ def compute_Euler(titan, options):
     titan.time += time_step
     titan.time = round(titan.time, 5)
 
+    titan.delta_t = time_step
     # Loop over the assemblies and compute the dericatives
     for assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(assembly)
@@ -123,10 +124,10 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
         assembly.velocity[1] = vy
         assembly.velocity[2] = vz
 
-    assembly.distance_travelled += np.sqrt(dt*cartesianDerivatives.dx*dt*cartesianDerivatives.dx+dt*cartesianDerivatives.dy*dt*cartesianDerivatives.dy+dt*cartesianDerivatives.dz*dt*cartesianDerivatives.dz) 
-
     assembly.position_nlast = copy.deepcopy(assembly.position)
     assembly.velocity_nlast = copy.deepcopy(assembly.velocity)
+
+    assembly.distance_travelled += np.sqrt(dt*cartesianDerivatives.dx*dt*cartesianDerivatives.dx+dt*cartesianDerivatives.dy*dt*cartesianDerivatives.dy+dt*cartesianDerivatives.dz*dt*cartesianDerivatives.dz) 
 
     q = assembly.quaternion
 

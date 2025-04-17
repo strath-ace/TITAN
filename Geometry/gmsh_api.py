@@ -303,7 +303,7 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
         gmsh.fltk.initialize()
         while gmsh.fltk.isAvailable() and checkForEvent():
             gmsh.fltk.wait()
-
+    gmsh.write("cfd_domain.geo_unrolled")
     gmsh.model.mesh.generate(dim)
 
     #gmsh.model.mesh.generate(2)

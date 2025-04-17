@@ -96,6 +96,9 @@ class Assembly_list():
         #: [float] simulation physical time 
         self.time = 0
 
+        #: [float] nominal time step
+        self.delta_t = 1.0
+
         #: [int] Iteration
         self.iter = 0
 
@@ -152,6 +155,7 @@ class Assembly_list():
             if len(connectivity_assembly) != 0:
                 self.assembly[-1].connectivity = connectivity[(np.sum(connectivity_assembly, axis = 1) >= 2)]
             else: self.assembly[-1].connectivity = []
+        if options is not None: self.delta_t = options.dynamics.time_step
 
 class Dynamics():
     """ Class Dynamics
@@ -493,6 +497,9 @@ class Assembly():
                 self.mDotVapor = np.zeros(len(self.mesh.facets))
                 self.mVapor = np.zeros(len(self.mesh.facets))
                 self.mDotMelt = np.zeros(len(self.mesh.facets))
+                self.mMelt = np.zeros(len(self.mesh.facets))
+                self.updated_gas_density = np.zeros(len(self.mesh.facets))
+                self.LOS = np.zeros(len(self.mesh.facets))
 
         else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
 
@@ -500,6 +507,18 @@ class Assembly():
 
         self.quaternion_prev = np.array([])
 
+        self.aero_index = np.array([])
+
+        self.blackbody_emissions_OI_surf  = np.zeros(len(self.mesh.facets))
+        self.blackbody_emissions_AlI_surf = np.zeros(len(self.mesh.facets))
+        self.atomic_emissions_OI_surf     = np.zeros(len(self.mesh.facets))
+        self.atomic_emissions_AlI_surf    = np.zeros(len(self.mesh.facets))
+
+        self.index_blackbody = np.array([])
+        self.index_atomic    = np.array([])
+
+        self.angle_blackbody = np.zeros(len(self.mesh.facets))
+        self.angle_atomic    = np.zeros(len(self.mesh.facets))
 
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
@@ -570,12 +589,18 @@ class Assembly():
         self.mesh.vol_mass  = vol*density
         self.mass = np.sum(self.mesh.vol_mass)
 
+        print('density:', density[0])
+
+        print('volume:', np.sum(vol))
+
+        print('mass:', self.mass)
+
         #Computes the Center of Mass
         if self.mass <= 0:
             self.COG = np.array([0,0,0])
         else:
             self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*self.mesh.vol_mass[:,None], axis = 0)/self.mass
-            #self.COG = [-0.3,0.0,0.0]
+
         #Computes the inertia matrix
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
         # self.inertia = np.diag([0.289,0.147,0.136])

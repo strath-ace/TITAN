@@ -164,4 +164,4 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
         cells=cells,
         cell_data = cell_data)
 
-	trimesh.write(options.output_folder+'/Postprocess/'+ 'solution_iter_' + postprocess+'_'+str(iter_value).zfill(3)+'.xdmf')
+	trimesh.write(options.output_folder+'/Postprocess/'+ 'solution_iter_' + str(iter_value).zfill(3)+'.xdmf')

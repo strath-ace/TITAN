@@ -130,6 +130,8 @@ class Component():
             self.pato = PATO(options, len(mesh.facets), bloom_config, self.global_ID, self.temperature)
             self.bloom = bloom(bloom_config)
 
+        self.density_ratio = 1
+
     def compute_mass_properties(self, coords, elements, density):
         """
         Compute the inertia properties

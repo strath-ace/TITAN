@@ -43,6 +43,8 @@ def sphere_surface(radius, center, num_assembly, num_object, i, assembly, option
         Sphere center coordinates
     """
 
+    print("Calculating sphere surface ...")
+
     num_points = 20
     theta_list = np.linspace(0,np.pi,num_points)
     phi_list = np.linspace(0,2*np.pi,num_points)

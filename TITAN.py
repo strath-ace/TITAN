@@ -29,6 +29,7 @@ from Postprocess import postprocess_emissions as pp_emissions
 from Thermal import thermal
 from Structural import structural
 from pathlib import Path
+import numpy as np
 from matplotlib import pyplot as plt
 
 def loop(options = [], titan = []):
@@ -73,6 +74,7 @@ def loop(options = [], titan = []):
         #    output.generate_surface_solution(titan = titan, options = options)
 
         fragmentation.fragmentation(titan = titan, options = options)
+
         if not titan.assembly: return      
 
         if options.time_counter>0:
@@ -85,6 +87,9 @@ def loop(options = [], titan = []):
         else:
             propagation.propagate(titan = titan, options = options)
 
+        #output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)
+        if hasattr(titan,'end_trigger'): return
+        
         if options.thermal.ablation:
             thermal.compute_thermal(titan = titan, options = options)
 
@@ -94,12 +99,10 @@ def loop(options = [], titan = []):
             output.generate_volume_solution(titan = titan, options = options)
             
         if options.current_iter%options.output_freq == 0:
-            output.generate_surface_solution(titan = titan, options = options)         
+            output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)         
         
-        if hasattr(titan,'end_trigger'): return
-
         output.iteration(titan = titan, options = options)
-
+        if titan.iter>0: print('Total of {} flow solves'.format(titan.nfeval))
 
         if options.dynamic_plots:
             for _assembly in titan.assembly: plot = dynamic_plots.update_plot(_assembly, plot, titan.time)
@@ -140,6 +143,7 @@ def load_and_run_cfg(configParser,postprocess,filter_name):
     if (not postprocess) and (not emissions):
         loop(options, titan)
         print("Finished simulation")
+        print(titan.nfeval)
         return options, titan
     
     #Postprocess of the simulated solution to pass from Body-frame

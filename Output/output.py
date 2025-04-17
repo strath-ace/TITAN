@@ -130,6 +130,9 @@ def write_output_data(titan, options):
         df['Temperature'] = [assembly.freestream.temperature]
         df['Pressure'] = [assembly.freestream.pressure]
         df['SpecificHeatRatio'] = [assembly.freestream.gamma]
+        df['Qint'] = [np.sum(assembly.aerothermo.heatflux*assembly.mesh.facet_area)]
+        df['qmax'] = [max(assembly.aerothermo.heatflux)]
+        df['Tmax'] = [max(assembly.aerothermo.temperature)]
 
         pct_mass =assembly.freestream.percent_mass if options.freestream.method == "Mutationpp" else assembly.freestream.percent_mass[0]
         for specie, pct in zip(assembly.freestream.species_index, pct_mass) :
@@ -174,6 +177,8 @@ def write_output_data(titan, options):
             if options.pato.flag:
                 df["MaxTemperature"] = [max(obj.pato.temperature)]
                 print('obj:', obj.global_ID, ' max temp:', max(obj.pato.temperature))
+            if options.thermal.ablation_mode == "0d":
+                df["Temperature"] = [obj.temperature]
             df["Max_stress"] = [obj.max_stress]
             df["Yield_stress"] = [obj.yield_stress]
             df["Parent_id"] = [obj.parent_id]
@@ -189,7 +194,7 @@ def write_to_series(data_array,columns,filename):
     doHeader = False if os.path.exists(filename) else True
     data.to_csv(filename,mode='a',index=False,header=doHeader)
 
-def generate_surface_solution(titan, options, folder = 'Surface_solution'):
+def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solution'):
     points = np.array([])
     facets = np.array([])
     pressure = np.array([])
@@ -264,8 +269,82 @@ def generate_surface_solution(titan, options, folder = 'Surface_solution'):
         folder_path = options.output_folder+'/' + folder + '/ID_'+str(assembly.id)
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
-        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(titan.iter).zfill(3)}.xdmf"
-        if options.write_solutions: meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(iter_value).zfill(3)}.xdmf"
+        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+
+def generate_surface_solution_emissions(titan, options, iter_value, folder = 'Surface_solution'):
+
+    points = np.array([])
+    facets = np.array([])
+    cellID = np.array([])
+    heatflux = np.array([])
+    temperature = np.array([])
+    temperature_gas = np.array([])
+    blackbody_emissions_OI_surf  = np.array([])
+    blackbody_emissions_AlI_surf = np.array([])
+    atomic_emissions_OI_surf     = np.array([])
+    atomic_emissions_AlI_surf    = np.array([])
+
+
+    for assembly in titan.assembly:
+        points = assembly.mesh.nodes - assembly.mesh.surface_displacement
+        facets = assembly.mesh.facets
+        heatflux = assembly.aerothermo.heatflux
+        temperature  = assembly.aerothermo.temperature
+        temperature_gas  = assembly.aerothermo.Te
+        blackbody_emissions_OI_surf   = assembly.blackbody_emissions_OI_surf
+        blackbody_emissions_AlI_surf  = assembly.blackbody_emissions_AlI_surf
+        atomic_emissions_OI_surf      = assembly.atomic_emissions_OI_surf
+        atomic_emissions_AlI_surf     = assembly.atomic_emissions_AlI_surf
+
+        for cellid in range(len(assembly.mesh.facets)):
+            cellID = np.append(cellID, cellid)
+
+        
+        cells = {"triangle": facets}
+
+        cell_data = { "Heatflux":                    [heatflux],
+                      "Temperature":                 [temperature],
+                      "Temperature equilibrium gas": [temperature_gas],
+                      "blackbody_emissions_OI":  [blackbody_emissions_OI_surf],
+                      "blackbody_emissions_AlI": [blackbody_emissions_AlI_surf],
+                      "atomic_emissions_OI":     [atomic_emissions_OI_surf],
+                      "atomic_emissions_AlI":    [atomic_emissions_AlI_surf],
+                    }
+
+        trimesh = meshio.Mesh(points,
+                              cells=cells,
+                              cell_data = cell_data)
+
+        folder_path = options.output_folder+'/' + folder + '/ID_'+str(assembly.id)
+        Path(folder_path).mkdir(parents=True, exist_ok=True)
+
+        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(iter_value).zfill(3)}.xdmf"
+        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+
+
+def generate_surface_solution_object(obj, quantity, options, iter_value, folder = 'Surface_solution'):
+
+    points = np.array([])
+    facets = np.array([])
+
+    points = obj.mesh.nodes
+    facets = obj.mesh.facets
+    
+    cells = {"triangle": facets}
+
+    cell_data = { "quantity": [quantity],
+                }
+
+    trimesh = meshio.Mesh(points,
+                          cells=cells,
+                          cell_data = cell_data)
+
+    folder_path = options.output_folder+'/' + folder
+    Path(folder_path).mkdir(parents=True, exist_ok=True)
+
+    vol_mesh_filepath = f"{folder_path}/obj_{str(obj.global_ID)}_solution_iter_{str(iter_value).zfill(3)}.xdmf"
+    meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 #Generate volume for FENICS
 def generate_volume(titan, options):
