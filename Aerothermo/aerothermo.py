@@ -451,9 +451,6 @@ def compute_low_fidelity_aerothermo(assembly, options) :
         flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
 
         _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
-=========
-        _assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
-
         index = ray_trace(_assembly,flow_direction,n)
 
         _assembly.aero_index = index

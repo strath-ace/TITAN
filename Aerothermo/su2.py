@@ -59,7 +59,7 @@ class Solver():
         if su2.solver == 'NEMO_NAVIER_STOKES' or su2.solver == 'NEMO_EULER':
 
             #: [str] Fluid Model (Fluid model = MUTATIONPP -> Uses the Mutationpp Library)
-            self.fluid_model = 'FLUID_MODEL= SU2_NONEQ'
+            self.fluid_model = 'FLUID_MODEL= SU2_NONEQ'#MUTATIONPP'
 
             #: [str] Gas Model (Gas to be used in the simulation)
             self.gas_model = 'GAS_MODEL= air_5' if self.fluid_model == 'FLUID_MODEL= MUTATIONPP' else 'GAS_MODEL= AIR-5'
@@ -75,7 +75,10 @@ class Solver():
             O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass, freestream.species_index) if index in ['O2']])),5))
 
             #: [str] Gas Composition
-            self.gas_composition = 'GAS_COMPOSITION= (' + N + ','  + O + ',' + NO + ',' + N2 + ',' + O2 + ')'
+            if self.fluid_model == 'FLUID_MODEL= MUTATIONPP':
+                self.gas_composition = 'GAS_COMPOSITION= (' + N + ','  + O + ',' + NO + ',' + N2 + ',' + O2 + ')'
+            elif self.fluid_model == 'FLUID_MODEL= SU2_NONEQ':
+                self.gas_composition = 'GAS_COMPOSITION= (' + N2 + ','  + O2 + ',' + NO + ',' + N + ',' + O + ')'
 
             #: [str] Transport Coefficient
             self.transport_coeff = 'TRANSPORT_COEFF_MODEL = CHAPMANN-ENSKOG' if self.fluid_model == 'FLUID_MODEL= MUTATIONPP' else 'TRANSPORT_COEFF_MODEL = GUPTA-YOS'
@@ -186,11 +189,11 @@ class Solver_Numerical_Method():
         self.cfl = "CFL_NUMBER = " + str(su2.cfl)
         
         #[str] Adaptive CFL boolean (Default is NO)
-        self.cfl_adapt = "CFL_ADAPT = YES"
+        self.cfl_adapt = "CFL_ADAPT = NO"
 
         #Parameters of the adaptive CFL number (factor down, factor up, CFL min value,CFL max value )
 
-        self.cfl_adapt_param = "CFL_ADAPT_PARAM= ( 0.05, 1.001, 0.01, 1.5 )"
+        self.cfl_adapt_param = "CFL_ADAPT_PARAM= ( 0.05, 1.01, 0.01, 2.5 )"
 
         #[str] Maximum number of iterations
         self.iter = "ITER = " + str(su2.iters)
@@ -758,7 +761,7 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
 
     #Writes the configuration file
     options.cfd.time = 'EULER_EXPLICIT'
-    adapt_params = {"change_back" : False, 
+    adapt_params = {"change_back" : True, 
                     "iters" : options.cfd.iters, 
                     "solver" : options.cfd.solver,
                     "cfl" : options.cfd.cfl,
@@ -769,11 +772,12 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     #     options.cfd.iters  = 10000
     #     options.cfd.solver = 'NEMO_EULER'
     #     options.cfd.cfl = 0.1
+    #options.cfd.solver = 'NEMO_EULER'
     config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = input_grid, bloom=False)
     
     #Runs SU2 simulaton
     run_SU2(n, options)
-
+    #options.cfd.solver = 'NEMO_NAVIER_STOKES'
     #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
     if options.amg.flag:
         run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)
