@@ -17,7 +17,7 @@ $ conda create --name myenv --file requirements.txt
 If the packages are not found, the user can append a conda channel to retrieve the packages, by running
 
 ```console
-$ conda config --append channels conda-forge
+$ conda config --add channels conda-forge
 ```
 To activate the Conda environment:
 
