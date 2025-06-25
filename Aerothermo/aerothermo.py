@@ -22,14 +22,14 @@ from Freestream import mix_properties
 from Dynamics.frames import *
 from scipy import special
 from copy import copy
-from Aerothermo import su2, switch
+from Aerothermo import su2, switch 
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
 import trimesh
 try:
     import mutationpp as mpp
 except:
-    exit("Mutationpp library not set up")
+    print("Mutationpp library not set up")
 
 def mixture_mpp():
     """
