@@ -280,12 +280,45 @@ class Freestream():
         self.method = "Standard"
 
 class GRAM():
+
+    """ GRAM Class
+
+    A class to store input parameters used to configurea NASA GRAM (Global Reference Atmospheric Model)
+    """
+
     def __init__(self):
+
+        # [str] Path to GRAM directory
         self.gramPath = ''
+
+        # [str] Path to SPICE directory
         self.spicePath = ''
+
+        # [float] Scaling factor for atmospheric bounds
         self.MinMaxFactor = 0.0
+
+        # [boolean] (1/0): whether to compute the factor dynamically
         self.ComputeMinMaxFactor  = 1
-            
+
+        # Timestamp for GRAM run (used for date/time-dependent profiles):
+        # [int] Month (1–12)
+        self.month = 1
+
+        # [int] Day of the month (1–31)
+        self.day = 1
+
+        # [int] Year
+        self.year = 2000
+
+        # [int] Hour in UTC (0–23)
+        self.hour = 0
+
+        # [int] Minute (0–59)
+        self.minute = 0
+
+        # [float] Seconds
+        self.seconds = 0.0
+        
 
 class Options():
     """ Options class

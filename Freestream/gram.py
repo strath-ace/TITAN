@@ -30,6 +30,13 @@ def generate_script(assembly, options):
 		f.write("  DataPath       = '"+options.gram.gramPath+"/Earth/data'\n")
 		f.write("  ListFileName   = '"+options.output_folder+"/GRAM/LIST'\n")          
 		f.write("  ColumnFileName = '"+options.output_folder+"/GRAM/OUTPUT'\n")       
+		
+		f.write("  Month = '"+options.gram.month+"\n")       
+		f.write("  Day = '"+options.gram.day+"\n")       
+		f.write("  Year = '"+options.gram.year+"\n")       
+		f.write("  Hour = '"+options.gram.hour+"\n")       
+		f.write("  Minute = '"+options.gram.minute+"\n")       
+		f.write("  Seconds = '"+options.gram.seconds+"\n")       
 	
 #  Month     = 3
 #  Day       = 25
