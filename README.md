@@ -14,11 +14,10 @@ In order to install the required packages, the Anaconda environment can be creat
 ```console
 $ conda create --name myenv --file requirements.txt
 ```
-
 If the packages are not found, the user can append a conda channel to retrieve the packages, by running
 
 ```console
-$ conda config --append channels conda-forge
+$ conda config --add channels conda-forge
 ```
 To activate the Conda environment:
 
@@ -33,11 +32,24 @@ the user can use the pip manager to install the packages listed in the pip_requi
 (.venv) $ pip install -r pip_requirements.txt
 ```
 
-To install pymap3D, you can clone the following github page <https://github.com/geospace-code/pymap3d/> into the Executables foldar and install using
+### List of required libraries:
+- numpy
+- pandas
+- mshio
+- scipy
+- pyglet
+- vtk
+- sympy
+- pymap3d
+- lxml
+- fenics=2019.1.0=py310hff52083_34 (conda only)
+- bs4
+- scikit-build
+- pytest (optional)
+- open3d
+- gmsh=4.10.5 (pip only)
+- trimsh[all] (pip only)
 
-```console
-(.venv) $ pip install -e pymap3d
-```
 
 ### Optional
 
@@ -54,7 +66,7 @@ Once the mutation++ has been compiled, you can install by:
 ```
 
 #### AMGio
-AMGio is a library that is required to perform mesh adaptation when running high-fidelity simulations. To install the AMGio library, one must clone the following github page to the TITAN/Executables folder: <https://github.com/bmunguia/amgio>. THe user can the proceed to the installation using
+AMGio is a library that is required to perform mesh adaptation when running high-fidelity simulations. To install the AMGio library, one must clone the following github page to the TITAN/Executables folder: <https://github.com/bmunguia/amgio>. The user can the proceed to the installation using
 
 ```console
 (.venv) $ pip install -e amgio/su2gmf/
@@ -179,3 +191,32 @@ After obtaining the solution of the simulation, the data can be postprocessed by
 The frame convention in the geometry modelling are such that the X axis is the longitudinal axis pointing ahead, Z axis is the vertical axis pointing downwards, and the Y axis is the lateral one, pointing in such a way that the frame is right-handed. 
 
 In case of multiple components, if the components are in contact with each other, the respective meshes need to be identical in the interface (i.e. same node positioning and same facets).
+
+
+# Patch Notes
+
+\[2023-04-17\]
+
+* Change name of variable facets_normal to facet_normal in mesh class
+* Compute facet_normal to be proportional to the facet area
+* Object of class aerothermo creates array based of number of facets instead of number of nodes
+* Aerodynamic computation now takes facets normals as input
+* Output files now have cell_data in addition to point_data
+* Computation of facet radius in addition to nodes radius
+* Aerothermodynamics computation now takes facet normals and facet radius as input
+* Ablation is now working with facets
+* SU2 solution is interpolated to the facets using a linear approach. Reverse function still needs to be written
+* Test-cases have been adapted to accomodate the vertex->facet changes
+
+\[2023-04-18\]
+
+* Introduced a new interpolation, the reverse interpolation needs to be double checked
+* Created function to map the surface facets to the correspondent tetra for thermal computation
+* Created a thermal function to use the tetras mass to compute surface temperature
+* Thermal function loops to check which tetras are ablated
+
+\[2023-04-23\]
+
+* Improved the speed and robustness of the tetra ablation
+* Started commenting the functions
+* Introduction of a new config term "Ablation_mode: (0D, Tetra)"

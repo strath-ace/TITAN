@@ -19,7 +19,7 @@ Num_iters = 10
 
 [Assembly]
 # Path for the geometry files
-Path = Geometry/Billig/
+Path = Examples/Geometry/Billig/
 #Connectivity = [[1,2,3]]
 Sideslip = 0.0
 Angle_of_attack = 0.0

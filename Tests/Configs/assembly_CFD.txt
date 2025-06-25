@@ -1,0 +1,47 @@
+#We can do comments like this
+#First test case to test the config file of TITAN
+
+[Options]
+Num_iters = 1
+Load_mesh = False
+Load_state = False
+Fidelity = High
+#High, Low or Hybrid
+Output_folder = Tests/Simulation
+FENICS = False
+
+[Trajectory]
+Altitude = 60000
+Velocity = 5000
+Flight_path_angle = 0
+
+[Bloom]
+Flag =  False
+Layers = 15
+Spacing = 0.001
+Growth_Rate = 1.15
+
+[AMG]
+Flag = True
+
+[SU2]
+Solver = NAVIER_STOKES
+Conv_method = AUSM
+Adapt_iter = 0
+Num_cores = 6
+Num_iters = 10
+Muscl = NO
+Cfl = 0.5
+
+[Assembly]
+# Path for the geometry files
+Path = Tests/Mesh/Cubes/
+Connectivity = [[1,2,3]]
+
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+Cube_A = [NAME = Cube_A.stl,         TYPE = Primitive,   MATERIAL = Unittest,   FENICS_ID = 1]]
+Cube_B = [NAME = Cube_B.stl,         TYPE = Primitive,   MATERIAL = Unittest,   FENICS_ID = 1]]
+Joint  = [NAME = Joint.stl,          TYPE = Joint,       MATERIAL = Unittest,   FENICS_ID = 1]]

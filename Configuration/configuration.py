@@ -29,8 +29,25 @@ import copy
 from Geometry import component as Component
 from Geometry import assembly as Assembly
 from Dynamics import dynamics
+from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
+
+
+class Collision_options():
+
+    def __init__(self, post_fragmentation_iters = 0,
+                 post_fragmentation_timestep = 0.0,
+                 elastic_factor = 1.0,
+                 max_depth = 1E-6,
+                 mesh_factor = 1E-3):
+
+        self.flag = False
+        self.post_fragmentation_iters = post_fragmentation_iters
+        self.post_fragmentation_timestep = post_fragmentation_timestep
+        self.elastic_factor = elastic_factor
+        self.max_depth = max_depth
+        self.mesh_factor = mesh_factor
 
 class Trajectory():
     """ Class Trajectory
@@ -41,8 +58,6 @@ class Trajectory():
     def __init__(self, altitude = 0, gamma = 0, chi = 0, velocity = 0, 
               latitude = 0, longitude = 0):
         
-        #TODO 
-
         #: [meters] Altitude value.
         self.altitude = altitude
 
@@ -61,32 +76,12 @@ class Trajectory():
         #: [radians] Longitude value.
         self.longitude = longitude
 
-        #self.df = pd.DataFrame({'Time': [0],
-        #                 'Altitude': [altitude],
-        #                 'Velocity' : [velocity],
-        #                 'Gamma' : [gamma],
-        #                 'Chi' : [chi],
-        #                 'Latitude' : [latitude],
-        #                 'Longitude' : [longitude],
-        #                 'Stress Ratio': [stress_ratio],
-        #                 'Max vm': [stress_max_vm]})
-        
-        #self.aoa = aoa
-        #self.yaw = yaw
-        #self.roll = roll
+class Meshing():
 
-        #self.x_angle = x_angle
-        #self.y_angle = y_angle
-        #self.z_angle = z_angle
+    def __init__(self):
+        self.far_size = 0.5
+        self.surf_size = 0.5
 
-        #self.max_x_disp = max_x_disp
-        #self.max_y_disp = max_y_disp
-        #self.max_z_disp = max_z_disp
-        
-        #self.stress_ratio = stress_ratio
-        #self.stress_max_vm = stress_max_vm
-        #self.max_stress_obj = max_stress_obj
-        #self.dyPrev = None
 
 #FENICS class
 class Fenics():
@@ -96,12 +91,6 @@ class Fenics():
     """
 
     def __init__ (self, E = 68e9, FENICS = False, FE_MPI = False, FE_MPI_cores = 12, FE_verbose = False):
-
-        #TODO
-        #self.x_nodes = []
-        #self.y_nodes = []
-        #self.z_nodes = []
-        #self.vol_mesh = []
 
         #: [Pa] Young Modulus
         self.E = E
@@ -114,6 +103,8 @@ class Fenics():
 
         #: [bool] Flag value indicating the verbosity of FEniCS solver
         self.FE_verbose = FE_verbose # printing FE progress (for debugging)
+
+        self.FE_freq = 1
 
 class Dynamics():
     """ Dynamics class
@@ -139,7 +130,7 @@ class Dynamics():
         self.manifold_correction = manifold_correction
 
 class CFD():
-    def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1):
+    def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1, cfd_restart = False, restart_grid = 0, restart_iter = 0):
         
         #: [str] Name of the CFD solver
         self.solver = solver
@@ -161,6 +152,15 @@ class CFD():
 
         #: [int] Number of cores to run the CFD simulation
         self.cores = cores
+
+        #: [bool] Flag to restart from a CFD solution
+        self.cfd_restart = cfd_restart
+
+        #: [bool] Iteration of adaptated grid to be used at restart of a CFD simulation
+        self.restart_grid = restart_grid
+
+        #: [bool] TITAN iteration to be used for the restart of a CFD simulation
+        self.restart_iter = restart_iter                
 
 class Bloom():
     def __init__(self, flag = False, layers = 20, spacing = 0.0006, growth_rate = 1.075):
@@ -280,12 +280,45 @@ class Freestream():
         self.method = "Standard"
 
 class GRAM():
+
+    """ GRAM Class
+
+    A class to store input parameters used to configurea NASA GRAM (Global Reference Atmospheric Model)
+    """
+
     def __init__(self):
+
+        # [str] Path to GRAM directory
         self.gramPath = ''
+
+        # [str] Path to SPICE directory
         self.spicePath = ''
+
+        # [float] Scaling factor for atmospheric bounds
         self.MinMaxFactor = 0.0
+
+        # [boolean] (1/0): whether to compute the factor dynamically
         self.ComputeMinMaxFactor  = 1
-            
+
+        # Timestamp for GRAM run (used for date/time-dependent profiles):
+        # [int] Month (1–12)
+        self.month = 1
+
+        # [int] Day of the month (1–31)
+        self.day = 1
+
+        # [int] Year
+        self.year = 2000
+
+        # [int] Hour in UTC (0–23)
+        self.hour = 0
+
+        # [int] Minute (0–59)
+        self.minute = 0
+
+        # [float] Seconds
+        self.seconds = 0.0
+        
 
 class Options():
     """ Options class
@@ -310,6 +343,10 @@ class Options():
         self.bloom = Bloom()
         self.amg = Amg()
 
+        self.meshing = Meshing()
+
+        self.collision = Collision_options()
+
         #: [:class:`.Aerothermo`] Object of class Aerothermo
         self.aerothermo = Aerothermo()
 
@@ -321,6 +358,9 @@ class Options():
         
         #: [int] Number of dynamic iterations
         self.iters = iters
+
+        #:[int] Frequency of generating a restart file [per number of iterations]
+        self.save_freq = 500
 
         #: [int] Current iteration
         self.current_iter = 0
@@ -343,6 +383,13 @@ class Options():
         #: [str] Fidelity of the aerothermo calculation (Low - Default, High, Hybrid)
         self.fidelity = fidelity
 
+        #: [boolean] Flag to perform ablation
+        self.ablation = False
+
+        #: [str] Ablation Model (0D, tetra)
+        self.ablation_mode = "0D"
+
+        self.post_fragment_tetra_ablation = False
         
     def clean_up_folders(self):
         """
@@ -379,7 +426,7 @@ class Options():
         pickle.dump(titan, outfile)
         outfile.close() 
 
-    def save_state(self, titan, i = 0):
+    def save_state(self, titan, i = 0, CFD = False):
         """
         Saves the TITAN object state
 
@@ -393,6 +440,12 @@ class Options():
 
         #titan.high_fidelity_model = None 
         # titan.low_fidelity_model = None 
+        
+        print("Saving state")
+
+        if self.collision.flag:
+            for assembly in titan.assembly:
+                assembly.collision = None
 
         outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
         pickle.dump(titan, outfile)
@@ -401,6 +454,15 @@ class Options():
         pickle.dump(titan, outfile)
         outfile.close()
 
+        if CFD:
+            outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','wb')
+            pickle.dump(titan, outfile)
+            outfile.close()
+
+        if self.collision.flag:
+            for assembly in titan.assembly: collision.generate_collision_mesh(assembly, self)
+            collision.generate_collision_handler(titan, self)
+
     def read_mesh(self):
         infile = open(self.output_folder + '/Restart/'+ 'Mesh.p','rb')
         titan = pickle.load(infile)
@@ -408,7 +470,7 @@ class Options():
 
         return titan
 
-    def read_state(self):
+    def read_state(self, i = 0):
         """
         Load last state of the TITAN object
 
@@ -418,9 +480,14 @@ class Options():
             Object of class Assembly_list
         """
 
-        infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
-        titan = pickle.load(infile)
-        infile.close()
+        if self.fidelity.lower() == 'high' and self.cfd.cfd_restart:
+            infile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','rb')
+            titan = pickle.load(infile)
+            infile.close()
+        else: 
+            infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
+            titan = pickle.load(infile)
+            infile.close()
 
         return titan
 
@@ -467,9 +534,6 @@ def get_config_value(configParser, variable, section, field, var_type, list_type
             except ValueError:
                 print(f"Error reading the value of field {field} in section {section}. Returning to default values!")
                 pass
-
-   # else:
-   #     print(f"Config file has no value {field} in section {section}!")
 
     return variable
 
@@ -534,7 +598,7 @@ def read_trajectory(configParser):
     
     return trajectory
 
-def read_geometry(configParser):
+def read_geometry(configParser, options):
     """
     Geometry pre-processing
 
@@ -569,6 +633,24 @@ def read_geometry(configParser):
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
                     material= [s for s in value if "material=" in s.lower()][0].split("=")[1]
                     
+
+                    try:
+                        inner_stl_file = [s for s in value if "inner_stl=" in s.lower()][0].split("=")[1]
+                    except:
+                        inner_stl_file = 'none'
+
+                    if inner_stl_file != 'None' and inner_stl_file != 'none':
+                        inner_path = path+inner_stl_file
+                    else:
+                        inner_path = ''
+
+                    try:
+                        trigger_type = [s for s in value if "trigger_type=" in s.lower()][0].split("=")[1]
+                        trigger_value = [s for s in value if "trigger_value=" in s.lower()][0].split("=")[1]
+                    except:
+                        trigger_type = ""
+                        trigger_value = 0
+
                     try:
                         fenics_bc_id = [s for s in value if "fenics_id=" in s.lower()][0].split("=")[1]
                     except:
@@ -579,7 +661,8 @@ def read_geometry(configParser):
                     except:
                         temperature = 300
                     
-                    objects.insert_component(filename = object_path, file_type = object_type, fenics_bc_id = fenics_bc_id, material = material, temperature = temperature )
+                    objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
+                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -612,7 +695,7 @@ def read_geometry(configParser):
                         temperature = 300
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
-                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature) 
+                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 
 
 
     # Creates a list of the different assemblies, where each assembly is a object with several linked components
@@ -624,7 +707,7 @@ def read_geometry(configParser):
     slip = get_config_value(configParser, 0.0, 'Assembly', 'Sideslip', 'custom','angle')
     roll = get_config_value(configParser, 0.0, 'Assembly', 'Roll', 'custom','angle')
 
-    titan.create_assembly(connectivity = connectivity, aoa = aoa, slip = slip, roll = roll)
+    titan.create_assembly(connectivity = connectivity, aoa = aoa, slip = slip, roll = roll, options = options)
 
     return titan
 
@@ -659,46 +742,51 @@ def read_config_file(configParser, postprocess = ""):
 
     """
 
-    #Initialize classes:
-
     options = Options()
-    #[ X ]  --  options.fenics = TITAN.FENICS()
-    #[ X ]  --  options.timeopt = TITAN.time_options()
-    #[  ]  --  options.sparta = SPARTA.Sparta()
-    #[ X ]  --  options.su2 = SU2.Su2()
-    #[ X ]  --  options.bloom = BLOOM.Bloom()
-    #[ X ]  --  options.amg = AMG.Amg()
-    #[ X ]  --  options.aerothermo = Aerothermo.aerothermo_options()
     
     #Read Options Conditions
     options.output_folder = get_config_value(configParser, options.output_folder, 'Options', 'output_folder', 'str')
     if postprocess: return options, None
 
     options.iters         = get_config_value(configParser, options.iters, 'Options', 'Num_iters', 'int')
+    options.save_freq     = get_config_value(configParser, options.save_freq, 'Options', 'Save_freq', 'int')
     options.load_state    = get_config_value(configParser, False, 'Options', 'Load_state', 'boolean')
     options.load_mesh     = get_config_value(configParser, False, 'Options', 'Load_mesh', 'boolean')
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
-    #options.SPARTA =       get_config_value(configParser, options.SPARTA, 'Options', 'SPARTA', 'boolean')
-    options.structural_dynamics   = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
-    options.ablation      = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
+    options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
+    options.ablation       = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
+    options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
+    options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
+    options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
+    options.time_counter   = 0
 
     #Read FENICS options
     if options.structural_dynamics:
         options.fenics.E            = get_config_value(configParser, options.fenics.E, 'FENICS', 'E', 'float')
-        options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'bool')
+        options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'boolean')
         options.fenics.FE_MPI_cores = get_config_value(configParser, options.fenics.FE_MPI_cores, 'FENICS', 'FENICS_cores', 'int')
         options.fenics.FE_verbose   = get_config_value(configParser, options.fenics.FE_verbose, 'FENICS', 'FENICS_verbose', 'boolean')
+        options.fenics.FE_freq      = get_config_value(configParser, options.fenics.FE_freq, 'FENICS', 'FENICS_freq', 'int')
 
     #Read Dynamics options
     options.dynamics.time = 0
     options.dynamics.time_step           = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
     options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
-    options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
-    options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
+    #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
+    #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
-    
+    options.aerothermo.vel_grad   = get_config_value(configParser, 'fr', 'Aerothermo', 'Vel_grad', 'str')
+    options.aerothermo.standoff   = get_config_value(configParser, 'freeman', 'Aerothermo', 'Standoff', 'str')
+    options.aerothermo.cat_method = get_config_value(configParser, 'constant', 'Aerothermo', 'Catalicity_method', 'str')
+    options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
+    options.aerothermo.subdivision_triangle = get_config_value(configParser, 0, 'Aerothermo', 'Level_division', 'int')
+
+    #Read meshing options
+    options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
+    options.meshing.surf_size = get_config_value(configParser, 100, 'Mesh', 'Surf_size', 'float')
+
     #Read Freestream options
     options.freestream.model =  get_config_value(configParser, options.freestream.model, 'Freestream', 'Model', 'str')
     options.freestream.method =  get_config_value(configParser, options.freestream.method, 'Freestream', 'Method', 'str')
@@ -709,6 +797,12 @@ def read_config_file(configParser, postprocess = ""):
         options.gram.spicePath = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'SPICE_Path', 'str') 
         options.gram.MinMaxFactor = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'MinMaxFactor', 'str')
         options.gram.ComputeMinMaxFactor = get_config_value(configParser, options.gram.ComputeMinMaxFactor, 'GRAM', 'ComputeMinMaxFactor', 'str')
+        options.gram.year = get_config_value(configParser, options.gram.year, 'GRAM', 'Yeah', 'int')
+        options.gram.month = get_config_value(configParser, options.gram.month, 'GRAM', 'Month', 'int')
+        options.gram.day = get_config_value(configParser, options.gram.day, 'GRAM', 'Day', 'str')
+        options.gram.hour = get_config_value(configParser, options.gram.hour, 'GRAM', 'Hour', 'int')
+        options.gram.minute = get_config_value(configParser, options.gram.minute, 'GRAM', 'Minute', 'int')
+        options.gram.seconds = get_config_value(configParser, options.gram.second, 'GRAM', 'Seconds', 'float')
 
     #Read Planet
     options.planet = planet.ModelPlanet(get_config_value(configParser, "Earth", 'Model', 'Planet', 'str'))
@@ -754,6 +848,9 @@ def read_config_file(configParser, postprocess = ""):
         options.cfd.iters =       get_config_value(configParser, options.cfd.iters, 'SU2', 'Num_iters', 'int')
         options.cfd.muscl =       get_config_value(configParser, options.cfd.muscl, 'SU2', 'Muscl', 'str')
         options.cfd.cfl =         get_config_value(configParser, options.cfd.cfl, 'SU2', 'Cfl', 'float')
+        options.cfd.cfd_restart =     get_config_value(configParser, options.cfd.cfd_restart, 'SU2', 'Restart', 'boolean')
+        options.cfd.restart_grid=     get_config_value(configParser, options.cfd.restart_grid, 'SU2', 'Restart_grid', 'int')
+        options.cfd.restart_iter=     get_config_value(configParser, options.cfd.restart_iter, 'SU2', 'TITAN_iter', 'int')        
 
         #Read Bloom conditions
         options.bloom.flag =        get_config_value(configParser,options.bloom.flag,'Bloom', 'Flag', 'boolean')
@@ -766,6 +863,13 @@ def read_config_file(configParser, postprocess = ""):
         options.amg.p = get_config_value(configParser,options.amg.p,'AMG', 'P', 'int')
         options.amg.c = get_config_value(configParser,options.amg.c,'AMG', 'C', 'int')
         options.amg.sensor = get_config_value(configParser,options.amg.sensor,'AMG', 'Sensor', 'str')
+
+    if options.collision.flag:
+        options.collision.post_fragmentation_iters = get_config_value(configParser, options.collision.post_fragmentation_iters, 'Collision', 'Post_fragmentation_iters', 'int')
+        options.collision.post_fragmentation_timestep = get_config_value(configParser, options.collision.post_fragmentation_timestep, 'Collision', 'Post_fragmentation_timestep', 'float')
+        options.collision.max_depth = get_config_value(configParser, options.collision.max_depth, 'Collision', 'Max_depth', 'float')
+        options.collision.mesh_factor = get_config_value(configParser, options.collision.mesh_factor, 'Collision', 'Mesh_factor', 'float')
+        options.collision.elastic_factor = get_config_value(configParser, options.collision.elastic_factor, 'Collision', 'Elastic_factor', 'float')
 
     output.options_information(options)
 
@@ -787,7 +891,7 @@ def read_config_file(configParser, postprocess = ""):
         else:
             #Reads the user-defined geometries, properties and connectivity
             #to generate an assembly. The information is stored in the titan object
-            titan = read_geometry(configParser)
+            titan = read_geometry(configParser, options)
             
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
@@ -808,6 +912,10 @@ def read_config_file(configParser, postprocess = ""):
         
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)
+
+    if options.collision.flag:
+        for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
+        collision.generate_collision_handler(titan, options)
 
     ### if options.FENICS:
     ###     fenics = TITAN.FENICS()
