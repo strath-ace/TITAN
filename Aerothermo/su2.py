@@ -63,8 +63,8 @@ class Solver():
             #: [str] Gas Model (Gas to be used in the simulation)
             self.gas_model = 'GAS_MODEL= air_5'
 
-            print(freestream.percent_mass, freestream.species_index)
 
+            #Hardcoded for the NRLMSISE00 database
             N  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N']])),5))
             O  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O']])),5))
             NO = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['NO']])),5))
@@ -398,18 +398,18 @@ def retrieve_index(SU2_type):
     index: np.array()
         Array of index with the position of solution fields of interest
     """
-
+    #TODO: Instead of hardcoded with SU2 indexes, needs to read name of field and retrieve value
     if SU2_type == 'EULER':
         index = np.array([(0,1,3,4)], dtype = [('Density', 'i4'),('Momentum', 'i4'),('Pressure', 'i4'),('Temperature', 'i4')])
         
     if SU2_type == 'NEMO_EULER':
-        index = np.array([(3)], dtype = [('Pressure', 'i4')])
+        index = np.array([(13)], dtype = [('Pressure', 'i4')])
 
     if SU2_type == 'NAVIER_STOKES':
         index = np.array([(0,1,3,4,8,9)], dtype = [('Density', 'i4'),('Momentum', 'i4'),('Pressure', 'i4'),('Temperature', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
         
     if SU2_type == 'NEMO_NAVIER_STOKES':
-        index = np.array([(3,9,10)], dtype = [('Pressure', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
+        index = np.array([(13,19,20)], dtype = [('Pressure', 'i4'), ('Skin_Friction_Coefficient', 'i4'), ('Heat_Flux' , 'i4')])
 
     return index
 
@@ -544,6 +544,7 @@ def run_SU2(n, options):
     options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run([path+'/Executables/mpirun_SU2','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+
 
 def generate_BL(assembly, options, it, cluster_tag):
     """
