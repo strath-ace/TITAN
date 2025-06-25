@@ -205,9 +205,6 @@ def compute_cartesian_derivatives(assembly, options):
         gr = float(data['Gravity_ms2'])
         gt = 0
 
-    #Delete
-    #gr = -assembly.gravity
-
     [agrav_u,agrav_v,agrav_w] = pymap3d.enu2uvw(0,0, gr,assembly.trajectory.latitude, assembly.trajectory.longitude,deg = False)
 
     #R_W_NED = frames.R_W_NED(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)
@@ -223,7 +220,7 @@ def compute_cartesian_derivatives(assembly, options):
 
     Faero_I = R_B_ECEF.apply(np.array(assembly.body_force.force))
 
-    Fgrav_I = np.array([agrav_u,agrav_v,agrav_w])*assembly.mass
+    Fgrav_I = np.array([agrav_u,agrav_v,agrav_w])
     Fcoreolis_I = -np.cross(np.array([0,0,wE]), np.cross(np.array([0,0,wE]), assembly.position))
     Fcentrif_I  = -2*np.cross(np.array([0,0,wE]), assembly.velocity)
 
@@ -231,7 +228,7 @@ def compute_cartesian_derivatives(assembly, options):
     #pymap3d has the functions we need
 
     dx = assembly.velocity
-    dv = (Faero_I + Fgrav_I + Fcoreolis_I + Fcentrif_I) / assembly.mass
+    dv = Faero_I / assembly.mass + (Fgrav_I + Fcoreolis_I + Fcentrif_I)
 
     return DerivativesCartesian(dx = dx[0], dy = dx[1], dz = dx[2], du = dv[0], dv = dv[1], dw = dv[2])
 
