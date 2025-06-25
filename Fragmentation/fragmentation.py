@@ -29,6 +29,7 @@ import trimesh
 from Geometry.component import Component
 from collections import defaultdict
 from Dynamics import collision
+import copy
 
 def demise_components(titan, i, joints_id, options): 
     """
@@ -161,6 +162,11 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].pitch = angle[1]
         titan.assembly[-1].yaw   = angle[2]
 
+        titan.assembly[-1].roll_vel_last = copy.deepcopy(titan.assembly[i].roll_vel)
+        titan.assembly[-1].pitch_vel_last = copy.deepcopy(titan.assembly[i].pitch_vel)
+        titan.assembly[-1].yaw_vel_last = copy.deepcopy(titan.assembly[i].yaw_vel)
+
+
         #Vector of COM difference
         dx = titan.assembly[-1].COG - titan.assembly[i].COG
 
@@ -172,6 +178,9 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].position = np.copy(titan.assembly[i].position) + dx_ECEF
         titan.assembly[-1].velocity = np.copy(titan.assembly[i].velocity) + np.cross(angle_vel_ECEF,dx_ECEF)
         
+        titan.assembly[-1].position_last = copy.deepcopy(titan.assembly[i].position)
+        titan.assembly[-1].velocity_last = copy.deepcopy(titan.assembly[i].velocity)
+
         titan.assembly[-1].roll_vel  = angle_vel[0]
         titan.assembly[-1].pitch_vel = angle_vel[1]
         titan.assembly[-1].yaw_vel   = angle_vel[2]

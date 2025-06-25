@@ -27,6 +27,7 @@ from Output import output
 import pyquaternion
 from Freestream import gram
 from Model import drag_model
+import copy 
 
 def compute_Euler(titan, options):
     """
@@ -91,13 +92,34 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
 
     dt = time_step
 
-    assembly.position[0] += dt*cartesianDerivatives.dx
-    assembly.position[1] += dt*cartesianDerivatives.dy
-    assembly.position[2] += dt*cartesianDerivatives.dz
+    if options.dynamics.propagator == 'EULER' or options.current_iter == 0 :
+        
+        assembly.position[0] += dt*cartesianDerivatives.dx
+        assembly.position[1] += dt*cartesianDerivatives.dy
+        assembly.position[2] += dt*cartesianDerivatives.dz
 
-    assembly.velocity[0] += dt*cartesianDerivatives.du
-    assembly.velocity[1] += dt*cartesianDerivatives.dv
-    assembly.velocity[2] += dt*cartesianDerivatives.dw
+        assembly.velocity[0] += dt*cartesianDerivatives.du
+        assembly.velocity[1] += dt*cartesianDerivatives.dv
+        assembly.velocity[2] += dt*cartesianDerivatives.dw
+
+    elif options.dynamics.propagator == '2ND_ORDER':
+
+        px = assembly.position_last[0] +  2*dt*cartesianDerivatives.dx
+        py = assembly.position_last[1] +  2*dt*cartesianDerivatives.dy
+        pz = assembly.position_last[2] +  2*dt*cartesianDerivatives.dz
+        vx = assembly.velocity_last[0] + 2*dt*cartesianDerivatives.du
+        vy = assembly.velocity_last[1] + 2*dt*cartesianDerivatives.dv
+        vz = assembly.velocity_last[2] + 2*dt*cartesianDerivatives.dw
+ 
+        assembly.position[0] = px
+        assembly.position[1] = py
+        assembly.position[2] = pz
+        assembly.velocity[0] = vx
+        assembly.velocity[1] = vy
+        assembly.velocity[2] = vz
+
+    assembly.position_last = copy.deepcopy(assembly.position)
+    assembly.velocity_last = copy.deepcopy(assembly.velocity)
 
     q = assembly.quaternion
 
@@ -141,6 +163,26 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.roll_vel  += dt*angularDerivatives.ddroll  #christie: p,q,r or d(euler)??
     assembly.pitch_vel += dt*angularDerivatives.ddpitch
     assembly.yaw_vel   += dt*angularDerivatives.ddyaw
+
+
+    if options.dynamics.propagator == 'EULER' or options.current_iter == 0:
+
+        assembly.roll_vel  += dt*angularDerivatives.ddroll
+        assembly.pitch_vel += dt*angularDerivatives.ddpitch
+        assembly.yaw_vel   += dt*angularDerivatives.ddyaw
+
+
+    elif options.dynamics.propagator == '2ND_ORDER':
+
+        assembly.roll_vel  = assembly.roll_vel_last + 2*dt*angularDerivatives.ddroll
+        assembly.pitch_vel = assembly.pitch_vel_last + 2*dt*angularDerivatives.ddpitch
+        assembly.yaw_vel   = assembly.yaw_vel_last + 2*dt*angularDerivatives.ddyaw
+
+    assembly.roll_vel_last = copy.deepcopy(assembly.roll_vel)
+    assembly.pitch_vel_last = copy.deepcopy(assembly.pitch_vel)
+    assembly.yaw_vel_last = copy.deepcopy(assembly.yaw_vel)
+
+
 
     #Limiting the angular velocity to 100 rad/s.
 
