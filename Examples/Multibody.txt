@@ -23,7 +23,7 @@ Time_step = 0.3
 
 [Assembly]
 # Path for the geometry files
-Path = Geometry/Multibody/
+Path = Examples/Geometry/Multibody/
 Connectivity = [[1,2,3]]
 
 [Objects]
