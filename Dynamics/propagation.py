@@ -58,7 +58,8 @@ def propagate(titan, options):
     new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,state_vectors_prior,derivatives_prior,time_step,titan,options)
     # Update prior derivatives
     if new_derivs is not None: append_derivatives(titan,options,new_derivs)
-
+    # Writes the output data
+    output.write_output_data(titan = titan, options = options)
     # Communicate new vectors to assemblies
     for i_assem, _assembly in enumerate(titan.assembly):
         angle_names = ['roll','pitch','yaw']
@@ -69,11 +70,8 @@ def propagate(titan, options):
         _assembly.state_vector = new_state_vectors[i_assem]
         for i_angle, angle in enumerate(angle_names): 
             _assembly.unmodded_angles[i_angle]+=time_step*_assembly.state_vector[10+i_angle]
-        from Output.output import write_to_series
-        write_to_series([np.hstack([titan.time,_assembly.unmodded_angles])],[['Time','Roll','Pitch','Yaw']],options.output_folder+'/Angles_{}.csv'.format(_assembly.id))
-    # Writes the output data
-    output.write_output_data(titan = titan, options = options)
-
+        output.write_to_series([np.hstack([titan.time,_assembly.unmodded_angles])],[['Time','Roll','Pitch','Yaw']],options.output_folder+'/Angles_{}.csv'.format(_assembly.id))
+    
     # Increment time step
     if hasattr(titan,'rk_params'): time_step = titan.delta_t
     else: titan.delta_t = time_step
@@ -94,14 +92,10 @@ def state_equation(titan,options,time,state_vectors):
         reshape_flat = True
         state_vectors = np.reshape(state_vectors,[-1,13])
 
-    # n_states = np.shape(state_vectors)[0]
-    # from scipy.stats import uniform_direction
-    # quat = uniform_direction(4).rvs(n_states)
-    # state_vectors[:,6:10] = quat
-
     # First we communicate the state vector to assembly attributes
-    for _assembly, state_vector in zip(titan.assembly,state_vectors):
-        update_dynamic_attributes(_assembly,state_vector,options)
+    if titan.iter>0:
+        for _assembly, state_vector in zip(titan.assembly,state_vectors):
+            update_dynamic_attributes(_assembly,state_vector,options)
     
     # Then business as usual for computing forces...
     
@@ -136,85 +130,6 @@ def state_equation(titan,options,time,state_vectors):
         
     if reshape_flat: d_dt_state_vectors = np.array(d_dt_state_vectors).flatten()
     return d_dt_state_vectors, aero_states
-
-def cartesian_state_equation(titan,options,time,position_state_vectors):
-    # This state equation will for each assembly compute the rate of change of a 3DOF state vector (at that state),
-    
-    # State vectors can be passed flattened, need to account for this
-    position_state_vectors = np.array(position_state_vectors)
-    reshape_flat = False
-    if len(position_state_vectors.shape)<2: 
-        reshape_flat = True
-        position_state_vectors = np.reshape(position_state_vectors,[-1,6])
-
-    # First we communicate the state vector to assembly attributes
-    for _assembly, position_state_vector in zip(titan.assembly,position_state_vectors):
-        update_state = _assembly.state_vector
-        update_state[:6] = position_state_vector
-        update_dynamic_attributes(_assembly,update_state,options)
-    
-    # Then business as usual for computing forces...
-    aerothermo.compute_aerothermo(titan, options)
-
-    forces.compute_aerodynamic_forces(titan, options)
-    forces.compute_aerodynamic_moments(titan, options)
-
-    # Then determine the necessary derivatives to return the state vector(s)
-    d_dt_state_vectors = []
-    for _assembly in titan.assembly:
-        cartesianDerivatives = dynamics.compute_cartesian_derivatives(_assembly, options)
-
-        d_dt_state_vectors.append([cartesianDerivatives.dx,
-                                   cartesianDerivatives.dy,
-                                   cartesianDerivatives.dz,
-                                   cartesianDerivatives.du,
-                                   cartesianDerivatives.dv,
-                                   cartesianDerivatives.dw])
-        
-    if reshape_flat: d_dt_state_vectors = np.array(d_dt_state_vectors).flatten()
-    return d_dt_state_vectors
-
-def angular_state_equation(titan,options,time,angular_state_vectors):
-    # This state equation will for each assembly compute the rate of change of a Body-Frame state vector (at that state),
-    
-    # State vectors can be passed flattened, need to account for this
-    angular_state_vectors = np.array(angular_state_vectors)
-    reshape_flat = False
-    if len(angular_state_vectors.shape)<2: 
-        reshape_flat = True
-        angular_state_vectors = np.reshape(angular_state_vectors,[-1,7])
-
-    # First we communicate the state vector to assembly attributes
-    for _assembly, angular_state_vector in zip(titan.assembly,angular_state_vectors):
-        update_state = _assembly.state_vector
-        update_state[6:] = angular_state_vector
-        update_dynamic_attributes(_assembly,update_state,options)
-    
-    # Then business as usual for computing forces...
-    aerothermo.compute_aerothermo(titan, options)
-
-    forces.compute_aerodynamic_forces(titan, options)
-    forces.compute_aerodynamic_moments(titan, options)
-
-    # Then determine the necessary derivatives to return the state vector(s)
-    d_dt_state_vectors = []
-    for _assembly in titan.assembly:
-        angularDerivatives = dynamics.compute_angular_derivatives(_assembly)
-
-        # Use quaternion derivative equation 
-        omega_q = [angularDerivatives.droll,angularDerivatives.dpitch,angularDerivatives.dyaw,0.0]
-        d_q  = 0.5 *  quaternion_mult(_assembly.quaternion,omega_q)
-
-        d_dt_state_vectors.append([d_q[0],
-                                   d_q[1],
-                                   d_q[2],
-                                   d_q[3],
-                                   angularDerivatives.ddroll,
-                                   angularDerivatives.ddpitch,
-                                   angularDerivatives.ddyaw,])
-        
-    if reshape_flat: d_dt_state_vectors = np.array(d_dt_state_vectors).flatten()
-    return d_dt_state_vectors
 
 def update_dynamic_attributes(assembly,state_vector,options):
     # This function takes an ECEF/BODY state vector and applies it to all the necessary attributes of a TITAN assembly
@@ -338,6 +253,8 @@ def get_integrator_func(options, choice):
     print('Selected...')
     if 'area' in choice:
         options.dynamics.n_derivs_to_hold = 1
+        print('...projected area heuristic')
+        warn('This integrator is still in development! Expect issues')
         return partial(proj_area_adapt_wrapper,23)
     if 'legacy' in choice:
         print('...legacy propagation, note these methods are deprecated.')
@@ -385,34 +302,11 @@ def get_integrator_func(options, choice):
         options.dynamics.n_derivs_to_hold = n - 1
         print('...Adams-Bashforth {}th order propagation'.format(n))
         if n == 5 :
-            warn_msg = 'The AB5 Method can exhibit strange behaviour near ground, this is being investigated. \nIf your simulation involves ground impacts consider another method'
+            warn_msg = 'The AB5 Method is unstable for fast chaotic tumbling \nIf your simulation involves fast spinning objects with high area-to-mass ratio consider another method'
             warn(warn_msg)
         return partial(explicit_adams_bashforth_n,n)
-
-    print('...propagator Not recognised! See available options ↓')
-    print('''
-    ## Current implented time integrators (define in cfg under [Time] as Time_integration='')...
-
-    ## Constant time-step methods  
-    ## - euler : Euler method
-    ## - bwd   : Backward difference, using information from 1 previous time step (2nd order)
-    ## - AB[N] : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
-    ## - RK[N] : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
-          
-    ## Adaptive integration methods  
-    ## - adapt_AB[N_AB]_RK[N_RK] : High angular accelerations trigger a switch from AB[N] to a determined RK method up to order N
-
-    ## Adaptive time-step methods (via scipy.integrate)
-    ## - RK23    : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
-    ## - RK45    : Time stepping according to 5th order Runge-Kutta with 4th order error control
-    ## - DOP853  : The DOP8(5,3) adaptive algorithm 
-    ## See docs.scipy.org/doc/scipy/reference/integrate.html for more info
-    
-    ## Legacy Dynamics Implementation (deprecated)
-    ## legacy_euler : Prior Euler method
-    ## legacy_bwd   : Prior backward difference method for position updates
-    ''')
     raise Exception('Invalid propagator')
+
 #############################################################################################################################################
 #############################################################################################################################################
 ################################################## INTEGRATOR PARAMETERS  ###################################################################
@@ -433,15 +327,22 @@ RK_tableaus =  {'1': [[0.0]],
                       [0.5,  0.5],
                       [0.5,  0.0,    0.5],
                       [1.0,  0.0,    0.0,   1.0]],
+                '5': [[0.0],
+                      [1/3,  1/3],
+                      [2/5,  4/25,   6/25],
+                      [1.0,  1/4,   -3.0,   15/4],
+                      [2/3,  2/27,  10/9,  -50/81,  8/81],
+                      [4/5,  2/25,  12/25,   2/15,  8/75]]
                 }
 ## Bottom row of Butcher tableaus
 RK_k_factors = {'2' :[1/4,    3/4],
-                '23':[7/24,   1/4,  1/3,     1/8],
-                '3' :[1/6,    2/3,  1/6],
-                '4' :[1/6,    1/3,  1/3,     1/6]
+                '23':[7/24,   1/4,     1/3,     1/8],
+                '3' :[1/6,    2/3,    1/6],
+                '4' :[1/6,    1/3,     1/3,     1/6],
+                '5' :[23/192,   0, 125/192,        0,  -27/64, 125/192]
                 }
 ## Number of fevals for each RK model (written like this for extensibility)
-RK_N_actual = {'2':2, '23':3, '3':3, '4':4}
+RK_N_actual = {'2':2, '23':3, '3':3, '4':4, '5':6}
 ## Adaptive error coefficients for RK models
 RK_Error = {'23':[2/9, 1/3, 4/9,0],
             '45':[]}

@@ -445,9 +445,9 @@ def compute_low_fidelity_aerothermo(assembly, options) :
 
         _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
 
-        _assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
+        #_assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
 
-        index = ray_trace(_assembly,flow_direction,n)
+        index = ray_trace(_assembly,flow_direction,n, options)
 
         _assembly.aero_index = index
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
@@ -491,8 +491,8 @@ def edge_subdivision(v0,v1,v2, n):
 
     return COG
 
-def ray_trace(_assembly, flow_direction,n):
-    flow_dirs, pfm = compute_per_facet_flow_dir(_assembly,flow_direction)
+def ray_trace(_assembly, flow_direction,n, options):
+    flow_dirs, pfm = compute_per_facet_flow_dir(_assembly,flow_direction, options.dynamics.per_facet_flow)
     _assembly.freestream.per_facet_mach = pfm
 
     mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
@@ -1468,36 +1468,36 @@ def LAF(flow, method, cat_rate = 0, vel_grad = 0):
     if method == 'fr_parcat': return (1+(flow.Le*coeff_goulard(flow, vel_grad, cat_rate) -1)*flow.Hd/flow.He)
     return 1
 
-def compute_per_facet_mach(assembly,flow_direction):
-    # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
-    # This models a dissipative effect to rotation to prevent unbounded spinning.
+# def compute_per_facet_mach(assembly,flow_direction):
+#     # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
+#     # This models a dissipative effect to rotation to prevent unbounded spinning.
     
-    free = assembly.freestream
-    mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
-    mach_addition  = np.zeros_like(assembly.mesh.facet_area)
+#     free = assembly.freestream
+#     mach_resultant = free.mach*np.ones_like(assembly.mesh.facet_area)
+#     mach_addition  = np.zeros_like(assembly.mesh.facet_area)
     
 
-    v_linear = free.mach * free.sound
-    angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
-    v_tangential = np.zeros_like(assembly.mesh.facet_COG)
+#     v_linear = free.mach * free.sound
+#     angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
+#     v_tangential = np.zeros_like(assembly.mesh.facet_COG)
 
-    for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
-        v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
-        mach_addition[i_centroid] = (np.dot(flow_direction,v_tangential[i_centroid,:]))/free.sound
-    bridging = 0.5*(special.erf(free.mach+mach_addition-1)+1)
-    mach_resultant += bridging*mach_addition
-    return mach_resultant
+#     for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
+#         v_tangential[i_centroid,:] = np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
+#         mach_addition[i_centroid] = (np.dot(flow_direction,v_tangential[i_centroid,:]))/free.sound
+#     bridging = 0.5*(special.erf(free.mach+mach_addition-1)+1)
+#     mach_resultant += bridging*mach_addition
+#     return mach_resultant
 
-def compute_per_facet_flow_dir(assembly,flow_direction):
-    # This function adds the projection of each facet's rotational velocity on the freestream vector to an array of mach numbers
+def compute_per_facet_flow_dir(assembly,flow_direction, do_pfm=False):
+    # This function recalculates flow direction on a per-facet basis, facets rotating into the flow experience faster relative velocity.
     # This models a dissipative effect to rotation to prevent unbounded spinning.
     free = assembly.freestream
     velocity_resultant = free.mach*free.sound*np.tile(flow_direction,[len(assembly.mesh.facet_area),1])
-    ### Function currently disabled due to instability at low Mach, will look into in future
-    # angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
+    if do_pfm:
+        angular_velocity_vector = np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])
 
-    # for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
-    #     velocity_resultant[i_centroid,:] -= np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
+        for i_centroid, facet_centroid in enumerate(assembly.mesh.facet_COG):
+            velocity_resultant[i_centroid,:] -= np.cross(angular_velocity_vector,(facet_centroid-assembly.mesh.COG))
         
     mach_resultant = np.linalg.norm(velocity_resultant,axis=1)/free.sound
     for i_v, v in enumerate(velocity_resultant):

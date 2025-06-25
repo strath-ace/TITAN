@@ -122,9 +122,22 @@ class Dynamics():
         self.time_step = time_step
 
         #: [str] Name of the propagator to be used in the dynamics (options - euler, ).
-        if propagator=='help':
-            print('Available options for propagator are below↓')
-            print('''
+        self.propagator = propagator
+
+        #: [callable] The function that is called for propagation, 
+        self.prop_func = propagation.explicit_euler
+        # ^ of signature prop_func(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options) -> new_state_vectors, new_derivatives
+        
+        #: [int] Number of previous states to hold
+        self.n_states_to_hold = 0
+
+        #: [int] Number of previous derivatives to hold
+        self.n_derivs_to_hold = 0
+
+        self.prop_warning = ('''
+            No Propagator selected! Selecting Euler, see list for options
+                             
+
             ## Current implented time integrators (define in cfg under [Time] as Time_integration='')...
 
             ## Constant time-step methods  
@@ -146,19 +159,7 @@ class Dynamics():
             ## legacy_euler : Prior Euler method
             ## legacy_bwd   : Prior backward difference method for position updates
             ''')
-            propagator = 'euler'
 
-        self.propagator = propagator
-
-        #: [callable] The function that is called for propagation, 
-        self.prop_func = propagation.explicit_euler
-        # ^ of signature prop_func(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options) -> new_state_vectors, new_derivatives
-        
-        #: [int] Number of previous states to hold
-        self.n_states_to_hold = 0
-
-        #: [int] Number of previous derivatives to hold
-        self.n_derivs_to_hold = 0
 
 class CFD():
     def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1, cfd_restart = False, restart_grid = 0, restart_iter = 0):
@@ -913,11 +914,14 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.dynamics.time = 0
     options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
     options.dynamics.propagator = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Time_integration', 'str')
+    if options.dynamics.propagator=='help': 
+        print(options.dynamics.prop_warning)
+        options.dynamics.propagator='euler'
     options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
     if 'adapt' in options.dynamics.propagator.lower(): 
         options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
         options.dynamics.tumbling_criterion = get_config_value(configParser, 0.0, 'Time', 'Tumble_threshold', 'float')
-
+    options.dynamics.per_facet_flow = get_config_value(configParser, False, 'Time', 'Rotation_damping', 'boolean')
     #Read Thermal options
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
     if options.thermal.ablation:
