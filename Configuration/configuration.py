@@ -753,7 +753,6 @@ def read_config_file(configParser, postprocess = ""):
     options.load_state    = get_config_value(configParser, False, 'Options', 'Load_state', 'boolean')
     options.load_mesh     = get_config_value(configParser, False, 'Options', 'Load_mesh', 'boolean')
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
-    #options.SPARTA =       get_config_value(configParser, options.SPARTA, 'Options', 'SPARTA', 'boolean')
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
     options.ablation       = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
     options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
@@ -764,7 +763,7 @@ def read_config_file(configParser, postprocess = ""):
     #Read FENICS options
     if options.structural_dynamics:
         options.fenics.E            = get_config_value(configParser, options.fenics.E, 'FENICS', 'E', 'float')
-        options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'bool')
+        options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'boolean')
         options.fenics.FE_MPI_cores = get_config_value(configParser, options.fenics.FE_MPI_cores, 'FENICS', 'FENICS_cores', 'int')
         options.fenics.FE_verbose   = get_config_value(configParser, options.fenics.FE_verbose, 'FENICS', 'FENICS_verbose', 'boolean')
         options.fenics.FE_freq      = get_config_value(configParser, options.fenics.FE_freq, 'FENICS', 'FENICS_freq', 'int')
@@ -772,7 +771,7 @@ def read_config_file(configParser, postprocess = ""):
     #Read Dynamics options
     options.dynamics.time = 0
     options.dynamics.time_step           = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
-    #options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
+    options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
     #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
     #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
 
@@ -798,6 +797,12 @@ def read_config_file(configParser, postprocess = ""):
         options.gram.spicePath = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'SPICE_Path', 'str') 
         options.gram.MinMaxFactor = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'MinMaxFactor', 'str')
         options.gram.ComputeMinMaxFactor = get_config_value(configParser, options.gram.ComputeMinMaxFactor, 'GRAM', 'ComputeMinMaxFactor', 'str')
+        options.gram.year = get_config_value(configParser, options.gram.year, 'GRAM', 'Yeah', 'int')
+        options.gram.month = get_config_value(configParser, options.gram.month, 'GRAM', 'Month', 'int')
+        options.gram.day = get_config_value(configParser, options.gram.day, 'GRAM', 'Day', 'str')
+        options.gram.hour = get_config_value(configParser, options.gram.hour, 'GRAM', 'Hour', 'int')
+        options.gram.minute = get_config_value(configParser, options.gram.minute, 'GRAM', 'Minute', 'int')
+        options.gram.seconds = get_config_value(configParser, options.gram.second, 'GRAM', 'Seconds', 'float')
 
     #Read Planet
     options.planet = planet.ModelPlanet(get_config_value(configParser, "Earth", 'Model', 'Planet', 'str'))
