@@ -210,7 +210,6 @@ def demise_components(titan, i, joints_id, options):
         from Dynamics.propagation import construct_state_vector
         construct_state_vector(titan.assembly[-1])
         titan.assembly[-1].unmodded_angles = titan.assembly[i].unmodded_angles
-        # titan.assembly[-1].derivs_prior = titan.assembly[i].derivs_prior
 
 
 def check_breakup_v2(titan, options):

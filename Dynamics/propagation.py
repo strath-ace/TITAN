@@ -58,19 +58,19 @@ def propagate(titan, options):
     new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,state_vectors_prior,derivatives_prior,time_step,titan,options)
     # Update prior derivatives
     if new_derivs is not None: append_derivatives(titan,options,new_derivs)
+    # Total angular distance (unmodded) is useful for 6DoF propagation stability analysis
+    angle_names = ['roll','pitch','yaw']
+    for _assembly in titan.assembly:
+        if not hasattr(_assembly,'unmodded_angles'): 
+            _assembly.unmodded_angles  = np.array([getattr(_assembly,angle) for angle in angle_names])
     # Writes the output data
     output.write_output_data(titan = titan, options = options)
     # Communicate new vectors to assemblies
-    for i_assem, _assembly in enumerate(titan.assembly):
-        angle_names = ['roll','pitch','yaw']
-        if not hasattr(_assembly,'unmodded_angles'):
-            _assembly.unmodded_angles  = np.array([getattr(_assembly,angle) for angle in angle_names])
-            
+    for i_assem, _assembly in enumerate(titan.assembly):  
         update_dynamic_attributes(_assembly,new_state_vectors[i_assem],options)
         _assembly.state_vector = new_state_vectors[i_assem]
         for i_angle, angle in enumerate(angle_names): 
             _assembly.unmodded_angles[i_angle]+=time_step*_assembly.state_vector[10+i_angle]
-        output.write_to_series([np.hstack([titan.time,_assembly.unmodded_angles])],[['Time','Roll','Pitch','Yaw']],options.output_folder+'/Angles_{}.csv'.format(_assembly.id))
     
     # Increment time step
     if hasattr(titan,'rk_params'): time_step = titan.delta_t
@@ -409,9 +409,9 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
         if titan.time>0: titan.time-=dt
         titan.rk_params = {'time'    : titan.time, 
                            'state'   : np.array(state_vectors).flatten(),
-                           't_end'   : titan.time + dt*options.iters, 
-                           't_first' : dt,  # Small initial timestep to combat discontinuities at fragmentation
-                           't_max'   : dt}
+                           't_end'   : options.dynamics.t_end, 
+                           't_first' : options.dynamics.dt_initial,  # Prefer a small initial timestep to combat discontinuities at fragmentation
+                           't_max'   : options.dynamics.dt_max}
 
     if not hasattr(titan, 'rk_fun')   or recompute_params: 
         def rk_wrapper(titan,options,time,vector): return state_equation(titan,options,time,vector)[0]

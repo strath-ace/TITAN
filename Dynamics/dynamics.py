@@ -143,10 +143,6 @@ def compute_quaternion(assembly):
     assembly.quaternion_prev = assembly.quaternion
 
     assembly.quaternion = quaternion_normalize(assembly.quaternion)
-    assembly.q_dot = 0.5 * quaternion_mult(assembly.quaternion,[assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel,0.0])
-
-    assembly.quaternion_canonical = assembly.quaternion # Need to track "true" quaternion for multi-step integrators
-    assembly.q_dot_canonical = assembly.q_dot
     
     return
 
@@ -231,14 +227,15 @@ def compute_cartesian_derivatives(assembly, options):
     Faero_I = R_B_ECEF.apply(np.array(assembly.body_force.force))
 
     Fgrav_I = np.array([agrav_u,agrav_v,agrav_w])*assembly.mass
-    Fcoreolis_I = -np.cross(np.array([0,0,wE]), np.cross(np.array([0,0,wE]), assembly.position))
-    Fcentrif_I  = -2*np.cross(np.array([0,0,wE]), assembly.velocity)
+    # Renamed for clarity
+    a_centrif_I = -np.cross(np.array([0,0,wE]), np.cross(np.array([0,0,wE]), assembly.position))
+    a_coriolis_I  = -2*np.cross(np.array([0,0,wE]), assembly.velocity)
 
     #For ECI, we need to work with the epochs to convert from ECEF to ECI -> To obtain Latitude, Longitude and Altitude
     #pymap3d has the functions we need
 
     dx = assembly.velocity
-    dv = (Faero_I + Fgrav_I)/assembly.mass + Fcoreolis_I + Fcentrif_I
+    dv = (Faero_I + Fgrav_I)/assembly.mass + a_centrif_I + a_coriolis_I
 
     return DerivativesCartesian(dx = dx[0], dy = dx[1], dz = dx[2], du = dv[0], dv = dv[1], dw = dv[2])
 

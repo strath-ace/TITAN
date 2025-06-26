@@ -135,30 +135,30 @@ class Dynamics():
         self.n_derivs_to_hold = 0
 
         self.prop_warning = ('''
-            No Propagator selected! Selecting Euler, see list for options
-                             
+        No Propagator selected! Selecting Euler, see list for options
+                            
 
-            ## Current implented time integrators (define in cfg under [Time] as Time_integration='')...
+        ## Current implented time integrators (define in cfg under [Time] as Time_integration='')...
 
-            ## Constant time-step methods  
-            ## - euler : Euler method
-            ## - bwd   : Backward difference, using information from 1 previous time step (2nd order)
-            ## - AB[N] : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
-            ## - RK[N] : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
-                
-            ## Adaptive integration methods  
-            ## - adapt_AB[N_AB]_RK[N_RK] : High angular accelerations trigger a switch from AB[N] to a determined RK method up to order N
-
-            ## Adaptive time-step methods (via scipy.integrate)
-            ## - RK23    : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
-            ## - RK45    : Time stepping according to 5th order Runge-Kutta with 4th order error control
-            ## - DOP853  : The DOP8(5,3) adaptive algorithm 
-            ## See docs.scipy.org/doc/scipy/reference/integrate.html for more info
+        ## Constant time-step methods  
+        ## - euler : Euler method
+        ## - bwd   : Backward difference, using information from 1 previous time step (2nd order)
+        ## - AB[N] : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
+        ## - RK[N] : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
             
-            ## Legacy Dynamics Implementation (deprecated)
-            ## legacy_euler : Prior Euler method
-            ## legacy_bwd   : Prior backward difference method for position updates
-            ''')
+        ## Adaptive integration methods  
+        ## - adapt_AB[N_AB]_RK[N_RK] : High angular accelerations trigger a switch from AB[N] to a determined RK method up to order N
+
+        ## Adaptive time-step methods (via scipy.integrate)
+        ## - RK23    : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
+        ## - RK45    : Time stepping according to 5th order Runge-Kutta with 4th order error control
+        ## - DOP853  : The DOP8(5,3) adaptive algorithm 
+        ## See docs.scipy.org/doc/scipy/reference/integrate.html for more info
+        
+        ## Legacy Dynamics Implementation (deprecated)
+        ## legacy_euler : Prior Euler method
+        ## legacy_bwd   : Prior backward difference method for position updates
+        ''')
 
 
 class CFD():
@@ -918,10 +918,14 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         print(options.dynamics.prop_warning)
         options.dynamics.propagator='euler'
     options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
+    options.dynamics.dt_max = get_config_value(configParser, 10*options.dynamics.time_step, 'Time', 'Adaptive_dt_max', 'float')
+    options.dynamics.t_end = get_config_value(configParser, options.iters*options.dynamics.time_step, 'Time', 'Adaptive_end_time', 'float')
+    options.dynamics.dt_initial = get_config_value(configParser, 0.1*options.dynamics.time_step, 'Time', 'Adaptive_dt_init', 'float')
     if 'adapt' in options.dynamics.propagator.lower(): 
         options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
         options.dynamics.tumbling_criterion = get_config_value(configParser, 0.0, 'Time', 'Tumble_threshold', 'float')
     options.dynamics.per_facet_flow = get_config_value(configParser, False, 'Time', 'Rotation_damping', 'boolean')
+
     #Read Thermal options
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
     if options.thermal.ablation:

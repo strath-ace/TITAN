@@ -29,8 +29,6 @@ from Postprocess import postprocess_emissions as pp_emissions
 from Thermal import thermal
 from Structural import structural
 from pathlib import Path
-import numpy as np
-from matplotlib import pyplot as plt
 
 def loop(options = [], titan = []):
     """Simulation loop for time propagation
@@ -71,9 +69,6 @@ def loop(options = [], titan = []):
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
 
-        #if options.current_iter%options.output_freq == 0:
-        #    output.generate_surface_solution(titan = titan, options = options)
-
         fragmentation.fragmentation(titan = titan, options = options)
 
         if not titan.assembly: return      
@@ -88,7 +83,6 @@ def loop(options = [], titan = []):
         else:
             propagation.propagate(titan = titan, options = options)
 
-        #output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)
         if hasattr(titan,'end_trigger'): return
         
         if options.thermal.ablation:
@@ -99,13 +93,11 @@ def loop(options = [], titan = []):
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)
             
-        #output.generate_surface_solution(titan = titan, options = options)
         if options.current_iter%options.output_freq == 0:
             output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)         
         
         output.iteration(titan = titan, options = options)
-        #if titan.iter>0: print('Total of {} flow solves'.format(titan.nfeval))
-
+        
         if options.dynamic_plots:
             for _assembly in titan.assembly: plot = dynamic_plots.update_plot(_assembly, plot, titan.time)
 
@@ -115,7 +107,6 @@ def loop(options = [], titan = []):
         if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
             options.save_state(titan, options.current_iter)
 
-   # options.save_state(titan)
 
 def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     """TITAN main function

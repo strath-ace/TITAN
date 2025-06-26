@@ -22,7 +22,7 @@ import numpy as np
 
 def mesh_Settings(gmsh):
     gmsh.option.setNumber("General.Terminal", 0)
-    gmsh.option.setNumber("Mesh.Algorithm3D", 1) # for parallel 3D meshing
+    gmsh.option.setNumber("Mesh.Algorithm3D", 10) # for parallel 3D meshing
     #gmsh.option.setNumber("General.NumThreads", 1);
     #self.gmsh.option.setNumber("Mesh.Algorithm", 8);
     #self.gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 1);
