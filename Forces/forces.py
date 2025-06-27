@@ -67,6 +67,9 @@ def compute_aerodynamic_forces(titan, options):
             assembly.wind_force.crosswind = aerodynamic_forces[1]
             assembly.wind_force.lift      = aerodynamic_forces[2]
 
+    # It's neater for state equation implementation if we get forces returned directly
+    return force
+
 def compute_aerodynamic_moments(titan, options):
     """
     Computes the aerodynamic moments in the wind Body frame

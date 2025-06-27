@@ -21,10 +21,11 @@ import sys
 import configparser
 from argparse import ArgumentParser, RawTextHelpFormatter
 from Configuration import configuration
-from Output import output
-from Dynamics import dynamics
+from Output import output, dynamic_plots
+from Dynamics import dynamics, propagation
 from Fragmentation import fragmentation
 from Postprocess import postprocess as pp
+from Postprocess import postprocess_emissions as pp_emissions
 from Thermal import thermal
 from Structural import structural
 from pathlib import Path
@@ -61,13 +62,16 @@ def loop(options = [], titan = []):
 
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
-        titan.assembly[0].mass = options.vehicle.mass
+        titan.assembly[0].mass = options.vehicle.mass   
+
+    if options.dynamic_plots: plot = dynamic_plots.initialise_figs(titan)
 
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
 
         fragmentation.fragmentation(titan = titan, options = options)
-        if not titan.assembly: return
+
+        if not titan.assembly: return      
 
         if options.time_counter>0:
             options.dynamics.time_step = options.collision.post_fragmentation_timestep
@@ -75,34 +79,36 @@ def loop(options = [], titan = []):
         else:
             options.dynamics.time_step = options.user_time
 
-        dynamics.integrate(titan = titan, options = options)
-        output.generate_surface_solution(titan = titan, options = options)
+        if 'legacy' in options.dynamics.propagator: dynamics.integrate(titan = titan, options = options)
+        else:
+            propagation.propagate(titan = titan, options = options)
 
-        if options.ablation:
-            if options.ablation_mode == "tetra":
-                thermal.compute_thermal_tetra(titan = titan, options = options)
-            elif options.ablation_mode == "0d":
-                thermal.compute_thermal_0D(titan = titan, options = options)
-            else:
-                raise ValueError("Ablation Mode can only be 0D or Tetra")
+        if hasattr(titan,'end_trigger'): return
+        
+        if options.thermal.ablation:
+            thermal.compute_thermal(titan = titan, options = options)
 
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)
-
-        output.generate_surface_solution(titan = titan, options = options)
+            
+        if options.current_iter%options.output_freq == 0:
+            output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)         
         
         output.iteration(titan = titan, options = options)
+        
+        if options.dynamic_plots:
+            for _assembly in titan.assembly: plot = dynamic_plots.update_plot(_assembly, plot, titan.time)
 
         titan.iter += 1
+        titan.post_event_iter +=1
         options.current_iter = titan.iter
         if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
             options.save_state(titan, options.current_iter)
 
-    options.save_state(titan)
 
-def main(filename = "", postprocess = "", filter_name = None):
+def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     """TITAN main function
 
     Parameters
@@ -115,17 +121,18 @@ def main(filename = "", postprocess = "", filter_name = None):
     """
 
     configParser = configparser.RawConfigParser()   
-    configFilePath = filename
+    configFilePath = filename.strip()
     configParser.read(configFilePath)
 
     #Pre-processing phase: Creates the options and titan class
-    options, titan = configuration.read_config_file(configParser, postprocess)
+    options, titan = configuration.read_config_file(configParser, postprocess, emissions)
     options.filepath = filename
 
     #Initialization of the simulation
-    if not postprocess:
+    if (not postprocess) and (not emissions):
         loop(options, titan)
         print("Finished simulation")
+        #print(titan.nfeval)
         return options, titan
 
     #Postprocess of the simulated solution to pass from Body-frame
@@ -133,6 +140,9 @@ def main(filename = "", postprocess = "", filter_name = None):
     if postprocess:
         Path(options.output_folder+'/Postprocess/').mkdir(parents=True, exist_ok=True)
         pp.postprocess(options, postprocess, filter_name)
+    if emissions:
+        Path(options.output_folder+'/Postprocess_emissions/').mkdir(parents=True, exist_ok=True)
+        pp_emissions.postprocess_emissions(options)
     
 if __name__ == "__main__":
 
@@ -154,8 +164,11 @@ if __name__ == "__main__":
     parser.add_argument("-flt", "--filter",
                         dest="filtername",
                         type=str,
-                        help="filter postprocess (name of the ovject)",
+                        help="filter postprocess (name of the object)",
                         metavar="filtername")
+    parser.add_argument("-em", "--emissions",
+                        dest="emissions",
+                        action="store_true")
     
     args=parser.parse_args()
 
@@ -165,7 +178,8 @@ if __name__ == "__main__":
     filename = args.configfilename
     postprocess = args.postprocess
     filter_name = args.filtername
+    emissions = args.emissions
     if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef"):
         raise Exception("Postprocess can only be WIND or ECEF")
 
-    main(filename = filename, postprocess = postprocess, filter_name = filter_name)
+    main(filename = filename, postprocess = postprocess, filter_name = filter_name, emissions = emissions)

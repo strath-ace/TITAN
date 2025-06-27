@@ -1,0 +1,132 @@
+[Options]
+Num_iters = 3000
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+Output_folder = Tests/ATV-detailed/
+Output_freq = 1
+#Material_file = ATV_material.xml
+Save_freq = 10
+
+[Thermal]
+Ablation = True
+Ablation_mode = PATO
+
+[PATO]
+N_cores = 16
+Time_step = 0.1
+
+[Radiation]
+#Black_body_emissions = True
+Black_body_emissions_freq = 10
+Particle_emissions = False
+Wavelength_min = 10e-9
+Wavelength_max = 1e-3
+Phi_min = 0
+Phi_max = 0
+Phi_n_values = 1
+Theta_min = 90
+Theta_max = 90
+Theta_n_values = 1
+#Spectral = True
+Spectral_freq = 10
+
+
+[Model]
+Planet = Earth
+
+[Time]
+Time_step = 0.5
+Propagator = Euler
+
+[Trajectory]
+Altitude = 120000
+Velocity = 7560
+Flight_path_angle = -1.45
+Heading_angle = 78
+Latitude = -40
+Longitude = 207
+ 
+[Freestream]
+Model = NRLMSISE00
+Method = Standard
+
+[Aerothermo]
+Heat_model = sc
+
+[Assembly]
+# Path for the geometry files
+#Path = Tests/Mesh/ATV_pato/
+#Path = Tests/Mesh/ATV_test/
+Path = Tests/Mesh/ATV_detailed/
+#Path = Tests/Mesh/ATV_simple_fenics_geometry/
+#Path = Tests/Mesh/Cubes/
+#Connectivity = [[1,2,0]]
+#Connectivity = [[1,2,0]]
+#Connectivity = [[1,2,6],[1,3,7],[1,4,8],[1,5,9]]
+#Connectivity = [[1,2,3]]
+
+
+#panel1_1, panel1_joint1; panel1_joint1, panel1_2; panel1_2, panel1_joint2; panel1_joint2, panel1_3; panel1_3, panel1_joint3; panel1_joint3 panel1_4; 					
+Connectivity = [[1,5,0],[5,2,0],[2,6,0],[6,3,0],[3,7,0],[7,4,0],[1,33,29],[33,8,30] , [8,12,0], [12, 9,0], [9, 13,0], [13, 10,0], [10, 14, 0], [14, 11, 0], [15,33,31], [15, 19,0], [19, 16, 0], [16, 20, 0], [20, 17, 0], [17, 21, 0], [21, 18, 0], [22,33,32], [22, 26, 0], [26, 23, 0], [23, 27, 0], [27, 24, 0], [24, 28, 0], [28, 25, 0]]
+
+[Objects]
+#Objects used in the Assembly -> name_Marker = (name_file, type_file, density, Fenics bc type)
+#Joints used in the Assembly -> name_Marker = (name_file, type_file, density, Inner_stl, trigger type, trigger value, Fenics bc type)
+
+
+
+#Panel 1
+1 = [NAME = panel1_1.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+2 = [NAME = panel1_2.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+3 = [NAME = panel1_3.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+4 = [NAME = panel1_4.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+
+5 = [NAME = panel1_joint1.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+6 = [NAME = panel1_joint2.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+7 = [NAME = panel1_joint3.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+
+#Panel 2
+8 = [NAME = panel2_1.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2 , BLOOM = (True; 9; 0.001; 1.2)]
+9 = [NAME = panel2_2.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2 , BLOOM = (True; 9; 0.001; 1.2)]
+10 = [NAME = panel2_3.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+11 = [NAME = panel2_4.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+
+12 = [NAME = panel2_joint1.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+13 = [NAME = panel2_joint2.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+14 = [NAME = panel2_joint3.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+
+#Panel 3
+15 = [NAME = panel3_1.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+16 = [NAME = panel3_2.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+17 = [NAME = panel3_3.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+18 = [NAME = panel3_4.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+
+19 = [NAME = panel3_joint1.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+20 = [NAME = panel3_joint2.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+21 = [NAME = panel3_joint3.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+
+#Panel 4
+22 = [NAME = panel4_1.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+23 = [NAME = panel4_2.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+24 = [NAME = panel4_3.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+25 = [NAME = panel4_4.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2, BLOOM = (True; 9; 0.001; 1.2)]
+
+26 = [NAME = panel4_joint1.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+27 = [NAME = panel4_joint2.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+28 = [NAME = panel4_joint3.stl, TYPE = Primitive, MATERIAL = drama-SolarPanel-Mat, TEMPERATURE = 300, FENICS_ID = 2]
+
+
+
+29 = [NAME = joint1.stl, TYPE = Joint, MATERIAL = drama-AA7075, TEMPERATURE = 300, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 92000, FENICS_ID = -1, BLOOM = (True; 6; 0.001; 1.2)]
+30 = [NAME = joint2.stl, TYPE = Joint, MATERIAL = drama-AA7075, TEMPERATURE = 300, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 92000, FENICS_ID = -1, BLOOM = (True; 6; 0.001; 1.2)]
+31 = [NAME = joint3.stl, TYPE = Joint, MATERIAL = drama-AA7075, TEMPERATURE = 300, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 92000, FENICS_ID = -1, BLOOM = (True; 6; 0.001; 1.2)]
+32 = [NAME = joint4.stl, TYPE = Joint, MATERIAL = drama-AA7075, TEMPERATURE = 300, TRIGGER_TYPE = Altitude, TRIGGER_VALUE = 92000, FENICS_ID = -1, BLOOM = (True; 6; 0.001; 1.2)]
+
+
+33 = [NAME = ATV.stl, TYPE = Primitive, MATERIAL = drama-HC-CFRP-4ply, TEMPERATURE = 300, FENICS_ID = 1, BLOOM = (True; 18; 0.001; 1.2)]
+
+
+[Initial Conditions]
+Angular Velocity = (1 : [0,10,0])
+

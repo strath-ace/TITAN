@@ -8,6 +8,7 @@ Load_state = False
 Fidelity = Low
 #High, Low or Hybrid
 Output_folder = Tests/Simulation
+Output_freq = 1
 
 [Trajectory]
 Altitude = 100000

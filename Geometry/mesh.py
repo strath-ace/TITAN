@@ -24,6 +24,9 @@ from trimesh.viewer.windowed import SceneViewer
 import open3d as o3d
 import trimesh
 from copy import deepcopy
+from scipy.spatial import KDTree
+import sys
+np.set_printoptions(threshold=sys.maxsize)
 
 
 def read_mesh(filename):
@@ -103,7 +106,7 @@ def compute_mesh(mesh, compute_radius = True):
     mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets ,mesh.facet_COG, mesh.v0,mesh.v1,mesh.v2)
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
     mesh.edges, mesh.facet_edges = map_edges_connectivity(mesh.facets)
-    
+
     if compute_radius: 
         mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
     else: 
@@ -738,7 +741,18 @@ def remove_repeated_facets(assembly_mesh):
         else: i+=1
 
     return idx
+
+def create_index_mapping(body_atr, obj_atr):
+    # Build KDTree for body_atr (larger mesh)
+    body_tree = KDTree(body_atr)
     
+    # Query the tree with obj_atr (smaller mesh)
+    # `query` returns two arrays: distances and indices of the nearest neighbors
+    distances, indices = body_tree.query(obj_atr)
+    
+    # Return the indices of the nearest neighbors in body_atr
+    return indices
+
 
 def create_index(body_atr, obj_atr, round_value = None):
 
@@ -956,31 +970,79 @@ def remove_ablated_elements(assembly, delete_array):
     old_num_faces = len(mesh.facets)
 
     facets_index, tetras_index = zip(*delete_array)
+    ##print('facets_index:', facets_index)
+    ##print('tetras_index:', tetras_index)
     #facets_index = np.array(facets_index)
     
+    #tetras might be repeated due to being connected to more than 1 facet
     tetras_index = np.unique(np.array(tetras_index))
     #facets = mesh.facets[facets_index]
 
+    #connectivity to vertexes for tetras to be deleted
     tetras = mesh.vol_elements[tetras_index]
 
-    #Append the new facets at the end of the list and delete facets from the objects surface:
-    facets_index = add_new_surface_facets(assembly, tetras_index)
+    ##print('tetras:', tetras)
 
-    #Remove the facets with no tetra associated from tetras
+    #tetra-vertex connectivity and vol_tag for all tetras NOT to be deleted
+    vol_elements= assembly.mesh.vol_elements[assembly.mesh.vol_density != 0]
+    ##print('vol_elements shape:', np.shape(vol_elements))
+    ##print('vol_elements:', vol_elements)
+    vol_tag = assembly.mesh.vol_tag[assembly.mesh.vol_density != 0]
+    ##print('vol_tag:', vol_tag)
+    #facet_COG for objects, for original surface facets
+    for obj in assembly.objects:
+        COG = np.round((obj.mesh.v0+obj.mesh.v1+obj.mesh.v2)/3 ,5).astype(str)
+        ##print('OBJ COG:', np.shape(COG))
+        COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
+        
+    #surface facets_index to be deleted from original surface
+    ##print(' MESH 0 n facets:', np.shape(assembly.mesh.v0))
+    facets_index = add_new_surface_facets(assembly, tetras_index)
+    ##print(' MESH 1 n facets:', np.shape(assembly.mesh.v0))
+    #at this point:
+    # ASSEMBLY MESH: original surface + new surface facets + isolated facets
+    # OBJECTS MESH: original surface + new surface facets + isolated facets - ablated facets
+    # SURF_TETRA_MAP: original facets and tetras - ablated surfaces - ablated tetras
+
+    #facet_COG of objects facets (original surface - removed surface ablated facets + newly exposed facets (new surface + isolated))
+    #still need to remove isolated facets
+    for obj in assembly.objects:
+        COG = np.round((obj.mesh.v0+obj.mesh.v1+obj.mesh.v2)/3 ,5).astype(str)
+        ##print('OBJ COG:', np.shape(COG)) 
+        COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
+           
+    ##print('COG:', np.shape(COG))
+    ##print('COG:', COG)
+
+    #Remove the facets with no tetra associated from object mesh
     remove_isolated_facets(assembly)
+    ##print(' MESH 2 n facets:', np.shape(assembly.mesh.v0))
+    #at this point:
+    # ASSEMBLY MESH: original surface + new surface facets + isolated facets
+    # OBJECTS MESH: original surface + new surface facets - isolated facets - ablated facets - FULLY UPDATED
+    # SURF_TETRA_MAP: original facets and tetras - ablated surfaces - ablated tetras - FULLY UPDATED    
 
     #Update aerothermo
     num_faces = len(mesh.v0)- old_num_faces
-    aerothermo.append(num_faces,300)
-    
+    aerothermo.append(num_faces, 300)
+    assembly.emissive_power = np.append(assembly.emissive_power, np.zeros(num_faces))
+
     #Delete the facets
+    # - removes ablated facets from assembly mesh
+    #print('1 N mesh.v:', len(mesh.v0))
     mesh.v0  = np.delete(mesh.v0, facets_index, axis = 0)
     mesh.v1  = np.delete(mesh.v1, facets_index, axis = 0)
     mesh.v2  = np.delete(mesh.v2, facets_index, axis = 0)
+    #print('2 N mesh.v:', len(mesh.v0))
+    ##print(' MESH 3 n facets:', np.shape(assembly.mesh.v0))
+    #at this point:
+    # ASSEMBLY MESH: original surface - ablated facets + new surface facets + isolated facets 
+    # OBJECTS MESH: original surface - ablated facets + new surface facets - isolated facets - FULLY UPDATED
+    # SURF_TETRA_MAP: original facets and tetras - ablated surfaces - ablated tetras - FULLY UPDATED
 
     #Update the mesh according to new surface
     update_surface_mesh(mesh, curvature = True)
-
+    
     for obj in assembly.objects:
         #update_object_mesh_from_tetra(obj, assembly.mesh, curvature = False)
         update_surface_mesh(obj.mesh)
@@ -988,59 +1050,108 @@ def remove_ablated_elements(assembly, delete_array):
         obj.facet_index, obj.facet_mask = create_index(assembly.mesh.facet_COG, obj.mesh.facet_COG)
 
     aerothermo.delete(facets_index)
+    assembly.emissive_power = np.delete(assembly.emissive_power, facets_index)
+
+    #at this point:
+    # ASSEMBLY MESH: original surface + new surface facets + isolated facets
+    # OBJECTS MESH: original surface + new surface facets - isolated facets - ablated facets - FULLY UPDATED
+    # SURF_TETRA_MAP: FULLY UPDATED
 
     #Map new tetras
     #mesh.index_surf_tetra = map_surf_to_tetra(mesh.vol_coords, mesh.vol_elements)
 
 def add_new_surface_facets(assembly, tetras_index):
     """
-    Function to add the new facets that will be exposed to the flow
-    Returns the index of the deleted facets, used to remove the ablated facets
-    """
+    Function to:
+    - removes surface ablated facets from surf_tetra_mapping
+    - removes surface ablated tetra associated to the ablated surface facet, from surf_tetra_mapping
+    - add the new facets that will be exposed to the flow to the assembly mesh and to the objects mesh, both new surface and isolated facets
+    - removes surface ablated facets from objects mesh
 
+    Returns the index of surface ablated facets, to be used to remove the ablated facets
+    """
+    ##print('add_new_surface_facets')
     mesh = assembly.mesh
 
     #Creates the keys to retrieve the mapping between the facets exposed to the flow and tetras
+    #COG_list - facet_COG for original surface facets
     COG_list = np.round(mesh.facet_COG,5).astype(str)
     COG_list = np.char.add(np.char.add(COG_list[:,0],COG_list[:,1]),COG_list[:,2])
 
     delete_array = []
 
     tetras = mesh.vol_elements[tetras_index]
-    
+    ##print('tetras:', tetras)
+    #corner/vertex i of each tetra to be deleted
     c0 = tetras [:,0]
     c1 = tetras [:,1]
     c2 = tetras [:,2]
     c3 = tetras [:,3]
 
+    #for each tetra, definition of each tetra facet 1,2,3,4 as function of the corners/vertexes
     tf1 = np.stack((c3,c1,c0), axis = 1)
     tf2 = np.stack((c2,c1,c3), axis = 1)
     tf3 = np.stack((c0,c2,c3), axis = 1)
     tf4 = np.stack((c1,c2,c0), axis = 1)
+    #for each tetra, definition of all tetra facets (1,2,3,4) as function of the corners/vertexes
+    #tf = [facet_1_tetra_1]
+    #     [facet_1_tetra_2]
+    #          ....
+    #     [facet_2_tetra_1]
+    #     [facet_2_tetra_2]
+    #          ....
     tf = np.stack((tf1,tf2,tf3,tf4), axis = 0).reshape((-1,3))
 
-    tetras_index = np.stack((tetras_index, tetras_index, tetras_index, tetras_index), axis = 0).reshape(-1)
+    ##print('tf:',tf)
 
+    #create array with the same length as tf, with tetra_index. The connectivity would be:
+    # all facets_1 - associated tetras
+    # all facets_2 - associated tetras
+    #tetra_index= [tetra_1] --- facet 1
+    #             [tetra_2] --- facet 1
+    #                ...          ...
+    #             [tetra_1]
+    #             [tetra_2]
+    #                ...
+
+    #list of tetras corresponing to facets [tetra1,tetra2, ... , tetra1,tetra2, ... ]
+    tetras_index = np.stack((tetras_index, tetras_index, tetras_index, tetras_index), axis = 0).reshape(-1)
+    ##print('tetras_index:', tetras_index)
+
+    #COG - facet_COG in tf, i.e., facet_COG of facets belonging to ablated tetras; using vol_coord cause some facets are internal
     COG = np.round((mesh.vol_coords[tf[:,0]]+mesh.vol_coords[tf[:,1]]+mesh.vol_coords[tf[:,2]])/3 ,5).astype(str)
     COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
 
-    #Arrray of booleans where True = Add surface and False = Delete surface
+    ##print('COG:', COG)
+
+    #Array of booleans where True = Internal facet/Add facet, False = Surface facet/Delete facet
     bool_array = np.zeros(len(tf), dtype = bool)
 
     for face, center, index, i in zip(tf, COG, tetras_index, range(len(tf))):
+        #check index_surf_tetra: if facet_COG in COG is only connected to 1 tetra, it is a surface facet to be ablated
+        #remove facet from surf_tetra_mapping
         if len(assembly.mesh.index_surf_tetra[center]) == 1:
+            #print('if')
             assembly.mesh.index_surf_tetra.pop(center)
 
+        #if the facet_COG is connected to more than 1 tetra, it is an internal facet
+        #edit surf_tetra_mapping to remove surface ablated tetra from list of tetras connected to the facet
         else:
             assembly.mesh.index_surf_tetra[center].remove(index)
             bool_array[i] = True
 
+    ##print('bool:', bool_array)
+    #from all facets associated to ablated tetras, select the internal ones that are now exposed (bool_array) and add them to
+    #the assembly mesh and to COG_list (facet_COG of original surface facets)
+    ##print('HELLO:', [tf[:,0][bool_array]])
     mesh.v0 = np.append(mesh.v0, mesh.vol_coords[tf[:,0][bool_array]], axis = 0)
     mesh.v1 = np.append(mesh.v1, mesh.vol_coords[tf[:,1][bool_array]], axis = 0)
     mesh.v2 = np.append(mesh.v2, mesh.vol_coords[tf[:,2][bool_array]], axis = 0)
     COG_list = np.append(COG_list, COG[bool_array])
 
-    #Append new surface to the objects
+    #print('1 N mesh.v:', len(mesh.v0))
+
+    #Do the same for the objects' mesh
     for obj in assembly.objects:
         m = obj.mesh
 
@@ -1051,9 +1162,12 @@ def add_new_surface_facets(assembly, tetras_index):
         m.v1 = np.append(m.v1, assembly.mesh.vol_coords[obj_tf[:,1]], axis = 0)
         m.v2 = np.append(m.v2, assembly.mesh.vol_coords[obj_tf[:,2]], axis = 0)
 
+    #from list of facets belonging to ablated tetras, append the surface ones that are to be removed
     delete_array = np.append(delete_array, COG[~bool_array])
 
-    #Checks which index to delete in the COG_list
+    ##print('delete_array:', delete_array)
+
+    #checks which facets from delete_array (surface facets to be removed) are in the COG_list (original surface facets)
     #__, delete_index, __ = np.intersect1d(COG_list, delete_array, return_indices=True)
     mask = np.in1d(COG_list,delete_array)
     delete_index = np.where(mask)[0]
@@ -1061,20 +1175,21 @@ def add_new_surface_facets(assembly, tetras_index):
     #Delete objects surfaces:
     for obj in assembly.objects:
 
-        #First we create the COG key
+        #calculate COG of facets in the object
         obj_COG = np.round((obj.mesh.v0+obj.mesh.v1+obj.mesh.v2)/3 ,5).astype(str)
         obj_COG = np.char.add(np.char.add(obj_COG[:,0],obj_COG[:,1]),obj_COG[:,2])
 
-        #We compare the arrays that need to be deleted to our COG
+        #check which facets from delete_array (surface facets to be removed) coincide with object facets
         #__, delete_index_obj, __ = np.intersect1d(obj_COG, delete_array, return_indices=True)
         mask = np.in1d(obj_COG,delete_array)
         delete_index_obj = np.where(mask)[0]
 
-        #We delete them
+        #Remove surface facets to be deleted from the object mesh
+        ##print('here:', np.shape(obj.mesh.v0))
         obj.mesh.v0 = np.delete(obj.mesh.v0, delete_index_obj, axis = 0)
         obj.mesh.v1 = np.delete(obj.mesh.v1, delete_index_obj, axis = 0)
         obj.mesh.v2 = np.delete(obj.mesh.v2, delete_index_obj, axis = 0)
-
+        ##print('here:', np.shape(obj.mesh.v0))
     return delete_index
 
 def update_surface_mesh(mesh, curvature = False):
@@ -1091,8 +1206,8 @@ def update_surface_mesh(mesh, curvature = False):
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
 
     mesh.surface_displacement = np.zeros((len(mesh.nodes),3))
-    
-    if curvature:
+
+    if curvature and len(mesh.facet_normal) > 0:
         mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
 
 def update_object_mesh_from_tetra(obj, assembly_mesh, curvature = False):
@@ -1149,26 +1264,33 @@ def update_object_mesh_from_tetra(obj, assembly_mesh, curvature = False):
 
 def remove_isolated_facets(assembly):
     """
+    - removes isolated facets from object mesh
+
     Needs speed improvements
     """
 
-    #index to remove ablated tetras
+    #select NON ablated tetras from volume
     vol_elements= assembly.mesh.vol_elements[assembly.mesh.vol_density != 0]
     vol_tag = assembly.mesh.vol_tag[assembly.mesh.vol_density != 0]
 
     for obj in assembly.objects:
 
         #map the tetras contained in the object
+        #surf_tetra map for object tetras to NOT be ablated, corresponding to facets original surface to keep + new surface
         surf_tetra_index = map_surf_to_tetra(assembly.mesh.vol_coords, vol_elements[vol_tag == obj.id])
 
         #Build the key of the facet (COG)
+        #object facet COG of original - ablated surface + newly exposed facets (new surface and isolated facets)
         COG = np.round((obj.mesh.v0+obj.mesh.v1+obj.mesh.v2)/3 ,5).astype(str)
+        ##print('OBJ COG:', np.shape(COG))
         COG = np.char.add(np.char.add(COG[:,0],COG[:,1]),COG[:,2])
 
-        #Delete the facets that are not in the surf_tetra_index.keys()
+        # all False in COG --> True if original to keep + new surface --> remain False - isolated facets
         mask = np.in1d(COG,np.array(list(surf_tetra_index.keys()), dtype = str))
+        #Isolated facets
         delete_index_obj = np.where(~mask)[0]
         
+        #Remove isolated facets from object mesh
         obj.mesh.v0 = np.delete(obj.mesh.v0, delete_index_obj, axis = 0)
         obj.mesh.v1 = np.delete(obj.mesh.v1, delete_index_obj, axis = 0)
         obj.mesh.v2 = np.delete(obj.mesh.v2, delete_index_obj, axis = 0)

@@ -30,7 +30,7 @@ titan_aerothermo_cfd_2 = titan.assembly[1].aerothermo_cfd
 titan_pressure = np.append(titan_aerothermo_cfd_1.pressure , titan_aerothermo_cfd_2.pressure)
 titan_heatflux = np.append(titan_aerothermo_cfd_1.heatflux , titan_aerothermo_cfd_2.heatflux)
 
-SU2_mesh = meshio.read("Tests/Simulation/CFD_sol/surface_flow_0_0_cluster_0.vtk")
+SU2_mesh = meshio.read("Tests/Simulation/CFD_sol/surface_flow_0_adapt_0_cluster_0.vtk")
 
 def test_pressure():
 	assert all(np.isclose(np.round(np.sort(titan_pressure),2),np.round(np.sort(SU2_mesh.point_data["Pressure"].reshape(-1)),2), 0.1))

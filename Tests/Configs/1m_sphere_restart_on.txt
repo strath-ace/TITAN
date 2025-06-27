@@ -10,6 +10,7 @@ Fidelity = Low
 Output_folder = Tests/Simulation
 FENICS = False
 Save_freq = 5
+Output_freq = 1
 
 [Trajectory]
 Altitude = 120000
