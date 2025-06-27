@@ -86,4 +86,6 @@ def vol_tetra(v0,v1,v2,v3):
                     +  a3 * a4 * (a1 + a2 + a5 + a6 - a3 - a4)
                     -  a1 * a2 * a4  - a2 * a3 * a5 - a1 * a3 * a6 - a4 * a5 * a6)
 
+    Vol[Vol < 0] = 0
+
     return np.sqrt(Vol)

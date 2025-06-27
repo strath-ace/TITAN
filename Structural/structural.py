@@ -76,14 +76,19 @@ def run_FENICS(titan, options):
         E = 1E20
         yield_stress = 1E20
         for obj in assembly.objects:
+
             E = np.min([E,obj.material.youngModulus(obj.temperature)])
             yield_stress = np.min([yield_stress, obj.material.yieldStress(obj.temperature)])
 
-        #Young Modulus
-        surf_displacement, surf_vM, stress_ratio_dict, surf_force, disp_arr, max_displacements, vM_arr = fenics.run_fenics(forces, num_surf_points,
-                                                               map_physical_volume, assembly = assembly, options = options,
-                                                               regen_subdomains = regen_subdomains, yield_stress = yield_stress, inertial_forces = inertial_forces, E = E,
-                                                               output_folder = options.output_folder)
+
+        surf_displacement, surf_vM, stress_ratio_dict, surf_force, disp_arr, max_displacements, vM_arr = fenics.run_fenics(forces, num_surf_points, map_physical_volume,titan.iter, verbose = options.fenics.FE_verbose,
+                                                                                                                           regen_subdomains = regen_subdomains, MPI = options.fenics.FE_MPI, 
+                                                                                                                           num_MPI_cores = options.fenics.FE_MPI_cores,rotation = [0,0,0], E = options.fenics.E, 
+                                                                                                                           yield_stress = yield_stress, output_folder = options.output_folder,save_displacement = False, 
+                                                                                                                           save_vonMises = False, inertial_forces = inertial_forces, assembly = assembly, 
+                                                                                                                           options = options)
+
+
 
         max_stress_ratio = -1e6 
         max_vm = -1e6

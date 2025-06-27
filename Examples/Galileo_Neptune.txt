@@ -49,7 +49,7 @@ model = GRAM
 Time_step = 0.25
 
 [Assembly]
-Path = Geometry/Galileo/
+Path = Examples/Geometry/Galileo/
 Angle_of_attack = 0.0
 Sideslip = 0.0
 Roll = 0.0

@@ -93,8 +93,8 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
             #map_objects[assembly.objects[i].id].update({'Active': True})
             #map_objects[assembly.objects[i].id].update({'Name': assembly.objects[i].name})
 
-            #if len(bc_ids) > 0:
-            #    map_objects[assembly.objects[i].id].update({'BC id': bc_ids[i]})
+            if len(bc_ids) > 0:
+               map_objects[assembly.objects[i].id].update({'BC id': bc_ids[i]})
 
 
             # map_objects.update({assembly.objects[i].name  : i+1})

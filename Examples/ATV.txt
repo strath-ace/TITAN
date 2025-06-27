@@ -8,7 +8,6 @@ Load_state = False
 Fidelity = Low
 #High, Low or Multi (now adding razor as option)
 Output_folder = ATV
-SPARTA = False
 FENICS = False
 
 [Model]
@@ -65,9 +64,7 @@ Sensor = Mach
 
 [Assembly]
 # Path for the geometry files
-#Path = ../Run_files/ATV_PAPER_COMPLEX/Geometry/
-#Path = ../Geometry_library/Geometry/ATV/POC_ATV/
-Path = Geometry/ATV_ROM/
+Path = Examples/Geometry/ATV_ROM/
 
 Angle_of_attack = 12
 Sideslip = 0

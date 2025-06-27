@@ -43,7 +43,7 @@ Sensor = Mach
 
 [Assembly]
 # Path for the geometry files
-Path = Geometry/Sphere/
+Path = Examples/Geometry/Sphere/
 
 [Objects]
 Primary = [NAME = sphere.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]

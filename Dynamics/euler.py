@@ -29,6 +29,7 @@ from Freestream import gram
 from Model import drag_model
 import copy
 
+
 def compute_Euler(titan, options):
     """
     Euler integration
@@ -113,6 +114,7 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
         vy = assembly.velocity_nlast[1] + 2*dt*cartesianDerivatives.dv
         vz = assembly.velocity_nlast[2] + 2*dt*cartesianDerivatives.dw
 
+
         assembly.position[0] = px
         assembly.position[1] = py
         assembly.position[2] = pz
@@ -171,6 +173,26 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.roll_vel  += dt*angularDerivatives.ddroll  #christie: p,q,r or d(euler)??
     assembly.pitch_vel += dt*angularDerivatives.ddpitch
     assembly.yaw_vel   += dt*angularDerivatives.ddyaw
+
+
+    if options.dynamics.propagator == 'EULER' or options.current_iter == 0:
+
+        assembly.roll_vel  += dt*angularDerivatives.ddroll
+        assembly.pitch_vel += dt*angularDerivatives.ddpitch
+        assembly.yaw_vel   += dt*angularDerivatives.ddyaw
+
+
+    elif options.dynamics.propagator == '2ND_ORDER':
+
+        assembly.roll_vel  = assembly.roll_vel_last + 2*dt*angularDerivatives.ddroll
+        assembly.pitch_vel = assembly.pitch_vel_last + 2*dt*angularDerivatives.ddpitch
+        assembly.yaw_vel   = assembly.yaw_vel_last + 2*dt*angularDerivatives.ddyaw
+
+    assembly.roll_vel_last = copy.deepcopy(assembly.roll_vel)
+    assembly.pitch_vel_last = copy.deepcopy(assembly.pitch_vel)
+    assembly.yaw_vel_last = copy.deepcopy(assembly.yaw_vel)
+
+
 
     #Limiting the angular velocity to 100 rad/s.
 

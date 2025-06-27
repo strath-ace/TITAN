@@ -63,8 +63,8 @@ class Solver():
             #: [str] Gas Model (Gas to be used in the simulation)
             self.gas_model = 'GAS_MODEL= air_5'
 
-            print(freestream.percent_mass, freestream.species_index)
 
+            #Hardcoded for the NRLMSISE00 database
             N  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N']])),5))
             O  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O']])),5))
             NO = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['NO']])),5))
@@ -470,6 +470,7 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
     """
 
     aerothermo.pressure = vtk_to_numpy(data.GetPointData().GetArray('Pressure'))[idx_sim][idx_inv]
+    aerothermo.pressure -= freestream.pressure 
 
     aerothermo.pressure -= freestream.pressure
 
@@ -545,6 +546,7 @@ def run_SU2(n, options):
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     subprocess.run(['mpirun','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
 
+
 def generate_BL(assembly, options, it, cluster_tag):
     """
     Generates a Boundary Layer
@@ -583,9 +585,7 @@ def adapt_mesh(assembly, options, it, cluster_tag, iteration):
     if options.amg.flag:
         amg.adapt_mesh(options.amg, iteration, options, j = it, num_obj = len(assembly),  input_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it)+'_cluster_'+str(cluster_tag), output_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
 
-
 def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
-
     """
     Compute the aerothermodynamic properties using the CFD software
 
@@ -737,28 +737,25 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
 
     if options.current_iter%options.save_freq == 0:
         options.save_state(titan, titan.iter, CFD = True)        
+    #Automatically generates the CFD domain
+    input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
+    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
 
     #Automatically generates the CFD domain
     input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
     GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
-    print('hello 0')
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag)
-    print('hello 1')
     #Writes the configuration file
     it = 0
-    
     config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = input_grid, bloom=False)
-    print('hello 2')
     #Runs SU2 simulaton
     run_SU2(n, options)
-    print('hello 3')
     #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
     if options.amg.flag:
         run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)
 
     post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free)
-
 
 def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
     """

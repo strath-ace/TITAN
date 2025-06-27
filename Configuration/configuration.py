@@ -375,12 +375,45 @@ class Freestream():
         self.per_facet_mach = []
 
 class GRAM():
+
+    """ GRAM Class
+
+    A class to store input parameters used to configurea NASA GRAM (Global Reference Atmospheric Model)
+    """
+
     def __init__(self):
+
+        # [str] Path to GRAM directory
         self.gramPath = ''
+
+        # [str] Path to SPICE directory
         self.spicePath = ''
+
+        # [float] Scaling factor for atmospheric bounds
         self.MinMaxFactor = 0.0
+
+        # [boolean] (1/0): whether to compute the factor dynamically
         self.ComputeMinMaxFactor  = 1
-            
+
+        # Timestamp for GRAM run (used for date/time-dependent profiles):
+        # [int] Month (1–12)
+        self.month = 1
+
+        # [int] Day of the month (1–31)
+        self.day = 1
+
+        # [int] Year
+        self.year = 2000
+
+        # [int] Hour in UTC (0–23)
+        self.hour = 0
+
+        # [int] Minute (0–59)
+        self.minute = 0
+
+        # [float] Seconds
+        self.seconds = 0.0
+        
 
 class Options():
     """ Options class
@@ -543,6 +576,11 @@ class Options():
                     sys.setrecursionlimit(recursion_limit)
             outfile.close()
 
+        if CFD:
+            outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','wb')
+            pickle.dump(titan, outfile)
+            outfile.close()
+
         if self.collision.flag:
             for assembly in titan.assembly: collision.generate_collision_mesh(assembly, self)
             collision.generate_collision_handler(titan, self)
@@ -574,19 +612,18 @@ class Options():
         titan: Assembly_list
             Object of class Assembly_list
         """
-        
-        infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
-        is_loaded = False
+
+        if self.fidelity.lower() == 'high' and self.cfd.cfd_restart:
+            infile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','rb')
+        else: 
+            infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
         recursion_limit = sys.getrecursionlimit()
-        while not is_loaded:
-            try:
-                titan = pickle.load(infile)
-                is_loaded=True
-            except:
-                print('Mesh loading failed at recursion limit: {}'.format(recursion_limit))
-                is_loaded=False
-                recursion_limit=int(np.ceil(1.1*recursion_limit))
-                sys.setrecursionlimit(recursion_limit)
+        try:
+            titan = pickle.load(infile)
+        except:
+            print('Mesh loading failed at recursion limit: {}'.format(recursion_limit))
+            recursion_limit=int(np.ceil(1.1*recursion_limit))
+            sys.setrecursionlimit(recursion_limit)
         infile.close()
 
         return titan
@@ -893,7 +930,6 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.load_state    = get_config_value(configParser, False, 'Options', 'Load_state', 'boolean')
     options.load_mesh     = get_config_value(configParser, False, 'Options', 'Load_mesh', 'boolean')
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
-    #options.SPARTA =       get_config_value(configParser, options.SPARTA, 'Options', 'SPARTA', 'boolean')
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
 
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
@@ -905,7 +941,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     #Read FENICS options
     if options.structural_dynamics:
         options.fenics.E            = get_config_value(configParser, options.fenics.E, 'FENICS', 'E', 'float')
-        options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'bool')
+        options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'boolean')
         options.fenics.FE_MPI_cores = get_config_value(configParser, options.fenics.FE_MPI_cores, 'FENICS', 'FENICS_cores', 'int')
         options.fenics.FE_verbose   = get_config_value(configParser, options.fenics.FE_verbose, 'FENICS', 'FENICS_verbose', 'boolean')
         options.fenics.FE_freq      = get_config_value(configParser, options.fenics.FE_freq, 'FENICS', 'FENICS_freq', 'int')
@@ -957,6 +993,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
     if emissions: return options, None
 
+
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
     options.aerothermo.vel_grad   = get_config_value(configParser, 'fr', 'Aerothermo', 'Vel_grad', 'str')
@@ -980,6 +1017,12 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.gram.spicePath = get_config_value(configParser, options.gram.spicePath, 'GRAM', 'SPICE_Path', 'str') 
         options.gram.MinMaxFactor = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'MinMaxFactor', 'str')
         options.gram.ComputeMinMaxFactor = get_config_value(configParser, options.gram.ComputeMinMaxFactor, 'GRAM', 'ComputeMinMaxFactor', 'str')
+        options.gram.year = get_config_value(configParser, options.gram.year, 'GRAM', 'Yeah', 'int')
+        options.gram.month = get_config_value(configParser, options.gram.month, 'GRAM', 'Month', 'int')
+        options.gram.day = get_config_value(configParser, options.gram.day, 'GRAM', 'Day', 'str')
+        options.gram.hour = get_config_value(configParser, options.gram.hour, 'GRAM', 'Hour', 'int')
+        options.gram.minute = get_config_value(configParser, options.gram.minute, 'GRAM', 'Minute', 'int')
+        options.gram.seconds = get_config_value(configParser, options.gram.second, 'GRAM', 'Seconds', 'float')
 
     #Read Planet
     options.planet = planet.ModelPlanet(get_config_value(configParser, "Earth", 'Model', 'Planet', 'str'))

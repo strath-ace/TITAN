@@ -117,17 +117,19 @@ def save_subdomains(mesh, subdomains, subdomains_filename):
     xdmf.close()
 
 
-def run_fenics(forces, num_surf_points, vol_bc_dict, vol_mesh_filename = 'Benchmark.xdmf',  
-               iteration = 0, verbose = False, case = 'benchmark', save_subdomains = False, 
+def run_fenics(forces, num_surf_points, vol_bc_dict, iteration = 0, verbose = False,  regen_subdomains = False, 
                MPI = False, num_MPI_cores = 6, rotation = [0,0,0], E = 68e9, yield_stress = 100e6,
-               output_folder = 'TITAN_sol', regen_subdomains = False, save_displacement = False,
-               save_vonMises = False, assembly = [], options = [], inertial_forces = []):
+               output_folder = 'TITAN_sol', save_displacement = False,
+               save_vonMises = False, inertial_forces = [], assembly = [], options = []):
 
+    
     #Map surface vertex and volume vertex
     index, __ = mesh_TITAN.create_index(assembly.mesh.vol_coords, assembly.mesh.nodes, round_value = 4)
 
     # Load mesh
     mesh_fenics = Mesh()
+
+
     vol_mesh_filename = options.output_folder+"/Surface_solution/ID_"+str(assembly.id)+"/volume.xdmf"
 
     if verbose: print ('Loading volume mesh', flush = True)
@@ -138,6 +140,7 @@ def run_fenics(forces, num_surf_points, vol_bc_dict, vol_mesh_filename = 'Benchm
     CG_FS = FunctionSpace(mesh_fenics, "CG", 1)
     DG_FS = FunctionSpace(mesh_fenics, 'DG', 0)
     CG_VFS = VectorFunctionSpace(mesh_fenics, "CG", 1)
+
     subdomains_filename = options.output_folder +"/Surface_solution/ID_"+str(assembly.id)+'/subdomains.xdmf'
     subdomains_3d_filename = options.output_folder +"/Surface_solution/ID_"+str(assembly.id)+"/subdomains_3d.xdmf"
 
