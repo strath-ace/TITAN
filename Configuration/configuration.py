@@ -196,6 +196,95 @@ class Amg():
         #: [str] Name of the sensor field to be used in the adaptation
         self.sensor = sensor
 
+
+class DSMC():
+
+    """ DSMC configuration class.
+
+        Stores domain, species, timestep, and iteration controls for SPARTA simulations.
+    """
+
+    def __init__(self, mode = 'automatic', cores = 4, acc = 1.0, ppc = 15,  run_adapt = 1, run_unsteady = 1, 
+                    run_sample = 1, stats_freq = 1,  Nrepeat = 1, Nevery = 1, Nadapt = 1, Ntotal = 1):
+
+
+        # [str] Operational mode of SPARTA in TITAN (either manual or automatic) (lets the user perform the SPARTA simulation offline if manual)
+        # and provide the solution file back to TITAN to proceed with the re-entry simulation
+        self.mode = mode
+
+        # [int] Number of cores used per simulation:
+        self.cores = cores
+
+        # [float] Accommodation coefficient
+        self.acc = acc 
+
+        # [int] Number of particles per cell
+        self.ppc = ppc
+
+        # [list of float] Bounding box of the simulation domain [xmin, xmax, ymin, ymax, zmin, zmax]
+        self.domain = []
+
+        # [ndarray of int] Number of cells in each dimension [nx, ny, nz]
+        self.grid = np.zeros((3))
+
+        # [float] Number of real to simulated particles ratio
+        self.fnum = None
+
+        # [float] Number density
+        self.nrho = None
+
+        # [int] number of refinement levels for grid
+        self.level = None
+
+        # [float] distance threshold for static grid adaptation relative to surface
+        self.adapt_surf_tr = None
+
+        # [ndarray of str] Full list of species supported by the simulation
+        self.sp_all = np.array(['N', 'O', 'N2', 'O2'])
+
+        # [ndarray of str] Subset of active species for the current simulation
+        self.sp_present = np.array(['N', 'O', 'N2', 'O2'])
+
+        # [list of float] Mass fraction of each species in `sp_present`
+        self.sp_frac = []
+
+        # [float] Time step
+        self.dt = None
+
+        # [list of list of int] Per-object facet assignments (from STL geometry)
+        self.obj_store = []
+
+        # [str] Path to simulation output folder (used by SPARTA)
+        self.work_directory = None
+
+        # [int] Number of iterations to carry out grid adaptation
+        self.run_adapt = run_adapt
+
+        # [int] Number of iterations to run to reach steady state (post-adaptation)
+        self.run_unsteady = run_unsteady
+
+        # [int] Number of iterations to run for sampling (post-unsteady)
+        self.run_sample = run_sample
+
+        # [int] Frequency (in timesteps) of logging statistics output in logfile
+        self.stats_freq = stats_freq
+
+        # [boolean] Choose whether to write restart file during simulation (2 writes performed by default)
+        self.write_restart = False
+
+        # [boolean] Choose whether to write grid results to file during simulation
+        self.grid_results = False
+
+        # [str] Direct to the path of the paraview conda environment 
+        self.paraview_conda_path = None
+
+        # [int] Frequency of measurements
+        self.Nevery = Nevery
+        self.Nrepeat = Nrepeat
+        self.Nadapt = Nadapt
+        self.Ntotal = Ntotal
+
+
 class Aerothermo():
     """ Aerothermo class
 
@@ -318,7 +407,7 @@ class GRAM():
 
         # [float] Seconds
         self.seconds = 0.0
-        
+
 
 class Options():
     """ Options class
@@ -328,11 +417,11 @@ class Options():
     """
 
     def __init__(self, iters = 1, time_step = 0.1, fidelity = 'Low',
-                 SPARTA = False, SP_NUM = 1, sp_iters = 0, SPARTA_MPI_cores = 4, Opti_Flag = 'OFF',
                  fenics = False, FE_MPI = False, FE_MPI_cores = 12, FE_verbose = False,
                  case = 'benchmark', E = 68e9, output_folder = 'TITAN_sol', propagator = 'Euler', adapt_propagator=False,
                  assembly_rotation = [], manifold_correction = True, adapt_time_step = False, rerr_tol=1e-3, 
                  num_joints= 0, frame_for_writing = 'W', max_time_step=0.5, save_displacement = False, save_vonMises = False):
+
 
         #: [:class:`.Fenics`] Object of class Fenics
         self.fenics = Fenics(fenics)
@@ -340,6 +429,7 @@ class Options():
         #: [:class:`.Dynamics`] Object of class Dynamics
         self.dynamics = Dynamics()
         self.cfd = CFD()
+        self.dsmc = DSMC()
         self.bloom = Bloom()
         self.amg = Amg()
 
@@ -366,12 +456,6 @@ class Options():
         self.current_iter = 0
                 
         self.output_folder = output_folder + '/'
-
-        ### self.SPARTA = SPARTA
-        ### self.SP_NUM = SP_NUM
-        ### self.sp_iters = sp_iters
-        ### self.SPARTA_MPI_cores = SPARTA_MPI_cores
-        ### self.Opti_Flag = Opti_Flag
 
         ### self.save_displacement = save_displacement    
         ### self.save_vonMises = save_vonMises
@@ -420,6 +504,9 @@ class Options():
                 Path(self.output_folder+'/CFD_Grid/Bloom/').mkdir(parents=True, exist_ok=True)
             if self.amg.flag:
                 Path(self.output_folder+'/CFD_Grid/Amg/').mkdir(parents=True, exist_ok=True)
+
+            Path(self.output_folder+'/DSMC_sol').mkdir(parents=True, exist_ok=True)
+            Path(self.output_folder+'/DSMC_Grid').mkdir(parents=True, exist_ok=True)
 
     def save_mesh(self,titan):
         outfile = open(self.output_folder + '/Restart/'+'Mesh.p','wb')
@@ -827,18 +914,21 @@ def read_config_file(configParser, postprocess = ""):
     if options.fidelity:
 
         #Read DSMC conditions
-        #options.sparta.obj_path = get_config_value(configParser, options.sparta.obj_path, 'SPARTA', 'Obj_path', 'str')
-        #options.sparta.surf_name = get_config_value(configParser, options.sparta.surf_name, 'SPARTA', 'Surf_name', 'str')
-        #options.SP_NUM = get_config_value(configParser, options.SP_NUM, 'SPARTA', 'NUM_Iters', 'int')
-        #options.sparta.lref = get_config_value(configParser, options.sparta.lref, 'SPARTA', 'LREF', 'float')
-        #options.sparta.ppc =      get_config_value(configParser, options.sparta.ppc, 'SPARTA', 'PPC', 'int')
-        #options.sparta.acc =      get_config_value(configParser, options.sparta.acc, 'SPARTA', 'acc', 'float')
-        #options.sparta.cores =    get_config_value(configParser, options.sparta.cores, 'SPARTA', 'Num_cores', 'int')
-        #options.sparta.run_steady = get_config_value(configParser, options.sparta.run_steady, 'SPARTA', 'RUN_Steady', 'int')
-        #options.sparta.run_sample = get_config_value(configParser, options.sparta.run_sample, 'SPARTA', 'RUN_Sample', 'int')
-        #options.sparta.Nadapt = get_config_value(configParser, options.sparta.Nadapt, 'SPARTA', 'Nadapt', 'int')
-        #options.sparta.Nevery = get_config_value(configParser, options.sparta.Nevery, 'SPARTA', 'Nevery', 'int')
-        #options.sparta.Nrepeat = get_config_value(configParser, options.sparta.Nrepeat, 'SPARTA', 'Nrepeat', 'int')
+        options.dsmc.mode         = get_config_value(configParser, options.dsmc.mode, 'SPARTA', 'Mode', 'str')
+        options.dsmc.cores        = get_config_value(configParser, options.dsmc.cores, 'SPARTA', 'Num_cores', 'int')
+        options.dsmc.ppc          = get_config_value(configParser, options.dsmc.ppc, 'SPARTA', 'PPC', 'int')
+        options.dsmc.acc          = get_config_value(configParser, options.dsmc.acc, 'SPARTA', 'ACC', 'float')
+        options.dsmc.run_adapt    = get_config_value(configParser, options.dsmc.run_adapt, 'SPARTA', 'Adapt_iters', 'int')
+        options.dsmc.run_unsteady = get_config_value(configParser, options.dsmc.run_unsteady, 'SPARTA', 'Unsteady_iters', 'int')
+        options.dsmc.run_sample   = get_config_value(configParser, options.dsmc.run_sample, 'SPARTA', 'Sample_iters', 'int')
+        options.dsmc.stats_freq   = get_config_value(configParser, options.dsmc.stats_freq, 'SPARTA', 'Stats_freq', 'int')
+        options.dsmc.Nevery       = get_config_value(configParser, options.dsmc.Nevery, 'SPARTA', 'Nevery', 'int')
+        options.dsmc.Nrepeat      = get_config_value(configParser, options.dsmc.Nrepeat, 'SPARTA', 'Nrepeat', 'int')
+        options.dsmc.Nadapt       = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Nadapt', 'int')
+        options.dsmc.Ntotal       = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Ntotal', 'int')
+        options.dsmc.write_restart = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Write_Restart', 'boolean')
+        options.dsmc.grid_results  = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Grid_Results', 'boolean')
+        options.dsmc.paraview_conda_path    = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Conda_Env_Path', 'str')
 
         #Read SU2 conditions
         options.cfd.solver =      get_config_value(configParser, options.cfd.solver, 'SU2', 'Solver', 'str')
