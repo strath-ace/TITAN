@@ -77,7 +77,7 @@ def compute_Euler(titan, options):
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)
         update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, titan.post_event_iter)
         
-def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, iter_num):
+def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, post_event_iter):
     """
     Update position and attitude of the assembly
 
@@ -95,7 +95,8 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
 
     dt = time_step
     
-    if iter_num == 0 or options.dynamics.propagator == 'legacy_euler':
+     # Need to be 1st order at the simulation start and immediately after fragmentation
+    if post_event_iter == 0 or options.dynamics.propagator == 'legacy_euler':
 
         assembly.position[0] += dt*cartesianDerivatives.dx
         assembly.position[1] += dt*cartesianDerivatives.dy
@@ -175,14 +176,14 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.yaw_vel   += dt*angularDerivatives.ddyaw
 
 
-    if options.dynamics.propagator == 'EULER' or options.current_iter == 0:
+    if options.dynamics.propagator == 'legacy_euler' or post_event_iter == 0:
 
         assembly.roll_vel  += dt*angularDerivatives.ddroll
         assembly.pitch_vel += dt*angularDerivatives.ddpitch
         assembly.yaw_vel   += dt*angularDerivatives.ddyaw
 
 
-    elif options.dynamics.propagator == '2ND_ORDER':
+    elif options.dynamics.propagator == 'legacy_bwd':
 
         assembly.roll_vel  = assembly.roll_vel_last + 2*dt*angularDerivatives.ddroll
         assembly.pitch_vel = assembly.pitch_vel_last + 2*dt*angularDerivatives.ddpitch
