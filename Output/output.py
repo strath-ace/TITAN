@@ -83,9 +83,10 @@ def write_output_data(titan, options):
         df['Roll'] =     [assembly.roll*180/np.pi]
         df['Pitch'] =    [assembly.pitch*180/np.pi]
         df['Yaw'] =      [assembly.yaw*180/np.pi]
-        df['VelRoll'] =  [assembly.roll_vel]
-        df['VelPitch'] = [assembly.pitch_vel]
-        df['VelYaw'] =   [assembly.yaw_vel]
+        
+        df['VelRoll'] =  [assembly.roll_vel*180/np.pi]
+        df['VelPitch'] = [assembly.pitch_vel*180/np.pi]
+        df['VelYaw'] =   [assembly.yaw_vel*180/np.pi]
 
         #Quaternion Body -> ECEF frame        
         df['Quat_w']   = [assembly.quaternion[3]]
@@ -100,6 +101,9 @@ def write_output_data(titan, options):
         df['Temperature'] = [assembly.freestream.temperature]
         df['Pressure'] = [assembly.freestream.pressure]
         df['SpecificHeatRatio'] = [assembly.freestream.gamma]
+        df['knudsen'] = [assembly.freestream.knudsen]
+        df['percentage_mass'] = [assembly.freestream.percent_mass]
+
 
         for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.percent_mass[0]) :
             df[specie+"_mass_pct"] = [pct]
@@ -125,6 +129,15 @@ def write_output_data(titan, options):
         #Reference Dimensionsal constants
         df["Aref"] = [assembly.Aref]
         df["Lref"] = [assembly.Lref]
+
+        df_temp = pd.DataFrame()
+        df_mass = pd.DataFrame()
+        for i, obj in enumerate(assembly.objects):
+            df_temp["Temperature_obj_"+str(i)] = [obj.temperature]
+            df_mass["Mass_obj_"+str(i)] = [obj.mass]
+
+        df = pd.concat([df, df_temp], axis = 1)
+        df = pd.concat([df, df_mass], axis = 1)
 
         df = df.round(decimals = 12)
         df.to_csv(options.output_folder + '/Data/'+ 'data.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data.csv'), index = False)
