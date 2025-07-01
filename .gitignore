@@ -1,1 +1,5 @@
 *.pyc
+Tests/Dynamics
+launch.json
+Tests/geometries
+link.cfg
