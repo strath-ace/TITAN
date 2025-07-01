@@ -163,9 +163,9 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].pitch = angle[1]
         titan.assembly[-1].yaw   = angle[2]
 
-        titan.assembly[-1].roll_vel_last = copy.deepcopy(titan.assembly[i].roll_vel)
-        titan.assembly[-1].pitch_vel_last = copy.deepcopy(titan.assembly[i].pitch_vel)
-        titan.assembly[-1].yaw_vel_last = copy.deepcopy(titan.assembly[i].yaw_vel)
+        titan.assembly[-1].roll_vel_last = deepcopy(titan.assembly[i].roll_vel)
+        titan.assembly[-1].pitch_vel_last = deepcopy(titan.assembly[i].pitch_vel)
+        titan.assembly[-1].yaw_vel_last = deepcopy(titan.assembly[i].yaw_vel)
 
 
         #Vector of COM difference
