@@ -530,10 +530,14 @@ def fragmentation(titan, options):
 
     fragmentation_flag = False
 
+    # Slow, unablating objects with complex dynamics can massively slow down adaptive timestepping simulations
+    # This debug value removes objects below a certain critical mach score, turn off by setting to 0
+    debug_ignore_mach = 0
+    
     for it in range(lenght_assembly):
         objs_id = np.array([], dtype = int)
         primitive_separation = False
-        if titan.assembly[it].freestream.mach <= 0.0 and titan.assembly[it].freestream.mach>0:
+        if titan.assembly[it].freestream.mach <= debug_ignore_mach and titan.assembly[it].freestream.mach>0:
             print('Low Mach fragmentation occured at {}'.format(titan.assembly[it].freestream.mach))
             objs_id = np.array([i for i in range(len(titan.assembly[it].objects))])
         for _id, obj in enumerate(titan.assembly[it].objects):
