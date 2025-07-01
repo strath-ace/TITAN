@@ -104,7 +104,9 @@ class stagnation_line():
 
     def __init__(self, Tfree, Pfree, Mfree, Twall, mix = None):
 
-        if mix == None: self.mix = mixture_mpp("air5")
+        if mix == None: 
+            print('No mix given to stagnation_line()! Defaulting to air5...')
+            self.mix = mixture_mpp("air5")
         else: self.mix = mix
 
         self.Tfree = Tfree
