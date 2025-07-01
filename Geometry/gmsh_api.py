@@ -78,7 +78,7 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
             
             assembly.objects[i].vol_tag = vol_tag 
             ref_phys_volume = gmsh.model.geo.addPhysicalGroup(3, [vol_tag])
-            gmsh.model.setPhysicalName(3, ref_phys_volume, "body")  
+            gmsh.model.setPhysicalName(3, ref_phys_volume, str(i+1))  
 
             # map_objects.update({assembly.objects[i].name  : {}})
             # assembly.objects[i].vol_tag = vol_tag
