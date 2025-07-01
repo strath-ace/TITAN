@@ -460,7 +460,9 @@ class Assembly():
             #self.mesh.original_nodes = np.copy(self.mesh.nodes)
             self.inside_shock = np.zeros(len(self.mesh.nodes))
 
-        self.Lref = np.max(self.mesh.xmax-self.mesh.xmin)
+        # self.Lref = np.max(self.mesh.xmax-self.mesh.xmin)
+        self.Lref = (self.mesh.xmax-self.mesh.xmin)[0]
+
 
         self.aerothermo = Aerothermo(len(self.mesh.facets))
         self.aerothermo_cfd = Aerothermo(len(self.mesh.nodes))
