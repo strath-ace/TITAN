@@ -246,7 +246,7 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
         cell_data = { "Pressure": [pressure],
                       "Heatflux": [heatflux],
                       "Temperature": [temperature],
-                      #"Shear": [shear],
+                      "Shear": [shear],
                       #"Radius": [radius],
                       #"CellID": [cellID], #uncommenting this actually crashes the code
                       "Emissive power": [emissive_power],
