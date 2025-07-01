@@ -25,27 +25,27 @@ from pathlib import Path
 
 def write_output_data(titan, options):
 
-    n_assembly = len(titan.assembly)
+    # n_assembly = len(titan.assembly)
 
-    if n_assembly == 1:
+    # if n_assembly == 1:
     
-        width_max = titan.assembly[0].Lref
-    else:
+    #     width_max = titan.assembly[0].Lref
+    # else:
     
-        width = np.zeros((n_assembly, n_assembly))
-        for i in range(n_assembly):
-            for j in range(n_assembly):
-                width_vector = np.subtract(titan.assembly[i].position,titan.assembly[j].position)
-                width[i,j] = np.linalg.norm(width_vector)
+    #     width = np.zeros((n_assembly, n_assembly))
+    #     for i in range(n_assembly):
+    #         for j in range(n_assembly):
+    #             width_vector = np.subtract(titan.assembly[i].position,titan.assembly[j].position)
+    #             width[i,j] = np.linalg.norm(width_vector)
 
-        width_max = max([max(l) for l in width])      
+    #     width_max = max([max(l) for l in width])      
 
 
-    df = pd.DataFrame()
-    df['Time'] = [titan.time]
-    df['Width'] = [width_max]
-    df = df.round(decimals = 12)
-    df.to_csv(options.output_folder + '/Data/'+ 'data_width.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_width.csv'), index = False)
+    # df = pd.DataFrame()
+    # df['Time'] = [titan.time]
+    # df['Width'] = [width_max]
+    # df = df.round(decimals = 12)
+    # df.to_csv(options.output_folder + '/Data/'+ 'data_width.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_width.csv'), index = False)
 
     
     df = pd.DataFrame()
