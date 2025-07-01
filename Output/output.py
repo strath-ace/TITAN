@@ -249,16 +249,18 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
                       "Shear": [shear],
                       #"Radius": [radius],
                       #"CellID": [cellID], #uncommenting this actually crashes the code
-                      "Emissive power": [emissive_power],
+                      #"Emissive power": [emissive_power],
                       #"Heat conduction": [hf_cond],
                       "Theta": [theta],
-                      "He": [he],
-                      "Hw": [hw],
-                      "Te": [Te],
-                      "mDotVapor": [mDotVapor],
-                      "mDotMelt": [mDotMelt],
+                      #"Enthalpy BLE": [he],
+                      #"Enthalpy Wall": [hw],
+                      #"Temperatue BLE": [Te],
                     }
-
+        # I don't believe He, Hw and Te are functional at present
+        if options.thermal.ablation:
+            if options.thermal.ablation_mode == 'PATO':
+                cell_data["mDotVapor"] = [mDotVapor]
+                cell_data["mDotMelt"]  = [mDotMelt]
         point_data = { "Displacement": displacement,
                       # "Ellipse": ellipse,
                      }
