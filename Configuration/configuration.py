@@ -961,7 +961,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
         options.dynamics.tumbling_criterion = get_config_value(configParser, 0.0, 'Time', 'Tumble_threshold', 'float')
     options.dynamics.per_facet_flow = get_config_value(configParser, False, 'Time', 'Rotation_damping', 'boolean')
-
+    # Debug adaptive timestepping options
+    options.dynamics.ignore_mach = get_config_value(configParser, 0.0, 'Time','Debug_mach_cull','float')
+    options.dynamics.ignore_mass = get_config_value(configParser, 0.0, 'Time','Debug_mass_cull','float')
     #Read Thermal options
     options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
     if options.thermal.ablation:

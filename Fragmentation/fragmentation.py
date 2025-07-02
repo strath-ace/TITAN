@@ -526,19 +526,18 @@ def fragmentation(titan, options):
     check_breakup_v2(titan, options)
 
     assembly_id = np.array([], dtype = int)
-    lenght_assembly = len(titan.assembly)
+    length_assembly = len(titan.assembly)
 
     fragmentation_flag = False
-
-    # Slow, unablating objects with complex dynamics can massively slow down adaptive timestepping simulations
-    # This debug value removes objects below a certain critical mach score, turn off by setting to 0
-    debug_ignore_mach = 0
     
-    for it in range(lenght_assembly):
+    for it in range(length_assembly):
         objs_id = np.array([], dtype = int)
         primitive_separation = False
-        if titan.assembly[it].freestream.mach <= debug_ignore_mach and titan.assembly[it].freestream.mach>0:
-            print('Low Mach fragmentation occured at {}'.format(titan.assembly[it].freestream.mach))
+        if titan.assembly[it].freestream.mach <= options.dynamics.ignore_mach and titan.assembly[it].freestream.mach>0:
+            print('Low Mach fragmentation occured for assembly {} at Ma={}'.format(it,titan.assembly[it].freestream.mach))
+            objs_id = np.array([i for i in range(len(titan.assembly[it].objects))])
+        elif titan.assembly[it].mass <= options.dynamics.ignore_mass:
+            print('Low Mass fragmentation occured for assembly {} at {}kg'.format(it,titan.assembly[it].mass))
             objs_id = np.array([i for i in range(len(titan.assembly[it].objects))])
         for _id, obj in enumerate(titan.assembly[it].objects):
 
@@ -623,7 +622,7 @@ def fragmentation(titan, options):
             for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
             collision.generate_collision_handler(titan, options)
         
-            if lenght_assembly < len(titan.assembly): 
+            if length_assembly < len(titan.assembly): 
                 options.time_counter = options.collision.post_fragmentation_iters
 
         output.generate_volume(titan = titan, options = options)
