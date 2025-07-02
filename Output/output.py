@@ -114,7 +114,6 @@ def write_output_data(titan, options):
         df['qmax'] = [max(assembly.aerothermo.heatflux)]
         df['Tmax'] = [max(assembly.aerothermo.temperature)]
         df['knudsen'] = [assembly.freestream.knudsen]
-        df['percentage_mass'] = [assembly.freestream.percent_mass]
 
         for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.percent_mass[0]) :
             df[specie+"_mass_pct"] = [pct]
