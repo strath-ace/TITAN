@@ -25,29 +25,6 @@ from pathlib import Path
 
 def write_output_data(titan, options):
 
-    # n_assembly = len(titan.assembly)
-
-    # if n_assembly == 1:
-    
-    #     width_max = titan.assembly[0].Lref
-    # else:
-    
-    #     width = np.zeros((n_assembly, n_assembly))
-    #     for i in range(n_assembly):
-    #         for j in range(n_assembly):
-    #             width_vector = np.subtract(titan.assembly[i].position,titan.assembly[j].position)
-    #             width[i,j] = np.linalg.norm(width_vector)
-
-    #     width_max = max([max(l) for l in width])      
-
-
-    # df = pd.DataFrame()
-    # df['Time'] = [titan.time]
-    # df['Width'] = [width_max]
-    # df = df.round(decimals = 12)
-    # df.to_csv(options.output_folder + '/Data/'+ 'data_width.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_width.csv'), index = False)
-
-    
     df = pd.DataFrame()
 
     for assembly in titan.assembly:
@@ -146,10 +123,6 @@ def write_output_data(titan, options):
         try:
             df['Qstag'] = [assembly.aerothermo.qconvstag]
             df['Qradstag'] = [assembly.aerothermo.qradstag]
-
-#            df['Qconvstag'] = [assembly.aerothermo.qstag]
-#            df['Qradstag'] = [assembly.aerothermo.qradstag]
-#            df['Qstag'] = [assembly.aerothermo.qradstag]
         except:
             pass
 
@@ -183,7 +156,6 @@ def write_output_data(titan, options):
         df["Assembly_ID"] = [assembly.id]
         for obj in assembly.objects:
             df["Obj_name"] = [obj.name]
-            #df["Temperature"] = [obj.temperature]
             df["Density"] = [obj.material.density]
             df["Photons_second"] = [obj.photons]
             df["Mass"] = [obj.mass]
@@ -195,7 +167,6 @@ def write_output_data(titan, options):
             df["Max_stress"] = [obj.max_stress]
             df["Yield_stress"] = [obj.yield_stress]
             df["Parent_id"] = [obj.parent_id]
-            #df["Parent_part"] = [obj.parent_part]
             
             df = df.round(decimals = 6)
             df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
@@ -258,10 +229,6 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
                       "Heatflux": [heatflux],
                       "Temperature": [temperature],
                       "Shear": [shear],
-                      #"Radius": [radius],
-                      #"CellID": [cellID], #uncommenting this actually crashes the code
-                      #"Emissive power": [emissive_power],
-                      #"Heat conduction": [hf_cond],
                       "Theta": [theta],
                       #"Enthalpy BLE": [he],
                       #"Enthalpy Wall": [hw],
@@ -272,9 +239,7 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
             if options.thermal.ablation_mode == 'PATO':
                 cell_data["mDotVapor"] = [mDotVapor]
                 cell_data["mDotMelt"]  = [mDotMelt]
-        point_data = { "Displacement": displacement,
-                      # "Ellipse": ellipse,
-                     }
+        point_data = { "Displacement": displacement}
 
         trimesh = meshio.Mesh(points,
                               cells=cells,

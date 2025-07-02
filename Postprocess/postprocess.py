@@ -124,9 +124,6 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	facets = mesh[0].cells[0].data
 	pressure = mesh[0].cell_data['Pressure']
 	heatflux = mesh[0].cell_data['Heatflux']
-	#emissive_power = mesh[0].cell_data['Emissive power']
-	#ellipse = mesh[0].point_data['Ellipse']
-	#displacement = mesh[0].point_data['Displacement']
 	temperature  = mesh[0].cell_data['Temperature']
 
 	facet_dev = len(points)
@@ -137,9 +134,6 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		facets = np.append(facets, mesh[i].cells[-1].data+facet_dev, axis = 0)
 		pressure = np.append(pressure,mesh[i].cell_data['Pressure'])
 		heatflux = np.append(heatflux,mesh[i].cell_data['Heatflux'])
-		#emissive_power = np.append(emissive_power,mesh[i].cell_data['Emissive power'])
-		#ellipse = np.append(ellipse,mesh[i].point_data['Ellipse'])
-		#displacement = np.append(displacement, mesh[i].point_data['Displacement'])
 		temperature = np.append(temperature, mesh[i].cell_data['Temperature'])
 
 		facet_dev = len(points)
@@ -149,14 +143,12 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	cell_data = {"Pressure": pressure,
                   "Heatflux": heatflux,
                   "temperature": temperature,
-                  #"Emissive power": emissive_power,
 				 }
 
 	if len(assembly_ID) > 1:
 		cell_data = {"Pressure": [pressure],
                   "Heatflux": [heatflux],
                   "temperature": [temperature],
-                  #"Emissive power": [emissive_power],
 				 }	
 
 	trimesh = meshio.Mesh(
