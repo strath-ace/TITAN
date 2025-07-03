@@ -27,7 +27,8 @@ from Output import output
 import pyquaternion
 from Freestream import gram
 from Model import drag_model
-import copy 
+import copy
+
 
 def compute_Euler(titan, options):
     """
@@ -46,7 +47,7 @@ def compute_Euler(titan, options):
         if flag_collision: collision.collision_physics(titan, options)
         #if flag_collision: collision.collision_physics_simultaneous(titan, options)
 
-    aerothermo.compute_aerothermo(titan, options)
+    aerothermo.compute_aerothermo(titan, options)  
 
     # If we go to switch.py or su2.py, Because we call deepcopy() function, we need to rebuild
     #the collision mesh
@@ -67,14 +68,16 @@ def compute_Euler(titan, options):
         __, time_step = collision.check_collision(titan, options, time_step)
     
     titan.time += time_step
+    titan.time = round(titan.time, 5)
 
+    titan.delta_t = time_step
     # Loop over the assemblies and compute the dericatives
     for assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(assembly, options)
-        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step)
+        update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, titan.post_event_iter)
         
-def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step):
+def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, post_event_iter):
     """
     Update position and attitude of the assembly
 
@@ -91,9 +94,10 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     """
 
     dt = time_step
+    
+     # Need to be 1st order at the simulation start and immediately after fragmentation
+    if post_event_iter == 0 or options.dynamics.propagator == 'legacy_euler':
 
-    if options.dynamics.propagator == 'EULER' or options.current_iter == 0 :
-        
         assembly.position[0] += dt*cartesianDerivatives.dx
         assembly.position[1] += dt*cartesianDerivatives.dy
         assembly.position[2] += dt*cartesianDerivatives.dz
@@ -102,15 +106,16 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
         assembly.velocity[1] += dt*cartesianDerivatives.dv
         assembly.velocity[2] += dt*cartesianDerivatives.dw
 
-    elif options.dynamics.propagator == '2ND_ORDER':
+    elif options.dynamics.propagator == 'legacy_bwd':
 
-        px = assembly.position_last[0] +  2*dt*cartesianDerivatives.dx
-        py = assembly.position_last[1] +  2*dt*cartesianDerivatives.dy
-        pz = assembly.position_last[2] +  2*dt*cartesianDerivatives.dz
-        vx = assembly.velocity_last[0] + 2*dt*cartesianDerivatives.du
-        vy = assembly.velocity_last[1] + 2*dt*cartesianDerivatives.dv
-        vz = assembly.velocity_last[2] + 2*dt*cartesianDerivatives.dw
- 
+        px = assembly.position_nlast[0] +  2*dt*cartesianDerivatives.dx
+        py = assembly.position_nlast[1] +  2*dt*cartesianDerivatives.dy
+        pz = assembly.position_nlast[2] +  2*dt*cartesianDerivatives.dz
+        vx = assembly.velocity_nlast[0] + 2*dt*cartesianDerivatives.du
+        vy = assembly.velocity_nlast[1] + 2*dt*cartesianDerivatives.dv
+        vz = assembly.velocity_nlast[2] + 2*dt*cartesianDerivatives.dw
+
+
         assembly.position[0] = px
         assembly.position[1] = py
         assembly.position[2] = pz
@@ -118,8 +123,10 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
         assembly.velocity[1] = vy
         assembly.velocity[2] = vz
 
-    assembly.position_last = copy.deepcopy(assembly.position)
-    assembly.velocity_last = copy.deepcopy(assembly.velocity)
+    assembly.position_nlast = copy.deepcopy(assembly.position)
+    assembly.velocity_nlast = copy.deepcopy(assembly.velocity)
+
+    assembly.distance_travelled += np.sqrt(dt*cartesianDerivatives.dx*dt*cartesianDerivatives.dx+dt*cartesianDerivatives.dy*dt*cartesianDerivatives.dy+dt*cartesianDerivatives.dz*dt*cartesianDerivatives.dz) 
 
     q = assembly.quaternion
 
@@ -132,12 +139,16 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.trajectory.longitude = longitude
     assembly.trajectory.altitude = altitude
 
+    print('Altitude:', altitude)
+
     [vEast, vNorth, vUp] = pymap3d.uvw2enu(assembly.velocity[0], assembly.velocity[1], assembly.velocity[2], latitude, longitude, deg=False)
 
     gamma = np.arcsin(np.dot(assembly.position, assembly.velocity)/(np.linalg.norm(assembly.position)*np.linalg.norm(assembly.velocity)))
     assembly.trajectory.chi = np.arctan2(vEast,vNorth)
     
     R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+
+    norm = np.linalg.norm(assembly.quaternion)
 
     #Should it be like this??
     R_B_NED_quat = (R_NED_ECEF).inv()*Rot.from_quat(assembly.quaternion)
@@ -165,14 +176,14 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     assembly.yaw_vel   += dt*angularDerivatives.ddyaw
 
 
-    if options.dynamics.propagator == 'EULER' or options.current_iter == 0:
+    if options.dynamics.propagator == 'legacy_euler' or post_event_iter == 0:
 
         assembly.roll_vel  += dt*angularDerivatives.ddroll
         assembly.pitch_vel += dt*angularDerivatives.ddpitch
         assembly.yaw_vel   += dt*angularDerivatives.ddyaw
 
 
-    elif options.dynamics.propagator == '2ND_ORDER':
+    elif options.dynamics.propagator == 'legacy_bwd':
 
         assembly.roll_vel  = assembly.roll_vel_last + 2*dt*angularDerivatives.ddroll
         assembly.pitch_vel = assembly.pitch_vel_last + 2*dt*angularDerivatives.ddpitch

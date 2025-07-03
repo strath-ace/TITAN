@@ -29,7 +29,7 @@ import trimesh
 from Geometry.component import Component
 from collections import defaultdict
 from Dynamics import collision
-import copy
+from Thermal import pato
 
 def demise_components(titan, i, joints_id, options): 
     """
@@ -54,6 +54,7 @@ def demise_components(titan, i, joints_id, options):
     COG = titan.assembly[i].COG
     angle = np.array([titan.assembly[i].roll, titan.assembly[i].pitch, titan.assembly[i].yaw])
     angle_vel = np.array([titan.assembly[i].roll_vel, titan.assembly[i].pitch_vel, titan.assembly[i].yaw_vel])
+    distance_travelled = titan.assembly[i].distance_travelled
 
     connectivity = titan.assembly[i].connectivity
     index = np.zeros(len(connectivity), dtype = bool)
@@ -162,9 +163,9 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].pitch = angle[1]
         titan.assembly[-1].yaw   = angle[2]
 
-        titan.assembly[-1].roll_vel_last = copy.deepcopy(titan.assembly[i].roll_vel)
-        titan.assembly[-1].pitch_vel_last = copy.deepcopy(titan.assembly[i].pitch_vel)
-        titan.assembly[-1].yaw_vel_last = copy.deepcopy(titan.assembly[i].yaw_vel)
+        titan.assembly[-1].roll_vel_last = deepcopy(titan.assembly[i].roll_vel)
+        titan.assembly[-1].pitch_vel_last = deepcopy(titan.assembly[i].pitch_vel)
+        titan.assembly[-1].yaw_vel_last = deepcopy(titan.assembly[i].yaw_vel)
 
 
         #Vector of COM difference
@@ -178,8 +179,8 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].position = np.copy(titan.assembly[i].position) + dx_ECEF
         titan.assembly[-1].velocity = np.copy(titan.assembly[i].velocity) + np.cross(angle_vel_ECEF,dx_ECEF)
         
-        titan.assembly[-1].position_last = copy.deepcopy(titan.assembly[i].position)
-        titan.assembly[-1].velocity_last = copy.deepcopy(titan.assembly[i].velocity)
+        titan.assembly[-1].position_nlast = deepcopy(titan.assembly[-1].position)
+        titan.assembly[-1].velocity_nlast = deepcopy(titan.assembly[-1].velocity)
 
         titan.assembly[-1].roll_vel  = angle_vel[0]
         titan.assembly[-1].pitch_vel = angle_vel[1]
@@ -190,11 +191,13 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].quaternion = deepcopy(titan.assembly[i].quaternion)
 
         #Compute the trajectory and angular quantities
-        [latitude, longitude, altitude] = pymap3d.ecef2geodetic(titan.assembly[-1].position[0], titan.assembly[-1].position[1], titan.assembly[-1].position[2], ell = None,deg = False);
-
+        [latitude, longitude, altitude] = pymap3d.ecef2geodetic(titan.assembly[-1].position[0], titan.assembly[-1].position[1], titan.assembly[-1].position[2],
+                                        ell=pymap3d.Ellipsoid(semimajor_axis = options.planet.ellipsoid()['a'], semiminor_axis = options.planet.ellipsoid()['b']),
+                                        deg = False);
         titan.assembly[-1].trajectory.latitude = latitude
         titan.assembly[-1].trajectory.longitude = longitude
         titan.assembly[-1].trajectory.altitude = altitude
+        titan.assembly[-1].distance_travelled = distance_travelled 
 
         [vEast, vNorth, vUp] = pymap3d.uvw2enu(titan.assembly[-1].velocity[0], titan.assembly[-1].velocity[1], titan.assembly[-1].velocity[2], latitude, longitude, deg=False)
 
@@ -207,6 +210,11 @@ def demise_components(titan, i, joints_id, options):
         
         titan.assembly[-1].aoa = titan.assembly[i].aoa
         titan.assembly[-1].slip = titan.assembly[i].slip
+
+        titan.post_event_iter = 0
+        from Dynamics.propagation import construct_state_vector
+        construct_state_vector(titan.assembly[-1])
+        titan.assembly[-1].unmodded_angles = titan.assembly[i].unmodded_angles
 
 
 def check_breakup_v2(titan, options):
@@ -222,6 +230,9 @@ def check_breakup_v2(titan, options):
         tri_mesh.triangles = o3d.utility.Vector3iVector(assembly.mesh.facets)
         
         #Compute the surface clusters
+        #Function that clusters connected triangles, i.e., triangles that are connected via edges are assigned
+        #the same cluster index. This function returns an array that contains the cluster index per triangle,
+        #a second array contains the number of triangles per cluster, and a third vector contains the surface area per cluster.
         triangle_clusters, cluster_n_triangles, cluster_area = (tri_mesh.cluster_connected_triangles())
         triangle_clusters = np.asarray(triangle_clusters)
 
@@ -515,23 +526,25 @@ def fragmentation(titan, options):
     check_breakup_v2(titan, options)
 
     assembly_id = np.array([], dtype = int)
-    lenght_assembly = len(titan.assembly)
+    length_assembly = len(titan.assembly)
 
-    #print("Before fragmentation:")
-    #print([obj.id for obj in titan.assembly[0].objects])
     fragmentation_flag = False
-
-    for it in range(lenght_assembly):
+    
+    for it in range(length_assembly):
         objs_id = np.array([], dtype = int)
         primitive_separation = False
-
+        if titan.assembly[it].freestream.mach <= options.dynamics.ignore_mach and titan.assembly[it].freestream.mach>0:
+            print('Low Mach fragmentation occured for assembly {} at Ma={}'.format(it,titan.assembly[it].freestream.mach))
+            objs_id = np.array([i for i in range(len(titan.assembly[it].objects))])
+        elif titan.assembly[it].mass <= options.dynamics.ignore_mass:
+            print('Low Mass fragmentation occured for assembly {} at {}kg'.format(it,titan.assembly[it].mass))
+            objs_id = np.array([i for i in range(len(titan.assembly[it].objects))])
         for _id, obj in enumerate(titan.assembly[it].objects):
 
             if obj.type == "Joint":
-
                 if obj.trigger_type.lower() == 'altitude' and titan.assembly[it].trajectory.altitude <= obj.trigger_value:
 
-                    print ('Altitude Fragmentation occured ')
+                    print ('Joint altitude Fragmentation occured ')
                     objs_id = np.append(objs_id, _id)
                 
                 elif obj.trigger_type.lower() == 'temperature' and obj.temperature >= obj.trigger_value:
@@ -557,11 +570,11 @@ def fragmentation(titan, options):
 
                 if obj.trigger_type.lower() == 'altitude' and titan.assembly[it].trajectory.altitude <= obj.trigger_value:
 
-                    print ('Altitude Fragmentation occured ')
+                    print ('Primitive altitude Fragmentation occured ')
                     con_delete = []
 
                     for index, con in enumerate(titan.assembly[it].connectivity):
-                        if con[2] == _id+1:
+                        if con[2] == 0:
                             con_delete.append(index)
                     
                     titan.assembly[it].connectivity = np.delete(titan.assembly[it].connectivity, con_delete, axis = 0)
@@ -584,9 +597,8 @@ def fragmentation(titan, options):
                 """
 
             if obj.mass <= 0 or len(obj.mesh.nodes) <= 3:
-                print ('Mass demise occured')
+                print ('Mass demise occured for object:', obj.name)
                 objs_id = np.append(objs_id, _id)
-                print(objs_id)
                         
             elif titan.assembly[it].trajectory.altitude <= 0:
                 print ('Object reached ground')
@@ -596,7 +608,8 @@ def fragmentation(titan, options):
 
         if len(objs_id) != 0 or primitive_separation:
             fragmentation_flag = True
-            if len(titan.assembly[it].objects) != 1: demise_components(titan, it, objs_id, options)
+            if len(titan.assembly[it].objects) != 1:
+                demise_components(titan, it, objs_id, options)
             assembly_id = np.append(assembly_id, it)
             
     titan.assembly = np.delete(titan.assembly,assembly_id).tolist()
@@ -609,7 +622,12 @@ def fragmentation(titan, options):
             for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
             collision.generate_collision_handler(titan, options)
         
-            if lenght_assembly < len(titan.assembly): 
+            if length_assembly < len(titan.assembly): 
                 options.time_counter = options.collision.post_fragmentation_iters
 
         output.generate_volume(titan = titan, options = options)
+
+
+    if options.thermal.ablation and options.pato.flag:
+        for assembly in titan.assembly:
+            pato.identify_object_connections(assembly)

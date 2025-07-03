@@ -19,7 +19,6 @@
 #
 import os
 import sys
-sys.setrecursionlimit(100000) 
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -28,11 +27,13 @@ import pickle
 import copy
 from Geometry import component as Component
 from Geometry import assembly as Assembly
-from Dynamics import dynamics
+from Dynamics import dynamics, propagation
 from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
-
+from Aerothermo import bloom
+from Thermal import pato
+from Geometry import gmsh_api as GMSH
 
 class Collision_options():
 
@@ -112,7 +113,7 @@ class Dynamics():
         A class to store the user-defined dynamics options for the simulation
     """
 
-    def __init__(self, time_step = 0, time = 0, propagator = 'EULER', adapt_propagator = False, manifold_correction = True):
+    def __init__(self, time_step = 0, time = 0, propagator = 'help'):
 
         #: [seconds] Physical time of the simulation.
         self.time = time
@@ -120,14 +121,45 @@ class Dynamics():
         #: [seconds] Value of the time-step.
         self.time_step = time_step
 
-        #: [str] Name of the propagator to be used in the dynamics (options - EULER).
+        #: [str] Name of the propagator to be used in the dynamics (options - euler, ).
         self.propagator = propagator
 
-        #: [bool] Flag value indicating time-step adaptation
-        self.adapt_propagator = adapt_propagator
+        #: [callable] The function that is called for propagation, 
+        self.prop_func = propagation.explicit_euler
+        # ^ of signature prop_func(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options) -> new_state_vectors, new_derivatives
+        
+        #: [int] Number of previous states to hold
+        self.n_states_to_hold = 0
 
-        #: [bool] Flag value indicating manifold correction
-        self.manifold_correction = manifold_correction
+        #: [int] Number of previous derivatives to hold
+        self.n_derivs_to_hold = 0
+
+        self.prop_warning = ('''
+        No Propagator selected! Selecting Euler, see list for options
+                            
+
+        ## Current implented time integrators (define in cfg under [Time] as Time_integration='')...
+
+        ## Constant time-step methods  
+        ## - euler : Euler method
+        ## - bwd   : Backward difference, using information from 1 previous time step (2nd order)
+        ## - AB[N] : Adams-Bashford Nth order for N = 2-5 (AB2,...,AB5), using information from N-1 previous time step(s)
+        ## - RK[N] : Runge-Kutte Nth order for N = 2-5 (RK2,...,RK5), using information from N flow solves per time step
+            
+        ## Adaptive integration methods  
+        ## - adapt_AB[N_AB]_RK[N_RK] : High angular accelerations trigger a switch from AB[N] to a determined RK method up to order N
+
+        ## Adaptive time-step methods (via scipy.integrate)
+        ## - RK23    : Time stepping according to 3rd order Runge-Kutta with 2nd order error control
+        ## - RK45    : Time stepping according to 5th order Runge-Kutta with 4th order error control
+        ## - DOP853  : The DOP8(5,3) adaptive algorithm 
+        ## See docs.scipy.org/doc/scipy/reference/integrate.html for more info
+        
+        ## Legacy Dynamics Implementation (deprecated)
+        ## legacy_euler : Prior Euler method
+        ## legacy_bwd   : Prior backward difference method for position updates
+        ''')
+
 
 class CFD():
     def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1, cfd_restart = False, restart_grid = 0, restart_iter = 0):
@@ -197,6 +229,61 @@ class Amg():
         self.sensor = sensor
 
 
+class Thermal():
+    def __init__(self, ablation = False, ablation_mode = "0D", post_fragment_tetra_ablation = False):
+
+        #: [boolean] Flag to perform ablation
+        self.ablation = False
+
+        #: [str] Ablation Model (0D, tetra)
+        self.ablation_mode = "0D"
+
+        self.post_fragment_tetra_ablation = False
+
+        self.time_fidelity = 1.0
+
+        self.prev_thermal_time = 0.0
+
+
+class PATO():
+    def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = False):
+
+
+        #: [boolean] Flag to perform PATO simulation
+        self.flag = False
+
+        #: [boolean] Flag to perform PATO simulation
+        self.time_step = time_step  
+
+        #: [int] Number of cores to perform PATO simulation
+        self.n_cores = n_cores    
+
+        #: [int] String to define type of boundary condition used in the PATO simulation
+        self.Ta_bc = pato_mode #'fixed', 'qconv' or 'ablation' 
+
+        #Fraction of the melted material that is stripped away
+        self.fstrip = fstrip
+
+        #: [boolean] Flag to model heat conduction between objects
+        self.conduction_flag = conduction_flag
+
+
+class Radiation():
+    def __init__(self, particle_emissions = False,
+                 spectral = False, spectral_freq = 10000, phi = 0, theta = 0, wavelengths = [0]):
+
+        #: [boolean] Flag to compute particle emissions
+        self.particle_emissions = particle_emissions
+
+        #: [boolean] Flag to compute spectral emissions
+        self.spectral = spectral  
+
+        #: [int] Frequency to compute spectral emissions
+        self.spectral_freq = spectral_freq                
+
+        self.phi = phi
+        self.theta = theta
+        self.wavelengths = wavelengths             
 class DSMC():
 
     """ DSMC configuration class.
@@ -283,15 +370,13 @@ class DSMC():
         self.Nrepeat = Nrepeat
         self.Nadapt = Nadapt
         self.Ntotal = Ntotal
-
-
 class Aerothermo():
     """ Aerothermo class
 
         A class to store the user-defined aerothemo model options
     """
 
-    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100):
+    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100, mixture = "air5"):
 
         #: [str] Name of the heatflux model to be used
         self.heat_model = heat_model
@@ -304,6 +389,9 @@ class Aerothermo():
 
         #: [float] Value of the free-molecular knudsen
         self.knf = knf
+
+        #: [str] Mixture file name
+        self.mixture = mixture
 
 class Freestream():
     """ Freestream class
@@ -368,6 +456,9 @@ class Freestream():
         #: Selection of freestream calculation method (Mutationpp, default = Standard)
         self.method = "Standard"
 
+        #: Necessary for addition of relative velocity to mach number, calculated in aerothermo.py
+        self.per_facet_mach = []
+
 class GRAM():
 
     """ GRAM Class
@@ -428,6 +519,9 @@ class Options():
 
         #: [:class:`.Dynamics`] Object of class Dynamics
         self.dynamics = Dynamics()
+        self.thermal = Thermal()
+        self.pato = PATO()
+        self.radiation = Radiation()
         self.cfd = CFD()
         self.dsmc = DSMC()
         self.bloom = Bloom()
@@ -452,6 +546,9 @@ class Options():
         #:[int] Frequency of generating a restart file [per number of iterations]
         self.save_freq = 500
 
+        #:[int] Frequency of generating the output surface solution [per number of iterations]
+        self.output_freq = 500        
+
         #: [int] Current iteration
         self.current_iter = 0
                 
@@ -467,13 +564,8 @@ class Options():
         #: [str] Fidelity of the aerothermo calculation (Low - Default, High, Hybrid)
         self.fidelity = fidelity
 
-        #: [boolean] Flag to perform ablation
-        self.ablation = False
+        self.assembly_path = ""
 
-        #: [str] Ablation Model (0D, tetra)
-        self.ablation_mode = "0D"
-
-        self.post_fragment_tetra_ablation = False
         
     def clean_up_folders(self):
         """
@@ -493,6 +585,7 @@ class Options():
         Path(self.output_folder+'/Restart/').mkdir(parents=True, exist_ok=True)
         Path(self.output_folder+'/Surface_solution/').mkdir(parents=True, exist_ok=True)
         Path(self.output_folder+'/Volume/').mkdir(parents=True, exist_ok=True)
+        Path(self.output_folder+'/Restart/').mkdir(parents=True, exist_ok=True)
     
         if self.freestream.model.lower() == "gram": 
             Path(self.output_folder+'/GRAM/').mkdir(parents=True, exist_ok=True)
@@ -510,7 +603,18 @@ class Options():
 
     def save_mesh(self,titan):
         outfile = open(self.output_folder + '/Restart/'+'Mesh.p','wb')
-        pickle.dump(titan, outfile)
+        is_saved = False
+        recursion_limit = sys.getrecursionlimit()
+        while not is_saved:
+            try:
+                pickle.dump(titan, outfile)
+                is_saved=True
+            except:
+                print('Mesh saving failed at recursion limit: {}'.format(recursion_limit))
+                is_saved=False
+                recursion_limit=int(np.ceil(1.1*recursion_limit))
+                sys.setrecursionlimit(recursion_limit)
+            
         outfile.close() 
 
     def save_state(self, titan, i = 0, CFD = False):
@@ -533,13 +637,27 @@ class Options():
         if self.collision.flag:
             for assembly in titan.assembly:
                 assembly.collision = None
+        if hasattr(titan, 'rk_adapt'):
+            titan.rk_params['time'] = titan.time
+            titan.rk_params['state'] = titan.rk_adapt.y
+            del titan.rk_fun
+            del titan.rk_adapt
 
-        outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','wb')
-        pickle.dump(titan, outfile)
-        outfile.close()
-        outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p','wb')
-        pickle.dump(titan, outfile)
-        outfile.close()
+
+        for file in [self.output_folder + '/Restart/'+ 'Assembly_State.p',self.output_folder + '/Restart/'+ 'Assembly_State_'+str(i)+'_.p']:
+            recursion_limit = sys.getrecursionlimit()
+            outfile = open(file,'wb')
+            is_saved = False
+            while not is_saved:
+                try:
+                    pickle.dump(titan, outfile)
+                    is_saved=True
+                except:
+                    print('Saving failed at recursion limit: {}'.format(recursion_limit))
+                    is_saved=False
+                    recursion_limit=int(np.ceil(1.1*recursion_limit))
+                    sys.setrecursionlimit(recursion_limit)
+            outfile.close()
 
         if CFD:
             outfile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','wb')
@@ -552,7 +670,18 @@ class Options():
 
     def read_mesh(self):
         infile = open(self.output_folder + '/Restart/'+ 'Mesh.p','rb')
-        titan = pickle.load(infile)
+                
+        is_loaded = False
+        recursion_limit = sys.getrecursionlimit()
+        while not is_loaded:
+            try:
+                titan = pickle.load(infile)
+                is_loaded=True
+            except:
+                print('Mesh loading failed at recursion limit: {}'.format(recursion_limit))
+                is_loaded=False
+                recursion_limit=int(np.ceil(1.1*recursion_limit))
+                sys.setrecursionlimit(recursion_limit)
         infile.close()
 
         return titan
@@ -569,12 +698,16 @@ class Options():
 
         if self.fidelity.lower() == 'high' and self.cfd.cfd_restart:
             infile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','rb')
-            titan = pickle.load(infile)
-            infile.close()
         else: 
             infile = open(self.output_folder + '/Restart/'+ 'Assembly_State.p','rb')
+        recursion_limit = sys.getrecursionlimit()
+        try:
             titan = pickle.load(infile)
-            infile.close()
+        except:
+            print('Mesh loading failed at recursion limit: {}'.format(recursion_limit))
+            recursion_limit=int(np.ceil(1.1*recursion_limit))
+            sys.setrecursionlimit(recursion_limit)
+        infile.close()
 
         return titan
 
@@ -582,6 +715,7 @@ class Options():
 def get_config_value(configParser, variable, section, field, var_type, list_type = None):
     
     if configParser.has_option(section, field):
+
         if var_type == 'boolean':
             try:        
                 variable = configParser.getboolean(section, field)
@@ -615,6 +749,7 @@ def get_config_value(configParser, variable, section, field, var_type, list_type
                 if list_type == 'angle': variable = check_angle(configParser.get(section, field))
                 if list_type == 'fidelity': variable = check_fidelity(configParser.get(section, field))
                 if list_type == 'connectivity': variable = check_connectivity(configParser.get(section, field))
+                if list_type == 'wavelengths': variable = check_wavelengths(configParser.get(section, field))
                 if list_type == 'initial_condition':
                     ids, variable = check_initial_condition_array(configParser.get(section, field))
                     return ids, variable
@@ -643,6 +778,14 @@ def check_connectivity(connectivity):
     connectivity.shape = (-1,3)
 
     return connectivity
+
+def check_wavelengths(wavelengths):
+
+    wavelengths = wavelengths.replace('[','').replace(']','').replace(' ','').split(',')
+    wavelengths = [float(i) for i in wavelengths]
+    wavelengths = np.array(wavelengths)
+
+    return wavelengths
 
 def check_initial_condition_array(initial_condition):
     
@@ -704,12 +847,15 @@ def read_geometry(configParser, options):
 
     #Reads the path to the geometrical files
     path = get_config_value(configParser, '', 'Assembly', 'Path', 'str')
+    options.assembly_path = path
 
     #Initialization of the object of class Component_list to store the user-defined compoents
     objects = Component.Component_list()
 
     #Loops through the user-defined components, checks if they are either Primitives or Joints 
     #and creates the object according to the specified parameters in the config file
+    obj_global_ID = 0
+
     for section in configParser.sections():
         if section == 'Objects':
             for name, value in configParser.items(section):
@@ -747,9 +893,21 @@ def read_geometry(configParser, options):
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
                         temperature = 300
+
+                    bloom = [False, 0, 0, 0]
+                    try:                        
+                        for s in value:
+                            if 'bloom' in s.lower():
+                                bloom = s.split('=')[1].strip('()').split(';')  
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]       
+                    except:
+                        bloom = [False, 0, 0, 0]               
+
+                    if options.pato.flag and bloom[0] == False:
+                        print('Need to set up BLOOM if using PATO!'); exit()
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
-                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options)
+                        fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -779,10 +937,24 @@ def read_geometry(configParser, options):
                     try:
                         temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
                     except:
-                        temperature = 300
+                        temperature = 300   
+
+                    bloom = [False, 0, 0, 0]
+
+                    try:                        
+                        for s in value:
+                            if 'bloom' in s.lower():
+                                bloom = s.split('=')[1].strip('()').split(';')  
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]              
+                    except:
+                        bloom = [False, 0, 0, 0]              
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
-                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options) 
+                                             trigger_type = trigger_type, trigger_value = float(trigger_value), fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, options = options, global_ID = obj_global_ID, bloom_config = bloom) 
+
+
+                print('bloom:', bloom)
+                obj_global_ID += 1
 
 
     # Creates a list of the different assemblies, where each assembly is a object with several linked components
@@ -809,7 +981,7 @@ def read_initial_conditions(titan, options, configParser):
     return
 
 
-def read_config_file(configParser, postprocess = ""):
+def read_config_file(configParser, postprocess = "", emissions = ""):
     """
     Read the config file
 
@@ -833,6 +1005,7 @@ def read_config_file(configParser, postprocess = ""):
     
     #Read Options Conditions
     options.output_folder = get_config_value(configParser, options.output_folder, 'Options', 'output_folder', 'str')
+    options.output_freq     = get_config_value(configParser, options.output_freq, 'Options', 'Output_freq', 'int')
     if postprocess: return options, None
 
     options.iters         = get_config_value(configParser, options.iters, 'Options', 'Num_iters', 'int')
@@ -841,11 +1014,12 @@ def read_config_file(configParser, postprocess = ""):
     options.load_mesh     = get_config_value(configParser, False, 'Options', 'Load_mesh', 'boolean')
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
-    options.ablation       = get_config_value(configParser, False, 'Options', 'Ablation', 'boolean')
-    options.ablation_mode  = get_config_value(configParser, "0D",  'Options', 'Ablation_mode', 'str').lower()
+
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
     options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
+    options.dynamic_plots  = get_config_value(configParser, False, 'Options', 'Plot', 'boolean')
     options.time_counter   = 0
+
 
     #Read FENICS options
     if options.structural_dynamics:
@@ -857,10 +1031,53 @@ def read_config_file(configParser, postprocess = ""):
 
     #Read Dynamics options
     options.dynamics.time = 0
-    options.dynamics.time_step           = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
-    options.dynamics.propagator          = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Propagator', 'str')
-    #options.dynamics.adapt_propagator    = get_config_value(configParser, options.dynamics.adapt_propagator, 'Time', 'Adapt_propagator', 'boolean')
-    #options.dynamics.manifold_correction = get_config_value(configParser, options.dynamics.manifold_correction, 'Time', 'Manifold_correction', 'boolean')
+    options.dynamics.time_step  = get_config_value(configParser, options.dynamics.time_step, 'Time', 'Time_step', 'float')
+    options.dynamics.propagator = get_config_value(configParser, options.dynamics.propagator, 'Time', 'Time_integration', 'str')
+    if options.dynamics.propagator=='help': 
+        print(options.dynamics.prop_warning)
+        options.dynamics.propagator='euler'
+    options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
+    options.dynamics.dt_max = get_config_value(configParser, 10*options.dynamics.time_step, 'Time', 'Adaptive_dt_max', 'float')
+    options.dynamics.t_end = get_config_value(configParser, options.iters*options.dynamics.time_step, 'Time', 'Adaptive_end_time', 'float')
+    options.dynamics.dt_initial = get_config_value(configParser, 0.1*options.dynamics.time_step, 'Time', 'Adaptive_dt_init', 'float')
+    if 'adapt' in options.dynamics.propagator.lower(): 
+        options.dynamics.acceleration_threshold = get_config_value(configParser, 0.05, 'Time', 'Spin_threshold', 'float')
+        options.dynamics.tumbling_criterion = get_config_value(configParser, 0.0, 'Time', 'Tumble_threshold', 'float')
+    options.dynamics.per_facet_flow = get_config_value(configParser, False, 'Time', 'Rotation_damping', 'boolean')
+    # Debug adaptive timestepping options
+    options.dynamics.ignore_mach = get_config_value(configParser, 0.0, 'Time','Debug_mach_cull','float')
+    options.dynamics.ignore_mass = get_config_value(configParser, 0.0, 'Time','Debug_mass_cull','float')
+    #Read Thermal options
+    options.thermal.ablation       = get_config_value(configParser, False, 'Thermal', 'Ablation', 'boolean')
+    if options.thermal.ablation:
+        options.thermal.ablation_mode  = get_config_value(configParser, "0D",  'Thermal', 'Ablation_mode', 'str').lower()
+        options.thermal.time_fidelity  = get_config_value(configParser, options.thermal.time_fidelity,'Thermal', 'Time_fidelity','float')
+        if (options.thermal.ablation_mode == "pato"):
+            options.pato.flag = True
+            options.pato.Ta_bc  = get_config_value(configParser, options.pato.Ta_bc,  'PATO', 'PATO_mode', 'str').lower()
+            #PATO and TITAN time-step need to be the same for the consistency of the heat conduction and density change algorithm
+            options.pato.time_step = get_config_value(configParser, options.pato.time_step, 'PATO', 'Time_step', 'float')
+            options.pato.n_cores = get_config_value(configParser, 6, 'PATO', 'N_cores', 'int')
+            options.pato.fstrip = get_config_value(configParser, options.pato.fstrip, 'PATO', 'fStrip', 'float')
+            if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
+            options.pato.conduction_flag = get_config_value(configParser, options.pato.conduction_flag, 'PATO', 'Conduction_objects', 'boolean')
+            options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
+
+            if options.pato.conduction_flag and (options.dynamics.time_step != options.pato.time_step):
+                print("If modelling conduction between objects, time-step in TITAN and PATO must be the same."); exit()  
+
+
+        options.radiation.spectral               = get_config_value(configParser, options.radiation.spectral, 'Radiation', 'Spectral_emissions', 'boolean')
+
+        if(options.radiation.spectral):
+            options.radiation.spectral_freq      = get_config_value(configParser, options.radiation.spectral_freq, 'Radiation', 'Frequency', 'int')
+            options.radiation.particle_emissions = get_config_value(configParser, options.radiation.particle_emissions, 'Radiation', 'Particle_emissions', 'boolean')
+            options.radiation.phi                = get_config_value(configParser, options.radiation.phi, 'Radiation', 'Phi', 'custom', 'angle')
+            options.radiation.theta              = get_config_value(configParser, options.radiation.theta, 'Radiation', 'Theta', 'custom', 'angle')
+            options.radiation.wavelengths        = get_config_value(configParser, options.radiation.wavelengths, 'Radiation', 'Wavelengths', 'custom', 'wavelengths')
+
+    if emissions: return options, None
+
 
     #Read Low-fidelity aerothermo options
     options.aerothermo.heat_model = get_config_value(configParser, options.aerothermo.heat_model, 'Aerothermo', 'Heat_model', 'str')
@@ -869,6 +1086,7 @@ def read_config_file(configParser, postprocess = ""):
     options.aerothermo.cat_method = get_config_value(configParser, 'constant', 'Aerothermo', 'Catalicity_method', 'str')
     options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
     options.aerothermo.subdivision_triangle = get_config_value(configParser, 0, 'Aerothermo', 'Level_division', 'int')
+    options.aerothermo.mixture = get_config_value(configParser, options.aerothermo.mixture, 'Aerothermo', 'Mixture', 'str')
 
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
@@ -880,8 +1098,8 @@ def read_config_file(configParser, postprocess = ""):
 
     if options.freestream.model.lower() == "gram":
         options.gram = GRAM()
-        options.gram.gramPath = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'GRAM_Path', 'str')
-        options.gram.spicePath = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'SPICE_Path', 'str') 
+        options.gram.gramPath = get_config_value(configParser, options.gram.gramPath, 'GRAM', 'GRAM_Path', 'str')
+        options.gram.spicePath = get_config_value(configParser, options.gram.spicePath, 'GRAM', 'SPICE_Path', 'str') 
         options.gram.MinMaxFactor = get_config_value(configParser, options.gram.MinMaxFactor, 'GRAM', 'MinMaxFactor', 'str')
         options.gram.ComputeMinMaxFactor = get_config_value(configParser, options.gram.ComputeMinMaxFactor, 'GRAM', 'ComputeMinMaxFactor', 'str')
         options.gram.year = get_config_value(configParser, options.gram.year, 'GRAM', 'Yeah', 'int')
@@ -982,24 +1200,31 @@ def read_config_file(configParser, postprocess = ""):
             #Reads the user-defined geometries, properties and connectivity
             #to generate an assembly. The information is stored in the titan object
             titan = read_geometry(configParser, options)
-            
             #Generate the volume mesh and compute the inertial properties
             for assembly in titan.assembly:
-                ### bc_ids = [obj.fenics_bc_id for obj in assembly.objects]
-                assembly.generate_inner_domain(write = False, output_folder = options.output_folder)
+                assembly.generate_inner_domain(write = options.pato.flag, output_folder = options.output_folder)
                 assembly.compute_mass_properties()
+                if options.pato.flag:
+                    for obj in assembly.objects:
+                        if obj.pato.flag:
+                            print('blooming name:', obj.name)
+                            GMSH.generate_PATO_domain(obj, output_folder = options.output_folder)                          
+                            bloom.generate_PATO_mesh(options, obj.global_ID, bloom = obj.bloom)
+                            pato.initialize(options, obj)
 
+                    #for each object, define connectivity to connected objects for heat conduction between objects
+                    pato.identify_object_connections(assembly)
             options.save_mesh(titan)
         
+        #Reads the Initial pitch/yaw/roll 
+        read_initial_conditions(titan, options, configParser)
+
         #Computes the quaternion and cartesian for the initial position
         for assembly in titan.assembly:
             assembly.trajectory = copy.deepcopy(trajectory)
             dynamics.compute_quaternion(assembly)
             dynamics.compute_cartesian(assembly, options)
             
-        #Reads the Initial pitch/yaw/roll 
-        read_initial_conditions(titan, options, configParser)
-        
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)
 
