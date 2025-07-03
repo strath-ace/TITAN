@@ -22,7 +22,7 @@ from Freestream import mix_properties
 from Dynamics.frames import *
 from scipy import special
 from copy import copy
-from Aerothermo import su2, switch 
+from Aerothermo import su2, switch, sparta
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
 import trimesh
@@ -321,8 +321,13 @@ def compute_aerothermo(titan, options):
     if options.fidelity.lower() == 'low':
         compute_low_fidelity_aerothermo(titan.assembly, options)
     elif options.fidelity.lower() == 'high':
-        if options.cfd.cfd_restart: su2.restart_cfd_aerothermo(titan, options)
-        else: su2.compute_cfd_aerothermo(titan, options)
+
+        if  (assembly.freestream.knudsen <= options.aerothermo.knc_pressure):
+            if options.cfd.cfd_restart: su2.restart_cfd_aerothermo(titan, options)
+            else: su2.compute_cfd_aerothermo(titan, options)
+        else:
+            sparta.compute_dsmc_aerothermo(titan, options)
+
     elif options.fidelity.lower() == 'multi':
         switch.compute_aerothermo(titan, options)
     else:

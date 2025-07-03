@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-from Aerothermo import aerothermo, su2
+from Aerothermo import aerothermo, su2, sparta
 import meshio
 from copy import deepcopy
 from scipy.spatial.transform import Rotation as Rot
@@ -230,9 +230,12 @@ def compute_aerothermo(titan, options):
         if len(index) >= 1:
             if tag == 0:
                 aerothermo.compute_low_fidelity_aerothermo(titan.assembly[index], options)
-
             else:
-                su2.compute_cfd_aerothermo(titan.assembly[index], options, tag)
+                if titan.assembly[index] <= options.aerothermo.knc_pressure:
+                    su2.compute_cfd_aerothermo(titan.assembly[index], options, tag)
+                else: 
+                    # sparta further testing in multi-fidelity capacity required - but configured to run 
+                    sparta.compute_dsmc_aerothermod(titan.assembly[index], options, tag)
 
     titan.assembly= list(titan.assembly)
 
