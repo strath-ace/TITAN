@@ -61,12 +61,11 @@ def postprocess_emissions(options):
         exit()
 
     for iter_value in range(options.radiation.spectral_freq, max(iter_interval) + 1, options.radiation.spectral_freq):
-    #for iter_value in range(837, max(iter_interval) + 1, options.radiation.spectral_freq):
         iter_value = int(iter_value)
         titan = read_state(options, iter_value)
         #view_direction(titan, options)
-        line_of_sight(titan, options, iter_value)
-        element_gas_densities(titan)
+        #line_of_sight(titan, options, iter_value)
+        #element_gas_densities(titan)
         emissions(titan, options, iter_value)
         #output.generate_surface_solution_emissions(titan=titan, options=options, folder='Postprocess_emissions', iter_value = iter_value)
 
@@ -181,7 +180,6 @@ def read_state(options, i=0):
 def emissions(titan, options, iter_value):
 
     wavelengths_OI    = [777.194e-9, 777.417e-9, 777.539e-9]
-    wavelengths_AlI   = [394.40058e-9, 396.152e-9]
     wavelengths_AlI_1 = [394.40058e-9]
     wavelengths_AlI_2 = [396.152e-9]
 
@@ -211,36 +209,46 @@ def emissions(titan, options, iter_value):
 
             print('assembly.blackbody_emissions_AlI_2:', assembly.blackbody_emissions_AlI_2)
 
-        if options.radiation.spectral and options.thermal.ablation and options.radiation.particle_emissions and options.pato.flag:
-            assembly.OI_atomic_emissions, assembly.atomic_emissions_OI_surf = thermal.compute_particle_spectral_emissions_OI(
-                assembly, wavelengths_OI
-            )
-
-            print('assembly.OI_atomic_emissions:', assembly.OI_atomic_emissions)
-
-            assembly.AlI_1_atomic_emissions, assembly.atomic_emissions_AlI_1_surf = thermal.compute_particle_spectral_emissions_AlI(
-                assembly, wavelengths_AlI, 0
-            )
-
-            print('assembly.AlI_1_atomic_emissions:', assembly.AlI_1_atomic_emissions)
-
-            assembly.AlI_2_atomic_emissions, assembly.atomic_emissions_AlI_2_surf = thermal.compute_particle_spectral_emissions_AlI(
-                assembly, wavelengths_AlI, 1
-            )
-
-            print('assembly.AlI_2_atomic_emissions:', assembly.AlI_2_atomic_emissions)
+#        if options.radiation.spectral and options.thermal.ablation and options.radiation.particle_emissions and options.pato.flag:
+#            assembly.OI_atomic_emissions, assembly.atomic_emissions_OI_surf = thermal.compute_particle_spectral_emissions_OI(
+#                assembly, wavelengths_OI
+#            )
+#
+#            print('assembly.OI_atomic_emissions:', assembly.OI_atomic_emissions)
+#
+#            assembly.AlI_1_atomic_emissions, assembly.atomic_emissions_AlI_1_surf = thermal.compute_particle_spectral_emissions_AlI(
+#                assembly, wavelengths_AlI, 0
+#            )
+#
+#            print('assembly.AlI_1_atomic_emissions:', assembly.AlI_1_atomic_emissions)
+#
+#            assembly.AlI_2_atomic_emissions, assembly.atomic_emissions_AlI_2_surf = thermal.compute_particle_spectral_emissions_AlI(
+#                assembly, wavelengths_AlI, 1
+#            )
+#
+#            print('assembly.AlI_2_atomic_emissions:', assembly.AlI_2_atomic_emissions)
 
 
         #output.generate_surface_solution_emissions(titan=titan, options=options, folder='Postprocess_emissions', iter_value = titan.iter)
 
+#        d = {
+#            'Assembly_ID': [assembly.id],
+#            'OI_emissions_blackbody':  [np.sum(assembly.blackbody_emissions_OI)],
+#            'AlI_1_emissions_blackbody': [np.sum(assembly.blackbody_emissions_AlI_1)],
+#            'AlI_2_emissions_blackbody': [np.sum(assembly.blackbody_emissions_AlI_2)],
+#            'OI_emissions_atomic':     [np.sum(assembly.OI_atomic_emissions)],
+#            'AlI_1_emissions_atomic':    [np.sum(assembly.AlI_1_atomic_emissions)],
+#            'AlI_2_emissions_atomic':    [np.sum(assembly.AlI_2_atomic_emissions)],
+#        }
+
         d = {
             'Assembly_ID': [assembly.id],
-            'OI_emissions_blackbody':  [np.sum(assembly.blackbody_emissions_OI)],
+            'OI_emissions_blackbody':    [np.sum(assembly.blackbody_emissions_OI)],
             'AlI_1_emissions_blackbody': [np.sum(assembly.blackbody_emissions_AlI_1)],
             'AlI_2_emissions_blackbody': [np.sum(assembly.blackbody_emissions_AlI_2)],
-            'OI_emissions_atomic':     [np.sum(assembly.OI_atomic_emissions)],
-            'AlI_1_emissions_atomic':    [np.sum(assembly.AlI_1_atomic_emissions)],
-            'AlI_2_emissions_atomic':    [np.sum(assembly.AlI_2_atomic_emissions)],
+            'OI_emissions_atomic':       [0],
+            'AlI_1_emissions_atomic':    [0],
+            'AlI_2_emissions_atomic':    [0],
         }
 
         df = pd.DataFrame(data=d)

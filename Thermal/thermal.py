@@ -400,7 +400,6 @@ def compute_black_body_spectral_emissions(assembly, wavelength):
 
     temperature = assembly.aerothermo.temperature[index]
 
-    print('max T:', max(temperature))
 
     for obj in assembly.objects:
         emissivity_obj = obj.material.emissivity(obj.temperature)
@@ -412,6 +411,21 @@ def compute_black_body_spectral_emissions(assembly, wavelength):
 
     emissions = np.zeros(len(wavelength))
     distribution = np.zeros(len(assembly.mesh.facets))
+
+    filtered_temperature = []
+    filtered_emissivity = []
+    filtered_facet_area = []
+    
+    for t, e, f in zip(temperature, emissivity,facet_area):
+        if t >= 0:
+            filtered_temperature.append(t)
+            filtered_emissivity.append(e)
+            filtered_facet_area.append(f)
+
+    temperature = np.array(filtered_temperature)
+    emissivity  = np.array(filtered_emissivity)
+    facet_area  = np.array(filtered_facet_area)
+
 
     for wavelength_i in range(len(wavelength)):
 

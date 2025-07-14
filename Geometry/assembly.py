@@ -508,6 +508,11 @@ class Assembly():
         self.atomic_emissions_OI_surf     = np.zeros(len(self.mesh.facets))
         self.atomic_emissions_AlI_surf    = np.zeros(len(self.mesh.facets))
 
+        self.blackbody_emissions_OI  = np.zeros(len(self.mesh.facets))
+        self.blackbody_emissions_AlI = np.zeros(len(self.mesh.facets))
+        self.atomic_emissions_OI     = np.zeros(len(self.mesh.facets))
+        self.atomic_emissions_AlI    = np.zeros(len(self.mesh.facets))
+
         self.index_blackbody = np.array([])
         self.index_atomic    = np.array([])
 

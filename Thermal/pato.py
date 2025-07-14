@@ -253,7 +253,7 @@ def write_All_run(options, obj, time, iteration):
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
         f.write('foamJob -p -s foamToVTK -time '+str(end_time)+' -useTimeName\n')
         #f.write('cp qconv/BC* qconv-bkp/ \n')
-        f.write('rm qconv/BC* \n')
+        f.write('rm qconv/BC_'+str(time_step_to_delete)+' \n')
         f.write('rm mesh/*su2 \n')
         #f.write('rm mesh/*meshb \n')
         print('time_step_to_delete:', time_step_to_delete)
