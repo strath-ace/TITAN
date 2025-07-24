@@ -171,7 +171,6 @@ def write_output_data(titan, options):
             df["Obj_name"] = [obj.name]
             #df["Temperature"] = [obj.temperature]
             df["Density"] = [obj.material.density]
-            df["Photons_second"] = [obj.photons]
             df["Mass"] = [obj.mass]
             if options.pato.flag:
                 df["MaxTemperature"] = [max(obj.pato.temperature)]
