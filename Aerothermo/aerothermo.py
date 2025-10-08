@@ -27,6 +27,11 @@ from Geometry.enclosure import check_enclosure
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
 import trimesh
+try:
+    from trimesh.ray.ray_pyembree import RayMeshIntersector
+except:
+    print('PyEmbree/Embreex library not set up')
+    from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.optimize import root
 from scipy.optimize import fsolve
 try:
@@ -516,7 +521,7 @@ def ray_trace(_assembly, flow_direction, n, options):
     _assembly.freestream.per_facet_mach = pfm
     flow_dirs = flow_dirs[p,:]
     mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
-    ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
+    ray = RayMeshIntersector(mesh)
 
     COG = edge_subdivision(_assembly.mesh.v0[p], _assembly.mesh.v1[p], _assembly.mesh.v2[p], n)
     for _ in range(n):

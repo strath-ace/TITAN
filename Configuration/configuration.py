@@ -1074,13 +1074,15 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.fidelity      = get_config_value(configParser, options.fidelity, 'Options', 'Fidelity', 'custom', 'fidelity')
     options.structural_dynamics  = get_config_value(configParser, False, 'Options', 'Structural_dynamics', 'boolean')
 
+    options.time_counter   = 0
+    options.time_fidelity  = 0.0
     options.collision.flag = get_config_value(configParser, False, 'Options', 'Collision', 'boolean')
     options.material_file  = get_config_value(configParser, 'database_material.xml', 'Options', 'Material_file', 'str')
     options.dynamic_plots  = get_config_value(configParser, False, 'Options', 'Plot', 'boolean')
     options.time_fidelity = get_config_value(configParser, options.time_fidelity, 'Options', 'Time_fidelity','float')
     options.write_dense_solutions = get_config_value(configParser, False, 'Options','Dense_solutions', 'boolean' )
     options.postproc_in_loop = get_config_value(configParser, None, 'Options', 'Postprocess_in_loop','str')
-    options.time_counter   = 0
+    
 
 
     #Read FENICS options
