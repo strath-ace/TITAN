@@ -33,7 +33,7 @@ def check_enclosure(assembly_list,options, assembly_index,debug_iter=0):
                         for component in AoI.objects: component.enclosure = 0
                         return True
                     
-                    debug_meshes = None #['closed_{}_{}'.format(assembly_index,debug_iter),'closure_{}_{}'.format(i_assem,debug_iter-5)]
+                    debug_meshes = ['closed_{}_{}'.format(assembly_index,debug_iter),'closure_{}_{}'.format(i_assem,debug_iter-5)]
                     do_raytrace = enclosure_mesh_check(AoI.mesh,AoI.COG,_assembly.enclosure_AABB[-1*enclosed],AoI.quaternion,
                                                        _assembly.quaternion, _assembly.position-AoI.position, debug_meshes)
     return do_raytrace
@@ -136,9 +136,9 @@ def enclosure_mesh_check(enclosed_mesh, enclosed_COG, enclosure_AABB_BODY, quat_
         debug_AABB_mesh(enclosure_AABB_BODY,filename=debug_meshes[1])
 
     if np.any(closed_AABB[0]<enclosure_AABB_BODY[0]): 
-        print('Assembly has left enclosure!')
+        #print('Assembly has left enclosure!')
         return True
     if np.any(closed_AABB[1]>enclosure_AABB_BODY[1]): 
-        print('Assembly has left enclosure!')
+        #print('Assembly has left enclosure!')
         return True
     return False

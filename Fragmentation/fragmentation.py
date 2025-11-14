@@ -596,6 +596,46 @@ def fragmentation(titan, options):
                         # assembly_id = np.append(assembly_id, it)
                         # trajectory[it].stress_ratio = -1
                 """
+            if obj.type == 'Explosive':
+                if obj.trigger_type.lower() == 'temperature' and obj.temperature >= obj.trigger_value:
+
+                    print ('Thermally-triggered Explosion Occurred! ')
+
+                    from Explosion.explosion_fragments import fracture_object, build_new_assemblies
+
+                    new_fragments, explosion_parameters = fracture_object(obj, titan.assembly[it].COG, options)
+                    build_new_assemblies(new_fragments, titan, options, it, explosion_parameters)
+                    objs_id = np.append(objs_id, _id)
+
+                elif obj.trigger_type.lower() == 'altitude' and titan.assembly[it].trajectory.altitude <= obj.trigger_value:
+
+                    print ('Height-triggered Explosion Occurred! ')
+
+                    from Explosion.explosion_fragments import fracture_object, build_new_assemblies
+
+                    new_fragments, explosion_parameters = fracture_object(obj, titan.assembly[it].COG, options)
+                    build_new_assemblies(new_fragments, titan, options, it, explosion_parameters)
+                    objs_id = np.append(objs_id, _id)
+                
+                elif obj.trigger_type.lower() == 'iteration' and titan.iter >= obj.trigger_value:
+
+                    print ('Iteration-triggered Explosion Occurred! ')
+
+                    from Explosion.explosion_fragments import fracture_object, build_new_assemblies
+
+                    new_fragments, explosion_parameters = fracture_object(obj, titan.assembly[it].COG, options)
+                    build_new_assemblies(new_fragments, titan, options, it, explosion_parameters)
+                    objs_id = np.append(objs_id, _id)
+
+                elif obj.trigger_type.lower() == 'time' and titan.time >= obj.trigger_value:
+
+                    print ('Time-triggered Explosion Occurred! ')
+
+                    from Explosion.explosion_fragments import fracture_object, build_new_assemblies
+
+                    new_fragments, explosion_parameters = fracture_object(obj, titan.assembly[it].COG, options)
+                    build_new_assemblies(new_fragments, titan, options, it, explosion_parameters)
+                    objs_id = np.append(objs_id, _id)
 
             if obj.mass <= 0 or len(obj.mesh.nodes) <= 3:
                 print ('Mass demise occured for object:', obj.name)

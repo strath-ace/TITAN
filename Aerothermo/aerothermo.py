@@ -461,7 +461,11 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
 
         #_assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
         if check_enclosure(assembly,options,it, iteration):
-            index = ray_trace(_assembly,flow_direction,n, options)
+            extras = []
+            for jit, extra_assembly in enumerate(assembly):
+                if not jit==it: extras.append(extra_assembly)
+            if len(extras)<1: extras = None
+            index = ray_trace(_assembly,flow_direction,n, options, extras)
         else:
             index = np.array([],dtype=np.int16)#np.zeros(len(_assembly.mesh.facets),dtype=np.int16)
             _assembly.freestream.per_facet_mach =  np.ones(len(_assembly.mesh.facets)) *_assembly.freestream.mach
@@ -509,7 +513,7 @@ def edge_subdivision(v0,v1,v2, n):
 
     return COG
 
-def ray_trace(_assembly, flow_direction, n, options):
+def ray_trace(_assembly, flow_direction, n, options, extra_assems = None):
     # Prefilter our raytracing by flow-facing facets
     facet_normal = _assembly.mesh.facet_normal
     length_normal = np.linalg.norm(facet_normal, axis = 1, ord = 2)
@@ -520,7 +524,27 @@ def ray_trace(_assembly, flow_direction, n, options):
     flow_dirs, pfm = compute_per_facet_flow_dir(_assembly,flow_direction, options.dynamics.per_facet_flow)
     _assembly.freestream.per_facet_mach = pfm
     flow_dirs = flow_dirs[p,:]
-    mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
+    if extra_assems is None: 
+        mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
+    else:
+        meshlist = [trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)]
+        base_facets = len(_assembly.mesh.facet_area)
+        main_quat = np.append([_assembly.quaternion[3]], _assembly.quaternion[0:3])
+        main_ECEF_B = trimesh.transformations.inverse_matrix(trimesh.transformations.quaternion_matrix(main_quat))
+        main_Translate_ECEF = trimesh.transformations.translation_matrix(-_assembly.position)
+        main_CoG = trimesh.transformations.translation_matrix(_assembly.COG)
+        for extra_assem in extra_assems:
+            new_mesh = trimesh.Trimesh(vertices=extra_assem.mesh.nodes, faces=extra_assem.mesh.facets)
+            quaternion = np.append([extra_assem.quaternion[3]], extra_assem.quaternion[0:3])
+            R_B_ECEF = trimesh.transformations.quaternion_matrix(quaternion)
+            Translate_COG = trimesh.transformations.translation_matrix(-extra_assem.COG)
+            Translate_ECEF = trimesh.transformations.translation_matrix(extra_assem.position)
+            Matrix = main_CoG@main_ECEF_B@main_Translate_ECEF@Translate_ECEF@R_B_ECEF@Translate_COG
+            new_mesh.apply_transform(Matrix)
+            meshlist.append(new_mesh)
+        mesh = trimesh.util.concatenate(meshlist)
+    
+
     ray = RayMeshIntersector(mesh)
 
     COG = edge_subdivision(_assembly.mesh.v0[p], _assembly.mesh.v1[p], _assembly.mesh.v2[p], n)

@@ -501,6 +501,23 @@ class GRAM():
         # [float] Seconds
         self.seconds = 0.0
 
+class Explosion():
+    """ Explosion class
+
+    A class to store the user-defined explosion model options
+    """
+    def __init__(self):
+        
+        # [nasa/nasa_conservation] Method for calculating fragment velocity post-explosion
+        self.vel_method = 'nasa'
+
+        # [RANDOM/SIZE_MIN/SIZE_MAX] Method for selecting fragments to recursively fracture
+        self.recursion_type = 'RANDOM'
+
+        # [bool] Apply voxel remeshing to ensure well-behaved fragments
+        self.remesh = True
+        
+
 
 class Options():
     """ Options class
@@ -539,7 +556,10 @@ class Options():
         #: [:class:`.Freestream`] Object of class Freestream
         self.freestream = Freestream()
 
+        self.explosion = Explosion()
+
         self.planet = planet.ModelPlanet("Earth")
+        
         self.vehicle = None
         
         #: [int] Number of dynamic iterations
@@ -711,7 +731,6 @@ class Options():
         infile.close()
 
         return titan
-
 
 def get_config_value(configParser, variable, section, field, var_type, list_type = None):
     
@@ -910,106 +929,100 @@ def read_geometry(configParser, options):
             for name, value in configParser.items(section):
                 value = value.replace('[','').replace(']','').replace(' ','').split(",")
                 object_type = [s for s in value if "type=" in s.lower()][0].split("=")[1]
+                
+                ## Type-Agnostic Object Properties
                 try:
                     alpha = float([s for s in value if "alpha=" in s.lower()][0].split("=")[1])
                 except:
                     alpha = 1.0
+                
+                object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
+                material= [s for s in value if "material=" in s.lower()][0].split("=")[1]
+
+                try:
+                    inner_stl_file = [s for s in value if "inner_stl=" in s.lower()][0].split("=")[1]
+                except:
+                    inner_stl_file = 'none'
+
+                if inner_stl_file != 'None' and inner_stl_file != 'none':
+                    inner_path = path+inner_stl_file
+                else:
+                    inner_path = ''
+                try:
+                    trigger_type = [s for s in value if "trigger_type=" in s.lower()][0].split("=")[1]
+                    trigger_value = [s for s in value if "trigger_value=" in s.lower()][0].split("=")[1]
+                except:
+                    trigger_type = ""
+                    trigger_value = 0
+                try:
+                    fenics_bc_id = [s for s in value if "fenics_id=" in s.lower()][0].split("=")[1]
+                except:
+                    fenics_bc_id = None
+
+                try:
+                    temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
+                except:
+                    temperature = 300
+                
+                bloom = [False, 0, 0, 0]
+
+                try:                        
+                    for s in value:
+                        if 'bloom' in s.lower():
+                            bloom = s.split('=')[1].strip('()').split(';')  
+                            bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]              
+                except:
+                    bloom = [False, 0, 0, 0]              
+
+                if options.pato.flag and bloom[0] == False:
+                    print('Need to set up BLOOM if using PATO!'); exit()
 
                 if object_type == 'Primitive':
-                    object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
-                    material= [s for s in value if "material=" in s.lower()][0].split("=")[1]
                     try:
                         enclosure = int([s for s in value if "enclosure=" in s.lower()][0].split("=")[1])
                     except:
-                        enclosure = 0
+                        enclosure = 0   
 
-                    try:
-                        inner_stl_file = [s for s in value if "inner_stl=" in s.lower()][0].split("=")[1]
-                    except:
-                        inner_stl_file = 'none'
-
-                    if inner_stl_file != 'None' and inner_stl_file != 'none':
-                        inner_path = path+inner_stl_file
-                    else:
-                        inner_path = ''
-
-                    try:
-                        trigger_type = [s for s in value if "trigger_type=" in s.lower()][0].split("=")[1]
-                        trigger_value = [s for s in value if "trigger_value=" in s.lower()][0].split("=")[1]
-                    except:
-                        trigger_type = ""
-                        trigger_value = 0
-
-                    try:
-                        fenics_bc_id = [s for s in value if "fenics_id=" in s.lower()][0].split("=")[1]
-                    except:
-                        fenics_bc_id = None
-
-                    try:
-                        temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
-                    except:
-                        temperature = 300
-
-                    bloom = [False, 0, 0, 0]
-                    try:                        
-                        for s in value:
-                            if 'bloom' in s.lower():
-                                bloom = s.split('=')[1].strip('()').split(';')  
-                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]       
-                    except:
-                        bloom = [False, 0, 0, 0]               
-
-                    if options.pato.flag and bloom[0] == False:
-                        print('Need to set up BLOOM if using PATO!'); exit()
-                    
-                    objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
-                                             fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, 
-                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, enclosure=enclosure, alpha=alpha)
+                    objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path, 
+                                             trigger_type = trigger_type, trigger_value = float(trigger_value), 
+                                             fenics_bc_id = fenics_bc_id,  material = material, temperature = temperature, 
+                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha,
+                                             enclosure=enclosure,)
 
                 if object_type == 'Joint':
-                    object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
-                    material= [s for s in value if "material=" in s.lower()][0].split("=")[1]
-
-                    try:
-                        inner_stl_file = [s for s in value if "inner_stl=" in s.lower()][0].split("=")[1]
-                    except:
-                        inner_stl_file = 'none'
-
-                    if inner_stl_file != 'None' and inner_stl_file != 'none':
-                        inner_path = path+inner_stl_file
-                    else:
-                        inner_path = ''
-                    try:
-                        trigger_type = [s for s in value if "trigger_type=" in s.lower()][0].split("=")[1]
-                        trigger_value = [s for s in value if "trigger_value=" in s.lower()][0].split("=")[1]
-                    except:
-                        trigger_type = ""
-                        trigger_value = 0
-
-                    try:
-                        fenics_bc_id = [s for s in value if "fenics_id=" in s.lower()][0].split("=")[1]
-                    except:
-                        fenics_bc_id = None
-
-                    try:
-                        temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
-                    except:
-                        temperature = 300   
-
-                    bloom = [False, 0, 0, 0]
-
-                    try:                        
-                        for s in value:
-                            if 'bloom' in s.lower():
-                                bloom = s.split('=')[1].strip('()').split(';')  
-                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]              
-                    except:
-                        bloom = [False, 0, 0, 0]              
-
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), 
                                              fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, 
-                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha) 
+                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha)
+                
+                if object_type == 'Explosive':
+                    try:
+                        n_fragments = ([s for s in value if "n_fragments=" in s.lower()][0].split("=")[1])
+                    except:
+                        n_fragments = None
+                    
+                    try:
+                        char_velocity = ([s for s in value if "characteristic_velocity=" in s.lower()][0].split("=")[1])
+                    except:
+                        char_velocity = None
+                    
+                    try:
+                        energy = ([s for s in value if "energy=" in s.lower()][0].split("=")[1])
+                    except:
+                        energy = None
+                    
+                    try:
+                        kinetic_factor = ([s for s in value if "kinetic_factor=" in s.lower()][0].split("=")[1])
+                    except:
+                        kinetic_factor = None
+
+                    explosive_parameters = [n_fragments, char_velocity, energy, kinetic_factor]
+
+                    objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
+                            trigger_type = trigger_type, trigger_value = float(trigger_value), 
+                            fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, 
+                            options = options, global_ID = obj_global_ID, bloom_config = bloom, 
+                            explosive_parameters = explosive_parameters, alpha = alpha)
 
 
                 print('bloom:', bloom)
@@ -1082,6 +1095,8 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.time_fidelity = get_config_value(configParser, options.time_fidelity, 'Options', 'Time_fidelity','float')
     options.write_dense_solutions = get_config_value(configParser, False, 'Options','Dense_solutions', 'boolean' )
     options.postproc_in_loop = get_config_value(configParser, None, 'Options', 'Postprocess_in_loop','str')
+    options.write_object_properties = get_config_value(configParser, False, 'Options', 'Write_object_properties', 'boolean')
+    options.verbose = get_config_value(configParser,False, 'Options','Debug_printout','boolean')
     
 
 
@@ -1255,6 +1270,11 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.collision.mesh_factor = get_config_value(configParser, options.collision.mesh_factor, 'Collision', 'Mesh_factor', 'float')
         options.collision.elastic_factor = get_config_value(configParser, options.collision.elastic_factor, 'Collision', 'Elastic_factor', 'float')
 
+    if configParser.has_section('Explosion'):
+        options.explosion.vel_method     = get_config_value(configParser, options.explosion.vel_method, 'Explosion', 'Velocity_method', 'str')
+        options.explosion.recursion_type = get_config_value(configParser, options.explosion.recursion_type, 'Explosion', 'Fragment_recursion', 'str')
+        options.explosion.remesh         = get_config_value(configParser, options.explosion.remesh, 'Explosion', 'Fragment_remesh', 'boolean')
+    
     output.options_information(options)
 
     if options.load_mesh != True and options.load_state != True:

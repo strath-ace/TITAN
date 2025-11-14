@@ -30,7 +30,7 @@ def mesh_Settings(gmsh):
     #self.gmsh.option.setNumber("Mesh.Optimize",1)
     #self.gmsh.option.setNumber("Mesh.QualityType",2);
 
-def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '', bc_ids = []):
+def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '', bc_ids = [], ref_obj_override=None):
     gmsh.initialize()
     mesh_Settings(gmsh)
 
@@ -51,9 +51,11 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     ref = np.ones(len(mesh.nodes))*ref_objects
 
     for obj in assembly.objects:
-        if obj.type.lower() == 'joint':
+        if ref_obj_override is not None:
+            ref[obj.node_index] = ref_obj_override
+        elif obj.type.lower() == 'joint':
             ref[obj.node_index] = ref_joint
-        if "panel" in obj.name:
+        elif "panel" in obj.name:
             ref[obj.node_index] = ref_panel
 
     node_ref_init, edge_ref_init, surf_ref_init = object_grid(gmsh, mesh.nodes, mesh.edges, mesh.facet_edges, ref)
@@ -149,8 +151,8 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     elements.shape = (-1,4)
     coords.shape= (-1 ,3)
 
-   # if write: 
-    gmsh.write(output_folder +'/Volume/'+'%s_%s.vtk'%(output_filename, assembly.id))
+    if write: 
+        gmsh.write(output_folder +'/Volume/'+'%s_%s.vtk'%(output_filename, assembly.id))
 
    #     gmsh.model.mesh.generate(2)
    #     gmsh.write(output_folder +'/Volume/'+ '%s_%s_surf.vtk'%(output_filename, assembly.id))
@@ -218,41 +220,50 @@ def generate_PATO_domain(obj, output_folder = ''):
     gmsh.write(output_folder +'/PATO_'+str(obj.global_ID)+'/mesh/'+'%s.su2'%('mesh'))
     gmsh.finalize()
 
-def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name):
+def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name, factory = None):
+    if factory is None: factory = gmsh.model.geo
     #Change here for every object in assembly give a different tag
 
-    gmsh.model.geo.addPhysicalGroup(2, range(init_ref_surf,end_ref_surf), ref_phys_surface)
+    gmsh.model.addPhysicalGroup(2, range(init_ref_surf,end_ref_surf), ref_phys_surface)
     gmsh.model.setPhysicalName(2, ref_phys_surface, name)
     ref_phys_surface +=1
 
     return end_ref_surf, ref_phys_surface  
 
-def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1, surf_ref = 1):
-
+def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1, surf_ref = 1, factory=None):
+    is_cascade = False
+    if factory is None: factory = gmsh.model.geo
+    elif factory==gmsh.model.occ:
+        is_cascade=True 
     node_dev = node_ref
     edge_dev = edge_ref
     surf_dev = surf_ref
 
     for i in range(len(nodes)):
-        gmsh.model.geo.addPoint(nodes[i,0], nodes[i,1], nodes[i,2], ref[i], node_ref)
+        factory.addPoint(nodes[i,0], nodes[i,1], nodes[i,2], ref[i], node_ref)
         node_ref +=1
 
     for i in range(len(edges)):
-        gmsh.model.geo.addLine(edges[i,0]+node_dev, edges[i,1]+node_dev, edge_ref)
+        factory.addLine(edges[i,0]+node_dev, edges[i,1]+node_dev, edge_ref)
         edge_ref +=1
 
     for i in range(len(facet_edges)):
-        gmsh.model.geo.addCurveLoop([np.sign(facet_edges[i,0])*(abs(facet_edges[i,0])+ edge_dev -1),
-                                     np.sign(facet_edges[i,1])*(abs(facet_edges[i,1])+ edge_dev -1),
-                                     np.sign(facet_edges[i,2])*(abs(facet_edges[i,2])+ edge_dev -1)], surf_ref)
-
-        gmsh.model.geo.addPlaneSurface([surf_ref])
+        loop = [np.sign(facet_edges[i,0]) * (abs(facet_edges[i,0]) + edge_dev -1),
+                np.sign(facet_edges[i,1]) * (abs(facet_edges[i,1]) + edge_dev -1),
+                np.sign(facet_edges[i,2]) * (abs(facet_edges[i,2]) + edge_dev -1)]
+        if not is_cascade:
+            factory.addCurveLoop(loop, surf_ref)
+            
+        else: surf_ref = factory.addCurveLoop(loop)
+        surf_name = factory.addPlaneSurface([surf_ref])
+        if not is_cascade: surf_ref+=1
         #surface = gmsh.model.geo.addPlaneSurface([surf_ref])
         #print('surface:', surface)
         #gmsh.model.geo.addPhysicalGroup(2, [surface], tag = surf_ref, name = "top")
         #gmsh.model.setPhysicalName(2, surf_ref, "top")
-        surf_ref +=1
+    if is_cascade: surf_ref = surf_name
 
+        
     return node_ref, edge_ref, surf_ref
 
 def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, output_folder = '', output_grid = 'Grid.su2', options = None):

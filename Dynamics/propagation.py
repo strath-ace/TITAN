@@ -13,6 +13,7 @@ from functools import partial
 from Output import output
 from warnings import warn
 from copy import copy, deepcopy
+#from messaging import messenger
 ## Current implented integrators (define in cfg under [Time] as Time_integration='')...
 
 ## Constant time-step methods  
@@ -35,8 +36,11 @@ def propagate(titan, options):
     #  a propagator specified by options.dynamics.propagator
 
     if options.collision.flag and len(titan.assembly)>1:
-        flag_collision, __ = collision.check_collision(titan, options, 0)
-        if flag_collision: collision.collision_physics(titan, options)
+        has_collided, _, col_data = collision.update_and_check(titan, options, 0)
+        if has_collided:
+            # if titan.collision_data is None: 
+            titan.collision_data = col_data
+            collision.collision_physics(titan, options)
 
     # If we go to switch.py or su2.py, Because we call deepcopy() function, we need to rebuild
     #the collision mesh
@@ -50,7 +54,8 @@ def propagate(titan, options):
     time_step = options.dynamics.time_step if not hasattr(titan,'rk_adapt') else options.dynamics.dt_max
     if options.collision.flag and len(titan.assembly)>1:
         #Check collision for future time intervals with respect to current time-step velocity
-        __, time_step = collision.check_collision(titan, options, time_step)
+        time_to_impact = collision.find_ToI_timestep(titan, options, time_step)
+        time_step = time_to_impact
     
     surface_solutions = output.create_surface_solution(titan,options)
     for _assembly, sol in zip(titan.assembly, surface_solutions): 
@@ -60,14 +65,17 @@ def propagate(titan, options):
     new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,state_vectors_prior,derivatives_prior,time_step,titan,options)
     # Update prior derivatives
     if new_derivs is not None: append_derivatives(titan,options,new_derivs)
+
     # Total angular distance (unmodded) is useful for 6DoF propagation stability analysis
     angle_names = ['roll','pitch','yaw']
     for _assembly in titan.assembly:
         if not hasattr(_assembly,'unmodded_angles'): 
             _assembly.unmodded_angles  = np.array([getattr(_assembly,angle) for angle in angle_names])
+
     # Writes the output data
     output.write_output_data(titan = titan, options = options)
     if options.time_fidelity>0.0: write_dense_output(titan, options)
+
     # Communicate new vectors to assemblies
     for i_assem, _assembly in enumerate(titan.assembly):  
         update_dynamic_attributes(_assembly,new_state_vectors[i_assem],options)
@@ -76,7 +84,8 @@ def propagate(titan, options):
             _assembly.unmodded_angles[i_angle]+=time_step*_assembly.state_vector[10+i_angle]
     
     # Increment time step
-    if hasattr(titan,'rk_params'): time_step = titan.delta_t
+    if hasattr(titan,'rk_params'): 
+        time_step = titan.delta_t
     else: titan.delta_t = time_step
     
     titan.time += time_step
@@ -521,6 +530,7 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
         titan.end_trigger = True
 
     titan.delta_t = titan.rk_adapt.step_size
+    if options.verbose: print('Propagated dt={}'.format(titan.delta_t))
     return np.reshape(titan.rk_adapt.y,[-1,13]), None
 
 def proj_area_adapt_wrapper(N, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):

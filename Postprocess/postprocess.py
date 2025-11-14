@@ -54,7 +54,7 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		assembly_obj = data_obj[(data_obj['Iter'] == iter_value)*(data_obj['Parent_part'].str.contains(filter_name))]['Assembly_ID'].to_numpy()
 		index = (data['Iter']==iter_value)*(data['Assembly_ID']==assembly_obj[0])
 		assembly_ID = data[index]['Assembly_ID'].to_numpy()
-	print(data[index])
+	if options.verbose: print(data[index])
 	latitude    = data[index]['Latitude'].to_numpy()/180*np.pi
 	altitude    = data[index]['Altitude'].to_numpy()
 	longitude   = data[index]['Longitude'].to_numpy()/180*np.pi

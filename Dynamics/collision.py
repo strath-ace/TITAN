@@ -146,66 +146,16 @@ def generate_inflated_mesh(nodes, facets, factor, COG = []):
 
 	return collision_mesh#.convex_hull
 
-def check_collision(titan, options, time_step):
-
+def find_ToI_timestep(titan, options, input_time_step):
 	#If more points of contact between assemblies exist, just the one with more depth is considered
-	if len(titan.assembly) <= 1: return False, time_step
+	if len(titan.assembly) <= 1: return input_time_step
 
-	max_time_step = time_step
-	dt = max_time_step
+	dt = binary_search_TOI(titan, options, input_time_step)
 	
-
-	#Initialize collison data dictionary
-	depth = []
-	collision_data = {}
-	collision_data["assembly"] = []
-	collision_data["names"] = []
-	collision_data["index"] = []
-	collision_data["contact_point"] = []
-	collision_data["normal"] = []
-	collision_data["depth"] = []
-
-	length_assembly = len(titan.assembly) 
-	i = 0
-	j = 1
-
-	#update_collision_mesh_time(titan, options, min_time_step)
-	
-	dt = binary_search_TOI(titan,options, dt)
-	print('Selected a dt of {}'.format(dt))
-	if dt==options.dynamics.time_step: return False, dt
-
-	update_collision_mesh_time(titan, options, dt)
-
-	#Loop assemblies to check for collision and decide the best time_step for collision handling
-	for index_i in range(i, length_assembly):
-		if (index_i == length_assembly-1): break
-
-		for index_j in range(j, length_assembly):
-			if (index_j <= index_i): continue
-
-			flag, data = titan.assembly[index_i].collision.collision_handler.in_collision_other(titan.assembly[index_j].collision.collision_handler, return_names = False, return_data = True)
-
-			if flag:
-				depth = []
-				
-				for _data in data:
-					depth.append(_data._depth)
-				ind = np.argmax(depth)
-				collision_data["assembly"].append([index_i,index_j])
-				collision_data["names"].append(list(data[ind].names))
-				collision_data["index"].append([data[ind]._inds[collision_data["names"][-1][0]], data[ind]._inds[collision_data["names"][-1][1]]])
-				collision_data["contact_point"].append(data[ind]._point)
-				collision_data["normal"].append(data[ind]._normal)
-				collision_data["depth"].append(data[ind]._depth)
-	#print(collision_data["names"], collision_data["assembly"], collision_data["normal"], collision_data["depth"])
-	titan.collision_data = collision_data
-
-	if len(titan.collision_data["assembly"]) != 0: 
-		return True, np.max([1.0E-6, dt])
-	else: 
-		#print("Here")
-		return False, options.dynamics.time_step
+	if dt>=input_time_step: return input_time_step
+	res_time = 5e-4#compute_time_resolution(titan, options, options.collision.max_depth)
+	if options.verbose: print('Selected a dt of {}'.format(np.max([res_time, dt])))
+	return np.max([np.min([res_time,1e-2]), dt])
 
 def collision_physics(titan, options):
 	#Restituition coeff and friction
@@ -226,6 +176,7 @@ def collision_physics(titan, options):
 		i1, i2 = collision_data["assembly"][index]
 		normal = collision_data["normal"][index]
 		depth = collision_data["depth"][index]
+		if options.verbose: print('Processing collision with depth {}'.format(depth))
 		#normal = np.array([0,0,-1])
 		point = collision_data["contact_point"][index] + titan.assembly[index_mass].position
 		v1 = titan.assembly[i1].velocity
@@ -259,13 +210,13 @@ def collision_physics(titan, options):
 
 		if Vab_dot_n <=0: 
 			## Baumgarte Stabilisation to prevent intrusion
-			baum_coeff = 0.1 # [0-1] : "Correction per second" inverse relaxation time
+			baum_coeff = 0.01 # [0-1] : "Correction per second" inverse relaxation time
 			slop = 1e-3       # m : allowable intersection depth
 			baum_bias = (baum_coeff/titan.delta_t)*max(0,depth-slop)
-			if baum_bias>0: print('Baumgarte Bias Applied! Depth of {} m Bias of {} m/s'.format(depth,baum_bias))
+			if baum_bias>0 and options.verbose: print('Baumgarte Bias Applied! Depth of {} m Bias of {} m/s'.format(depth,baum_bias))
 			Vab_dot_n+=min(baum_bias, 10)
 			if Vab_dot_n <=0: continue
-		print(Vab_dot_n)
+		if options.verbose: print('Relative Collision Velocity of {}'.format(Vab_dot_n))
 
 		jr = -(1+e)* Vab_dot_n/(1/mass1+1/mass2 + np.dot((np.cross(np.matmul(I1_inv,np.cross(r1,normal)),r1)+np.cross(np.matmul(I2_inv,np.cross(r2,normal)),r2)),normal))
 
@@ -307,6 +258,8 @@ def collision_physics(titan, options):
 		if hasattr(titan.assembly[i2], 'state_vector'):
 			titan.assembly[i2].state_vector[3:6] = _v2
 			titan.assembly[i2].state_vector[10:13] = _w2
+		
+		titan.collision_data = None
 
 
 def collision_physics_simultaneous(titan, options):
@@ -430,58 +383,53 @@ def collision_physics_simultaneous(titan, options):
 		titan.assembly[b_i].pitch_vel -= R_ECEF_B_b_i.apply(P[i]*np.dot(Ib_i_inv,np.cross(point - rb_i,normal)))[1]
 		titan.assembly[b_i].yaw_vel   -= R_ECEF_B_b_i.apply(P[i]*np.dot(Ib_i_inv,np.cross(point - rb_i,normal)))[2]
 
-def binary_search_TOI(titan, options, input_dt):
+def binary_search_TOI(titan, options, input_dt, n_sanity = None):
 	# This function performs a binary search for Time-Of-Impact for the collision model
 	value_depth = 1
 	min_time_step = 0
 	max_time_step = input_dt
 	dt = input_dt
 	max_depth = options.collision.max_depth
-	
-	length_assembly = len(titan.assembly) 
-	i = 0
-	j = 1
-
-
+	best_collision = None
 	collided = False
 	collided_iter = False
 
 	max_iters = 24
 	_iter = 0
 
+	# Want also to do some quick sanity checks
+	if n_sanity is not None:
+		# this is N-sane!
+		sanity_points = np.linspace(0,1,n_sanity+1,endpoint=False)[1:]
+	else: # Unless specified auto populate our sanity checks at current dt increments
+		sanity_points = np.arange(0,1,titan.delta_t)[1:]
+		n_sanity = len(sanity_points)
+		# These checks are comparatively cheap vs true timesteps, 
+		# make sense to check more often than we solve
+	i_sanity_check  = 0
+
 	while value_depth > max_depth:
 		_iter+=1
 		depth = []
 
 		collided_iter = False
-		#Update the collision mesh positions in future time to chek for potential collisions
-		update_collision_mesh_time(titan, options, dt)
-		if dt == 0: break
 
-		#Loop assemblies to check for collision and decide the best time_step for collision handling
-		for index_i in range(i, length_assembly):
-			if (index_i == length_assembly-1): break
-
-			for index_j in range(j, length_assembly):
-				if (index_j <= index_i): continue
-				flag, data = titan.assembly[index_i].collision.collision_handler.in_collision_other(titan.assembly[index_j].collision.collision_handler, return_names = False, return_data = True)
-				#If collision has occurred
-				if flag:# or collided:
-					collided = True
-					collided_iter = True
-
-					for _data in data:
-						depth.append(_data._depth)
-					
+		flag, depth, data = update_and_check(titan, options, dt)
+		if not collided: collided = flag 
+		collided_iter = flag
 		if _iter >= max_iters and collided_iter: break
-
+		
+		#print('Collision {} at dt={}'.format(collided_iter, dt))
 		if len(depth) != 0:
 			value_depth = np.max(depth)
+			#print('Penetration Depth Of {}'.format(value_depth))
 			if value_depth > max_depth: 
 				max_time_step = dt
 				dt = (dt+min_time_step)/2
 
 			else:
+				best_collision = data
+				if options.verbose: print('Best collision at {}'.format(dt))
 				min_time_step = dt
 				dt = (max_time_step+dt)/2
 
@@ -489,9 +437,77 @@ def binary_search_TOI(titan, options, input_dt):
 			min_time_step = dt
 			dt = (max_time_step+dt)/2
 
-		print(value_depth, dt, collided_iter, collided)
+		
 
 		if collided==False:
-			return input_dt
+			if i_sanity_check>=n_sanity: return input_dt
+			else: 
+				dt = (1-sanity_points[i_sanity_check])*min_time_step+sanity_points[i_sanity_check]*max_time_step
+				i_sanity_check+=1
+
+	if best_collision is not None: titan.collision_data = best_collision
 	
 	return dt
+
+def update_and_check(titan, options, dt):
+	#Initialize collison data dictionary
+	depth = []
+	collision_data = {}
+	collision_data["assembly"] = []
+	collision_data["names"] = []
+	collision_data["index"] = []
+	collision_data["contact_point"] = []
+	collision_data["normal"] = []
+	collision_data["depth"] = []
+	#Update the collision mesh positions in future time to chek for potential collisions
+	update_collision_mesh_time(titan, options, dt)
+	length_assembly = len(titan.assembly) 
+	i = 0
+	j = 1
+	depth =[]
+	collided = False
+	#Loop assemblies to check for collision and decide the best time_step for collision handling
+	for index_i in range(i, length_assembly):
+		if (index_i == length_assembly-1): break
+
+		for index_j in range(j, length_assembly):
+			if (index_j <= index_i): continue
+			flag, data = titan.assembly[index_i].collision.collision_handler.in_collision_other(titan.assembly[index_j].collision.collision_handler, return_names = False, return_data = True)
+			#If collision has occurred
+			if flag:# or collided:
+				collided = False
+				new_depths = []
+				for _data in data:
+					depth.append(_data._depth)
+					new_depths.append(_data.depth)
+					# Not exactly sure what a collision with one object is but I think we want to avoid it
+					if len(_data.names)>1: collided=True
+				if collided:
+					ind = np.argmax(new_depths)
+					collision_data["assembly"].append([index_i,index_j])
+					collision_data["names"].append(list(data[ind].names))
+					collision_data["index"].append([data[ind]._inds[collision_data["names"][-1][0]], data[ind]._inds[collision_data["names"][-1][1]]])
+					collision_data["contact_point"].append(data[ind]._point)
+					collision_data["normal"].append(data[ind]._normal)
+					collision_data["depth"].append(data[ind]._depth)
+
+	return collided, depth, collision_data
+
+def compute_time_resolution(titan, options, distance_resolution = 1e-6):
+	max_V = 0
+	for i_assembly, _assembly_A in enumerate(titan.assembly):
+		for j_assembly, _assembly_B in enumerate(titan.assembly):
+			if j_assembly<=i_assembly: continue
+			vA = _assembly_A.velocity
+			vB = _assembly_B.velocity
+
+			#w1 = [_assembly_A.roll_vel, _assembly_A.pitch_vel, _assembly_A.yaw_vel]
+			# w2 = [_assembly_B.roll_vel, _assembly_B.pitch_vel, _assembly_B.yaw_vel]
+
+			# R_B_ECEF_1 = Rot.from_quat(_assembly_A.quaternion).as_matrix()
+			# R_B_ECEF_2 = Rot.from_quat(_assembly_B.quaternion).as_matrix()
+
+			# Vab = vA-vB + np.cross(R_B_ECEF_1@w1, _assembly_A.position) - np.cross(R_B_ECEF_2@w2, _assembly_B.position)
+			vAB = np.linalg.norm(vA-vB)
+			if vAB>max_V: max_V = vAB
+	return distance_resolution/max_V

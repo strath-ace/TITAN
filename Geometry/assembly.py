@@ -527,7 +527,7 @@ class Assembly():
         # self.enclosure_component_num = build_enclosure_num(self)
 
 
-    def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
+    def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = [], size_override=None):
         """
         Generates the 3D structural mesh
 
@@ -547,7 +547,13 @@ class Assembly():
         print("Generating volumetric volume ... ")
 
         #Saves the 3D volumetric information
-        self.mesh.vol_coords, self.mesh.vol_elements, self.mesh.vol_density, self.mesh.vol_tag = GMSH.generate_inner_domain(self.mesh, self, write = write, output_folder = output_folder, output_filename = output_filename, bc_ids = bc_ids)
+        self.mesh.vol_coords, self.mesh.vol_elements, self.mesh.vol_density, self.mesh.vol_tag = GMSH.generate_inner_domain(self.mesh, 
+                                                                                                                            self, 
+                                                                                                                            write = write, 
+                                                                                                                            output_folder = output_folder, 
+                                                                                                                            output_filename = output_filename, 
+                                                                                                                            bc_ids = bc_ids,
+                                                                                                                            ref_obj_override = size_override)
 
         self.mesh.volume_displacement = np.zeros((len(self.mesh.vol_coords),3))
         #self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)

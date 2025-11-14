@@ -20,6 +20,7 @@ dependencies:
   - astropy
   - scikit-build
   - pyembree
+  - rtree
   - pip:
       - stl
       - vg
