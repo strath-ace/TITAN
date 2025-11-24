@@ -28,7 +28,7 @@ from scipy.spatial import Voronoi
 from Geometry import component, assembly
 from scipy.stats import norm
 from Explosion.generate_seed_distribution import optimal_seeds
-from Explosion.gmsh_voronoi_fracture import generate_inner_domain
+from Explosion.gmsh_voronoi_fracture import generate_fragment_meshes
 def fracture_object(explobject, parent_COG, options):
     ## This function takes a demising component 
     ## and returns a collection of fragments to be added to the simulation
@@ -43,12 +43,12 @@ def fracture_object(explobject, parent_COG, options):
     obj_len = np.linalg.norm(explobject.mesh.max-explobject.mesh.min)
     if not pathlib.Path(expl_dir+'/points.csv').exists():
         pathlib.Path(expl_dir).mkdir(exist_ok=True, parents=True)
-        optimal_seeds(expl_dir=expl_dir, n_fragments=n_frags, CoG=explobject.COG,plot=False, obj_len=obj_len, compute_budget=2e4, method='spiral')
-
-    points = np.genfromtxt(expl_dir+'/points.csv',delimiter=',',dtype=np.float64)
+    #     optimal_seeds(expl_dir=expl_dir, n_fragments=n_frags, CoG=explobject.COG,plot=False, obj_len=obj_len, compute_budget=2e2, method='spiral')
+    from scipy.stats import multivariate_normal
+    points = multivariate_normal(explobject.COG, np.diag([0.3,0.3,0.3])).rvs(n_frags)#np.genfromtxt(expl_dir+'/points.csv',delimiter=',',dtype=np.float64)
     vor = Voronoi(points)
     
-    generate_inner_domain(explobject.mesh, explobject, vor, write=True)
+    generate_fragment_meshes(explobject.mesh, explobject, vor, write=True, output_folder=expl_dir)
     # subprocess.run(['blender', '-b', '-P', './Explosion/voronoi_fracture_manifold.py', '--', 
     #                 '--file={}'.format(explobject.name), 
     #                 '-n={}'.format(n_frags), 

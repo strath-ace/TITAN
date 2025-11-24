@@ -230,6 +230,10 @@ def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name, f
 
     return end_ref_surf, ref_phys_surface  
 
+def physical_surf_from_list(gmsh, surf_list, ref_phys_surface, name):
+    gmsh.model.addPhysicalGroup(2, surf_list, ref_phys_surface)
+    gmsh.model.setPhysicalName(2, ref_phys_surface, name)
+
 def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1, surf_ref = 1, factory=None):
     is_cascade = False
     if factory is None: factory = gmsh.model.geo
