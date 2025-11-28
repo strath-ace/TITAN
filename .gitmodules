@@ -1,0 +1,6 @@
+[submodule "Executables/amgio"]
+	path = Executables/amgio
+	url = https://github.com/bmunguia/amgio
+[submodule "Executables/mutationpp"]
+	path = Executables/mutationpp
+	url = https://github.com/mutationpp/Mutationpp
