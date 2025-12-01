@@ -1281,7 +1281,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     if configParser.has_section('Uncertainty'):
         options.uncertainty.n_procs = get_config_value(configParser, options.uncertainty.n_procs, 'Uncertainty', 'Num_cores', 'int')
         options.uncertainty.prime_seed = get_config_value(configParser, options.uncertainty.prime_seed, 'Uncertainty', 'Seed', 'int')
-        options.uncertainty.yaml = get_config_value(configParser, options.uncertainty.yaml, 'Uncertainty', 'Yaml_path', 'int')
+        options.uncertainty.yaml = get_config_value(configParser, options.uncertainty.yaml, 'Uncertainty', 'Yaml_path', 'str')
 
 
     output.options_information(options)
