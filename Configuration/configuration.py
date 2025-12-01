@@ -123,6 +123,10 @@ class Dynamics():
 
         #: [ECEF/Geodetic] Frame of specified input state
         self.trajectory_frame = 'geodetic'
+
+        self.trajectory_epoch = '1970/01/01 01:01:01'
+
+        self.trajectory_state = np.zeros(6)
         #: [str] Name of the propagator to be used in the dynamics (options - euler, ).
         self.propagator = propagator
 
@@ -501,6 +505,23 @@ class GRAM():
         # [float] Seconds
         self.seconds = 0.0
 
+class Uncertainty():
+    def __init__(self, yaml_path='./Uncertainty/uq_example.yaml', master_seed = 0, n_procs=1):
+        self.yaml = yaml_path
+        self.prime_seed = master_seed
+        self.n_procs = n_procs
+    
+    def build_quantities(self, path):
+        self.outputs = [name.strip() for name in self.outputs.split(',')] if not self.outputs=='demise_points' else ['Latitude','Longitude','Altitude']
+        self.objects = [name.strip() for name in self.objects.split(',')]
+        for i_obj, obj in enumerate(self.objects):
+            self.stls.append(path+obj)
+            self.objects[i_obj] = obj.rsplit( ".", 1 )[ 0 ]
+            self.quantities[self.stls[i_obj]] = {output : [] for output in self.outputs}
+        filepath = self.qoi_filepath
+        if not os.path.exists(filepath):
+            with open(filepath,'wb') as file: 
+                pickle.dump(self.quantities, file)
 
 class Options():
     """ Options class
@@ -540,6 +561,9 @@ class Options():
         self.freestream = Freestream()
 
         self.planet = planet.ModelPlanet("Earth")
+        
+        self.uncertainty = Uncertainty()
+
         self.vehicle = None
         
         #: [int] Number of dynamic iterations
@@ -1080,6 +1104,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.time_fidelity = get_config_value(configParser, options.time_fidelity, 'Options', 'Time_fidelity','float')
     options.write_dense_solutions = get_config_value(configParser, False, 'Options','Dense_solutions', 'boolean' )
     options.postproc_in_loop = get_config_value(configParser, None, 'Options', 'Postprocess_in_loop','str')
+    options.write_object_properties = get_config_value(configParser, False, 'Options', 'Write_object_properties', 'boolean')
     options.time_counter   = 0
 
 
@@ -1253,6 +1278,12 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.collision.mesh_factor = get_config_value(configParser, options.collision.mesh_factor, 'Collision', 'Mesh_factor', 'float')
         options.collision.elastic_factor = get_config_value(configParser, options.collision.elastic_factor, 'Collision', 'Elastic_factor', 'float')
 
+    if configParser.has_section('Uncertainty'):
+        options.uncertainty.n_procs = get_config_value(configParser, options.uncertainty.n_procs, 'Uncertainty', 'Num_cores', 'int')
+        options.uncertainty.prime_seed = get_config_value(configParser, options.uncertainty.prime_seed, 'Uncertainty', 'Seed', 'int')
+        options.uncertainty.yaml = get_config_value(configParser, options.uncertainty.yaml, 'Uncertainty', 'Yaml_path', 'int')
+
+
     output.options_information(options)
 
     if options.load_mesh != True and options.load_state != True:
@@ -1266,6 +1297,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     else:
         #Read the initial trajectory details
         options.dynamics.trajectory_frame = get_config_value(configParser, options.dynamics.trajectory_frame, 'Trajectory', 'Frame', 'str')
+        options.dynamics.trajectory_epoch = get_config_value(configParser, options.dynamics.trajectory_epoch, 'Trajectory', 'Epoch', 'str')
+        options.dynamics.trajectory_state = get_config_value(configParser, '0,0,0,0,0,0', 'Trajectory', 'State', 'str').split(',')
+        options.dynamics.trajectory_state = np.array([float(value) for value in options.dynamics.trajectory_state])
         trajectory = read_trajectory(configParser, options.dynamics.trajectory_frame, options.planet)
 
         if options.load_mesh:
