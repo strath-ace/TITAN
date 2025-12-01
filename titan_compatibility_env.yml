@@ -7,7 +7,7 @@ dependencies:
   - pandas
   - scipy
   - scikit-build
-  - yaml
+  - pyyaml
   - swig
   - trimesh
   - meshio
