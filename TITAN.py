@@ -113,7 +113,7 @@ def loop(options = [], titan = []):
                 iter_interval = np.unique(data['Iter'].to_numpy())
                 iters_to_run = iter_interval[~np.isin(iter_interval,pp_existing)]
                 for iter_value in range(min(iters_to_run), max(iters_to_run)+1, options.output_freq):
-                    pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, filter_name, data_obj)
+                    pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, None, data_obj)
                 pp_existing = np.hstack((pp_existing,iters_to_run))
             if os.path.exists(options.output_folder+'/Data/data_smooth.csv'):
                 data_smooth = pd.read_csv(options.output_folder+'/Data/data_smooth.csv')
@@ -155,7 +155,7 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     #Initialization of the simulation
     if (not postprocess) and (not emissions):
         loop(options, titan)
-        print("Finished simulation")
+        print("Finished simulation\n")
         #print(titan.nfeval)
         return options, titan
 
@@ -211,7 +211,6 @@ if __name__ == "__main__":
 
     if args.n_samples is not None:
         from Uncertainty import MC_wrapper
-        print()
         MC_wrapper.run(filename,args.n_samples)
         exit()
 
