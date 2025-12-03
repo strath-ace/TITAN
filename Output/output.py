@@ -79,6 +79,7 @@ def write_output_data(titan, options, smooth=False):
         df['Inertia_yy'] = [assembly.inertia[1,1]]
         df['Inertia_yz'] = [assembly.inertia[1,2]]
         df['Inertia_zz'] = [assembly.inertia[2,2]]
+        df['Kinetic_energy'] = assembly.mass * assembly.trajectory.velocity**2
 
         #Attitude properties
         df['Roll'] =     [assembly.roll*180/np.pi]
@@ -147,7 +148,6 @@ def write_output_data(titan, options, smooth=False):
 
         df_temp = pd.DataFrame()
         df_mass = pd.DataFrame()
-
         if options.write_object_properties:
             for i, obj in enumerate(assembly.objects):
                 df_temp["Temperature_obj_"+str(i)] = [obj.temperature]

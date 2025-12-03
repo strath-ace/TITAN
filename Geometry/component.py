@@ -195,6 +195,13 @@ class PATO():
 
         self.molten = np.zeros(len_facets)
 
+        # NB: Tommy has not very much idea about Bprime at all so its possible this is nonsense
+        # Enthalpy of recovery
+        self.h_r = 2e5 * np.ones(len_facets)
+
+        # Conductivity BC
+        self.rhoeUeCH = 0.3 * np.ones(len_facets)
+
         Path(options.output_folder+'/PATO_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)

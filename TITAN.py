@@ -113,7 +113,7 @@ def loop(options = [], titan = []):
                 iter_interval = np.unique(data['Iter'].to_numpy())
                 iters_to_run = iter_interval[~np.isin(iter_interval,pp_existing)]
                 for iter_value in range(min(iters_to_run), max(iters_to_run)+1, options.output_freq):
-                    pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, filter_name, data_obj)
+                    pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, None, data_obj)
                 pp_existing = np.hstack((pp_existing,iters_to_run))
             elif os.path.exists(options.output_folder+'/Data/data_smooth.csv'):
                 data_smooth = pd.read_csv(options.output_folder+'/Data/data_smooth.csv')
@@ -185,6 +185,11 @@ if __name__ == "__main__":
                         type=str,
                         help="simulation postprocess (ECEF, WIND)",
                         metavar="postprocess")
+    parser.add_argument("-MC", "--montecarlo",
+                        dest="n_samples",
+                        type=int,
+                        help = "run a Monte Carlo campaign of N simulations",
+                        metavar="n_samples")
     parser.add_argument("-flt", "--filter",
                         dest="filtername",
                         type=str,
@@ -203,6 +208,12 @@ if __name__ == "__main__":
     postprocess = args.postprocess
     filter_name = args.filtername
     emissions = args.emissions
+
+    if args.n_samples is not None:
+        from Uncertainty import MC_wrapper
+        MC_wrapper.run(filename,args.n_samples)
+        exit()
+
     if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef" and postprocess.lower()!="int"):
         raise Exception("Postprocess can only be WIND, ECEF or INT")
 

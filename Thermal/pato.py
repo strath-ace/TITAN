@@ -27,6 +27,7 @@ from vtk import *
 import glob
 import os
 import re
+import pathlib
 from scipy.spatial import KDTree
 from Material import material as Material
 import pandas as pd
@@ -176,7 +177,7 @@ def write_All_run_init(options, object_id):
         f.write('cd ' + options.output_folder + '/PATO_'+str(object_id)+' \n')
         f.write('cp -r origin.0 0 \n')
         f.write('cd verification/unstructured_gmsh/ \n')
-        f.write('ln -s ' + options.output_folder + '/PATO_'+str(object_id)+'/mesh/mesh.msh \n')
+        f.write('ln -s ' + str(pathlib.Path(options.output_folder).resolve()) + '/PATO_'+str(object_id)+'/mesh/mesh.msh \n')
         f.write('cd ../.. \n')
         f.write('gmshToFoam verification/unstructured_gmsh/mesh.msh \n')
         f.write('mv constant/polyMesh constant/subMat1 \n')
@@ -428,7 +429,7 @@ def write_constant_folder(options, object_id):
             f.write('}\n')
             f.write('Mass {\n')
             f.write('  MassType no; // Solve the semi implicit pressure equation\n')
-            f.write('  createFields ((p volScalarField) (mDotG volVectorField) (mDotGw volScalarField) (mDotVapor volScalarField) (mDotMelt volScalarField));\n')
+            f.write('  createFields ((p volScalarField) (mDotG volVectorField) (mDotGw volScalarField) (mDotVapor volScalarField) (mDotMelt volScalarField) (molten volScalarField));\n')
             f.write('}\n')
             f.write('Energy {\n')
             f.write('  EnergyType PureConduction; // Solve the temperature equation\n')
@@ -613,6 +614,8 @@ def write_origin_folder(options, obj):
             f.write('    (emissivity "4")\n')
             f.write('    (Tbackground "5")\n')
             f.write('    (molten "6")\n')
+            f.write('    (h_r "7")\n')
+            f.write('    (rhoeUeCH "8")\n')
             f.write(');\n')
             f.write('chemistryOn 1;\n')
             f.write('p 101325;\n')
@@ -944,6 +947,41 @@ def write_origin_folder(options, obj):
 
         f.close()
 
+        with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/origin.0/subMat1/molten', 'w') as f:
+            
+            f.write('/*--------------------------------*- C++ -*----------------------------------*\\ \n')
+            f.write('  =========                 | \n')
+            f.write('  \\\\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox \n')
+            f.write('   \\\\    /   O peration     | Website:  https://openfoam.org \n')
+            f.write('    \\\\  /    A nd           | Version:  7 \n')
+            f.write('     \\\\/     M anipulation  | \n')
+            f.write('\\*---------------------------------------------------------------------------*/ \n')
+            f.write('FoamFile { \n')
+            f.write('  version     2.0; \n')
+            f.write('  format      ascii; \n')
+            f.write('  class       volScalarField; \n')
+            f.write('  location    "1/porousMat"; \n')
+            f.write('  object      molten; \n')
+            f.write('} \n')
+            f.write('// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * // \n')
+            f.write(' \n')
+            f.write('dimensions      [0 0 0 0 0 0 0]; \n')
+            f.write(' \n')
+            f.write('internalField   uniform 0; \n')
+            f.write(' \n')
+            f.write('boundaryField { \n')
+            f.write('  top \n')
+            f.write('  { \n')
+            f.write('    type            calculated; \n')
+            f.write('    value           uniform 0.0; \n')
+            f.write('  } \n')
+            f.write('} \n')
+            f.write(' \n')
+            f.write(' \n')
+            f.write('// ************************************************************************* // \n')
+
+        f.close()
+
     pass
 
 def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
@@ -978,15 +1016,35 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
             f.write(' STRANDID=0, SOLUTIONTIME=0\n')
             f.write(' I=' + str(n_data_points) + ', J=1, K=1, ZONETYPE=Ordered\n')
             f.write(' DATAPACKING=BLOCK\n')
-            f.write(' DT=(DOUBLE DOUBLE DOUBLE DOUBLE)   \n')
-            f.write(np.array2string(x)[1:-1]+' ')
-            f.write(np.array2string(y)[1:-1]+' ')
-            f.write(np.array2string(z)[1:-1]+' ')
-            f.write(np.array2string(conv_heatflux)[1:-1]+' ')
-            f.write(np.array2string(emissivity)[1:-1]+' ')
-            f.write(np.array2string(Tinf)[1:-1]+' ')
+            f.write(' DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE)   \n ')
+            f.write(np.array2string(x)[1:-1]+' \n')
+            f.write(np.array2string(y)[1:-1]+' \n')
+            f.write(np.array2string(z)[1:-1]+' \n')
+            f.write(np.array2string(conv_heatflux)[1:-1]+' \n')
+            f.write(np.array2string(emissivity)[1:-1]+' \n')
+            f.write(np.array2string(Tinf)[1:-1]+' \n')
 
         if options.pato.Ta_bc == "ablation":
+
+            # f.write('TITLE = "vol-for-blayer.fu"\n')
+            # f.write('VARIABLES = '
+            #         '"xw (m)" "yw (m)" "zw (m)" '
+            #         '"qConv (W/m^2)" "emissivity (-)" "Tbackground (K)" '
+            #         '"molten (-)" "h_r (J/kg)" "rhoeUeCH (kg/m^2/s)"\n')
+
+            # f.write(f'ZONE T="zone 1", STRANDID=0, SOLUTIONTIME=0, '
+            #         f'I={n_data_points}, J=1, K=1, ZONETYPE=Ordered, '
+            #         'DATAPACKING=BLOCK, '
+            #         'DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE)\n')
+
+            # arrays = [
+            #     x, y, z, conv_heatflux,
+            #     emissivity, Tinf,
+            #     obj.pato.molten, obj.pato.h_r, obj.pato.rhoeUeCH
+            # ]
+            # assert np.all([len(arr)==n_data_points for arr in arrays])
+            # for arr in arrays:
+            #     f.write(" ".join(str(v) for v in arr) + "\n")
 
             f.write('TITLE     = "vol-for-blayer.fu"\n')
             f.write('VARIABLES = \n')
@@ -997,18 +1055,34 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
             f.write('"emissivity (-)"\n')
             f.write('"Tbackground (K)"\n')
             f.write('"molten (-)"\n')
-            f.write('ZONE T="zone 1"\n')
+            f.write('"h_r (J/kg)"\n')
+            f.write('"rhoeUeCH (kg/m^2/s)"\n')
+            f.write(' ZONE T="zone 1"\n')
             f.write(' STRANDID=0, SOLUTIONTIME=0\n')
             f.write(' I=' + str(n_data_points) + ', J=1, K=1, ZONETYPE=Ordered\n')
             f.write(' DATAPACKING=BLOCK\n')
-            f.write(' DT=(DOUBLE DOUBLE DOUBLE DOUBLE)   \n')
-            f.write(np.array2string(x)[1:-1]+' ')
-            f.write(np.array2string(y)[1:-1]+' ')
-            f.write(np.array2string(z)[1:-1]+' ')
-            f.write(np.array2string(conv_heatflux)[1:-1]+' ')
-            f.write(np.array2string(emissivity)[1:-1]+' ')
-            f.write(np.array2string(Tinf)[1:-1]+' ')
-            f.write(np.array2string(obj.pato.molten)[1:-1]+' ')
+            f.write(' DT=(DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE DOUBLE)   \n')
+            print(np.nonzero(np.array(np.array(obj.pato.molten, dtype=bool),dtype=int)))
+            arrays = [
+                x, y, z, conv_heatflux,
+                emissivity, Tinf,
+                np.array(np.array(obj.pato.molten, dtype=bool),dtype=int), obj.pato.h_r, obj.pato.rhoeUeCH
+            ]
+            assert np.all([len(arr)==n_data_points for arr in arrays])
+            for arr in arrays:
+                f.write(" "+"\n ".join(str(v) for v in arr)+'\n')
+
+            # f.write(" "+" ".join(str(v)))
+            # f.write(np.array2string(x)[1:-1]+'\n ')
+            # f.write(np.array2string(y)[1:-1]+'\n ')
+            # f.write(np.array2string(z)[1:-1]+'\n ')
+            # f.write(np.array2string(conv_heatflux)[1:-1]+'\n ')
+            # f.write(np.array2string(emissivity)[1:-1]+'\n ')
+            # f.write(np.array2string(Tinf)[1:-1]+'\n ')
+            # f.write(np.array2string(obj.pato.molten)[1:-1]+'\n ')
+            # f.write(np.array2string(obj.pato.h_r)[1:-1]+'\n ')
+            # f.write(np.array2string(obj.pato.rhoeUeCH)[1:-1]+'\n ')
+
 
     f.close()
 
@@ -1450,7 +1524,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 	?????????????????????????
     """ 
 
-    if options.pato.Ta_bc == 'ablation': postprocess_mass_inertia(obj, options, time_to_read)
+    #if options.pato.Ta_bc == 'ablation': postprocess_mass_inertia(obj, options, time_to_read)
 
     path = options.output_folder+"/PATO_"+str(obj.global_ID)+"/"
 
@@ -1504,7 +1578,7 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     if options.pato.Ta_bc == "ablation":
         obj.pato.mDotVapor = mDotVapor_cell[mapping]
         obj.pato.mDotMelt = mDotMelt_cell[mapping]
-        obj.pato.molten[obj.temperature == obj.material.meltingTemperature] = 1
+        obj.pato.molten[obj.temperature >= obj.material.meltingTemperature] = 1
 
 def postprocess_mass_inertia(obj, options, time_to_read):
 
