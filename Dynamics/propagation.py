@@ -1,5 +1,6 @@
 import os
 from Dynamics import dynamics, frames, collision
+from Dynamics.global_collisions import global_collision_physics
 from Aerothermo import aerothermo
 from Forces import forces
 import pymap3d
@@ -40,7 +41,11 @@ def propagate(titan, options):
         if has_collided:
             # if titan.collision_data is None: 
             titan.collision_data = col_data
-            collision.collision_physics(titan, options)
+            
+            if not options.collision.use_legacy:
+                global_collision_physics(titan, options, correction_method='none', recurse=1)
+            else:
+                collision.collision_physics(titan, options)
 
     # If we go to switch.py or su2.py, Because we call deepcopy() function, we need to rebuild
     #the collision mesh
@@ -62,7 +67,13 @@ def propagate(titan, options):
         _assembly.prev_surf_data = deepcopy(sol.cell_data)
 
     # Propagate according to propagator function...
-    new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,state_vectors_prior,derivatives_prior,time_step,titan,options)
+    new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,
+                                                               state_vectors_prior,
+                                                               derivatives_prior,
+                                                               time_step,
+                                                               titan,
+
+                                                               options)
     # Update prior derivatives
     if new_derivs is not None: append_derivatives(titan,options,new_derivs)
 

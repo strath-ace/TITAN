@@ -49,6 +49,10 @@ class Collision_options():
         self.elastic_factor = elastic_factor
         self.max_depth = max_depth
         self.mesh_factor = mesh_factor
+        self.use_legacy = False
+        self.stabilisation = 'split'
+        self.relax_period = 0.2
+        self.slop = 1e-6
 
 class Trajectory():
     """ Class Trajectory
@@ -382,7 +386,7 @@ class Aerothermo():
         A class to store the user-defined aerothemo model options
     """
 
-    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100, mixture = "air5"):
+    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100, mixture = "air5", SoI_rad = 10.0):
 
         #: [str] Name of the heatflux model to be used
         self.heat_model = heat_model
@@ -398,6 +402,9 @@ class Aerothermo():
 
         #: [str] Mixture file name
         self.mixture = mixture
+
+        #: [float] Raytrace sphere of influence radius
+        self.SoI_rad = SoI_rad
 
 class Freestream():
     """ Freestream class
@@ -512,15 +519,23 @@ class Explosion():
     """
     def __init__(self):
         
-        # [nasa/nasa_conservation] Method for calculating fragment velocity post-explosion
-        self.vel_method = 'nasa'
+        # [float] Larger values pull explosion nucleus towards object centroid, helps with fragment robustness 
+        self.nucleus_CoG_bias = 0.2
 
-        # [RANDOM/SIZE_MIN/SIZE_MAX] Method for selecting fragments to recursively fracture
-        self.recursion_type = 'RANDOM'
+        # [random/heat_flux/temperature/pressure] Select a nucleus point as either a random facet center, or point of max flow property
+        self.nucleus_choice = 'random'
 
-        # [bool] Apply voxel remeshing to ensure well-behaved fragments
-        self.remesh = True
-        
+        # [int] Compute budget for the voronoi kd-tree optimisation problem to recover an empirical law
+        self.voronoi_budget = 1e5
+
+        # [int] Maximum number of attempts at mesh generation before throwing an error, hopefully this will never matter for you
+        self.max_mesh_attempts = 30
+
+        # [float] Allowable percentage volume difference between original mesh and generated fragments, setting to zero will disable mesh check
+        self.mesh_err_pct = 7.5
+
+        # [nasa/nasa_conservation/AMR/AMR_conservation] Method for calculating fragment velocity post-explosion
+        self.vel_method = 'nasa_conservation'
 
 class Uncertainty():
     def __init__(self, yaml_path='./Uncertainty/uq_example.yaml', master_seed = 0, n_procs=1):
@@ -1039,7 +1054,12 @@ def read_geometry(configParser, options):
                     except:
                         kinetic_factor = None
 
-                    explosive_parameters = [n_fragments, char_velocity, energy, kinetic_factor]
+                    try:
+                        crack_width = ([s for s in value if "crack_width=" in s.lower()][0].split("=")[1])
+                    except:
+                        crack_width = None
+
+                    explosive_parameters = [n_fragments, char_velocity, energy, kinetic_factor, crack_width]
 
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                             trigger_type = trigger_type, trigger_value = float(trigger_value), 
@@ -1101,6 +1121,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     #Read Options Conditions
     options.output_folder = get_config_value(configParser, options.output_folder, 'Options', 'output_folder', 'str')
     options.output_freq     = get_config_value(configParser, options.output_freq, 'Options', 'Output_freq', 'int')
+    options.verbose = get_config_value(configParser,False, 'Options','Debug_printout','boolean')
     if postprocess: return options, None
 
     options.iters         = get_config_value(configParser, options.iters, 'Options', 'Num_iters', 'int')
@@ -1119,7 +1140,6 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.write_dense_solutions = get_config_value(configParser, False, 'Options','Dense_solutions', 'boolean' )
     options.postproc_in_loop = get_config_value(configParser, None, 'Options', 'Postprocess_in_loop','str')
     options.write_object_properties = get_config_value(configParser, False, 'Options', 'Write_object_properties', 'boolean')
-    options.verbose = get_config_value(configParser,False, 'Options','Debug_printout','boolean')
     options.time_counter   = 0
 
 
@@ -1199,6 +1219,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
     options.aerothermo.subdivision_triangle = get_config_value(configParser, 0, 'Aerothermo', 'Level_division', 'int')
     options.aerothermo.mixture = get_config_value(configParser, options.aerothermo.mixture, 'Aerothermo', 'Mixture', 'str')
+    options.aerothermo.SoI_rad = get_config_value(configParser, options.aerothermo.SoI_rad, 'Aerothermo', 'SoI_rad', 'float')
 
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
@@ -1292,11 +1313,19 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.collision.max_depth = get_config_value(configParser, options.collision.max_depth, 'Collision', 'Max_depth', 'float')
         options.collision.mesh_factor = get_config_value(configParser, options.collision.mesh_factor, 'Collision', 'Mesh_factor', 'float')
         options.collision.elastic_factor = get_config_value(configParser, options.collision.elastic_factor, 'Collision', 'Elastic_factor', 'float')
+        options.collision.use_legacy = get_config_value(configParser, options.collision.use_legacy, 'Collision', 'Legacy', 'boolean')
+        options.collision.stabilisation = get_config_value(configParser, options.collision.stabilisation, 'Collision', 'Stabilisation_mode', 'str')
+        options.collision.relax_period = get_config_value(configParser, options.collision.relax_period, 'Collision', 'Period_of_relaxation', 'float')
+        options.collision.slop = get_config_value(configParser, options.collision.slop, 'Collision', 'Stabilisation_slop', 'float')
+
 
     if configParser.has_section('Explosion'):
-        options.explosion.vel_method     = get_config_value(configParser, options.explosion.vel_method, 'Explosion', 'Velocity_method', 'str')
-        options.explosion.recursion_type = get_config_value(configParser, options.explosion.recursion_type, 'Explosion', 'Fragment_recursion', 'str')
-        options.explosion.remesh         = get_config_value(configParser, options.explosion.remesh, 'Explosion', 'Fragment_remesh', 'boolean')
+        options.explosion.vel_method        = get_config_value(configParser, options.explosion.vel_method, 'Explosion', 'Velocity_method', 'str')
+        options.explosion.voronoi_budget    = get_config_value(configParser, options.explosion.voronoi_budget, 'Explosion', 'Voronoi_compute_budget', 'float')
+        options.explosion.nucleus_CoG_bias  = get_config_value(configParser, options.explosion.nucleus_CoG_bias, 'Explosion', 'Nucleus_CoG_bias', 'float')
+        options.explosion.nucleus_choice    = get_config_value(configParser, options.explosion.nucleus_choice, 'Explosion', 'Nucleus_choice_method', 'str')
+        options.explosion.max_mesh_attempts = get_config_value(configParser, options.explosion.max_mesh_attempts, 'Explosion', 'Max_mesh_attempts', 'int')
+        options.explosion.mesh_err_pct      = get_config_value(configParser, options.explosion.mesh_err_pct, 'Explosion', 'Mesh_error_threshold', 'float')
     
     if configParser.has_section('Uncertainty'):
         options.uncertainty.n_procs = get_config_value(configParser, options.uncertainty.n_procs, 'Uncertainty', 'Num_cores', 'int')

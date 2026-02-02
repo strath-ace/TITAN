@@ -109,6 +109,9 @@ class Assembly_list():
         #: [array] List of the linkage information between the different components
         self.connectivity = np.array([], dtype = int)
 
+        #: [int] Number of collisions that have ocurred
+        self.n_collisions = 0
+
     def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):            
         """
         Creates the assembly list
@@ -183,6 +186,9 @@ class Dynamics():
 
         #: [float] Yaw angular velocity in rad/s
         self.vel_yaw = vel_yaw
+
+        #: [float] Instantaneous acceleration vector in m/s^2
+        self.acceleration = np.zeros(3)
 
 class Body_force():
     """ Class Body_force
@@ -527,7 +533,7 @@ class Assembly():
         # self.enclosure_component_num = build_enclosure_num(self)
 
 
-    def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = [], size_override=None):
+    def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = [], size_override=None, min_size = None):
         """
         Generates the 3D structural mesh
 
@@ -553,7 +559,8 @@ class Assembly():
                                                                                                                             output_folder = output_folder, 
                                                                                                                             output_filename = output_filename, 
                                                                                                                             bc_ids = bc_ids,
-                                                                                                                            ref_obj_override = size_override)
+                                                                                                                            ref_obj_override = size_override,
+                                                                                                                            min_size=min_size)
 
         self.mesh.volume_displacement = np.zeros((len(self.mesh.vol_coords),3))
         #self.mesh.original_vol_coords = np.copy(self.mesh.vol_coords)

@@ -25,83 +25,143 @@ import pandas as pd
 from copy import deepcopy
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial import Voronoi
-from Geometry import component, assembly
+from Geometry import component, assembly, mesh
 from scipy.stats import norm
-from Explosion.generate_seed_distribution import optimal_seeds
-from Explosion.gmsh_voronoi_fracture import generate_fragment_meshes
-def fracture_object(explobject, parent_COG, options):
-    ## This function takes a demising component 
-    ## and returns a collection of fragments to be added to the simulation
+from Explosion.generate_seed_distribution import optimal_seeds, SpiralSampler
+from Explosion.manifold_voronoi_fracture import generate_fragment_meshes, mesh_check
+from scipy.spatial.transform import Rotation as Rot
+
+def fracture_object(explobject, parent, options, dt = None, base_rng = None):
+    '''
+    Takes a demising component and returns a collection of fragments to be added to the simulation
+    
+    :param explobject: Object of class Component to fracture and disperse
+    :param parent_state: Object's parent assembly
+    :param options: Object of class Options
+    :param dt: Duration of explosion in seconds
+    :param base_rng: Object of class numpy.random.RandomState defining global rng
+    '''
     expl_name = explobject.name.split('/')[-1].split('.')[0]
     expl_dir = options.output_folder+'/Generated_fragments/'+expl_name
     
     frag_material = explobject.material_name
     frag_temp = explobject.temperature
     n_frags = explobject.explosive.n_fragments
-    do_remesh = '--remesh' if options.explosion.remesh else '--no-remesh'
 
     obj_len = np.linalg.norm(explobject.mesh.max-explobject.mesh.min)
+    obj_mesh = mesh.Mesh(explobject.name)
+    explobject.mesh = mesh.compute_mesh(obj_mesh)
+
     if not pathlib.Path(expl_dir+'/points.csv').exists():
         pathlib.Path(expl_dir).mkdir(exist_ok=True, parents=True)
-    #     optimal_seeds(expl_dir=expl_dir, n_fragments=n_frags, CoG=explobject.COG,plot=False, obj_len=obj_len, compute_budget=2e2, method='spiral')
-    from scipy.stats import multivariate_normal
-    points = multivariate_normal(explobject.COG, np.diag([0.3,0.3,0.3])).rvs(n_frags)#np.genfromtxt(expl_dir+'/points.csv',delimiter=',',dtype=np.float64)
-    vor = Voronoi(points)
-    
-    generate_fragment_meshes(explobject.mesh, explobject, vor, write=True, output_folder=expl_dir)
-    # subprocess.run(['blender', '-b', '-P', './Explosion/voronoi_fracture_manifold.py', '--', 
-    #                 '--file={}'.format(explobject.name), 
-    #                 '-n={}'.format(n_frags), 
-    #                 '--noise={}'.format(0.25), 
-    #                 '-o={}'.format(expl_dir),
-    #                 '-d={}'.format(explobject.material.density),
-    #                 '--seeds={}'.format(expl_dir+'/points.csv'),
-    #                 '--vol={}'.format(1e-6),
-    #                 '--debug',
-    #                 '--wall={}'.format(1e-2)
-    #                 ])
-    #'--vol={}'.format(1e-6),
-    n_frags = len(glob.glob("{}/{}_*.stl".format(expl_dir, expl_name)))
-    data = pd.read_csv(expl_dir+'/' + expl_name + '_data.csv')
-    explosion_parameters = {'nucleus' : explobject.COG,
+
+    max_attempts = options.explosion.max_mesh_attempts
+    # Bias nucleus towards CoG, helps with generating well-behaved Voronoi patterns
+    cog_bias = options.explosion.nucleus_CoG_bias
+    if options.explosion.voronoi_budget>0: 
+        spiral_weights = optimal_seeds(n_fragments=n_frags, CoG=[0,0,0], plot=True, obj_len=obj_len, 
+                                       compute_budget=options.explosion.voronoi_budget, method='spiral')
+    else: 
+        spiral_weights = np.array([0.8 * 0.6064932580341802, 
+                                         0.7066237981471332, 
+                                        35.36336186280215, 
+                                        34.24156856002203])
+    if options.verbose: print('Sample weights of...\n',spiral_weights)
+
+    base_state = base_rng.get_state() if base_rng is not None else None
+
+    for i_attempt in range(max_attempts):
+        # Want a sequence of random states that can be recovered
+        if base_state is None:
+            rng = np.random.RandomState(6+i_attempt)
+        else: 
+            rng = np.random.RandomState(None)
+            rng.set_state(base_state)
+            rng = np.random.RandomState(rng.randint(0,2**16)+i_attempt)
+
+        match options.explosion.nucleus_choice.lower():
+            case 'random':
+                f_id = rng.choice(np.arange(explobject.mesh.facet_area.shape[0]))
+            case 'heat_flux':
+                f_id = np.argmax(parent.aerothermo.heatflux[explobject.facet_index])
+            case 'temperature':
+                f_id = np.argmax(parent.aerothermo.temperature[explobject.facet_index])
+            case 'pressure':
+                f_id = np.argmax(parent.aerothermo.pressure[explobject.facet_index])
+
+        facet = explobject.mesh.facet_COG[f_id,:]
+        nucleus = cog_bias*explobject.COG + (1-cog_bias)*facet
+        
+        points  = SpiralSampler(spiral_weights[0],spiral_weights[1],spiral_weights[2],spiral_weights[3], rng=rng).rvs(n_frags)
+        points += np.full_like(points,nucleus)
+        vor = Voronoi(points)
+
+        try:
+            generate_fragment_meshes(explobject.name,vor, expl_dir, extrude=explobject.explosive.crack_width)
+
+            if mesh_check(expl_dir,explobject.material.density, explobject.volume, 
+                          threshold=options.explosion.mesh_err_pct, delete_bad=True, 
+                          quiet=(not options.verbose)): break
+        except Exception as e: 
+            print(e)
+        if i_attempt<max_attempts-1:
+            print('Voronoi {} failed mesh check! Recalculating...'.format(i_attempt))
+            if pathlib.Path(expl_dir+'/stats.csv').resolve().exists():
+                pathlib.Path(expl_dir+'/stats.csv').resolve().unlink()
+            for frag in glob.glob("{}/*.stl".format(expl_dir)): pathlib.Path(frag).unlink()
+        else: raise Exception('Could not build voronoi fragments after {} attempts'.format(i_attempt+1))
+
+    n_frags = len(glob.glob("{}/frag_*.stl".format(expl_dir)))
+
+    data = pd.read_csv(expl_dir+'/' + 'stats.csv')
+    ids = [int(frag_name.split('_')[-1]) for frag_name in data['name'].to_list()]
+    explosion_parameters = {'nucleus' : parent.state_vector[:3]+Rot.from_quat(parent.state_vector[6:10]).apply(nucleus-parent.COG),
                             'characteristic_velocity' : explobject.explosive.char_velocity,
                             'energy' : explobject.explosive.energy,
                             'kinetic_factor' : explobject.explosive.kinetic_factor,
                             'volume' : data['volume'].to_numpy(),
                             'mass' : data['mass'].to_numpy(),
-                            'area' :data['area'].to_numpy(),
-                            'area_mass' : data['area_mass'].to_numpy(),}
+                            'area' :data['surf_area'].to_numpy(),
+                            'area_mass' : data['area_mass_ratio'].to_numpy(),
+                            'lref' : data['reference_length'].to_numpy(),
+                            'ids' : np.array(ids)}
 
-    explosion_parameters['velocities'] = sample_fragment_velocities(explosion_parameters, n_frags, options)
+    explosion_parameters['velocities'] = sample_fragment_velocities(explosion_parameters, n_frags, options, dt)
     new_fragments = component.Component_list()
 
     for i_frag in range(n_frags):
-        new_fragments.insert_component(filename=expl_dir+'/'+expl_name+'_frag_'+str(i_frag)+'.stl',
+        new_fragments.insert_component(filename=expl_dir+'/'+'frag_'+str(ids[i_frag])+'.stl',
                                                   file_type='Primitive',material=frag_material,
                                                   temperature=frag_temp, options=options, 
                                                   global_ID=-1*(i_frag+1), alpha=explobject.debug_alpha)
-        #new_fragments.object[i_frag].compute_mass_properties()
-        #TODO Assign correct fragment velocities
     
     return new_fragments, explosion_parameters
 
-def build_new_assemblies(fragmentlist, titan, options, i_parent, explosion_parameters):
-    ## This function takes a collection of fragments
-    ## and generates a new "assembly" for each one
-    ## and adds it to the main titan.assembly list
+def build_new_assemblies(fragment_list, titan, options, i_parent, explosion_parameters):
+    '''
+    Takes a collection of fragments, builds each a new "assembly" and appends it to titan.assembly
+    
+    :param fragment_list: Object of class AssemblyList, generated by fracture_object()
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+    :param i_parent: Index of the parent assembly of pre-exploded object
+    :param explosion_parameters: Dict of kinetic parameters, generated by fracture_object()
+    '''
+
     parent = titan.assembly[i_parent]
     angle = np.array([parent.roll, parent.pitch, parent.yaw])
     angle_vel = np.array([parent.roll_vel, parent.pitch_vel, parent.yaw_vel])
     distance_travelled = parent.distance_travelled
-    #explosion_parameters['nucleus']-=parent.COG
-    for i_fragment, fragment in enumerate(fragmentlist.object):
+
+    for i_fragment, fragment in enumerate(fragment_list.object):
         if options.verbose: print('Creating fragment {}'.format(fragment.name.split('/')[-1]))
         new_assem = assembly.Assembly_list([fragment])
         new_assem.create_assembly(np.array([]),aoa=parent.aoa, slip=parent.slip, roll=parent.roll, options=options)
         new_assem.assembly[0].id = titan.id
         titan.assembly.append(new_assem.assembly[0])
         titan.id+=1
-        titan.assembly[-1].generate_inner_domain(size_override=0.05)
+        titan.assembly[-1].generate_inner_domain(size_override=explosion_parameters['lref'][i_fragment]*1e-2, 
+                                                 min_size=explosion_parameters['lref'][i_fragment]*1e-3)
         titan.assembly[-1].compute_mass_properties()
 
         titan.assembly[-1].roll  = angle[0]
@@ -122,7 +182,7 @@ def build_new_assemblies(fragmentlist, titan, options, i_parent, explosion_param
         angle_vel_ECEF = R_B_ECEF.apply(angle_vel)
 
         titan.assembly[-1].position = np.copy(parent.position) + dx_ECEF
-        dv = add_fragment_dv(titan.assembly[-1],i_fragment,explosion_parameters,options)
+        dv = calculate_fragment_dv(titan.assembly[-1],i_fragment,explosion_parameters,options)
         titan.assembly[-1].velocity = np.copy(parent.velocity) + np.cross(angle_vel_ECEF,dx_ECEF)+dv
         
         titan.assembly[-1].position_nlast = deepcopy(titan.assembly[-1].position)
@@ -166,14 +226,31 @@ def build_new_assemblies(fragmentlist, titan, options, i_parent, explosion_param
             generate_collision_mesh(titan.assembly[-1], options)
             generate_collision_handler(titan, options)
 
-def add_fragment_dv(fragment_assem, frag_id, explosion_parameters, options):
-    explosion_dir =  explosion_parameters['nucleus'] - fragment_assem.COG
+def calculate_fragment_dv(fragment_assem, frag_id, explosion_parameters, options):
+    '''
+    Computes change in velocity for each fragment in an explosion
+    
+    :param fragment_assem: Object of Class Assembly
+    :param frag_id: Index of fragment in explosion_parameters dict
+    :param explosion_parameters: Dict of kinetic parameters, generated by fracture_object()
+    :param options: Object of Class Options
+    '''
+
+    explosion_dir  = fragment_assem.position - explosion_parameters['nucleus']
     explosion_dir /= np.linalg.norm(explosion_dir)
     v = explosion_parameters['velocities'][frag_id]
     if options.verbose: print('Added velocity to fragment {} of v={}m/s'.format(frag_id,v))
     return explosion_dir*v
 
-def sample_fragment_velocities(explosion_parameters, n_fragments, options):
+def sample_fragment_velocities(explosion_parameters, n_fragments, options, dt = None):
+    '''
+    Select delta velocities assigned to fragments based upon a velocity method
+    
+    :param explosion_parameters: Dict of kinetic parameters, generated by fracture_object()
+    :param n_fragments: Number of fragments
+    :param options: Object of Class Options
+    :param dt: Duration of explosion in seconds
+    '''
     velocities = np.zeros(n_fragments)
     if options.verbose:
         print('Applying {} velocity method with a Total Energy of {}J'.format(options.explosion.vel_method, 
@@ -184,10 +261,12 @@ def sample_fragment_velocities(explosion_parameters, n_fragments, options):
             for i_fragment in range(n_fragments):
                 velocities[i_fragment] = evolve_4_explosion_velocity(explosion_parameters['characteristic_velocity'],
                                                                      explosion_parameters['area_mass'][i_fragment])
+                
         case 'nasa_conservation':
             for i_fragment in range(n_fragments):
                 velocities[i_fragment] = evolve_4_explosion_velocity(explosion_parameters['characteristic_velocity'],
                                                                      explosion_parameters['area_mass'][i_fragment])
+                
             kinetic_energy = 0.5*np.array(explosion_parameters['mass'])*velocities*velocities
             available_energy = explosion_parameters['energy']*explosion_parameters['kinetic_factor']
             scale_factor = np.sqrt(available_energy/np.sum(kinetic_energy))
@@ -196,11 +275,40 @@ def sample_fragment_velocities(explosion_parameters, n_fragments, options):
                                                                                     np.sum(kinetic_energy),
                                                                                     available_energy))
             velocities*= scale_factor
+
+        case 'amr':
+            if dt is None: raise Exception('Must provide delta t for AMR-based velocity calculation!')
+            # Define characteristic_pressure as the pressure to give characteristic_velocity to a fragment of AMR 1
+            characteristic_pressure = explosion_parameters['characteristic_velocity']/dt
+            for i_fragment in range(n_fragments):
+                velocities[i_fragment] = 0.5*characteristic_pressure*explosion_parameters['area_mass'][i_fragment]*dt
+
+        case 'amr_conservation':
+            if dt is None: raise Exception('Must provide delta t for AMR-based velocity calculation!')
+            # Define characteristic_pressure as the pressure to give characteristic_velocity to a fragment of AMR 1
+            characteristic_pressure = explosion_parameters['characteristic_velocity']/dt
+            for i_fragment in range(n_fragments):
+                velocities[i_fragment] = 0.5*characteristic_pressure*explosion_parameters['area_mass'][i_fragment]*dt
+            
+            kinetic_energy = 0.5*np.array(explosion_parameters['mass'])*velocities*velocities
+            available_energy = explosion_parameters['energy']*explosion_parameters['kinetic_factor']
+            scale_factor = np.sqrt(available_energy/np.sum(kinetic_energy))
+            if options.verbose:
+                print('Scaling velocities by {} such that {}J maps onto {}J'.format(scale_factor,
+                                                                                    np.sum(kinetic_energy),
+                                                                                    available_energy))
     return velocities
 
 def evolve_4_explosion_velocity(base_v, area_mass_ratio):
-    ## NASA EVOLVE 4.0 Explosion Velocity Distribution Function
-    # https://doi.org/10.1016/S0273-1177(01)00423-9
+    '''
+    NASA EVOLVE 4.0 Explosion Velocity Distribution Function
+    
+    :param base_v: Base velocity 
+    :param area_mass_ratio: Area to mass ratio of the fragment
+
+    See https://doi.org/10.1016/S0273-1177(01)00423-9
+    '''
+    
     v = np.log10(base_v)
     chi = np.log10(area_mass_ratio)
     mu  = 0.2 * chi + 1.85

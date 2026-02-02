@@ -140,6 +140,7 @@ class Component():
 
         self.enclosure = enclosure
         self.debug_alpha = alpha
+        self.volume = 0
 
     def compute_mass_properties(self, coords, elements, density):
         """
@@ -160,7 +161,7 @@ class Component():
         
         mass = vol*density
         self.mass = np.sum(mass)
-
+        self.volume = np.sum(vol)
         if self.mass <= 0:
             self.COG = np.array([0,0,0])
         else:
@@ -235,7 +236,7 @@ class Explosive():
     def __init__(self, explosive_parameters=None):
 
 
-        defaults = [24, 10.0, 1e6, 0.8]
+        defaults = [24, 10.0, 1e6, 1.0, 5e-3]
         if explosive_parameters is None: explosive_parameters = defaults
         else:
             for i_param in range(len(explosive_parameters)):
@@ -253,3 +254,6 @@ class Explosive():
 
         #: [float] Amount of energy converted into in kinetic energy if using nasa_conservation
         self.kinetic_factor = float(explosive_parameters[3])
+
+        #: [float] Wider fractures remove more of an objects initial volume (and mass) but make the fracture algorithm more robust
+        self.crack_width = float(explosive_parameters[4])

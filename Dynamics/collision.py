@@ -12,7 +12,12 @@ class Collision():
 		self.original_handler =  None
 
 def generate_collision_handler(titan, options):
+	'''
+	Creates trimesh collision handlers (managers) for assemblies in the list
 	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	'''
 	for assembly in titan.assembly:
 		assembly.collision.collision_handler = trimesh.collision.CollisionManager()
 		assembly.collision.original_handler = trimesh.collision.CollisionManager()
@@ -20,13 +25,23 @@ def generate_collision_handler(titan, options):
 		assembly.collision.original_handler.add_object("Original_"+str(assembly.id), np.sum(assembly.collision.original_mesh))
 
 def delete_collision_handler(titan, options):
-
+	'''
+	Deletes trimesh collision handlers (managers) from assemblies in the list
+	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	'''
 	for assembly in titan.assembly:
 		assembly.collision.collision_handler = None
 		assembly.collision.original_handler = None
 
 def update_collision_mesh(titan, options):
-
+	'''
+	Transforms assembly collision meshes into local ECEF frame of largest mass assembly
+	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	'''
 	mass = []
 
 	for assembly in titan.assembly:
@@ -49,7 +64,13 @@ def update_collision_mesh(titan, options):
 	pass
 
 def update_collision_mesh_time(titan, options, dt):
-
+	'''
+	Projects assembly collision meshes forward in time (in local ECEF frame)
+	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	:param dt: Distance in time to project forward
+	'''
 	mass = []
 	mesh_collision = []
 
@@ -74,16 +95,15 @@ def update_collision_mesh_time(titan, options, dt):
 		Matrix = Translate_Large_Mass@Translate_ECEF@R_B_ECEF@Translate_COG
 
 		assembly.collision.collision_handler.set_transform("Collision_"+str(assembly.id), Matrix)
-		#assembly.collision.original_handler.set_transform("Original_"+str(assembly.id), Matrix)
-
-		#mesh_collision.append(deepcopy(np.sum(assembly.collision.collision_mesh)).apply_transform(Matrix))
-		#np.sum(mesh_collision).show()
-
-	#np.sum(mesh_collision).show()
-
 	return
 
 def generate_surface(titan, options):
+	'''
+	Generates a debug .stl of the collision
+	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	'''
 	mesh = []
 	mass = []
 
@@ -108,10 +128,15 @@ def generate_surface(titan, options):
 
 	mesh = np.sum(mesh)
 
-	#mesh.export("teste_"+str(titan.iter)+".stl")
+	mesh.export("collision_test_"+str(titan.iter)+".stl")
 
 def generate_collision_mesh(assembly, options):
+	'''
+	Construct a collision mesh for each assembly
 	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	'''
 	assembly.collision = Collision()
 
 	collision_mesh = []
@@ -119,7 +144,7 @@ def generate_collision_mesh(assembly, options):
 	factor = options.collision.mesh_factor
 
 	for obj in assembly.objects:
-		obj_collision_trimesh = generate_inflated_mesh(deepcopy(obj.mesh.nodes), deepcopy(obj.mesh.facets), factor, obj.mesh.COG)
+		obj_collision_trimesh = generate_inflated_mesh(deepcopy(obj.mesh.nodes), deepcopy(obj.mesh.facets), factor)
 		collision_mesh.append(obj_collision_trimesh)
 
 		obj_original_trimesh = trimesh.Trimesh(vertices=obj.mesh.nodes, faces=obj.mesh.facets, process=False)
@@ -129,8 +154,15 @@ def generate_collision_mesh(assembly, options):
 	assembly.collision.collision_mesh = collision_mesh
 	assembly.collision.original_mesh = original_mesh
 
-def generate_inflated_mesh(nodes, facets, factor, COG = []):
+def generate_inflated_mesh(nodes, facets, factor):
+	'''
+	"Inflates" a mesh by a factor for use in collision modelling
+	
+	:param nodes: Array of mesh node positions
+	:param facets: Array of facet connectivity
+	:param factor: Inflation factor 
 
+	'''
 	#Create a Trimesh object from the stl mesh
 	collision_mesh = trimesh.Trimesh(vertices=nodes, faces=facets, process=False)
 
@@ -147,17 +179,30 @@ def generate_inflated_mesh(nodes, facets, factor, COG = []):
 	return collision_mesh#.convex_hull
 
 def find_ToI_timestep(titan, options, input_time_step):
+	'''
+	Select a time step such that no "Time-Of-Impact" points are skipped
+	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	:param input_time_step: Maximal considered time step
+	'''
 	#If more points of contact between assemblies exist, just the one with more depth is considered
 	if len(titan.assembly) <= 1: return input_time_step
 
 	dt = binary_search_TOI(titan, options, input_time_step)
 	
 	if dt>=input_time_step: return input_time_step
-	res_time = 5e-4#compute_time_resolution(titan, options, options.collision.max_depth)
+	res_time = compute_time_resolution(titan, options, options.collision.max_depth)
 	if options.verbose: print('Selected a dt of {}'.format(np.max([res_time, dt])))
-	return np.max([np.min([res_time,1e-2]), dt])
+	return np.max([res_time, dt])
 
 def collision_physics(titan, options):
+	'''
+	Impulsive single-collision resolution
+	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	'''
 	#Restituition coeff and friction
 	#u = 0.072
 	#e = 0.53
@@ -210,12 +255,13 @@ def collision_physics(titan, options):
 
 		if Vab_dot_n <=0: 
 			## Baumgarte Stabilisation to prevent intrusion
-			baum_coeff = 0.01 # [0-1] : "Correction per second" inverse relaxation time
+			baum_coeff = 0.00#1 # [0-1] : "Correction per second" inverse relaxation time
 			slop = 1e-3       # m : allowable intersection depth
 			baum_bias = (baum_coeff/titan.delta_t)*max(0,depth-slop)
 			if baum_bias>0 and options.verbose: print('Baumgarte Bias Applied! Depth of {} m Bias of {} m/s'.format(depth,baum_bias))
 			Vab_dot_n+=min(baum_bias, 10)
 			if Vab_dot_n <=0: continue
+			
 		if options.verbose: print('Relative Collision Velocity of {}'.format(Vab_dot_n))
 
 		jr = -(1+e)* Vab_dot_n/(1/mass1+1/mass2 + np.dot((np.cross(np.matmul(I1_inv,np.cross(r1,normal)),r1)+np.cross(np.matmul(I2_inv,np.cross(r2,normal)),r2)),normal))
@@ -384,7 +430,15 @@ def collision_physics_simultaneous(titan, options):
 		titan.assembly[b_i].yaw_vel   -= R_ECEF_B_b_i.apply(P[i]*np.dot(Ib_i_inv,np.cross(point - rb_i,normal)))[2]
 
 def binary_search_TOI(titan, options, input_dt, n_sanity = None):
-	# This function performs a binary search for Time-Of-Impact for the collision model
+	'''
+	Find Time-Of-Impact through binary search of next time step
+	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	:param input_dt: Maximal step distance
+	:param n_sanity: Number of sanity checks to make along the time step
+	'''
+
 	value_depth = 1
 	min_time_step = 0
 	max_time_step = input_dt
@@ -402,7 +456,7 @@ def binary_search_TOI(titan, options, input_dt, n_sanity = None):
 		# this is N-sane!
 		sanity_points = np.linspace(0,1,n_sanity+1,endpoint=False)[1:]
 	else: # Unless specified auto populate our sanity checks at current dt increments
-		sanity_points = np.arange(0,1,titan.delta_t)[1:]
+		sanity_points = np.arange(0,1,0.1*titan.delta_t)[1:]
 		n_sanity = len(sanity_points)
 		# These checks are comparatively cheap vs true timesteps, 
 		# make sense to check more often than we solve
@@ -450,6 +504,14 @@ def binary_search_TOI(titan, options, input_dt, n_sanity = None):
 	return dt
 
 def update_and_check(titan, options, dt):
+	'''
+	Update collision mesh and check for collisions
+	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	:param dt: Time step to project forward to
+	'''
+
 	#Initialize collison data dictionary
 	depth = []
 	collision_data = {}
@@ -459,6 +521,7 @@ def update_and_check(titan, options, dt):
 	collision_data["contact_point"] = []
 	collision_data["normal"] = []
 	collision_data["depth"] = []
+
 	#Update the collision mesh positions in future time to chek for potential collisions
 	update_collision_mesh_time(titan, options, dt)
 	length_assembly = len(titan.assembly) 
@@ -466,6 +529,7 @@ def update_and_check(titan, options, dt):
 	j = 1
 	depth =[]
 	collided = False
+
 	#Loop assemblies to check for collision and decide the best time_step for collision handling
 	for index_i in range(i, length_assembly):
 		if (index_i == length_assembly-1): break
@@ -494,6 +558,13 @@ def update_and_check(titan, options, dt):
 	return collided, depth, collision_data
 
 def compute_time_resolution(titan, options, distance_resolution = 1e-6):
+	'''
+	Maximal allowable distance error converted to a maximal time step
+	
+	:param titan: Object of class AssemblyList
+	:param options: Object of class Options
+	:param distance_resolution: Maximal allowable distance error
+	'''
 	max_V = 0
 	for i_assembly, _assembly_A in enumerate(titan.assembly):
 		for j_assembly, _assembly_B in enumerate(titan.assembly):
@@ -501,13 +572,7 @@ def compute_time_resolution(titan, options, distance_resolution = 1e-6):
 			vA = _assembly_A.velocity
 			vB = _assembly_B.velocity
 
-			#w1 = [_assembly_A.roll_vel, _assembly_A.pitch_vel, _assembly_A.yaw_vel]
-			# w2 = [_assembly_B.roll_vel, _assembly_B.pitch_vel, _assembly_B.yaw_vel]
-
-			# R_B_ECEF_1 = Rot.from_quat(_assembly_A.quaternion).as_matrix()
-			# R_B_ECEF_2 = Rot.from_quat(_assembly_B.quaternion).as_matrix()
-
-			# Vab = vA-vB + np.cross(R_B_ECEF_1@w1, _assembly_A.position) - np.cross(R_B_ECEF_2@w2, _assembly_B.position)
 			vAB = np.linalg.norm(vA-vB)
+
 			if vAB>max_V: max_V = vAB
 	return distance_resolution/max_V

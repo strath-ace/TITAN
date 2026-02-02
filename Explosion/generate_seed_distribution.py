@@ -18,13 +18,14 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 import numpy as np
+import psutil
 from scipy.spatial import KDTree
 from scipy.stats import uniform, linregress, multivariate_normal, norm
-from scipy.stats._multivariate import _squeeze_output
-from scipy.optimize import minimize, dual_annealing, Bounds, basinhopping, direct
+from scipy.optimize import minimize, dual_annealing, Bounds, basinhopping, direct, differential_evolution
 from datetime import datetime as dt
 from matplotlib import pyplot as plt
 from functools import partial
+
 class SpiralSampler():
     def __init__(self, a=1.0,b=1.0,k=1.0,m=1.0, rng=None):
         self.a=a
@@ -168,18 +169,20 @@ def distribution_generator(desired_law, return_law, weights = [0.1,1,0.1], n_fra
     for i_test in range(n_tests):
         deltas.append(get_law_from_points(ref_law=desired_law, return_law=return_law, weights=weights, X=test_points[i_test]))
     return np.mean(deltas)
-def log_spiral_3d(desired_law, return_law, weights = [0.1,1,0.1], n_frags=None, n_tests = 10, parameter_vector = None):
+
+def log_spiral_3d(desired_law, return_law, weights = [0.1,1,0.1], n_frags=None, n_tests = 10, rng = None, parameter_vector = None,):
     b, k, m = parameter_vector
+    print(b,k,m)
     a = 1
-    sampler = SpiralSampler(a, b, k, m)
+    sampler = SpiralSampler(a, b, k, m, rng=rng)
     test_points = [sampler.rvs(n_frags) for _ in range(n_tests)]
     deltas = []
     for i_test in range(n_tests):
         deltas.append(get_law_from_points(ref_law=desired_law, return_law=return_law, weights=weights, X=test_points[i_test]))
     return np.mean(deltas)
-def optimal_seeds(expl_dir,n_fragments=24, method='anneal', desired_law = [6, -1.6], plot=True, obj_len=2, CoG=[0,0,0], compute_budget=2e5):
+
+def optimal_seeds(n_fragments=24, method='anneal', desired_law = [6, -1.6], plot=True, obj_len=2, CoG=[0,0,0], compute_budget=2e5, rng=None):
     
-    #bounds = [bound_3d for i_point in range(n_points)]
     match method:
         case 'anneal':
             points = generate_seed_points(obj_half_len=0.5*obj_len, parameters=[n_fragments,5,-3])
@@ -192,11 +195,11 @@ def optimal_seeds(expl_dir,n_fragments=24, method='anneal', desired_law = [6, -1
             print(opt.message)
             print(opt.x)
             out_points = np.reshape(opt.x,[-1,3])
-        # case 'direct':
-        #     opt = direct(func=optfunc,bounds=Bounds(lb=lb,ub=ub), maxfun=int(compute_budget))
-        #     print(opt.message)
-        #     print(opt.x)
-        #     out_points = np.reshape(opt.x,[-1,3])
+        case 'direct':
+            opt = direct(func=optfunc,bounds=Bounds(lb=lb,ub=ub), maxfun=int(compute_budget))
+            print(opt.message)
+            print(opt.x)
+            out_points = np.reshape(opt.x,[-1,3])
         case 'distri':
             optfunc = partial(distribution_generator, desired_law, False, [0.0,0.0,1.0], n_fragments, 100)
             x0 = [1.0,1.0,1.0,0.0,0.0,0.0]
@@ -218,36 +221,26 @@ def optimal_seeds(expl_dir,n_fragments=24, method='anneal', desired_law = [6, -1
             print('Output Covariance as... {}'.format(COV))
             out_points = multivariate_normal([0,0,0],COV).rvs(n_fragments)
         case 'spiral':
-            optfunc = partial(log_spiral_3d, desired_law, False, [0.1,1,0.1], n_fragments, 500)
-            bounds = [ (1e-3, 10),
-                       (10.0, 100.0),
-                       (10.0, 100.0)]
-            x0 = np.ones(3)
+            optfunc = partial(log_spiral_3d, desired_law, False, [2,5,9], n_fragments, 50, rng)
+            bounds = [ (0.1, 10),
+                       (20.0, 100.0),
+                       (20.0, 100.0)]
+            x0 = [5,50,50]
             #opt = direct(func=optfunc, bounds=bounds, maxfun=int(compute_budget), vol_tol=1e-24)
-            opt = dual_annealing(func =optfunc, bounds = bounds, x0=x0,maxfun=compute_budget)
+            opt = dual_annealing(func =optfunc, bounds = bounds, x0=x0,maxfun=compute_budget, rng=rng)
+            #opt = differential_evolution(func =optfunc, bounds = bounds, maxiter=compute_budget, rng=rng, workers=psutil.cpu_count())
             print(opt.message)
             print(opt.x)
-            out_points = SpiralSampler(*opt.x).rvs(n_fragments)
+            out_points = SpiralSampler(1,opt.x[0],opt.x[1],opt.x[2]).rvs(1000)
+            
     
     law_out = get_law_from_points(X=out_points, return_law=True, ref_law=desired_law)
 
 
     print('Final law value of {}N^[{}] R2={}'.format(law_out[0],law_out[1],law_out[2]))
     gen_points = out_points + np.full_like(out_points, CoG)
-    np.savetxt(expl_dir+'/points.csv',gen_points,delimiter=',')
-    from scipy.spatial import Voronoi
-    vor = Voronoi(gen_points)
-    
-    # import gmsh
-    # from Geometry.gmsh_api import mesh_Settings
-    # gmsh.initialize()
-    # mesh_Settings(gmsh)
-    # gmsh.model.mesh.createGeometry()
-    # add_voronoi_hedra(gmsh, vor)#, debug_sphere_rad=0.7)
-    if plot: plot_result(out_points, desired_law, law_out)
 
-if __name__=='__main__':
-    import sys, pathlib
-    sys.path.append(str(pathlib.Path('.').resolve()))
-    from Explosion.gmsh_voronoi_fracture import add_voronoi_hedra
-    optimal_seeds('.', method='spiral', n_fragments=128, compute_budget=5e5)
+    SF = np.max(np.linalg.norm(gen_points, axis=1))/obj_len
+
+    if plot: plot_result(out_points, desired_law, law_out)
+    return [1/SF, opt.x[0], opt.x[1], opt.x[2]]

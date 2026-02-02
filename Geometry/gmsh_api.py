@@ -30,7 +30,7 @@ def mesh_Settings(gmsh):
     #self.gmsh.option.setNumber("Mesh.Optimize",1)
     #self.gmsh.option.setNumber("Mesh.QualityType",2);
 
-def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '', bc_ids = [], ref_obj_override=None):
+def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '', bc_ids = [], ref_obj_override=None, min_size=None):
     gmsh.initialize()
     mesh_Settings(gmsh)
 
@@ -108,6 +108,11 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     #assembly.map_physical_volume = map_objects
 
     gmsh.model.geo.synchronize()
+    if min_size is not None:
+        ent = gmsh.model.getEntities()
+        gmsh.model.occ.synchronize()
+        gmsh.option.set_number("Mesh.MeshSizeMin", min_size)
+
     gmsh.write("inner_domain.geo_unrolled")
     gmsh.model.mesh.generate(3)
 
