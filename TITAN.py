@@ -31,6 +31,7 @@ from Structural import structural
 from pathlib import Path
 
 def loop(options = [], titan = []):
+
     """Simulation loop for time propagation
 
     The function calls the different modules to perform
@@ -55,28 +56,50 @@ def loop(options = [], titan = []):
 
     if options.structural_dynamics:
         print("Structural dynamics selected: still requiring further validation")
-    #    exit("Structural dynamics is currently under development")
 
     options.current_iter = titan.iter
     options.user_time    = options.dynamics.time_step
 
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
-        titan.assembly[0].mass = options.vehicle.mass   
+        titan.assembly[0].mass = options.vehicle.mass
 
-    if options.dynamic_plots: plot = dynamic_plots.initialise_figs(titan, options)
-    if options.postproc_in_loop is not None: 
+
+    # Apply commands at t=0 so initial output/visualisation starts consistent
+    if hasattr(titan, "controlsystem") and titan.controlsystem is not None:
+        titan.controlsystem.step(titan, options)
+        for ass in titan.assembly:
+            ass.update_geometry()
+    # -----------------------------------------------------------
+
+    if options.dynamic_plots:
+        plot = dynamic_plots.initialise_figs(titan, options)
+
+    if options.postproc_in_loop is not None:
         import numpy as np
         import pandas as pd
         import os
         pp_existing = np.array([])
-        i_time=0
+        i_time = 0
+        
     while titan.iter < options.iters:
+
+        # 1) Apply commanded deflections for this time/iter
+        if hasattr(titan, "controlsystem") and titan.controlsystem is not None:
+            titan.controlsystem.step(titan, options)
+
+        # 2) Apply those deflections to the assembly mesh
+        for ass in titan.assembly:
+            ass.update_geometry()
+
+        # 3) Now proceed with everything else using the updated geometry
         options.high_fidelity_flag = False
 
         fragmentation.fragmentation(titan = titan, options = options)
 
-        if not titan.assembly: return      
+        if not titan.assembly:
+            return
+
 
         if options.time_counter>0:
             options.dynamics.time_step = options.collision.post_fragmentation_timestep

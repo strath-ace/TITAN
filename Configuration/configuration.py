@@ -27,6 +27,7 @@ import pickle
 import copy
 from Geometry import component as Component
 from Geometry import assembly as Assembly
+from Control.controlsystem import ControlSystem
 from Dynamics import dynamics, propagation
 from Dynamics import collision
 from Output import output
@@ -1010,6 +1011,128 @@ def read_geometry(configParser, options):
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), 
                                              fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, 
                                              options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha) 
+                    
+                if object_type == 'ControlSurface':
+
+                    object_path = path + [s for s in value if "name=" in s.lower()][0].split("=")[1]
+                    material    = [s for s in value if "material=" in s.lower()][0].split("=")[1]
+
+                    try:
+                        enclosure = int([s for s in value if "enclosure=" in s.lower()][0].split("=")[1])
+                    except:
+                        enclosure = 0
+
+                    try:
+                        inner_stl_file = [s for s in value if "inner_stl=" in s.lower()][0].split("=")[1]
+                    except:
+                        inner_stl_file = 'none'
+
+                    if inner_stl_file not in ('None', 'none'):
+                        inner_path = path + inner_stl_file
+                    else:
+                        inner_path = ''
+
+                    try:
+                        trigger_type  = [s for s in value if "trigger_type=" in s.lower()][0].split("=")[1]
+                        trigger_value = [s for s in value if "trigger_value=" in s.lower()][0].split("=")[1]
+                    except:
+                        trigger_type  = ""
+                        trigger_value = 0
+
+                    try:
+                        fenics_bc_id = [s for s in value if "fenics_id=" in s.lower()][0].split("=")[1]
+                    except:
+                        fenics_bc_id = None
+
+                    try:
+                        temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
+                    except:
+                        temperature = 300
+
+                    # ---------------- tuple parsing for AXIS / ORIGIN ----------------
+                    def parse_tuple(tokens, keyname, default=(0.0, 0.0, 0.0)):
+                        """
+                        Extract numeric tuple from tokens like:
+                            AXIS=(0,0,1)
+                            ORIGIN=(-12.0, 10.25, 2.0)
+                        even when tokenised as:
+                            ['AXIS=(0', '0', '1)']
+                        """
+                        out = []
+                        found = False
+
+                        for t in tokens:
+                            tl = t.lower()
+                            if tl.startswith(keyname):
+                                # token may be "axis=(0" or "axis=(0,0,1)"
+                                if "=" in t:
+                                    t = t.split("=", 1)[1]
+                                found = True
+
+                            if found:
+                                out.append(t)
+                                if t.endswith(")"):
+                                    break
+
+                        if not found:
+                            return list(default)
+
+                        combined = " ".join(out)
+                        combined = combined.replace("(", "").replace(")", "").strip()
+
+                        # split on comma OR whitespace (handles "0 0 1" and "0,0,1")
+                        parts = combined.replace(",", " ").split()
+                        if len(parts) != 3:
+                            return list(default)
+
+                        return [float(x) for x in parts]
+
+                    hinge_axis   = parse_tuple(value, "axis",   default=(0.0, 0.0, 1.0))
+                    hinge_origin = parse_tuple(value, "origin", default=(0.0, 0.0, 0.0))
+                    # ----------------------------------------------------------------
+
+                    # DEFLECTION in config is degrees -> radians
+                    try:
+                        deflection_deg = float([s.split("=")[1] for s in value if "deflection=" in s.lower()][0])
+                        deflection = np.radians(deflection_deg)
+                    except:
+                        deflection = 0.0
+
+                    # LIMITS in config are degrees -> radians
+                    try:
+                        lim_str = [s for s in value if "limits=" in s.lower()][0].split("=")[1]
+                        lims_deg = [float(x) for x in lim_str.strip("()").split(",")]
+                        deflection_limits = tuple(np.radians(x) for x in lims_deg)
+                        if len(deflection_limits) != 2:
+                            raise ValueError
+                    except:
+                        deflection_limits = (np.radians(-30.0), np.radians(30.0))
+
+                    bloom = [False, 0, 0, 0]
+                    try:
+                        for s in value:
+                            if 'bloom' in s.lower():
+                                bloom = s.split('=')[1].strip('()').split(';')
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]
+                    except:
+                        bloom = [False, 0, 0, 0]
+
+                    objects.insert_control_surface(
+                        filename=object_path,
+                        file_type=object_type,
+                        inner_stl=inner_path,
+                        hinge_axis=hinge_axis,
+                        hinge_origin=hinge_origin,
+                        deflection=deflection,
+                        deflection_limits=deflection_limits,
+                        material=material,
+                        temperature=temperature,
+                        options=options,
+                        global_ID=obj_global_ID,
+                        bloom_config=bloom,
+                        enclosure=enclosure,
+                        alpha=alpha,
+                    )
 
 
                 print('bloom:', bloom)
@@ -1308,6 +1431,21 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)
+
+        # ----------------- CONTROL SYSTEM SETUP -----------------
+        control_file = get_config_value(configParser, "", "Control", "Command_file", "str")
+        control_mode = get_config_value(configParser, "time", "Control", "Mode", "str")          # "time" or "iter"
+        # control_degs = get_config_value(configParser, True, "Control", "Degrees", "boolean")    # True if CSV values are deg
+
+        if control_file:
+            titan.controlsystem = ControlSystem(
+                command_file=control_file,
+                mode=control_mode,
+            )
+        else:
+            titan.controlsystem = None
+        # --------------------------------------------------------
+
 
     if options.collision.flag:
         for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
