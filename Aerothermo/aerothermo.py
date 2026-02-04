@@ -445,8 +445,8 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
 
     #Number of subdivisions
     n = options.aerothermo.subdivision_triangle
-    flow_directions, groups, group_map = SoI_assembly_groups(assembly, 50)
-    if 1 in list(group_map.values()): print(group_map)
+    flow_directions, groups, group_map = SoI_assembly_groups(assembly, 10)
+
     for it, _assembly in enumerate(assembly):
         _assembly.aerothermo.heatflux *= 0
         _assembly.aerothermo.pressure *= 0
@@ -1652,16 +1652,16 @@ def SoI_assembly_groups(assembly_list : list, sphere_radius : float):
 
     for i_group in np.argsort(group_lengths)[::-1]:
         if np.all(assembly_in_group): break # If we've finished assigning assemblies to groups
-        # Otherwise assign the assemblies from the biggest group and delete any other groups they're in
-        if groupings[i_group] is not None:
+        # Otherwise assign the assemblies from the biggest group and remove them from other groups
+        if len(groupings[i_group])>0:
             group_ids.append(groupings[i_group])
             for assem_id in groupings[i_group]:
                 group_mapping[assem_id] = len(group_ids)-1
                 assembly_in_group[assem_id] = True
                 for group in groupings:
-                    if group is not None:
+                    if len(group)>0:
                         if (not group==groupings[i_group]) and (assem_id in group):
-                            groupings[groupings.index(group)] = None
+                            group.remove(assem_id)
 
     # Finally collect the actual assembly reference and compute a mean flow vector for the group
     assembly_groups = []

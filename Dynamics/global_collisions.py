@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
 from Dynamics.collision import update_and_check
-
+from Dynamics.quaternion_operations import *
 def construct_inv_mass_matrix(titan, ids):
 	'''
 	Builds and inverts the block diagonal mass matrix of collision participants
@@ -172,14 +172,18 @@ def global_collision_physics(titan, options, collision_data=None, correction_onl
 			
 			case 'baumgarte':
 				body.state_vector[3:6]   += v_corrective[6*i_body:6*i_body+3]
-				#body.state_vector[10:13] += R_body.inv().apply(v_corrective[6*i_body+3:6*i_body+6])
+				body.state_vector[10:13] += R_body.inv().apply(v_corrective[6*i_body+3:6*i_body+6])
 
 			case 'split':	
 				dx = titan.delta_t * v_corrective[6*i_body:6*i_body+3]
 				if options.verbose and np.any(abs(dx)>0): 
 					print('Correcting position of assembly {} by {}'.format(assem_index,dx))
 				body.state_vector[:3] += dx
+				omega_q = np.array([v_corrective[6*i_body+3], v_corrective[6*i_body+4], v_corrective[6*i_body+5], 0])
+				dq = 0.5 * quaternion_mult(body.state_vector[6:10], omega_q)
+				body.state_vector[6:10] += dq * titan.delta_t
 				
+
 		body.position = np.array(body.state_vector[:3])
 		body.velocity = np.array(body.state_vector[3:6])
 		body.quaternion = np.array(body.state_vector[6:10])

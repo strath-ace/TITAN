@@ -19,7 +19,7 @@
 #
 import numpy as np
 from Dynamics import euler, frames
-from Dynamics.propagation import quaternion_mult, quaternion_normalize
+from Dynamics.quaternion_operations import *
 from Freestream import gram
 import pymap3d
 from scipy.spatial.transform import Rotation as Rot
