@@ -168,7 +168,8 @@ def global_collision_physics(titan, options, collision_data=None, correction_onl
 			body.state_vector[10:13] += R_body.inv().apply(v_physical[6*i_body+3:6*i_body+6])
 
 		match correction_method.lower():
-			case 'none': return
+			case 'none': 
+				if recurse==0: return
 			
 			case 'baumgarte':
 				body.state_vector[3:6]   += v_corrective[6*i_body:6*i_body+3]
@@ -196,4 +197,4 @@ def global_collision_physics(titan, options, collision_data=None, correction_onl
 												  collision_data, 
 												  correction_only=True, 
 												  recurse=recurse-1,
-												  correction_method=options.collision.stabilisation_mode)
+												  correction_method=options.collision.stabilisation)
