@@ -472,6 +472,9 @@ class Freestream():
         #: Necessary for addition of relative velocity to mach number, calculated in aerothermo.py
         self.per_facet_mach = []
 
+        #: [float] Multiplier of density, used for seasonal variation, assigned by UQ mapping
+        self.density_mult = 1.0
+
 class GRAM():
 
     """ GRAM Class
@@ -692,7 +695,7 @@ class Options():
         #titan.high_fidelity_model = None 
         # titan.low_fidelity_model = None 
         
-        print("Saving state")
+        print("Saving state\n")
 
         if self.collision.flag:
             for assembly in titan.assembly:
@@ -1140,6 +1143,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.write_dense_solutions = get_config_value(configParser, False, 'Options','Dense_solutions', 'boolean' )
     options.postproc_in_loop = get_config_value(configParser, None, 'Options', 'Postprocess_in_loop','str')
     options.write_object_properties = get_config_value(configParser, False, 'Options', 'Write_object_properties', 'boolean')
+    options.verbose = get_config_value(configParser,False, 'Options','Debug_printout','boolean')
     options.time_counter   = 0
 
 

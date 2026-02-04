@@ -598,6 +598,6 @@ def options_information(options):
            """)
         
 def iteration(titan, options, show_flow_solves = False):
-    print(f"""  Iteration {titan.iter+1} of {options.iters} """)
+    print(f"""  Iteration {titan.iter+1} of {options.iters} """, flush=True)
     if titan.iter>0 and hasattr(titan,'nfeval') and show_flow_solves: 
-        print('Total of {} flow solves'.format(titan.nfeval))
+        print('Total of {} flow solves\n'.format(titan.nfeval))
