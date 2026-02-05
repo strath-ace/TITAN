@@ -64,12 +64,9 @@ def loop(options = [], titan = []):
     if options.vehicle:
         titan.assembly[0].mass = options.vehicle.mass
 
-
     # Apply commands at t=0 so initial output/visualisation starts consistent
-    if hasattr(titan, "controlsystem") and titan.controlsystem is not None:
-        titan.controlsystem.step(titan, options)
-        for ass in titan.assembly:
-            ass.update_geometry()
+    for ass in titan.assembly:
+        ass.update_geometry()
     # -----------------------------------------------------------
 
     if options.dynamic_plots:

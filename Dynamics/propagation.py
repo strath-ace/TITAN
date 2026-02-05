@@ -56,8 +56,18 @@ def propagate(titan, options):
     for _assembly, sol in zip(titan.assembly, surface_solutions): 
         _assembly.prev_surf_data = deepcopy(sol.cell_data)
 
+    if getattr(titan, "controlsystem", None) is not None:
+        titan.controlsystem.step(titan, options)
+    
+    # NEW: advance jet actuator dynamics once per global step
+    for ass in titan.assembly:
+        if hasattr(ass, "jet_system") and ass.jet_system is not None:
+            ass.jet_system.step(time_step)
+
     # Propagate according to propagator function...
     new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,state_vectors_prior,derivatives_prior,time_step,titan,options)
+
+
     # Update prior derivatives
     if new_derivs is not None: append_derivatives(titan,options,new_derivs)
     # Total angular distance (unmodded) is useful for 6DoF propagation stability analysis
@@ -108,6 +118,7 @@ def state_equation(titan,options,time,state_vectors):
     aero_states = [copy(_assembly.aerothermo) for _assembly in titan.assembly]
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
+    forces.compute_jet_forces(titan, options)
 
     # Then determine the necessary derivatives to return the state vector(s)
     d_dt_state_vectors = []

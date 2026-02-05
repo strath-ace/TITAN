@@ -1162,6 +1162,165 @@ def read_initial_conditions(titan, options, configParser):
             titan.assembly[i-1].yaw_vel   = value[2]*np.pi/180.0
     return
 
+def _parse_tuple_from_tokens(tokens, keyname, default=(0.0, 0.0, 0.0)):
+    """
+    Extract numeric tuple from tokens like ORIGIN=(0,0,1) even when tokenised as:
+        ['ORIGIN=(0', '0', '1)']
+    tokens are assumed to have had spaces removed.
+    """
+    out = []
+    found = False
+    keyname = keyname.lower()
+
+    for s in tokens:
+        s_low = s.lower()
+        if s_low.startswith(keyname):
+            if "=" in s:
+                s = s.split("=", 1)[1]
+            found = True
+
+        if found:
+            out.append(s)
+            if s.endswith(")"):
+                break
+
+    if not found:
+        return list(default)
+
+    combined = " ".join(out).replace("(", "").replace(")", "").strip()
+    raw = combined.replace(",", " ").split()
+    vals = [float(x) for x in raw]
+    if len(vals) != 3:
+        return list(default)
+    return vals
+
+def _parse_tuple_from_tokens(tokens, keyname, default=(0.0, 0.0, 0.0)):
+    out = []
+    found = False
+    keyname = keyname.lower()
+
+    for s in tokens:
+        s_low = s.lower()
+        if s_low.startswith(keyname):
+            if "=" in s:
+                s = s.split("=", 1)[1]
+            found = True
+
+        if found:
+            out.append(s)
+            if s.endswith(")"):
+                break
+
+    if not found:
+        return list(default)
+
+    combined = " ".join(out).replace("(", "").replace(")", "").strip()
+    parts = combined.replace(",", " ").split()
+    if len(parts) != 3:
+        return list(default)
+    return [float(x) for x in parts]
+
+
+def read_jets(configParser, titan, options):
+    if not configParser.has_section("Jets"):
+        for ass in titan.assembly:
+            ass.jets = []
+            ass.jet_system = None
+        return
+
+    from Control.jets import Jet, JetSystem
+
+    # Ensure attributes exist
+    for ass in titan.assembly:
+        ass.jets = []
+        ass.jet_system = None
+
+    # Helper: match by object stem name (same as ControlSystem._name_matches)
+    def _match_parent_name(target_name: str, obj_name: str) -> bool:
+        t = target_name.strip().lower()
+        base = obj_name.split("/")[-1].split("\\")[-1]
+        stem = base.split(".")[0].lower()
+        return (t == stem) or (t == base.lower())
+
+    for jet_name, value in configParser.items("Jets"):
+        tokens = value.replace("[", "").replace("]", "").replace(" ", "").split(",")
+
+        # Required: parent object name (e.g. Cube)
+        try:
+            parent = [s for s in tokens if "parent=" in s.lower()][0].split("=")[1]
+        except Exception:
+            parent = None
+
+        # Parse POS and DIR (support aliases)
+        pos = _parse_tuple_from_tokens(tokens, "pos", default=(0.0, 0.0, 0.0))
+        if pos == [0.0, 0.0, 0.0]:
+            # allow ORIGIN as alias
+            pos = _parse_tuple_from_tokens(tokens, "origin", default=(0.0, 0.0, 0.0))
+
+        direc = _parse_tuple_from_tokens(tokens, "dir", default=(0.0, 0.0, 0.0))
+        if direc == [0.0, 0.0, 0.0]:
+            # allow DIRECTION as alias
+            direc = _parse_tuple_from_tokens(tokens, "direction", default=(0.0, 0.0, 0.0))
+
+        try:
+            tmax = float([s for s in tokens if "tmax=" in s.lower()][0].split("=")[1])
+        except Exception:
+            tmax = 0.0
+
+        try:
+            isp = float([s for s in tokens if "isp=" in s.lower()][0].split("=")[1])
+        except Exception:
+            isp = None
+
+        try:
+            group = [s for s in tokens if "group=" in s.lower()][0].split("=")[1]
+        except Exception:
+            group = None
+
+        jet = Jet(
+            name=jet_name,
+            position_B=pos,
+            direction_B=direc,
+            thrust_max_N=tmax,
+            isp=isp,
+            group=group,
+        )
+
+        if np.linalg.norm(jet.direction_B) < 1e-9:
+            raise ValueError(f"Jet '{jet_name}' has zero DIR after parsing: DIR={direc} tokens={tokens}")
+
+
+        # Attach to the assembly that contains the parent object
+        attached = False
+        if parent is not None:
+            for ass in titan.assembly:
+                for obj in ass.objects:
+                    if _match_parent_name(parent, obj.name):
+                        ass.jets.append(jet)
+                        attached = True
+                        break
+                if attached:
+                    break
+
+        if not attached:
+            raise ValueError(f"Jet '{jet_name}' could not attach: PARENT='{parent}' not found in any assembly objects.")
+
+    # Build JetSystem(s)
+    for ass in titan.assembly:
+        if ass.jets:
+            ass.jet_system = JetSystem(ass.jets, tank=None)
+
+            # auto-groups from jet.group (if present)
+            groups = {}
+            for j in ass.jets:
+                if j.group:
+                    groups.setdefault(str(j.group).strip().lower(), []).append(j.name)
+            for g, names in groups.items():
+                ass.jet_system.add_group(g, names)
+
+
+
+
 
 def read_config_file(configParser, postprocess = "", emissions = ""):
     """
@@ -1422,6 +1581,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         
         #Reads the Initial pitch/yaw/roll 
         read_initial_conditions(titan, options, configParser)
+
+        #Read the Jets information
+        read_jets(configParser, titan, options)
 
         #Computes the quaternion and cartesian for the initial position
         for assembly in titan.assembly:

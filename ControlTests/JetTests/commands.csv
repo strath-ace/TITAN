@@ -1,0 +1,15 @@
+time_s,type,name,field,value,units
+1.0,jet,Roll_Jet_1_pos,thrust,1000000,N
+1.0,jet,Roll_Jet_2_pos,thrust,1000000,N
+2.0,jet,Roll_Jet_1_pos,thrust,0,N
+2.0,jet,Roll_Jet_2_pos,thrust,0,N
+
+3.0,jet,Roll_Jet_1_neg,thrust,1000000,N
+3.0,jet,Roll_Jet_2_neg,thrust,1000000,N
+5.0,jet,Roll_Jet_1_neg,thrust,0,N
+5.0,jet,Roll_Jet_2_neg,thrust,0,N
+
+6.0,jet,Roll_Jet_1_pos,thrust,1000000,N
+6.0,jet,Roll_Jet_2_pos,thrust,1000000,N
+7.0,jet,Roll_Jet_1_pos,thrust,0,N
+7.0,jet,Roll_Jet_2_pos,thrust,0,N

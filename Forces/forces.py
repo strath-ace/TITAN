@@ -143,3 +143,43 @@ def compute_inertial_forces(assembly, options):
 
 def compute_coefficients(todo):
     pass
+
+def reset_body_forces(titan):
+    """
+    Ensure we start each iteration from a clean slate.
+    Call once per iteration before accumulating aero/jet/etc.
+    """
+    for assembly in titan.assembly:
+        assembly.body_force.force = np.zeros((3, 1))
+        assembly.body_force.moment = np.zeros((3, 1))
+
+
+def compute_jet_forces(titan, options):
+    for ass in titan.assembly:
+        if not hasattr(ass, "jet_system") or ass.jet_system is None:
+            print(f"[JETS][DBG] ass={ass.id} has no jet_system")
+            continue
+
+        if not ass.jet_system.jets:
+            print(f"[JETS][DBG] ass={ass.id} jet_system has 0 jets")
+            continue
+
+        # show per-jet thrust every step (temporary)
+        for k, j in ass.jet_system.jets.items():
+            print(
+                f"[JETS][DBG] t={titan.time:.3f} ass={ass.id} jet={j.name} "
+                f"T={j.thrust_N} Tmax={j.thrust_max_N} dir={j.direction_B} |dir|={np.linalg.norm(j.direction_B):.6g}"
+            )
+
+
+        dt = options.dynamics.time_step
+        ass.jet_system.step(dt)
+
+        Fjet, Mjet = ass.jet_system.net_force_moment_B(ass.COG)
+        Fjet = np.asarray(Fjet, dtype=float).reshape(3)
+        Mjet = np.asarray(Mjet, dtype=float).reshape(3)
+
+        print(f"[JETS] t={titan.time:.3f} ass={ass.id} Fjet={Fjet} Mjet={Mjet}")
+
+        ass.body_force.force  = ass.body_force.force.reshape(3) + Fjet
+        ass.body_force.moment = ass.body_force.moment.reshape(3) + Mjet
