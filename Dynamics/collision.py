@@ -542,20 +542,41 @@ def update_and_check(titan, options, dt):
 				collided = False
 				new_depths = []
 				for _data in data:
-					depth.append(_data._depth)
-					new_depths.append(_data.depth)
 					# Not exactly sure what a collision with one object is but I think we want to avoid it
-					if len(_data.names)>1: collided=True
+					if len(_data.names)>1:
+						depth.append(_data._depth)
+						new_depths.append(_data.depth)
+						collided=True
 				if collided:
-					ind = np.argmax(new_depths)
-					collision_data["assembly"].append([index_i,index_j])
-					collision_data["names"].append(list(data[ind].names))
-					collision_data["index"].append([data[ind]._inds[collision_data["names"][-1][0]], data[ind]._inds[collision_data["names"][-1][1]]])
-					collision_data["contact_point"].append(data[ind]._point)
-					collision_data["normal"].append(data[ind]._normal)
-					collision_data["depth"].append(data[ind]._depth)
+					#ind = np.argmax(new_depths)
+					n_contacts = 50 # This is to a certain extent a tuning parameter, reccommend not going below 3 though
+					for ind in np.argsort(new_depths)[:-n_contacts-1:-1]:
+						collision_data["assembly"].append([index_i,index_j])
+						collision_data["names"].append(list(data[ind].names))
+						collision_data["index"].append([data[ind]._inds[collision_data["names"][-1][0]], data[ind]._inds[collision_data["names"][-1][1]]])
+						collision_data["contact_point"].append(data[ind]._point)
+						collision_data["normal"].append(data[ind]._normal)
+						collision_data["depth"].append(data[ind]._depth)
 
 	return collided, depth, collision_data
+
+def updated_fixed_contacts(titan, options, dt, collision_data):
+	update_collision_mesh_time(titan, options, dt)
+	for i_col in range(len(collision_data['contact_point'])):
+		iA, iB = collision_data["assembly"][i_col]
+		flag, data = titan.assembly[iA].collision.collision_handler.in_collision_other(titan.assembly[iB].collision.collision_handler, return_names = False, return_data = True)
+		
+		new_depths = []
+		for _data in data: new_depths.append(_data._depth)
+		if len(new_depths)>0:
+			ind = np.argmax(new_depths)
+
+			collision_data['contact_point'][i_col] = data[ind]._point
+			collision_data['normal'][i_col] = data[ind]._normal
+			collision_data['depth'][i_col] = data[ind]._depth
+		else:
+			collision_data['depth'][i_col] = -1
+	return collision_data
 
 def compute_time_resolution(titan, options, distance_resolution = 1e-6):
 	'''
