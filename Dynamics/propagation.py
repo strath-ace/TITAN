@@ -60,6 +60,12 @@ def propagate(titan, options):
     time_step = options.dynamics.time_step if not hasattr(titan,'rk_adapt') else options.dynamics.dt_max
     if options.collision.flag and len(titan.assembly)>1:
         #Check collision for future time intervals with respect to current time-step velocity
+        if hasattr(titan, 'body_length_dt'): 
+            time_step = copy(titan.body_length_dt)
+            del titan.body_length_dt
+        elif np.any(np.array([len(group) for group in titan.groups])>1):
+            minLref = np.min([_assembly.Lref for _assembly in titan.assembly])
+            time_step = collision.compute_time_resolution(titan, options, minLref)
         time_to_impact = collision.find_ToI_timestep(titan, options, time_step)
         time_step = time_to_impact
     
@@ -223,40 +229,40 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
         assembly.aoa = np.arctan2(Vz_B,Vx_B)
         #if options.vehicle: assembly.aoa = 0
         assembly.slip = np.arcsin(Vy_B/np.sqrt(Vx_B**2 + Vy_B**2 +  Vz_B**2))
-        if return_output_array:
-            try: 
-                angular_momentum = assembly.inertia @ np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel] )
-                momentum_norm = np.linalg.norm(angular_momentum)
-                output_array  = np.array([assembly.id,assembly.mass,assembly.trajectory.altitude,
-                                          assembly.trajectory.velocity,assembly.trajectory.gamma*180/np.pi,assembly.trajectory.chi*180/np.pi,
-                                          assembly.trajectory.latitude*180/np.pi,assembly.trajectory.longitude*180/np.pi,
-                                          assembly.aoa*180/np.pi,assembly.slip*180/np.pi,
-                                          assembly.position[0],assembly.position[1],assembly.position[2],
-                                          assembly.velocity[0],assembly.velocity[1],assembly.velocity[2],
-                                          assembly.COG[0],assembly.COG[1],assembly.COG[2],
-                                          assembly.roll*180/np.pi,assembly.pitch*180/np.pi,assembly.yaw*180/np.pi,
-                                          assembly.unmodded_angles[0]*180/np.pi,assembly.unmodded_angles[1]*180/np.pi,assembly.unmodded_angles[2]*180/np.pi, 
-                                          assembly.roll_vel*180/np.pi,assembly.pitch_vel*180/np.pi,assembly.yaw_vel*180/np.pi,
-                                          np.linalg.norm([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])*180/np.pi,
-                                          angular_momentum[0], angular_momentum[1], angular_momentum[2], momentum_norm,
-                                          assembly.quaternion[3],assembly.quaternion[0],assembly.quaternion[1],assembly.quaternion[2]])
-            except: 
-                angular_momentum = np.zeros(3)
-                momentum_norm = 0
-                output_array  = np.array([assembly.id,assembly.mass,assembly.trajectory.altitude,
-                            assembly.trajectory.velocity,assembly.trajectory.gamma*180/np.pi,assembly.trajectory.chi*180/np.pi,
-                            assembly.trajectory.latitude*180/np.pi,assembly.trajectory.longitude*180/np.pi,
-                            assembly.aoa*180/np.pi,assembly.slip*180/np.pi,
-                            assembly.position[0],assembly.position[1],assembly.position[2],
-                            assembly.velocity[0],assembly.velocity[1],assembly.velocity[2],
-                            assembly.COG[0],assembly.COG[1],assembly.COG[2],
-                            assembly.roll*180/np.pi,assembly.pitch*180/np.pi,assembly.yaw*180/np.pi,
-                            assembly.unmodded_angles[0]*180/np.pi,assembly.unmodded_angles[1]*180/np.pi,assembly.unmodded_angles[2]*180/np.pi, 
-                            assembly.roll_vel*180/np.pi,assembly.pitch_vel*180/np.pi,assembly.yaw_vel*180/np.pi,
-                            np.linalg.norm([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])*180/np.pi,
-                            angular_momentum[0], angular_momentum[1], angular_momentum[2], momentum_norm,
-                            assembly.quaternion[3],assembly.quaternion[0],assembly.quaternion[1],assembly.quaternion[2]])
-            finally: return output_array
+    if return_output_array:
+        try: 
+            angular_momentum = assembly.inertia @ np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel] )
+            momentum_norm = np.linalg.norm(angular_momentum)
+            output_array  = np.array([assembly.id,assembly.mass,assembly.trajectory.altitude,
+                                        assembly.trajectory.velocity,assembly.trajectory.gamma*180/np.pi,assembly.trajectory.chi*180/np.pi,
+                                        assembly.trajectory.latitude*180/np.pi,assembly.trajectory.longitude*180/np.pi,
+                                        assembly.aoa*180/np.pi,assembly.slip*180/np.pi,
+                                        assembly.position[0],assembly.position[1],assembly.position[2],
+                                        assembly.velocity[0],assembly.velocity[1],assembly.velocity[2],
+                                        assembly.COG[0],assembly.COG[1],assembly.COG[2],
+                                        assembly.roll*180/np.pi,assembly.pitch*180/np.pi,assembly.yaw*180/np.pi,
+                                        assembly.unmodded_angles[0]*180/np.pi,assembly.unmodded_angles[1]*180/np.pi,assembly.unmodded_angles[2]*180/np.pi, 
+                                        assembly.roll_vel*180/np.pi,assembly.pitch_vel*180/np.pi,assembly.yaw_vel*180/np.pi,
+                                        np.linalg.norm([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])*180/np.pi,
+                                        angular_momentum[0], angular_momentum[1], angular_momentum[2], momentum_norm,
+                                        assembly.quaternion[3],assembly.quaternion[0],assembly.quaternion[1],assembly.quaternion[2]])
+        except: 
+            angular_momentum = np.zeros(3)
+            momentum_norm = 0
+            output_array  = np.array([assembly.id,assembly.mass,assembly.trajectory.altitude,
+                        assembly.trajectory.velocity,assembly.trajectory.gamma*180/np.pi,assembly.trajectory.chi*180/np.pi,
+                        assembly.trajectory.latitude*180/np.pi,assembly.trajectory.longitude*180/np.pi,
+                        assembly.aoa*180/np.pi,assembly.slip*180/np.pi,
+                        assembly.position[0],assembly.position[1],assembly.position[2],
+                        assembly.velocity[0],assembly.velocity[1],assembly.velocity[2],
+                        assembly.COG[0],assembly.COG[1],assembly.COG[2],
+                        assembly.roll*180/np.pi,assembly.pitch*180/np.pi,assembly.yaw*180/np.pi,
+                        assembly.unmodded_angles[0]*180/np.pi,assembly.unmodded_angles[1]*180/np.pi,assembly.unmodded_angles[2]*180/np.pi, 
+                        assembly.roll_vel*180/np.pi,assembly.pitch_vel*180/np.pi,assembly.yaw_vel*180/np.pi,
+                        np.linalg.norm([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])*180/np.pi,
+                        angular_momentum[0], angular_momentum[1], angular_momentum[2], momentum_norm,
+                        assembly.quaternion[3],assembly.quaternion[0],assembly.quaternion[1],assembly.quaternion[2]])
+        return output_array
     return assembly
 
 def construct_state_vector(assembly):

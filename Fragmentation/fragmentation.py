@@ -678,6 +678,10 @@ def fragmentation(titan, options):
             if length_assembly < len(titan.assembly): 
                 options.time_counter = options.collision.post_fragmentation_iters
 
+            ## Force minimum 1-body length timestep
+            min_Lref = np.min([_assembly.Lref for _assembly in titan.assembly])        
+            max_V = np.max([np.linalg.norm(_assembly.velocity) for _assembly in titan.assembly])
+            titan.body_length_dt = min_Lref/max_V
         output.generate_volume(titan = titan, options = options)
 
 

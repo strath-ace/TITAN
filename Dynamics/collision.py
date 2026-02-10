@@ -586,7 +586,7 @@ def compute_time_resolution(titan, options, distance_resolution = 1e-6):
 	:param options: Object of class Options
 	:param distance_resolution: Maximal allowable distance error
 	'''
-	max_V = 0
+	max_V = 1e-6
 	for i_assembly, _assembly_A in enumerate(titan.assembly):
 		for j_assembly, _assembly_B in enumerate(titan.assembly):
 			if j_assembly<=i_assembly: continue

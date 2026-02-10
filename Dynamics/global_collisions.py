@@ -170,11 +170,11 @@ def global_collision_physics(titan, options, collision_data=None, correction_onl
 													 collision_data)
 	
 	Minv_at_JT = Minv @ J_new.T
-	A = J @ Minv_at_JT
+	A  = J_new @ Minv_at_JT
 	A += np.eye(np.shape(A)[0])*1e-8
 	
 	corrective_impulse = PGS_solve(A, b_correction)
-	v_corrective = Minv_at_JT @ corrective_impulse
+	v_corrective = -(Minv_at_JT @ corrective_impulse)
 
 	impulse_update(options, ids, correction_method=correction_method, correction_only=True,
 				   titan=titan, v_corrective = v_corrective)
@@ -215,6 +215,7 @@ def impulse_update(options, ids, correction_method='split', correction_only=Fals
 				omega_q = np.array([v_corrective[6*i_body+3], v_corrective[6*i_body+4], v_corrective[6*i_body+5], 0])
 				dq = 0.5 * quaternion_mult(body.state_vector[6:10], omega_q)
 				body.state_vector[6:10] += dq * titan.delta_t
+				body.state_vector[6:10] = quaternion_normalize(body.state_vector[6:10])
 		
 		body.position = np.array(body.state_vector[:3])
 		body.velocity = np.array(body.state_vector[3:6])

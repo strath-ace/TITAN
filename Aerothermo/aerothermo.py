@@ -327,7 +327,7 @@ def compute_aerothermo(titan, options):
         mix_properties.compute_stagnation(assembly.freestream, options.freestream)
 
     if options.fidelity.lower() == 'low':
-        compute_low_fidelity_aerothermo(titan.assembly, options, titan.iter)
+        titan.groups = compute_low_fidelity_aerothermo(titan.assembly, options, titan.iter)
     elif options.fidelity.lower() == 'high':
 
         if  (assembly.freestream.knudsen <= options.aerothermo.knc_pressure):
@@ -446,7 +446,7 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
     #Number of subdivisions
     n = options.aerothermo.subdivision_triangle
     flow_directions, groups, group_map = SoI_assembly_groups(assembly, 10)
-
+    
     for it, _assembly in enumerate(assembly):
         _assembly.aerothermo.heatflux *= 0
         _assembly.aerothermo.pressure *= 0
@@ -473,6 +473,7 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
         #if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture, index)
         #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
+    return groups
 
 
 def edge_subdivision(v0,v1,v2, n):
