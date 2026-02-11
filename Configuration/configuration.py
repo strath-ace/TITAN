@@ -802,11 +802,11 @@ def read_config_file(configParser, postprocess = ""):
         options.gram.day = get_config_value(configParser, options.gram.day, 'GRAM', 'Day', 'str')
         options.gram.hour = get_config_value(configParser, options.gram.hour, 'GRAM', 'Hour', 'int')
         options.gram.minute = get_config_value(configParser, options.gram.minute, 'GRAM', 'Minute', 'int')
-        options.gram.seconds = get_config_value(configParser, options.gram.second, 'GRAM', 'Seconds', 'float')
+        options.gram.seconds = get_config_value(configParser, options.gram.seconds, 'GRAM', 'Seconds', 'float')
 
     #Read Planet
     options.planet = planet.ModelPlanet(get_config_value(configParser, "Earth", 'Model', 'Planet', 'str'))
-
+    print(options.planet)
     #Read Vehicle
     vehicleFlag = get_config_value(configParser, False, 'Model', 'Vehicle', 'boolean')
     if vehicleFlag:

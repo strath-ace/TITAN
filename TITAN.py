@@ -61,6 +61,7 @@ def loop(options = [], titan = []):
 
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
+        print(options.vehicle.mass)
         titan.assembly[0].mass = options.vehicle.mass
 
     while titan.iter < options.iters:

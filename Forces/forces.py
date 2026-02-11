@@ -39,6 +39,7 @@ def compute_aerodynamic_forces(titan, options):
         for assembly in titan.assembly:
             Aref = options.vehicle.Aref
             Cd = options.vehicle.Cd(assembly.freestream.mach)
+            print(Aref, assembly.freestream.mach, Cd, assembly.freestream.velocity, assembly.freestream.density)
             drag = 0.5 *  Aref * Cd * assembly.freestream.density * assembly.freestream.velocity ** 2
 
             assembly.wind_force.drag = drag
