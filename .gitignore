@@ -1,9 +1,13 @@
+# =========================
 # Python
+# =========================
 __pycache__/
 *.pyc
 *.pyo
 
+# =========================
 # Simulation outputs
+# =========================
 TITAN_sol/
 MarsProfile/
 Perseverance_2021_Entry/
@@ -11,13 +15,24 @@ Titan_Atmosphere_Test/
 Venus_Atmosphere_Test/
 simulation/
 
+# =========================
 # Executables
+# =========================
 Executables/
 
-# Config local files
+# =========================
+# Config / Local files
+# =========================
 config.json
 config.cfg
+launch.json
+settings.json
+link*.cfg
 
-# Images and plots
+# =========================
+# Generated / Misc
+# =========================
 *.png
 *.csv
+*.xml
+

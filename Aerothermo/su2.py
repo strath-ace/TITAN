@@ -71,7 +71,6 @@ class Solver():
 
             N2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N2','He','Ar','H']])),5))
             O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O2']])),5))
-
             #: [str] Gas Composition
             self.gas_composition = 'GAS_COMPOSITION= (' + N + ','  + O + ',' + NO + ',' + N2 + ',' + O2 + ')'
 
@@ -186,6 +185,9 @@ class Solver_Numerical_Method():
         #[str] Adaptive CFL boolean (Default is NO)
         self.cfl_adapt = "CFL_ADAPT = NO"
 
+        #Parameters of the adaptive CFL number (factor down, factor up, CFL min value,CFL max value )
+        self.cfl_adapt_param = "CFL_ADAPT_PARAM= ( 0.05, 1.025, 0.01, 0.95 )"
+
         #[str] Maximum number of iterations
         self.iter = "ITER = " + str(su2.iters)
 
@@ -263,7 +265,7 @@ class Solver_Input_Output():
 
         #: [str] Name of the volume solution filename to write the simulation data
         self.output_vol = "VOLUME_FILENAME= "+output_folder+"/CFD_sol/flow_"+ str(iteration) + '_adapt_' + str(it) + '_cluster_'+str(cluster_tag)
-
+        self.ouptut_res = "VOLUME_OUTPUT= SOLUTION,PRIMITIVE,RESIDUAL"
         #: [str] Name of the surface solution filename to write the simulation data
         self.output_surf = "SURFACE_FILENAME= "+output_folder+"/CFD_sol/surface_flow_"+ str(iteration) + '_adapt_' + str(it) + '_cluster_'+str(cluster_tag)
 
@@ -271,7 +273,10 @@ class Solver_Input_Output():
         self.output_freq = "OUTPUT_WRT_FREQ= 500"
 
         #: [str] Screen output
-        self.screen = "SCREEN_OUTPUT= (INNER_ITER, WALL_TIME, FORCE_X, FORCE_Y, FORCE_Z, MOMENT_X, MOMENT_Y, MOMENT_Z)"
+        self.screen = "SCREEN_OUTPUT= (INNER_ITER,WALL_TIME, RMS_RES, CAUCHY, AVG_CFL)"
+        self.conv_filename= 'CONV_FILENAME = '+output_folder+"/CFD_sol/history" + str(iteration) + '_adapt_' + str(it) + ".csv"
+
+        self.history_output= "HISTORY_OUTPUT= ITER, RMS_RES, LIFT, DRAG, CAUCHY, AVG_CFL"
 
 class SU2_Config():
     """ Class SU2 Configuration
@@ -543,10 +548,10 @@ def run_SU2(n, options):
 
     options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run([path+'/Executables/mpirun_SU2','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    subprocess.run(['mpirun','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
 
 
-def generate_BL(assembly, options, it, cluster_tag):
+def generate_BL(assembly, options, it, cluster_tag, iteration):
     """
     Generates a Boundary Layer
 
@@ -563,7 +568,9 @@ def generate_BL(assembly, options, it, cluster_tag):
     """
 
     if options.bloom.flag:
-        bloom.generate_BL(it, options, num_obj = len(assembly), bloom = options.bloom, input_grid ='Domain_'+str(it)+'_cluster_'+str(cluster_tag) , output_grid = 'Domain_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
+        bloom.generate_BL_CFD(it, options, num_obj = len(assembly), bloom = options.bloom, 
+                              input_grid  = 'Domain_iter_'+str(iteration)+'_adapt_'+str(it)+'_cluster_'+str(cluster_tag) , 
+                              output_grid = 'Domain_iter_'+str(iteration)+'_adapt_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
     
 def adapt_mesh(assembly, options, it, cluster_tag, iteration):
     """
@@ -584,9 +591,7 @@ def adapt_mesh(assembly, options, it, cluster_tag, iteration):
     if options.amg.flag:
         amg.adapt_mesh(options.amg, iteration, options, j = it, num_obj = len(assembly),  input_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it)+'_cluster_'+str(cluster_tag), output_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
 
-
 def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
-
     """
     Compute the aerothermodynamic properties using the CFD software
 
@@ -738,28 +743,25 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
 
     if options.current_iter%options.save_freq == 0:
         options.save_state(titan, titan.iter, CFD = True)        
-
     #Automatically generates the CFD domain
     input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
     GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
 
+    #Automatically generates the CFD domain
+    input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
+    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
     #Generate the Boundary Layer (if flag = True)
-    generate_BL(assembly_list, options, 0, cluster_tag)
-
+    generate_BL(assembly_list, options, 0, cluster_tag, iteration)
     #Writes the configuration file
     it = 0
-    
     config = write_SU2_config(free, assembly_list, restart, it, iteration, su2, options, cluster_tag, input_grid = input_grid, bloom=False)
-    
     #Runs SU2 simulaton
     run_SU2(n, options)
-
     #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
     if options.amg.flag:
         run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)
 
     post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free)
-
 
 def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
     """
@@ -844,7 +846,6 @@ def post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, clu
 
     assembly_nodes.shape = (-1,3)
     assembly_nodes,idx_inv = np.unique(assembly_nodes, axis = 0, return_inverse = True)
-    
     #Reads the solution file and stores into the different assemblies
     total_aerothermo = read_vtk_from_su2_v2(options.output_folder+'/CFD_sol/surface_flow_'+str(iteration)+'_adapt_'+str(adapt_iter)+'_cluster_'+str(cluster_tag)+'.vtu', assembly_nodes, idx_inv, options, free)
     split_aerothermo(total_aerothermo, assembly_list)#        

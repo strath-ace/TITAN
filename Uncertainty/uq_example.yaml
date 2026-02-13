@@ -1,0 +1,43 @@
+## All UQ files must have 3 top level categories, parameters, distributions and outputs. 
+
+## Parameters must point to a single float value based upon the UQ_library and have a parameter code of the form...
+## [assembly_index (usually 0), distribution_index, index_in_distribution]
+
+## Distributions can be any continuous scipy.stats uni/multivariate distribution with necessary kwargs given
+## additionally the some special functions exist such as quat_rotation(d=4) for sampling unit quaternions
+
+## Outputs should be the names of outputs from data.csv and the list of objects to inspect
+## Can specify 'all' for all objects or 'survivors' for only objects that reach ground
+## Bonus options for outputs are as follows
+# - outputs:risk   -> report Altitude, Latitude, Longitude, Velocity, Mass, Kinetic_energy and Lref for all surviving fragment assemblies
+# - outputs:demise -> report Altitude, Mass, Temperature for all objects
+parameters:
+  ECEF_x: [0,0,0]
+  ECEF_y: [0,0,1]
+  ECEF_z: [0,0,2]
+  trigger__Joint.stl: [0,1,0]
+  quat_x: [0,2,0]
+  quat_y: [0,2,1]
+  quat_z: [0,2,2]
+  quat_w: [0,2,3]
+ 
+
+distributions:
+  0:
+    multivariate_normal:
+      mean: [-6040000, -6250000, -2330000]
+      cov: 
+        - [30625, 0,     0]
+        - [0,     30625, 0]
+        - [0,     0,     30625]
+  1: 
+    uniform:
+      loc: 73000
+      scale: 5000
+  2: 
+    quat_rotation:
+      d: 4
+
+outputs: 
+  Mass: Cube_A.stl
+  Altitude: Cube_B.stl

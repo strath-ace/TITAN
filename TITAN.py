@@ -21,10 +21,11 @@ import sys
 import configparser
 from argparse import ArgumentParser, RawTextHelpFormatter
 from Configuration import configuration
-from Output import output
-from Dynamics import dynamics
+from Output import output, dynamic_plots
+from Dynamics import dynamics, propagation
 from Fragmentation import fragmentation
 from Postprocess import postprocess as pp
+from Postprocess import postprocess_emissions as pp_emissions
 from Thermal import thermal
 from Structural import structural
 from pathlib import Path
@@ -61,14 +62,21 @@ def loop(options = [], titan = []):
 
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
-        print(options.vehicle.mass)
         titan.assembly[0].mass = options.vehicle.mass
 
+    if options.dynamic_plots: plot = dynamic_plots.initialise_figs(titan, options)
+    if options.postproc_in_loop is not None: 
+        import numpy as np
+        import pandas as pd
+        import os
+        pp_existing = np.array([])
+        i_time=0
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
 
         fragmentation.fragmentation(titan = titan, options = options)
-        if not titan.assembly: return
+
+        if not titan.assembly: return      
 
         if options.time_counter>0:
             options.dynamics.time_step = options.collision.post_fragmentation_timestep
@@ -76,34 +84,55 @@ def loop(options = [], titan = []):
         else:
             options.dynamics.time_step = options.user_time
 
-        dynamics.integrate(titan = titan, options = options)
-        output.generate_surface_solution(titan = titan, options = options)
+        if 'legacy' in options.dynamics.propagator: dynamics.integrate(titan = titan, options = options)
+        else:
+            propagation.propagate(titan = titan, options = options)
 
-        if options.ablation:
-            if options.ablation_mode == "tetra":
-                thermal.compute_thermal_tetra(titan = titan, options = options)
-            elif options.ablation_mode == "0d":
-                thermal.compute_thermal_0D(titan = titan, options = options)
-            else:
-                raise ValueError("Ablation Mode can only be 0D or Tetra")
+        if hasattr(titan,'end_trigger'): return
+        
+        if options.thermal.ablation:
+            thermal.compute_thermal(titan = titan, options = options)
 
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)
-
-        output.generate_surface_solution(titan = titan, options = options)
+            
+        if options.current_iter%options.output_freq == 0:
+            output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)         
         
         output.iteration(titan = titan, options = options)
+        
+        if options.dynamic_plots:
+            for _assembly in titan.assembly: plot = dynamic_plots.update_plot(_assembly, plot, titan.time)
+
+        if options.postproc_in_loop is not None:
+            if not os.path.exists(options.output_folder+'/Dense_surface_solution') and os.path.exists(options.output_folder+'/Data/data.csv'):
+                data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
+                data_obj = pd.read_csv(options.output_folder+'/Data/data_assembly.csv', index_col = False)
+                iter_interval = np.unique(data['Iter'].to_numpy())
+                iters_to_run = iter_interval[~np.isin(iter_interval,pp_existing)]
+                for iter_value in range(min(iters_to_run), max(iters_to_run)+1, options.output_freq):
+                    pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, None, data_obj)
+                pp_existing = np.hstack((pp_existing,iters_to_run))
+            if os.path.exists(options.output_folder+'/Data/data_smooth.csv'):
+                data_smooth = pd.read_csv(options.output_folder+'/Data/data_smooth.csv')
+                times = np.unique(data_smooth['Time'].to_numpy())
+                times_to_run = times[~np.isin(times, pp_existing)]
+                for time in times_to_run:
+                    pp.generate_visualization(options, data_smooth, np.round(time,6), options.postproc_in_loop,is_dense=True, iter_override=i_time)
+                    i_time+=1
+                pp_existing = np.hstack((pp_existing,times_to_run))
+
 
         titan.iter += 1
+        titan.post_event_iter +=1
         options.current_iter = titan.iter
         if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
             options.save_state(titan, options.current_iter)
 
-    options.save_state(titan)
 
-def main(filename = "", postprocess = "", filter_name = None):
+def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     """TITAN main function
 
     Parameters
@@ -116,17 +145,18 @@ def main(filename = "", postprocess = "", filter_name = None):
     """
 
     configParser = configparser.RawConfigParser()   
-    configFilePath = filename
+    configFilePath = filename.strip()
     configParser.read(configFilePath)
 
     #Pre-processing phase: Creates the options and titan class
-    options, titan = configuration.read_config_file(configParser, postprocess)
+    options, titan = configuration.read_config_file(configParser, postprocess, emissions)
     options.filepath = filename
 
     #Initialization of the simulation
-    if not postprocess:
+    if (not postprocess) and (not emissions):
         loop(options, titan)
-        print("Finished simulation")
+        print("Finished simulation\n")
+        #print(titan.nfeval)
         return options, titan
 
     #Postprocess of the simulated solution to pass from Body-frame
@@ -134,6 +164,9 @@ def main(filename = "", postprocess = "", filter_name = None):
     if postprocess:
         Path(options.output_folder+'/Postprocess/').mkdir(parents=True, exist_ok=True)
         pp.postprocess(options, postprocess, filter_name)
+    if emissions:
+        Path(options.output_folder+'/Postprocess_emissions/').mkdir(parents=True, exist_ok=True)
+        pp_emissions.postprocess_emissions(options)
     
 if __name__ == "__main__":
 
@@ -152,11 +185,19 @@ if __name__ == "__main__":
                         type=str,
                         help="simulation postprocess (ECEF, WIND)",
                         metavar="postprocess")
+    parser.add_argument("-MC", "--montecarlo",
+                        dest="n_samples",
+                        type=int,
+                        help = "run a Monte Carlo campaign of N simulations",
+                        metavar="n_samples")
     parser.add_argument("-flt", "--filter",
                         dest="filtername",
                         type=str,
-                        help="filter postprocess (name of the ovject)",
+                        help="filter postprocess (name of the object)",
                         metavar="filtername")
+    parser.add_argument("-em", "--emissions",
+                        dest="emissions",
+                        action="store_true")
     
     args=parser.parse_args()
 
@@ -166,7 +207,14 @@ if __name__ == "__main__":
     filename = args.configfilename
     postprocess = args.postprocess
     filter_name = args.filtername
-    if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef"):
-        raise Exception("Postprocess can only be WIND or ECEF")
+    emissions = args.emissions
 
-    main(filename = filename, postprocess = postprocess, filter_name = filter_name)
+    if args.n_samples is not None:
+        from Uncertainty import MC_wrapper
+        MC_wrapper.run(filename,args.n_samples)
+        exit()
+
+    if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef" and postprocess.lower()!="int"):
+        raise Exception("Postprocess can only be WIND, ECEF or INT")
+
+    main(filename = filename, postprocess = postprocess, filter_name = filter_name, emissions = emissions)

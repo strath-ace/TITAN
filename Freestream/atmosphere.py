@@ -100,7 +100,10 @@ def retrieve_atmosphere_data(name, altitude, assembly, options):
         convert_numberDensity_to_density(atm,species_index)
 
         f = interp1d(atm.iloc[:,0], atm, axis = 0, kind = 'cubic')
-        data = f(altitude)
+        if altitude>0:
+            data = f(altitude)
+        else:
+            data = f(0)
 
     elif name.upper() == "GRAM":
         gram.run_single_gram(assembly, options)

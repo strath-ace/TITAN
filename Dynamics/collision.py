@@ -341,6 +341,14 @@ def collision_physics(titan, options):
 		titan.assembly[i2].pitch_vel = _w2[1] 
 		titan.assembly[i2].yaw_vel   = _w2[2]
 
+		if hasattr(titan.assembly[i1], 'state_vector'):
+			titan.assembly[i1].state_vector[3:6] = _v1
+			titan.assembly[i1].state_vector[10:13] = _w1
+		
+		if hasattr(titan.assembly[i2], 'state_vector'):
+			titan.assembly[i2].state_vector[3:6] = _v2
+			titan.assembly[i2].state_vector[10:13] = _w2
+
 
 def collision_physics_simultaneous(titan, options):
 	#Can be improved for speed
