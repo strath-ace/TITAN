@@ -445,7 +445,7 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
 
     #Number of subdivisions
     n = options.aerothermo.subdivision_triangle
-    flow_directions, groups, group_map = SoI_assembly_groups(assembly, 10)
+    flow_directions, groups, group_map = SoI_assembly_groups(assembly, options.aerothermo.SoI_rad)
     
     for it, _assembly in enumerate(assembly):
         _assembly.aerothermo.heatflux *= 0
@@ -517,7 +517,7 @@ def ray_trace(assembly_group, flow_directions, n, options):
     v0 = [[0,0,0]]
     v1 = [[0,0,0]]
     v2 = [[0,0,0]]
-    endpoint_indices = [0]
+    pointers = [0]
     flow_dirs = [[0,0,0]]
     for i_assem, _assembly in enumerate(assembly_group):
         assem_body_flow_vec = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)
@@ -530,7 +530,7 @@ def ray_trace(assembly_group, flow_directions, n, options):
         v0 = np.vstack([v0, _assembly.mesh.v0])
         v1 = np.vstack([v1,_assembly.mesh.v1])
         v2 = np.vstack([v2, _assembly.mesh.v2])
-        endpoint_indices.append(endpoint_indices[-1]+len(length_normals))
+        pointers.append(pointers[-1]+len(length_normals))
         flow_dirs = np.vstack([flow_dirs,[_assembly.velocity for _ in range(len(length_normals))]])
     
     theta     = theta[1:]
@@ -569,14 +569,14 @@ def ray_trace(assembly_group, flow_directions, n, options):
             Matrix = main_Translate_CoG@main_ECEF_B@main_Translate_ECEF@Translate_ECEF@R_B_ECEF@Translate_COG
             new_mesh.apply_transform(Matrix)
             TransMatrix = Trans.from_matrix(Matrix)
-            v0[endpoint_indices[i_extra]:endpoint_indices[i_extra+1],:] = TransMatrix.apply(
-                v0[endpoint_indices[i_extra]:endpoint_indices[i_extra+1],:]
+            v0[pointers[i_extra]:pointers[i_extra+1],:] = TransMatrix.apply(
+                v0[pointers[i_extra]:pointers[i_extra+1],:]
                 )
-            v1[endpoint_indices[i_extra]:endpoint_indices[i_extra+1],:] = TransMatrix.apply(
-                v1[endpoint_indices[i_extra]:endpoint_indices[i_extra+1],:]
+            v1[pointers[i_extra]:pointers[i_extra+1],:] = TransMatrix.apply(
+                v1[pointers[i_extra]:pointers[i_extra+1],:]
                 )
-            v2[endpoint_indices[i_extra]:endpoint_indices[i_extra+1],:] = TransMatrix.apply(
-                v2[endpoint_indices[i_extra]:endpoint_indices[i_extra+1],:]
+            v2[pointers[i_extra]:pointers[i_extra+1],:] = TransMatrix.apply(
+                v2[pointers[i_extra]:pointers[i_extra+1],:]
                 )
             meshlist.append(new_mesh)
 
@@ -591,30 +591,32 @@ def ray_trace(assembly_group, flow_directions, n, options):
     for _ in range(n):
         flow_dirs = np.repeat(flow_dirs,4, axis=0)
 
-    ray_origins = facet_centroids - 1e-4*flow_dirs
+    # ray_origins = facet_centroids - 1e-4*flow_dirs
+    # ray_directions = -flow_dirs
+
+    ray_origins = facet_centroids + 2.25*options.aerothermo.SoI_rad*flow_dirs
     ray_directions = -flow_dirs
 
     ray_directions.shape = (-1,3)
-    ray_ends = ray_origins+20*options.aerothermo.SoI_rad*flow_dirs
+    ray_ends = facet_centroids - 1e-4*flow_dirs#ray_origins+20*options.aerothermo.SoI_rad*flow_dirs
     facet_sees_flow =  np.zeros_like(theta, dtype=np.int16)
 
 
-    # if len(meshlist)>1:
-    #     if not hasattr(options, 'n_debug'): options.n_debug = 0
-    #     else: options.n_debug+=1
-    #     if options.n_debug>100: 
-    #         mesh.export('debug_{}.stl'.format(options.n_debug))
-    #         write_rays_to_vtk('debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
 
-    hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
-    
+    if not hasattr(options, 'n_debug'): options.n_debug = 0
+    else: options.n_debug+=1
+    mesh.export('debug_{}.stl'.format(options.n_debug))
+    write_rays_to_vtk('debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
+
+    #hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
+    hits  = ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
     hits.shape = (-1, 4**n)
     hits = np.sum(hits, axis = 1)
     facet_sees_flow[filtered_facet_indices] = hits
 
     for i_assembly, _assembly in enumerate(assembly_group):
 
-        per_assem_see_flow = facet_sees_flow[endpoint_indices[i_assembly]:endpoint_indices[i_assembly+1]]
+        per_assem_see_flow = facet_sees_flow[pointers[i_assembly]:pointers[i_assembly+1]]
         _assembly.aerothermo.partial_factor = per_assem_see_flow/(4**n)
 
         per_assem_see_flow = np.arange(len(_assembly.mesh.facets))[per_assem_see_flow != 0]
