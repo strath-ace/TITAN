@@ -31,8 +31,16 @@ def generate_script(assembly, options):
 
         if options.planet.name == "earth":
             f.write("  DataPath       = '" + str(options.gram.gramPath) + "/Earth/data'\n")
+
         elif options.planet.name == "mars":
             f.write("  DataPath       = '" + str(options.gram.gramPath) + "/Mars/data'\n")
+
+        elif options.planet.name == "venus":
+            f.write("  DataPath       = '" + str(options.gram.gramPath) + "/Venus/data'\n")
+
+        elif options.planet.name == "titan":
+            f.write("  DataPath       = '" + str(options.gram.gramPath) + "/Titan/data'\n")
+
         else:
             f.write("  DataPath       = '" + str(options.gram.gramPath) + "/Earth/data'\n")
 
@@ -53,8 +61,8 @@ def generate_script(assembly, options):
         f.write("InitialLongitude      = " + str(assembly.trajectory.longitude * 180 / np.pi) + " \n")
 
         if options.planet.name != 'earth':
-            f.write("MinMaxFactor = " + options.gram.MinMaxFactor + " \n")
-            f.write("ComputeMinMaxFactor = " + options.gram.ComputeMinMaxFactor + " \n")
+            f.write("MinMaxFactor = " + str(options.gram.MinMaxFactor) + " \n")
+            f.write("ComputeMinMaxFactor = " + str(options.gram.ComputeMinMaxFactor) + " \n")
 
         f.write(" $END")
 
@@ -136,7 +144,7 @@ def generate_script(assembly, options):
 
 def read_gram_species(altitude, options):
     data = pd.read_csv(options.output_folder + "/GRAM/OUTPUT.csv")
-
+    
     if options.planet.name == "earth":
         species_index = ["N2", "O2", "O", "He", "N", "H"]
 
@@ -147,13 +155,55 @@ def read_gram_species(altitude, options):
         species_index = ["H2", "He", "CH4"]
 
     if options.planet.name == "mars":
-        species_index = ["CO2", "N2", "Ar", "O2"]
+        species_index = ["CO2", "N2", "Ar", "O2","CO"]
+
 
         composition = {
-            "CO2": 0.953,
-            "N2":  0.027,
-            "Ar":  0.016,
-            "O2":  0.002
+            "CO2": 0.961,
+            "N2":  0.020,
+            "Ar":  0.017,
+            "O2":  0.001,
+            "CO": 0.001
+        }
+
+        temperature = data["Temperature_K"].to_numpy()[0]
+        density     = data["Density_kgm3"].to_numpy()[0]
+
+        species_data = np.zeros(len(species_index) + 2)
+        species_data[0] = altitude
+        species_data[1] = temperature
+
+        for i, sp in enumerate(species_index):
+            species_data[i + 2] = density * composition[sp]
+
+        return species_data, species_index
+    
+    if options.planet.name == "venus":
+        species_index = ["CO2", "N2"]
+
+        composition = {
+            "CO2": 0.965,
+            "N2":  0.035
+        }
+
+        temperature = data["Temperature_K"].to_numpy()[0]
+        density     = data["Density_kgm3"].to_numpy()[0]
+
+        species_data = np.zeros(len(species_index) + 2)
+        species_data[0] = altitude
+        species_data[1] = temperature
+
+        for i, sp in enumerate(species_index):
+            species_data[i + 2] = density * composition[sp]
+
+        return species_data, species_index
+    
+    if options.planet.name == "titan":
+        species_index = ["N2", "CH4"]
+
+        composition = {
+            "N2":  0.95,
+            "CH4": 0.05
         }
 
         temperature = data["Temperature_K"].to_numpy()[0]
@@ -168,6 +218,8 @@ def read_gram_species(altitude, options):
 
         return species_data, species_index
 
+
+
     temperature = data['Temperature_K'].to_numpy()[0]
     density = data['Density_kgm3'].to_numpy()[0]
 
@@ -176,7 +228,7 @@ def read_gram_species(altitude, options):
     species_data[1] = temperature
 
     for index, specie in enumerate(species_index):
-        species_data[index + 2] = data[specie + "mass_pct"].to_numpy()[0] / 100
+        species_data[index + 2] = data[specie + "_mass_pct"].to_numpy()[0] / 100
 
     species_data[2:] /= np.sum(species_data[2:])
     species_data[2:] *= density
@@ -210,6 +262,14 @@ def run_single_gram(assembly, options):
     if options.planet.name == "mars":
         os.system("echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) +
                   " | " + path + "/Executables/MarsGRAM")
+        
+    if options.planet.name == "venus":
+        os.system("echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) +
+                  " | " + path + "/Executables/VenusGRAM")
+
+    if options.planet.name == "titan":
+        os.system("echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) +
+                  " | " + path + "/Executables/TitanGRAM") 
 
 
 
