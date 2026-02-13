@@ -594,11 +594,11 @@ def ray_trace(assembly_group, flow_directions, n, options):
     # ray_origins = facet_centroids - 1e-4*flow_dirs
     # ray_directions = -flow_dirs
 
-    ray_origins = facet_centroids + 2.25*options.aerothermo.SoI_rad*flow_dirs
+    ray_origins = facet_centroids - 1e-4*flow_dirs
     ray_directions = -flow_dirs
 
     ray_directions.shape = (-1,3)
-    ray_ends = facet_centroids - 1e-4*flow_dirs#ray_origins+20*options.aerothermo.SoI_rad*flow_dirs
+    ray_ends = facet_centroids - 10*flow_dirs#ray_origins+20*options.aerothermo.SoI_rad*flow_dirs
     facet_sees_flow =  np.zeros_like(theta, dtype=np.int16)
 
 
@@ -609,7 +609,7 @@ def ray_trace(assembly_group, flow_directions, n, options):
     # write_rays_to_vtk('debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
 
     #hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
-    hits  = ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
+    hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
     hits.shape = (-1, 4**n)
     hits = np.sum(hits, axis = 1)
     facet_sees_flow[filtered_facet_indices] = hits
