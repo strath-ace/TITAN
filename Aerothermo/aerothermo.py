@@ -603,10 +603,10 @@ def ray_trace(assembly_group, flow_directions, n, options):
 
 
 
-    if not hasattr(options, 'n_debug'): options.n_debug = 0
-    else: options.n_debug+=1
-    mesh.export('debug_{}.stl'.format(options.n_debug))
-    write_rays_to_vtk('debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
+    # if not hasattr(options, 'n_debug'): options.n_debug = 0
+    # else: options.n_debug+=1
+    # mesh.export('debug_{}.stl'.format(options.n_debug))
+    # write_rays_to_vtk('debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
 
     #hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
     hits  = ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
