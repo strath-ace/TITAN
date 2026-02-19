@@ -78,11 +78,13 @@ def update_collision_mesh_time(titan, options, dt):
 		mass.append(assembly.mass)
 
 	index_mass = np.argmax(mass)
-
-	Translate_Large_Mass = trimesh.transformations.translation_matrix(-titan.assembly[index_mass].position)
+	dx = dt*assembly.velocity
+	if hasattr(assembly, 'acceleration'): dx += 0.5*assembly.acceleration*dt**2
+	Translate_Large_Mass = trimesh.transformations.translation_matrix(-(titan.assembly[index_mass].position + dx))
 
 	for assembly in titan.assembly:
 		position = deepcopy(assembly.position) + dt*assembly.velocity
+		if hasattr(assembly, 'acceleration'):  position += 0.5*assembly.acceleration*dt**2
 		q = assembly.quaternion
 		py_quat = pyquaternion.Quaternion(q[3],q[0],q[1],q[2])
 		py_quat.integrate([assembly.roll_vel, assembly.pitch_vel,assembly.yaw_vel], dt)
@@ -188,11 +190,13 @@ def find_ToI_timestep(titan, options, input_time_step):
 	'''
 	#If more points of contact between assemblies exist, just the one with more depth is considered
 	if len(titan.assembly) <= 1: return input_time_step
-
-	dt = binary_search_TOI(titan, options, input_time_step)
+	minLref = np.min([_assembly.Lref for _assembly in titan.assembly])
+	Lref_time_step = compute_time_resolution(titan, options, minLref)
+	
+	dt = binary_search_TOI(titan, options, input_time_step, lref_time_resolution=Lref_time_step)
 	
 	if dt>=input_time_step: return input_time_step
-	res_time = compute_time_resolution(titan, options, options.collision.max_depth)
+	res_time = np.min([compute_time_resolution(titan, options, 2.5e-2), 0.05])
 	if options.verbose: print('Selected a dt of {}'.format(np.max([res_time, dt])))
 	return np.max([res_time, dt])
 
@@ -429,7 +433,7 @@ def collision_physics_simultaneous(titan, options):
 		titan.assembly[b_i].pitch_vel -= R_ECEF_B_b_i.apply(P[i]*np.dot(Ib_i_inv,np.cross(point - rb_i,normal)))[1]
 		titan.assembly[b_i].yaw_vel   -= R_ECEF_B_b_i.apply(P[i]*np.dot(Ib_i_inv,np.cross(point - rb_i,normal)))[2]
 
-def binary_search_TOI(titan, options, input_dt, n_sanity = None):
+def binary_search_TOI(titan, options, input_dt : float, n_sanity : int | None = None, lref_time_resolution : float | None = None):
 	'''
 	Find Time-Of-Impact through binary search of next time step
 	
@@ -437,6 +441,7 @@ def binary_search_TOI(titan, options, input_dt, n_sanity = None):
 	:param options: Object of class Options
 	:param input_dt: Maximal step distance
 	:param n_sanity: Number of sanity checks to make along the time step
+	:param lref_time_resolution: The duration it takes for the fastest v_rel to cross the smallest l_ref
 	'''
 
 	value_depth = 1
@@ -456,7 +461,8 @@ def binary_search_TOI(titan, options, input_dt, n_sanity = None):
 		# this is N-sane!
 		sanity_points = np.linspace(0,1,n_sanity+1,endpoint=False)[1:]
 	else: # Unless specified auto populate our sanity checks at current dt increments
-		sanity_points = np.arange(0,1,0.1*titan.delta_t)[1:]
+		if lref_time_resolution is None: lref_time_resolution = titan.delta_t
+		sanity_points = np.arange(0,1,lref_time_resolution)[1:]
 		n_sanity = len(sanity_points)
 		# These checks are comparatively cheap vs true timesteps, 
 		# make sense to check more often than we solve

@@ -63,7 +63,7 @@ def construct_jacobian(local_position_ECEF, v, ids, e = 1.0, corrections = [0.0,
 		J[i_col, 6*iB+3 : 6*iB+6] = -np.cross(rB,n)
 
 		vN = J[i_col,:] @ v
-		b_physical[i_col]   = -e * np.min([vN, 0.0])
+		b_physical[i_col]   =  vN -e * np.min([vN, 0.0])
 		b_correction[i_col] = corrections[0] * np.max([collision_data['depth'][i_col]-corrections[1],0.0])/titan.delta_t
 	
 	return J, b_physical, b_correction
@@ -128,13 +128,18 @@ def global_collision_physics(titan, options, collision_data=None, correction_onl
 	if collision_data is None: collision_data = titan.collision_data
 	ids = []
 	number_collisions = len(collision_data["contact_point"])
-	
+	if options.verbose: depth_dict = {}
 	for i_col in range(number_collisions):
 		iA, iB = collision_data["assembly"][i_col]
 		ids.append(iA)
 		ids.append(iB)
 		if options.verbose: 
-			print('Collision depth of {} between assemblies {} and {}'.format(collision_data['depth'][i_col],iA,iB))
+			col_str = str(iA)+':'+str(iB)
+			if not col_str in list(depth_dict.keys()): depth_dict[col_str] = [collision_data['depth'][i_col]]
+			else: depth_dict[col_str].append(collision_data['depth'][i_col])
+	if options.verbose:
+		for assemblies, depths in depth_dict.items():
+			print('{} contacts between assemblies {}, max depth of {}'.format(len(depths), assemblies, np.max(depths)))
 	
 	ids = np.unique(ids)
 	Minv = construct_inv_mass_matrix(titan, ids)
@@ -151,10 +156,9 @@ def global_collision_physics(titan, options, collision_data=None, correction_onl
 	Minv_at_JT  = Minv @ J.T
 	A = J @ Minv_at_JT
 	A += np.eye(np.shape(A)[0])*1e-8 # Regularisation
-	b = - (J @ v + b_physical)
-	physical_impulse = PGS_solve(A,b)
+	physical_impulse = PGS_solve(A,b_physical)
 
-	v_physical = Minv_at_JT @ physical_impulse
+	v_physical = -(Minv_at_JT @ physical_impulse)
 	impulse_update(options, ids, correction_method='none', correction_only=False, 
 				titan=titan, v_physical = v_physical, v_corrective = None)
 	v_new = construct_global_velocities(titan, ids, local_state[3:6])
@@ -194,7 +198,7 @@ def impulse_update(options, ids, correction_method='split', correction_only=Fals
 		R_body = Rot.from_quat(body.state_vector[6:10])
 		if not correction_only:
 			if v_physical is None: raise Exception('Must provide impulses!')
-
+			if options.verbose: print('Changing velocity of assembly {} by {}'.format(assem_index,v_physical[6*i_body:6*i_body+3]))
 			body.state_vector[3:6]   += v_physical[6*i_body:6*i_body+3]
 			body.state_vector[10:13] += R_body.inv().apply(v_physical[6*i_body+3:6*i_body+6])
 
