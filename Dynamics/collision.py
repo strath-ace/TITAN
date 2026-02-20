@@ -554,15 +554,16 @@ def update_and_check(titan, options, dt):
 						new_depths.append(_data.depth)
 						collided=True
 				if collided:
+					collision_data = select_contacts(data, new_depths, collision_data, [index_i, index_j])
 					#ind = np.argmax(new_depths)
-					n_contacts = 50 # This is to a certain extent a tuning parameter, reccommend not going below 3 though
-					for ind in np.argsort(new_depths)[:-n_contacts-1:-1]:
-						collision_data["assembly"].append([index_i,index_j])
-						collision_data["names"].append(list(data[ind].names))
-						collision_data["index"].append([data[ind]._inds[collision_data["names"][-1][0]], data[ind]._inds[collision_data["names"][-1][1]]])
-						collision_data["contact_point"].append(data[ind]._point)
-						collision_data["normal"].append(data[ind]._normal)
-						collision_data["depth"].append(data[ind]._depth)
+					# n_contacts = 50 # This is to a certain extent a tuning parameter, reccommend not going below 3 though
+					# for ind in np.argsort(new_depths)[:-n_contacts-1:-1]:
+					# 	collision_data["assembly"].append([index_i,index_j])
+					# 	collision_data["names"].append(list(data[ind].names))
+					# 	collision_data["index"].append([data[ind]._inds[collision_data["names"][-1][0]], data[ind]._inds[collision_data["names"][-1][1]]])
+					# 	collision_data["contact_point"].append(data[ind]._point)
+					# 	collision_data["normal"].append(data[ind]._normal)
+					# 	collision_data["depth"].append(data[ind]._depth)
 
 	return collided, depth, collision_data
 
@@ -603,3 +604,45 @@ def compute_time_resolution(titan, options, distance_resolution = 1e-6):
 
 			if vAB>max_V: max_V = vAB
 	return distance_resolution/max_V
+
+def select_contacts(contact_data, depths, collision_data, assem_indices):
+	'''
+	Optimises to find the best contacts
+	'''
+	def col_append(index):
+		collision_data["assembly"].append([assem_indices[0],assem_indices[1]])
+		collision_data["names"].append(list(contact_data[index].names))
+		collision_data["index"].append([contact_data[index]._inds[collision_data["names"][-1][0]], contact_data[index]._inds[collision_data["names"][-1][1]]])
+		collision_data["contact_point"].append(contact_data[index]._point)
+		collision_data["normal"].append(contact_data[index]._normal)
+		collision_data["depth"].append(contact_data[index]._depth)
+	n_contacts = len(contact_data)
+	## [1] First select the deepest contact 
+	deepest_index = np.argmax(depths)
+	col_append(deepest_index)
+	if n_contacts<2: return collision_data
+
+	## [2] Next the contact furthest from the deepest contact
+	points_array = np.array([contact._point for contact in contact_data])
+	deepest_point = points_array[deepest_index, :]
+	dx = points_array - deepest_point
+
+	furthest_from_deepest = np.argmax(np.linalg.norm(dx,axis=1))
+	col_append(furthest_from_deepest)
+	if n_contacts<3: return collision_data
+
+	## [3] Next the contact furthest from the line defined by points 1 and 2
+	line_norm = dx[furthest_from_deepest,:] / np.linalg.norm(dx[furthest_from_deepest, :])
+	projection = dx @ line_norm
+	perpendicular_dist = np.sqrt(np.max([np.linalg.norm(dx, axis=1)**2-projection**2,np.zeros_like(dx)],axis=1))
+	furthest_from_line = np.argmax(perpendicular_dist)
+	col_append(furthest_from_line)
+	if n_contacts<4: return collision_data
+
+	## [4] Finally the contact furthest from the plane defined by points 1, 2 and 3
+	normal = np.cross(line_norm, dx[furthest_from_line])
+	normal /= np.linalg.norm(normal)
+	furthest_from_plane = np.argmax(np.abs(dx @ normal))
+	col_append(furthest_from_plane)
+
+	return collision_data
