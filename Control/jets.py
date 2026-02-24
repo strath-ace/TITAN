@@ -1,3 +1,4 @@
+from math import gamma
 import numpy as np
 
 def _unit(v, eps=1e-12):
@@ -5,19 +6,16 @@ def _unit(v, eps=1e-12):
     n = np.linalg.norm(v)
     return v * 0.0 if n < eps else v / n
 
-def _clamp(x, lo, hi):
-    return float(max(lo, min(hi, x)))
-
 class Jet:
-    def __init__(self, name, position_B, direction_B, thrust_max_N=0.0, isp=None, group=None):
+    def __init__(self, name, position_B, direction_B, thrust_max_N = 0.0, group = None, isp = None):
         self.name = str(name)
         self.position_B = np.asarray(position_B, dtype=float).reshape(3)
         self.direction_B = _unit(direction_B)
         self.thrust_max_N = float(thrust_max_N)   # max thrust [N]
-        # self.thrust_min_N = 0.0
-        self.thrust_N = 0.0                       # applied thrust [N], ALWAYS used in sums
+        self.thrust_N = 0.0                       # applied thrust [N]
         self.isp = isp
         self.group = group
+        self.g0 = 9.80665 # m/s^2
 
     def set_thrust(self, thrust_N: float):
         # clamp
@@ -27,10 +25,8 @@ class Jet:
         if t > self.thrust_max_N:
             t = self.thrust_max_N
 
-        # write both fields so force_B() works even if you never call step()
         self.thrust_cmd_N = t
         self.thrust_N = t
-
 
     def force_B(self):
         return self.thrust_N * self.direction_B
@@ -67,8 +63,24 @@ class JetSystem:
         return any_set
 
     def step(self, dt):
-        # No slew, no prop bookkeeping (yet). Keep for compatibility.
-        return
+        if self.tank is None or dt <= 0.0:
+            return
+
+        total_mdot = 0.0
+        for j in self.jets.values():
+            if j.isp is None or j.isp <= 0.0 or j.thrust_N <= 0.0:
+                continue
+            total_mdot += j.thrust_N / (float(j.isp) * 9.80665)
+
+        prop_needed = total_mdot * float(dt)
+        used = self.tank.consume(prop_needed)
+
+        self.prop_used_kg_total += used
+
+        # If we couldn't supply full demand -> tank at residual -> cut jets
+        if used + 1e-12 < prop_needed:
+            for j in self.jets.values():
+                j.set_thrust(0.0)
 
     def net_force_moment_B(self, cog_B):
         F = np.zeros(3, dtype=float)

@@ -58,11 +58,6 @@ def propagate(titan, options):
 
     if getattr(titan, "controlsystem", None) is not None:
         titan.controlsystem.step(titan, options)
-    
-    # NEW: advance jet actuator dynamics once per global step
-    for ass in titan.assembly:
-        if hasattr(ass, "jet_system") and ass.jet_system is not None:
-            ass.jet_system.step(time_step)
 
     # Propagate according to propagator function...
     new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,state_vectors_prior,derivatives_prior,time_step,titan,options)
@@ -112,6 +107,10 @@ def state_equation(titan,options,time,state_vectors):
         unaltered_states.append(_assembly.state_vector)
         update_dynamic_attributes(_assembly,state_vector,options)
     
+    # Update the CoM and MoI for each assembly with moving flaps or propellant tanks
+    for _assembly in titan.assembly:
+        _assembly.compute_mass_properties()
+
     # Then business as usual for computing forces...
     
     aerothermo.compute_aerothermo(titan, options)

@@ -157,29 +157,40 @@ def reset_body_forces(titan):
 def compute_jet_forces(titan, options):
     for ass in titan.assembly:
         if not hasattr(ass, "jet_system") or ass.jet_system is None:
-            print(f"[JETS][DBG] ass={ass.id} has no jet_system")
             continue
 
-        if not ass.jet_system.jets:
-            print(f"[JETS][DBG] ass={ass.id} jet_system has 0 jets")
-            continue
-
-        # show per-jet thrust every step (temporary)
-        for k, j in ass.jet_system.jets.items():
+        # --- Debug: per-jet thrust ---
+        for j in ass.jet_system.jets.values():
             print(
-                f"[JETS][DBG] t={titan.time:.3f} ass={ass.id} jet={j.name} "
-                f"T={j.thrust_N} Tmax={j.thrust_max_N} dir={j.direction_B} |dir|={np.linalg.norm(j.direction_B):.6g}"
+                f"[JETS][DBG] t={titan.time:.3f} ass={ass.id} "
+                f"jet={j.name} T={j.thrust_N:.3f} N"
             )
 
-
-        dt = options.dynamics.time_step
+        # Step jet system (consumes propellant if implemented there)
+        dt = titan.delta_t
         ass.jet_system.step(dt)
 
+        # Compute net force & moment
         Fjet, Mjet = ass.jet_system.net_force_moment_B(ass.COG)
         Fjet = np.asarray(Fjet, dtype=float).reshape(3)
         Mjet = np.asarray(Mjet, dtype=float).reshape(3)
 
         print(f"[JETS] t={titan.time:.3f} ass={ass.id} Fjet={Fjet} Mjet={Mjet}")
 
+        # --- Update assembly mass from propellant tanks ---
+        if hasattr(ass, "propellant_tanks") and ass.propellant_tanks:
+            prop_mass_total = 0.0
+            for tank in ass.propellant_tanks.values():
+                prop_mass_total += tank.prop_mass
+
+            # Assuming dry mass already stored separately
+            if hasattr(ass, "dry_mass"):
+                ass.mass = ass.dry_mass + prop_mass_total
+            else:
+                # First-time setup: infer dry mass once
+                ass.dry_mass = ass.mass - prop_mass_total
+                ass.mass = ass.dry_mass + prop_mass_total
+
+        # Apply to body forces
         ass.body_force.force  = ass.body_force.force.reshape(3) + Fjet
         ass.body_force.moment = ass.body_force.moment.reshape(3) + Mjet

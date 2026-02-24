@@ -687,13 +687,58 @@ class Assembly():
         else:
             self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*self.mesh.vol_mass[:,None], axis = 0)/self.mass
 
+        #Account for propellant tanks
+        if hasattr(self, "propellant_tanks") and self.propellant_tanks:
+            m0 = float(self.mass)
+            cog0 = np.asarray(self.COG, dtype=float)
+
+            mtanks = 0.0
+            moment = np.zeros(3)
+
+            for tank in self.propellant_tanks.values():
+                m = float(tank.total_mass)
+                if m <= 0.0:
+                    continue
+                mtanks += m
+                moment += m * np.asarray(tank.position_B)
+
+            m_total = m0 + mtanks
+            if m_total > 0.0:
+                self.COG = (m0 * cog0 + moment) / m_total
+                self.mass = m_total
+
         #Computes the inertia matrix
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
+        
+        # Add tank inertia (sphere + parallel axis)
+        if hasattr(self, "propellant_tanks") and self.propellant_tanks:
+            I3 = np.eye(3)
+            cog = np.asarray(self.COG, dtype=float).reshape(3)
+
+            for tank in self.propellant_tanks.values():
+                m = float(tank.total_mass)
+                if m <= 0.0:
+                    continue
+
+                r_tank = np.asarray(tank.position_B, dtype=float).reshape(3)
+                r = r_tank - cog
+                r2 = np.dot(r, r)
+
+                # Intrinsic inertia (solid sphere)
+                R = getattr(tank, "radius", 0.0)
+                J_sphere = (2.0 / 5.0) * m * (R**2) * I3
+
+                # Parallel axis term
+                J_parallel = m * (r2 * I3 - np.outer(r, r))
+
+                self.inertia += J_sphere + J_parallel
 
         #Loop over the components to compute each individual inertial properties
         for obj in self.objects:
             index = (tag == obj.id)
             obj.compute_mass_properties(coords, elements[index], density[index])
+
+
 
     def rearrange_ids(self):
         """
@@ -724,24 +769,17 @@ class Assembly():
             self.mesh.vol_tag[copy_vol_tag == id] = d[id]
 
     def update_geometry(self):
-        # ---------------------------------------------------------
-        # 0) baseline guard (fixes your IndexError permanently)
-        # ---------------------------------------------------------
         if (not hasattr(self, "original_nodes")) or (self.original_nodes is None) or (self.original_nodes.shape != self.mesh.nodes.shape):
             self.original_nodes = self.mesh.nodes.copy()
 
-        # ---------------------------------------------------------
-        # 1) apply rigid rotations from baseline -> current mesh nodes
-        # ---------------------------------------------------------
+        # apply rigid rotations from baseline -> current mesh nodes
+
         for obj in self.objects:
             # ensure it's the ControlSurface style signature
             if obj.__class__.__name__ == "ControlSurface" and hasattr(obj, "update_geometry") and hasattr(obj, "node_index"):
                 obj.update_geometry(self.mesh, self.original_nodes)
 
-        # ---------------------------------------------------------
-        # 2) rebuild surface caches from (nodes, facets) safely
-        #    (avoid Mesh.compute_nodes_normals divide-by-zero warnings)
-        # ---------------------------------------------------------
+        # rebuild surface caches from (nodes, facets) safely
         self.mesh.v0 = self.mesh.nodes[self.mesh.facets[:, 0]]
         self.mesh.v1 = self.mesh.nodes[self.mesh.facets[:, 1]]
         self.mesh.v2 = self.mesh.nodes[self.mesh.facets[:, 2]]
@@ -797,12 +835,45 @@ class Assembly():
             self.mesh.v1,
             self.mesh.v2,
         )
-
-        # ---------------------------------------------------------
-        # 3) keep surface_displacement consistent with node count
-        # ---------------------------------------------------------
         if (not hasattr(self.mesh, "surface_displacement")) or (self.mesh.surface_displacement.shape != self.mesh.nodes.shape):
             self.mesh.surface_displacement = np.zeros_like(self.mesh.nodes)
+
+    def init_propellant_baseline(self):
+        """Call once after the assembly is fully constructed."""
+        self.dry_mass = float(self.mass)
+        self.dry_COG_B = np.asarray(self.COG, dtype=float).copy()
+
+    def update_mass_properties_from_tanks(self):
+        """
+        Update assembly mass and COG including propellant tanks.
+        Assumes tank positions are in BODY frame.
+        """
+        if not hasattr(self, "propellant_tanks") or not self.propellant_tanks:
+            return
+
+        # Ensure baseline exists
+        if not hasattr(self, "dry_mass") or not hasattr(self, "dry_COG_B"):
+            self.init_propellant_baseline()
+
+        m_base = self.dry_mass
+        cog_base = self.dry_COG_B
+
+        m_prop = 0.0
+        weighted = np.zeros(3)
+
+        for tank in self.propellant_tanks.values():
+            m = float(tank.prop_mass)
+            if m <= 0.0:
+                continue
+            m_prop += m
+            weighted += m * np.asarray(tank.position_B, dtype=float)
+
+        m_total = m_base + m_prop
+        if m_total <= 0.0:
+            return
+
+        self.mass = m_total
+        self.COG = (m_base * cog_base + weighted) / m_total
 
 def copy_assembly(list_assemblies, options):
     from copy import deepcopy

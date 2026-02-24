@@ -53,6 +53,16 @@ def write_output_data(titan, options, smooth=False):
         df['ECEF_vV'] = [assembly.velocity[1]]
         df['ECEF_vW'] = [assembly.velocity[2]]
 
+        #Propellant Tank information
+        if hasattr(assembly, "propellant_tanks") and assembly.propellant_tanks:
+            for tank_name, tank in assembly.propellant_tanks.items():
+                safe = str(tank_name).strip().replace(" ", "_")
+                df[f"Tank_{safe}_prop_kg"] = [float(tank.prop_mass)]
+                df[f"Tank_{safe}_cap_kg"] = [float(tank.capacity)]
+                df[f"Tank_{safe}_fill_frac"] = [float(tank.fill_fraction())]
+                df[f"Tank_{safe}_consumed_total_kg"] = [float(getattr(tank, "total_consumed", 0.0))]
+                df[f"Tank_{safe}_is_empty"] = [1 if tank.is_empty() else 0]
+
         #Center of mass position in the Body Frame
         df['BODY_COM_X']  = [assembly.COG[0]]
         df['BODY_COM_Y']  = [assembly.COG[1]]

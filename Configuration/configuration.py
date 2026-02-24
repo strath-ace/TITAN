@@ -32,6 +32,7 @@ from Dynamics import dynamics, propagation
 from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
+from Propulsion.propellant import PropellantTank
 from Aerothermo import bloom
 from Thermal import pato
 from Geometry import gmsh_api as GMSH
@@ -1220,6 +1221,27 @@ def _parse_tuple_from_tokens(tokens, keyname, default=(0.0, 0.0, 0.0)):
         return list(default)
     return [float(x) for x in parts]
 
+def _match_parent_name(target_name: str, obj_name: str) -> bool:
+    """
+    Match config PARENT like 'Cube' against an object filename like '.../cube.stl'.
+    Accepts both the stem ('cube') and full base name ('cube.stl').
+    """
+    t = str(target_name).strip().lower()
+    base = str(obj_name).split("/")[-1].split("\\")[-1]
+    stem = base.split(".")[0].lower()
+    return (t == stem) or (t == base.lower())
+
+def _find_assembly_by_parent(titan, parent_name: str):
+    """
+    Return the first Assembly that contains an object matching PARENT.
+    """
+    if parent_name is None:
+        return None
+    for ass in titan.assembly:
+        for obj in ass.objects:
+            if _match_parent_name(parent_name, obj.name):
+                return ass
+    return None
 
 def read_jets(configParser, titan, options):
     if not configParser.has_section("Jets"):
@@ -1234,13 +1256,6 @@ def read_jets(configParser, titan, options):
     for ass in titan.assembly:
         ass.jets = []
         ass.jet_system = None
-
-    # Helper: match by object stem name (same as ControlSystem._name_matches)
-    def _match_parent_name(target_name: str, obj_name: str) -> bool:
-        t = target_name.strip().lower()
-        base = obj_name.split("/")[-1].split("\\")[-1]
-        stem = base.split(".")[0].lower()
-        return (t == stem) or (t == base.lower())
 
     for jet_name, value in configParser.items("Jets"):
         tokens = value.replace("[", "").replace("]", "").replace(" ", "").split(",")
@@ -1290,25 +1305,18 @@ def read_jets(configParser, titan, options):
             raise ValueError(f"Jet '{jet_name}' has zero DIR after parsing: DIR={direc} tokens={tokens}")
 
 
-        # Attach to the assembly that contains the parent object
-        attached = False
-        if parent is not None:
-            for ass in titan.assembly:
-                for obj in ass.objects:
-                    if _match_parent_name(parent, obj.name):
-                        ass.jets.append(jet)
-                        attached = True
-                        break
-                if attached:
-                    break
-
-        if not attached:
-            raise ValueError(f"Jet '{jet_name}' could not attach: PARENT='{parent}' not found in any assembly objects.")
+        ass = _find_assembly_by_parent(titan, parent)
+        if ass is None:
+            raise ValueError(
+                f"Jet '{jet_name}' could not attach: PARENT='{parent}' not found in any assembly objects."
+            )
+        ass.jets.append(jet)
 
     # Build JetSystem(s)
     for ass in titan.assembly:
         if ass.jets:
-            ass.jet_system = JetSystem(ass.jets, tank=None)
+            tank = getattr(ass, "tank", None)
+            ass.jet_system = JetSystem(ass.jets, tank=tank)
 
             # auto-groups from jet.group (if present)
             groups = {}
@@ -1317,8 +1325,67 @@ def read_jets(configParser, titan, options):
                     groups.setdefault(str(j.group).strip().lower(), []).append(j.name)
             for g, names in groups.items():
                 ass.jet_system.add_group(g, names)
+            
+        if ass.jet_system and getattr(ass, "tank", None) is not None:
+            ass.jet_system.tank = ass.tank
 
+def read_propellant_tanks(configParser, titan, options):
+    if not configParser.has_section("PropellantTanks"):
+        for ass in titan.assembly:
+            ass.propellant_tanks = {}
+            ass.tank = None
+        return
 
+    for ass in titan.assembly:
+        ass.propellant_tanks = {}
+        ass.tank = None
+
+    def _get(tokens, key, default=None):
+        key = key.lower() + "="
+        for s in tokens:
+            if s.lower().startswith(key):
+                return s.split("=", 1)[1]
+        return default
+
+    for tank_name, value in configParser.items("PropellantTanks"):
+        tokens = value.replace("[", "").replace("]", "").replace(" ", "").split(",")
+
+        try:
+            parent = [s for s in tokens if "parent=" in s.lower()][0].split("=")[1].strip()
+        except Exception:
+            raise ValueError(f"Tank '{tank_name}' missing PARENT")
+
+        prop_type = _get(tokens, "type", "N2")
+        capacity = float(_get(tokens, "capacity", "0.0"))
+        initial = _get(tokens, "initial", None)
+        initial = float(initial) if initial is not None else None
+        residual = float(_get(tokens, "residual", "0.0"))
+
+        pos = _parse_tuple_from_tokens(tokens, "pos", default=(0.0, 0.0, 0.0))
+        dry_mass = float(_get(tokens, "dry_mass", "0.0"))
+        radius = float(_get(tokens, "radius", "0.0"))
+
+        ass = _find_assembly_by_parent(titan, parent)
+        if ass is None:
+            raise ValueError(f"Tank '{tank_name}' parent '{parent}' not found.")
+
+        tank = PropellantTank(
+            propellant_type=prop_type,
+            capacity=capacity,
+            initial_amount=initial,
+            residual=residual,
+            position_B=pos,
+            dry_mass=dry_mass,
+            radius=radius
+        )
+
+        ass.propellant_tanks[str(tank_name)] = tank
+
+        # Link default tank to JetSystem automatically (very important)
+        if ass.tank is None:
+            ass.tank = tank
+            if hasattr(ass, "jet_system") and ass.jet_system is not None:
+                ass.jet_system.tank = tank
 
 
 
@@ -1582,7 +1649,10 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         #Reads the Initial pitch/yaw/roll 
         read_initial_conditions(titan, options, configParser)
 
-        #Read the Jets information
+        #Adds propellant tanks (if present)
+        read_propellant_tanks(configParser, titan, options)
+
+        #Adds jets (if present)
         read_jets(configParser, titan, options)
 
         #Computes the quaternion and cartesian for the initial position
