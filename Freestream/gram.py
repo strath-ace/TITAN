@@ -157,15 +157,6 @@ def read_gram_species(altitude, options):
     if options.planet.name == "mars":
         species_index = ["CO2", "N2", "Ar", "O2","CO"]
 
-
-        composition = {
-            "CO2": 0.961,
-            "N2":  0.020,
-            "Ar":  0.017,
-            "O2":  0.001,
-            "CO": 0.001
-        }
-
         temperature = data["Temperature_K"].to_numpy()[0]
         density     = data["Density_kgm3"].to_numpy()[0]
 
@@ -173,19 +164,14 @@ def read_gram_species(altitude, options):
         species_data[0] = altitude
         species_data[1] = temperature
 
-        for i, sp in enumerate(species_index):
-            species_data[i + 2] = density * composition[sp]
+        for index, specie in enumerate(species_index):
+            species_data[index+2] = data[specie+"mass_pct"].to_numpy()[0]/100
 
         return species_data, species_index
     
     if options.planet.name == "venus":
         species_index = ["CO2", "N2"]
 
-        composition = {
-            "CO2": 0.965,
-            "N2":  0.035
-        }
-
         temperature = data["Temperature_K"].to_numpy()[0]
         density     = data["Density_kgm3"].to_numpy()[0]
 
@@ -193,19 +179,12 @@ def read_gram_species(altitude, options):
         species_data[0] = altitude
         species_data[1] = temperature
 
-        for i, sp in enumerate(species_index):
-            species_data[i + 2] = density * composition[sp]
-
-        return species_data, species_index
+        for index, specie in enumerate(species_index):
+            species_data[index+2] = data[specie+"mass_pct"].to_numpy()[0]/100
     
     if options.planet.name == "titan":
         species_index = ["N2", "CH4"]
 
-        composition = {
-            "N2":  0.95,
-            "CH4": 0.05
-        }
-
         temperature = data["Temperature_K"].to_numpy()[0]
         density     = data["Density_kgm3"].to_numpy()[0]
 
@@ -213,25 +192,23 @@ def read_gram_species(altitude, options):
         species_data[0] = altitude
         species_data[1] = temperature
 
-        for i, sp in enumerate(species_index):
-            species_data[i + 2] = density * composition[sp]
-
-        return species_data, species_index
+        for index, specie in enumerate(species_index):
+            species_data[index+2] = data[specie+"mass_pct"].to_numpy()[0]/100
 
 
 
-    temperature = data['Temperature_K'].to_numpy()[0]
-    density = data['Density_kgm3'].to_numpy()[0]
+    #temperature = data['Temperature_K'].to_numpy()[0]
+    #density = data['Density_kgm3'].to_numpy()[0]
 
-    species_data = np.zeros(len(species_index) + 2)
-    species_data[0] = altitude
-    species_data[1] = temperature
+    #species_data = np.zeros(len(species_index) + 2)
+    #species_data[0] = altitude
+    #species_data[1] = temperature
 
-    for index, specie in enumerate(species_index):
-        species_data[index + 2] = data[specie + "_mass_pct"].to_numpy()[0] / 100
+    #for index, specie in enumerate(species_index):
+     #   species_data[index + 2] = data[specie + "mass_pct"].to_numpy()[0] / 100
 
-    species_data[2:] /= np.sum(species_data[2:])
-    species_data[2:] *= density
+    #species_data[2:] /= np.sum(species_data[2:])
+    #species_data[2:] *= density
 
     return species_data, species_index
 

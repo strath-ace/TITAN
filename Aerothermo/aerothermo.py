@@ -362,7 +362,9 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
 
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly, index, flow_direction)
+            pres, shear = aerodynamics_module_freemolecular(assembly, index, flow_direction)
+            assembly.aerothermo.pressure[index] += pres
+            assembly.aerothermo.shear[index] += shear
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
             assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 

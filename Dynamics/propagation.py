@@ -112,9 +112,16 @@ def state_equation(titan,options,time,state_vectors):
     # Then determine the necessary derivatives to return the state vector(s)
     d_dt_state_vectors = []
     for _assembly in titan.assembly:
+    
+        #angularDerivatives.ddyaw = 10*_assembly.slip
+        #angularDerivatives.ddpitch = -10*_assembly.aoa
         angularDerivatives = dynamics.compute_angular_derivatives(_assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(_assembly, options)
-
+        if options.vehicle: # Some junk numerics to keep the aoa=0 condition
+            angularDerivatives.droll = 0
+            angularDerivatives.dpitch = -6.4*_assembly.aoa
+            angularDerivatives.dyaw = 0
+            angularDerivatives.ddroll = 0
         # Use quaternion derivative equation 
         omega_q = [angularDerivatives.droll,angularDerivatives.dpitch,angularDerivatives.dyaw,0.0]
         d_q  = 0.5 *  quaternion_mult(_assembly.quaternion,omega_q)
