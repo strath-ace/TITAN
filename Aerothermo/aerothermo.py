@@ -28,7 +28,7 @@ from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RigidTransform as Trans
 from scipy.spatial import KDTree
-import trimesh
+import trimesh, pathlib
 try:
     from trimesh.ray.ray_pyembree import RayMeshIntersector
 except:
@@ -369,7 +369,9 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
 
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly, index, flow_direction)
+            pressure, shear = aerodynamics_module_freemolecular(assembly, index, flow_direction)
+            assembly.aerothermo.pressure[index] = pressure
+            assembly.aerothermo.shear[index] = shear
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
             assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
@@ -511,7 +513,7 @@ def edge_subdivision(v0,v1,v2, n):
 
     return COG
 
-def ray_trace(assembly_group, flow_directions, n, options):
+def ray_trace(assembly_group, flow_directions, n, options, output_rays=None):
     # Prefilter our raytracing by flow-facing facets
     theta = [0]
     v0 = [[0,0,0]]
@@ -546,39 +548,35 @@ def ray_trace(assembly_group, flow_directions, n, options):
     flow_dirs = flow_dirs[filtered_facet_indices,:]
 
     base_assembly = assembly_group[0]
-    meshlist = [trimesh.Trimesh(vertices=base_assembly.mesh.nodes, faces=base_assembly.mesh.facets)]
+    meshlist = []
     base_facets = len(base_assembly.mesh.facet_area)
 
-    main_quat = np.append([base_assembly.quaternion[3]], base_assembly.quaternion[0:3])
-    main_ECEF_B = trimesh.transformations.inverse_matrix(trimesh.transformations.quaternion_matrix(main_quat))
     main_Translate_ECEF = trimesh.transformations.translation_matrix(-_assembly.position)
-    main_Translate_CoG  = trimesh.transformations.translation_matrix(_assembly.COG)
-    flow_dirs  = -Rot.from_quat(base_assembly.quaternion).inv().apply(flow_dirs)
+    main_Translate_CoG  = trimesh.transformations.translation_matrix(Rot.from_quat(base_assembly.quaternion).apply(_assembly.COG))
+    flow_dirs  = -flow_dirs
     flow_len   = np.linalg.norm(flow_dirs, axis = 1)
     flow_dirs /= flow_len[:,np.newaxis]
 
-    if len(assembly_group)>1:
-        for i_extra, extra_assem in enumerate(assembly_group):
-            if i_extra==0: continue
-            new_mesh = trimesh.Trimesh(vertices=extra_assem.mesh.nodes, faces=extra_assem.mesh.facets)
-            quaternion = np.append([extra_assem.quaternion[3]], extra_assem.quaternion[0:3])
-            R_B_ECEF = trimesh.transformations.quaternion_matrix(quaternion)
-            Translate_COG = trimesh.transformations.translation_matrix(-extra_assem.COG)
-            Translate_ECEF = trimesh.transformations.translation_matrix(extra_assem.position)
-            #
-            Matrix = main_Translate_CoG@main_ECEF_B@main_Translate_ECEF@Translate_ECEF@R_B_ECEF@Translate_COG
-            new_mesh.apply_transform(Matrix)
-            TransMatrix = Trans.from_matrix(Matrix)
-            v0[pointers[i_extra]:pointers[i_extra+1],:] = TransMatrix.apply(
-                v0[pointers[i_extra]:pointers[i_extra+1],:]
-                )
-            v1[pointers[i_extra]:pointers[i_extra+1],:] = TransMatrix.apply(
-                v1[pointers[i_extra]:pointers[i_extra+1],:]
-                )
-            v2[pointers[i_extra]:pointers[i_extra+1],:] = TransMatrix.apply(
-                v2[pointers[i_extra]:pointers[i_extra+1],:]
-                )
-            meshlist.append(new_mesh)
+    for i_assem, _assembly in enumerate(assembly_group):
+        new_mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
+        quaternion = np.append([_assembly.quaternion[3]], _assembly.quaternion[0:3])
+        R_B_ECEF = trimesh.transformations.quaternion_matrix(quaternion)
+        Translate_COG = trimesh.transformations.translation_matrix(-_assembly.COG)
+        Translate_ECEF = trimesh.transformations.translation_matrix(_assembly.position)
+        #
+        Matrix = main_Translate_CoG@main_Translate_ECEF@Translate_ECEF@R_B_ECEF@Translate_COG
+        new_mesh.apply_transform(Matrix)
+        TransMatrix = Trans.from_matrix(Matrix)
+        v0[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
+            v0[pointers[i_assem]:pointers[i_assem+1],:]
+            )
+        v1[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
+            v1[pointers[i_assem]:pointers[i_assem+1],:]
+            )
+        v2[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
+            v2[pointers[i_assem]:pointers[i_assem+1],:]
+            )
+        meshlist.append(new_mesh)
 
     
     mesh = trimesh.util.concatenate(meshlist)
@@ -598,15 +596,23 @@ def ray_trace(assembly_group, flow_directions, n, options):
     ray_directions = -flow_dirs
 
     ray_directions.shape = (-1,3)
-    ray_ends = facet_centroids - 10*flow_dirs#ray_origins+20*options.aerothermo.SoI_rad*flow_dirs
+    #ray_origins+20*options.aerothermo.SoI_rad*flow_dirs
     facet_sees_flow =  np.zeros_like(theta, dtype=np.int16)
 
+    match output_rays:
+        case 'leading':
+            ray_ends   = facet_centroids - 10*flow_dirs
+        case 'trailing':
+            ray_ends   = facet_centroids + 10*flow_dirs 
+        
 
-
-    # if not hasattr(options, 'n_debug'): options.n_debug = 0
-    # else: options.n_debug+=1
-    # mesh.export('debug_{}.stl'.format(options.n_debug))
-    # write_rays_to_vtk('debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
+    if output_rays is not None:
+        if not pathlib.Path(options.output_folder+'/Rays').exists():
+            pathlib.Path(options.output_folder+'/Rays').mkdir(parents=True)
+        if not hasattr(options, 'n_debug'): options.n_debug = 0
+        else: options.n_debug+=1
+        mesh.export(options.output_folder+'/Rays/debug_{}.stl'.format(options.n_debug))
+        write_rays_to_vtk(options.output_folder+'/Rays/debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
 
     #hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
     hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
@@ -1678,7 +1684,7 @@ def SoI_assembly_groups(assembly_list : list, sphere_radius : float):
             flow_dirs.append(-Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity))
             flow_dirs[-1] /= np.linalg.norm(flow_dirs[-1])
             assert np.isclose(np.linalg.norm(flow_dirs[-1]), 1.0)
-        mean_flow_dirs.append(flow_dirs[0])#np.mean(flow_dirs,axis=0))
+        mean_flow_dirs.append(np.mean(flow_dirs,axis=0))
 
     return mean_flow_dirs, assembly_groups, group_mapping
 

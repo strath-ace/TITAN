@@ -196,7 +196,7 @@ def find_ToI_timestep(titan, options, input_time_step):
 	dt = binary_search_TOI(titan, options, input_time_step, lref_time_resolution=Lref_time_step)
 	
 	if dt>=input_time_step: return input_time_step
-	res_time = np.min([compute_time_resolution(titan, options, 2.5e-2), 0.05])
+	res_time = np.min([compute_time_resolution(titan, options, 2.5e-2), 0.01])
 	if options.verbose: print('Selected a dt of {}'.format(np.max([res_time, dt])))
 	return np.max([res_time, dt])
 
@@ -634,7 +634,7 @@ def select_contacts(contact_data, depths, collision_data, assem_indices):
 	## [3] Next the contact furthest from the line defined by points 1 and 2
 	line_norm = dx[furthest_from_deepest,:] / np.linalg.norm(dx[furthest_from_deepest, :])
 	projection = dx @ line_norm
-	perpendicular_dist = np.sqrt(np.max([np.linalg.norm(dx, axis=1)**2-projection**2,np.zeros_like(dx)],axis=1))
+	perpendicular_dist =  np.sqrt(np.max([np.linalg.norm(dx, axis=1)**2-projection**2,np.zeros(n_contacts)],axis=0))
 	furthest_from_line = np.argmax(perpendicular_dist)
 	col_append(furthest_from_line)
 	if n_contacts<4: return collision_data

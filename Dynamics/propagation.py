@@ -58,14 +58,13 @@ def propagate(titan, options):
     current_state_vectors, state_vectors_prior, derivatives_prior = collect_state_vectors(titan, options)
 
     time_step = options.dynamics.time_step if not hasattr(titan,'rk_adapt') else options.dynamics.dt_max
-    if options.collision.flag and len(titan.assembly)>1:
+    if options.collision.flag and len(titan.assembly)>1 and np.any(np.array([len(group) for group in titan.groups])>1):
         #Check collision for future time intervals with respect to current time-step velocity
+        minLref = np.min([_assembly.Lref for _assembly in titan.assembly])
+        time_step = collision.compute_time_resolution(titan, options, minLref)
         if hasattr(titan, 'body_length_dt'): 
             time_step = copy(titan.body_length_dt)
             del titan.body_length_dt
-        elif np.any(np.array([len(group) for group in titan.groups])>1):
-            minLref = np.min([_assembly.Lref for _assembly in titan.assembly])
-            time_step = collision.compute_time_resolution(titan, options, minLref)
         time_to_impact = collision.find_ToI_timestep(titan, options, time_step)
         time_step = time_to_impact
     
@@ -569,7 +568,10 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
                                                                                     t_bound=titan.rk_params['t_end'],
                                                                                     first_step=titan.rk_params['t_first'],
                                                                                     max_step=titan.rk_params['t_max'])
-    if titan.rk_adapt.status == 'running':
+    if titan.time>options.dynamics.t_end:
+        print('Propagation concluding ({} function evaluations)'.format(titan.rk_adapt.nfev))
+        titan.end_trigger = True
+    elif titan.rk_adapt.status == 'running':
         titan.rk_adapt.max_step = dt
         titan.rk_adapt.step()
     else: 
