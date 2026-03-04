@@ -36,8 +36,8 @@ Method = Mutationpp
 Model = GRAM
 
 [GRAM]
-GRAM_Path = /home/ckb18135/hus/HussainTitan/Executables/GRAM/
-SPICE_Path = /home/ckb18135/hus/HussainTitan/Executables/SPICE/
+GRAM_Path = /root/TITAN/Executables/Executables/GRAM_Suite/
+SPICE_Path = /root/TITAN/Executables/Executables/GRAM_Suite/SPICE/
 Year = 2021
 Month = 2
 Day = 18
@@ -52,7 +52,7 @@ Time_step = 0.1
 Propagator = RK23
 
 [Assembly]
-Path = /home/ckb18135/hus/HussainTitan/Examples/Geometry/Galileo/
+Path = Examples/Geometry/Galileo/
 
 [Objects]
 Primary = [NAME = galileo.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]
