@@ -358,7 +358,7 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
     #Pressure calculation only if Drag model is False
     if (not options.vehicle) or (options.vehicle and not options.vehicle.Cd):
         if  (assembly.freestream.knudsen <= Kn_cont_pressure):
-            assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly, index, flow_direction)
+            assembly.aerothermo.pressure[index] += aerodynamics_module_continuum(assembly, index, flow_direction)
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
 
         elif (assembly.freestream.knudsen >= Kn_free): 

@@ -320,6 +320,20 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
     
         freestream.mfp = C1/freestream.density
         freestream.knudsen = freestream.mfp/lref
+
+    ## Need to implement mean free path calculations for different aero mixtures
+    else: # For now debug by a simple mfp lookup (derived from https://doi.org/10.1111/maps.12924)
+        alt_in_km = altitude/1000
+        if options.planet.name == "venus":
+            power=-0.00000290487*alt_in_km**3+0.0010754*alt_in_km**2-0.0184943*alt_in_km**-8.61711
+        elif options.planet.name=="titan":
+            power=9.76164e-9*alt_in_km**3-0.0000192343*alt_in_km**2+0.0195402*alt_in_km**-7.5489
+        elif options.planet.name=="mars":
+            power=0.0517825*alt_in_km-5.
+
+        freestream.mfp = 10**power
+        freestream.knudsen = freestream.mfp/lref
+
     
 def compute_stagnation(free, options):
     """
