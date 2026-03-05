@@ -37,10 +37,9 @@ class Jet:
 
 class JetSystem:
     def __init__(self, jets, tank=None):
-        # store by lowercase key
         self.jets = {j.name.strip().lower(): j for j in jets}
         self.tank = tank
-        self.groups = {}
+        self.groups = {}          # group -> [jet_name_lower]
         self.prop_used_kg_total = 0.0
 
     def add_group(self, group, jet_names):
@@ -89,3 +88,29 @@ class JetSystem:
             F += j.force_B()
             M += j.moment_B(cog_B)
         return F, M
+
+    def add_group(self, group, jet_names):
+        g = str(group).strip().lower()
+        self.groups[g] = [str(n).strip().lower() for n in jet_names]
+
+    def has_group(self, group: str) -> bool:
+        return str(group).strip().lower() in self.groups
+
+    def set_group_thrust(self, group, thrust_N, *, per_jet: bool = True):
+        """
+        If per_jet=True: apply thrust_N to each jet in the group.
+        If per_jet=False: split total thrust_N equally across jets in the group.
+        """
+        g = str(group).strip().lower()
+        members = self.groups.get(g, [])
+        if not members:
+            return False
+
+        if per_jet:
+            for n in members:
+                self.set_thrust(n, thrust_N)
+        else:
+            share = float(thrust_N) / float(len(members))
+            for n in members:
+                self.set_thrust(n, share)
+        return True

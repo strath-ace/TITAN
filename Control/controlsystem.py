@@ -80,11 +80,8 @@ class ControlSystem:
                             self._last_applied[k] = cmd
                             any_changed = True
 
-                continue  # done with this row
+                continue
 
-            # -----------------------------
-            # Jets (NEW)
-            # -----------------------------
             if typ in ("jet", "thruster"):
                 if field != "thrust":
                     continue
@@ -119,6 +116,36 @@ class ControlSystem:
                     print(f"[CONTROL][JET] t={titan.time:.3f} ass={ass.id} target='{target}' thrust_N={thrust_N} units='{units}'")
 
 
+                continue
+
+            if typ in ("jet_group", "thruster_group"):
+                if field != "thrust":
+                    continue
+
+                group = target  # name column holds the group name
+
+                for ass in titan.assembly:
+                    js = getattr(ass, "jet_system", None)
+                    if js is None:
+                        continue
+                    if not js.has_group(group):
+                        continue
+
+                    # units:
+                    #  - "n": thrust in N (per jet by default)
+                    #  - "pct": percent of each jet's Tmax
+                    if units in ("pct", "percent", "%"):
+                        for n in js.groups[group.strip().lower()]:
+                            j = js.jets.get(n)
+                            if j is None:
+                                continue
+                            thrust_N = (val / 100.0) * float(j.thrust_max_N)
+                            js.set_thrust(n, thrust_N)
+                    else:
+                        thrust_N = val
+                        js.set_group_thrust(group, thrust_N, per_jet=True)  # choose policy here
+
+                any_changed = True
                 continue
 
         if any_changed:
