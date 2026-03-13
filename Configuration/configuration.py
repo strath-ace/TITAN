@@ -273,6 +273,15 @@ class PATO():
         #: [boolean] Flag to model heat conduction between objects
         self.conduction_flag = conduction_flag
 
+        #: [float] Max recession per mesh substep [m]; 0 = disabled - This is for moveDynamicMesh only
+        self.max_recession_per_step = 0.001
+
+         #: [float] Gaussian smoothing sigma = sigma_factor * mean_edge_length for nodal displacement
+        self.recession_sigma_factor = 1.0
+
+        #: [float] Blend factor: final_disp = (1 - blend_alpha)*raw + blend_alpha*smoothed
+        self.recession_smooth_alpha = 0.2
+
 
 class Radiation():
     def __init__(self, particle_emissions = False,
@@ -979,16 +988,23 @@ def read_geometry(configParser, options):
                         for s in value:
                             if 'bloom' in s.lower():
                                 bloom = s.split('=')[1].strip('()').split(';')  
-                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]       
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])] 
+                                print(bloom)      
                     except:
                         bloom = [False, 0, 0, 0]               
+
+                    try:
+                        obj_ablation = eval([s for s in value if "ablation=" in s.lower()][0].split("=")[1])
+                    except:
+                        obj_ablation = options.thermal.ablation
 
                     if options.pato.flag and bloom[0] == False:
                         print('Need to set up BLOOM if using PATO!'); exit()
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
                                              fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, 
-                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, enclosure=enclosure, alpha=alpha)
+                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, enclosure=enclosure, alpha=alpha,
+                                             ablation=obj_ablation)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -1030,10 +1046,16 @@ def read_geometry(configParser, options):
                     except:
                         bloom = [False, 0, 0, 0]              
 
+                    try:
+                        obj_ablation = eval([s for s in value if "ablation=" in s.lower()][0].split("=")[1])
+                    except:
+                        obj_ablation = options.thermal.ablation
+
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), 
                                              fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, 
-                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha) 
+                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha,
+                                             ablation=obj_ablation) 
 
 
                 print('bloom:', bloom)
@@ -1158,6 +1180,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             options.pato.fstrip = get_config_value(configParser, options.pato.fstrip, 'PATO', 'fStrip', 'float')
             if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
             options.pato.conduction_flag = get_config_value(configParser, options.pato.conduction_flag, 'PATO', 'Conduction_objects', 'boolean')
+            options.pato.max_recession_per_step = get_config_value(configParser, 0.001, 'PATO', 'Max_recession_per_step', 'float')
+            options.pato.recession_sigma_factor = get_config_value(configParser, 1.0, 'PATO', 'Recession_sigma_factor', 'float')
+            options.pato.recession_smooth_alpha = get_config_value(configParser, 0.2, 'PATO', 'Recession_smooth_alpha', 'float')
             options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
 
             if options.pato.conduction_flag and (options.dynamics.time_step != options.pato.time_step):
