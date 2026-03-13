@@ -19,6 +19,7 @@
 #
 import numpy as np 
 from Geometry import mesh
+from Geometry.mesh import sync_surface_from_nodes
 from scipy import integrate
 import pandas as pd
 import os
@@ -29,6 +30,11 @@ import vg
 import sys
 from Geometry.tetra import inertia_tetra
 import requests
+import subprocess
+import pathlib
+from .meshUpdate import run_mesh_update, save_mesh_snapshot, print_mesh_quality
+
+
 
 def compute_thermal(titan, options):
     thermal_delta_t = titan.time - options.thermal.prev_thermal_time
@@ -243,6 +249,37 @@ def compute_thermal_tetra(titan, options):
 
     return 
 
+def _append_simulation_summary_row(options, titan, assembly, obj):
+    """Append one row to Data/simulation_summary.csv (Excel-friendly)."""
+    csv_path = pathlib.Path(options.output_folder) / "Data" / "simulation_summary.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
+    time_s = titan.time
+    altitude_m = getattr(assembly.trajectory, "altitude", 0.0) or 0.0
+    if getattr(obj.pato, "Ta_prev", None) is not None and len(obj.pato.Ta_prev) > 0:
+        max_temperature_K = float(np.max(obj.pato.Ta_prev))
+    else:
+        max_temperature_K = float(np.max(obj.pato.temperature)) if hasattr(obj.pato, "temperature") and obj.pato.temperature is not None and len(obj.pato.temperature) > 0 else 0.0
+    total_mass_kg = assembly.mass
+    mass_loss_rate_kg_s = getattr(obj.pato, "total_mdot_kg_s", 0.0)
+    velocity_m_s = getattr(assembly.trajectory, "velocity", 0.0) or 0.0
+    max_recession_rate_mm_s = getattr(obj.pato, "max_recession_mm_s", 0.0)
+    _name = getattr(obj, 'name', None)
+    component_name = pathlib.Path(_name).name if _name else f'obj_{obj.global_ID}'
+    row = {
+        "time_s": time_s,
+        "component": component_name,
+        "altitude_m": altitude_m,
+        "max_temperature_K": max_temperature_K,
+        "total_mass_kg": total_mass_kg,
+        "mass_loss_rate_kg_s": mass_loss_rate_kg_s,
+        "velocity_m_s": velocity_m_s,
+        "max_recession_rate_mm_s": max_recession_rate_mm_s,
+    }
+    write_header = not csv_path.exists()
+    df = pd.DataFrame([row])
+    df.to_csv(csv_path, mode="a", header=write_header, index=False)
+
+
 def compute_thermal_PATO(titan, options):
 
     for assembly in titan.assembly: 
@@ -264,13 +301,86 @@ def compute_thermal_PATO(titan, options):
                 print('##### PATO from {} to {} (dt of {})'.format(options.thermal.prev_thermal_time,
                                                                    titan.time,
                                                                    round(titan.time-options.thermal.prev_thermal_time,5)))
-                pato.compute_thermal(obj, options.thermal.prev_thermal_time, titan.time, titan.iter, options, hf, Tinf)
+                q_aero = assembly.aerothermo.heatflux[obj.facet_index]
+                #print("[DEBUG] aerothermo heatflux min/max:", float(np.min(q_aero)), float(np.max(q_aero)))
+                obj.pato.facet_normal = assembly.mesh.facet_normal[obj.facet_index]
+                # Full node list 
+                obj.pato.nodes = assembly.mesh.nodes
+                # Only the facets belonging to this object
+                obj.pato.facets = assembly.mesh.facets[obj.facet_index]
+
+                from Geometry import gmsh_api as GMSH
+                from Aerothermo import bloom
+
+                pato.compute_thermal(obj, options.thermal.prev_thermal_time, titan.time, titan.iter, options, hf, Tinf, assembly=assembly)
                 assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+
+                # ---- Apply ablation mesh recession (only for ablation-enabled objects) ----
+                if getattr(obj, 'ablation', False) and hasattr(obj.pato, "vertex_disp_field") and obj.pato.vertex_disp_field is not None:
+                    full_disp = obj.pato.vertex_disp_field
+                    object_id   = obj.global_ID
+                    pato_case   = pathlib.Path(options.output_folder + '/PATO_'+str(object_id)).resolve()
+                    n_cores     = options.pato.n_cores
+
+                    max_T = float(np.max(obj.pato.temperature)) if hasattr(obj.pato, 'temperature') and obj.pato.temperature is not None and len(obj.pato.temperature) > 0 else 0.0
+                    Tmelt = getattr(obj.material, 'meltingTemperature', float('inf'))
+                    needs_remesh = (max_T >= Tmelt)
+
+                    if pato.move_dynamic_mesh:
+                        max_per_step = getattr(options.pato, 'max_recession_per_step', 0.001)
+                        steps = 1
+                        if max_per_step > 0:
+                            max_disp = float(np.max(np.linalg.norm(full_disp, axis=1)))
+                            if max_disp > max_per_step:
+                                steps = int(np.ceil(max_disp / max_per_step))
+                                print(f"[Mesh] Sub-stepping: max disp {max_disp*1e3:.2f} mm -> "
+                                      f"{steps} steps of ~{max_per_step*1e3:.2f} mm", flush=True)
+                        sub_disp = full_disp / steps
+                        mesh_evolution = True
+                        intact = run_mesh_update(
+                            case=pato_case,
+                            mesh_nodes=assembly.mesh.nodes.copy(),
+                            vertex_disp=sub_disp,
+                            region="subMat1",
+                            patch="top",
+                            n_cores=n_cores,
+                            steps=steps,
+                        )
+                        quality = print_mesh_quality(pato_case, "subMat1", time_value=titan.time, n_substeps=steps)
+                        if mesh_evolution:
+                            save_mesh_snapshot(pato_case, "subMat1", titan.time)
+                        if not intact:
+                            print("OBJECT HAS DEMISED. SIMULATION ENDED")
+                            sys.exit(1)
+
+                    assembly.mesh.nodes += full_disp
+                    obj_disp = full_disp[obj.node_index]
+                    obj.mesh.nodes += obj_disp
+                    sync_surface_from_nodes(assembly.mesh)
+                    obj.mesh = sync_surface_from_nodes(obj.mesh)
+
+                    # FOR TESTING: remesh and mapFields every step (ignore needs_remesh / should_remesh)
+                    if pato.remesh_volume:
+                        if pato.move_dynamic_mesh:
+                            pato.perform_PATO_remesh(options, obj, titan, n_cores)
+                        else:
+                            pato.perform_PATO_remesh(options, obj, titan, n_cores)
+                    elif not needs_remesh:
+                        print(f"[Remesh] Skipping remesh for obj {obj.global_ID} ({getattr(obj, 'name', '?')}): "
+                              f"max T = {max_T:.1f} K < Tmelt = {Tmelt:.1f} K", flush=True)
+
+                    obj.pato.vertex_disp_field = None
+
+                if getattr(options.pato, '_remesh_just_happened', False):
+                    print("[Thermal] Skipping write_Ta_from_previous (remesh already set origin.0)", flush=True)
+                    options.pato._remesh_just_happened = False
+                else:
+                    pato.write_Ta_from_previous(options, obj, obj.pato.Ta_prev)
 
                 if options.pato.Ta_bc == 'ablation':
                     assembly.mDotVapor[obj.facet_index] = obj.pato.mDotVapor
                     assembly.mDotMelt[obj.facet_index] = obj.pato.mDotMelt
-                
+
 
         if options.pato.Ta_bc == 'ablation':
 
@@ -297,10 +407,21 @@ def compute_thermal_PATO(titan, options):
                 #Computes the inertia matrix
                 assembly.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, assembly.COG, density)
 
+                # Update per-object mass (and COG, inertia) from current volume mesh
+                assembly.compute_mass_properties()
+
             #Update gas mass fractions to include vaporized material from ablation
 
             assembly.mVapor = assembly.mDotVapor*options.dynamics.time_step
             assembly.mMelt  = assembly.mDotMelt*options.dynamics.time_step
+
+        # Ensure mass is consistent with current mesh (qconv and ablation)
+        assembly.compute_mass_properties()
+
+        # Simulation summary CSV (one row per object, every thermal step e.g. 0.25 s)
+        for obj in assembly.objects:
+            if obj.pato.flag:
+                _append_simulation_summary_row(options, titan, assembly, obj)
 
     return
 

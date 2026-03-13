@@ -23,18 +23,228 @@ import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import subprocess
 import os
+import shutil
 from vtk import *
 import glob
 import os
 import re
 import pathlib
+import json
+import time
 from scipy.spatial import KDTree
 from Material import material as Material
 import pandas as pd
 
 conda_preamble = ['conda', 'run', '-n', 'pato'] # Better ideally to separate pato env from TITAN?
 
-def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf):
+# Mesh update modes
+
+# Warning - move_dynamic_mesh is prone to failing after to large a recession
+# Keeping in case remesh is to be optimised later e.g. use move_dynamic_mesh for very small steps then remesh the next step
+# Set to true to enable moveDynamicMesh - Does NOT remesh. Just drags the nodes
+move_dynamic_mesh = False
+# Set to true to enable a full volumetric remesh when required
+remesh_volume = True
+
+
+def _latest_numeric_time_name(base_dir):
+    p = pathlib.Path(base_dir)
+    if not p.exists():
+        return None
+    nums = []
+    for d in p.iterdir():
+        if d.is_dir() and d.name.replace(".", "").isdigit():
+            try:
+                nums.append((float(d.name), d.name))
+            except ValueError:
+                continue
+    if not nums:
+        return None
+    nums.sort(key=lambda x: x[0])
+    return nums[-1][1]
+
+
+def _numeric_time_dirs(base_dir):
+    p = pathlib.Path(base_dir)
+    if not p.exists():
+        return []
+    out = []
+    for d in p.iterdir():
+        if d.is_dir() and d.name.replace(".", "").isdigit():
+            out.append(d.name)
+    try:
+        out.sort(key=float)
+    except Exception:
+        out.sort()
+    return out
+
+def _write_mapfields_seed_field(filepath, field_name, field_class, dimensions, uniform_value):
+    """Write a minimal OpenFOAM field file with uniform internal field
+    and zeroGradient on every boundary.  This is safe for mapFields to parse
+    because it uses only standard OF types – no PATO custom BCs."""
+    filepath = pathlib.Path(filepath)
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    header = (
+        "FoamFile\n"
+        "{\n"
+        "    version     2.0;\n"
+        "    format      ascii;\n"
+        f"    class       {field_class};\n"
+        f"    object      {field_name};\n"
+        "}\n\n"
+        f"dimensions      {dimensions};\n\n"
+        f"internalField   uniform {uniform_value};\n\n"
+        "boundaryField\n"
+        "{\n"
+        '    ".*"\n'
+        "    {\n"
+        "        type            zeroGradient;\n"
+        "    }\n"
+        "}\n"
+    )
+    filepath.write_text(header)
+
+
+def _seed_all_fields_from_origin(origin_submat_dir, target_submat_dir):
+    """Read every field file in origin.0/subMat1/, extract its class and
+    dimensions, and write a clean seed version into the target directory
+    using only standard OpenFOAM boundary conditions (zeroGradient via
+    wildcard).  This prevents mapFields from choking on PATO-specific BCs
+    like HeatFlux or Bprime."""
+    import re
+    origin = pathlib.Path(origin_submat_dir)
+    target = pathlib.Path(target_submat_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    seeded = []
+    for src_file in sorted(origin.iterdir()):
+        if not src_file.is_file():
+            continue
+        text = src_file.read_text(errors="ignore")
+        # Extract class
+        cls_m = re.search(r"class\s+(vol\w+Field|point\w+Field|surfaceScalarField)", text)
+        if not cls_m:
+            continue
+        field_class = cls_m.group(1)
+        # Extract dimensions
+        dim_m = re.search(r"dimensions\s+(\[[^\]]+\])", text)
+        dims = dim_m.group(1) if dim_m else "[0 0 0 0 0 0 0]"
+        # Choose uniform value based on class type
+        if "Vector" in field_class:
+            uniform_val = "(0 0 0)"
+        elif "Tensor" in field_class:
+            uniform_val = "(0 0 0 0 0 0 0 0 0)"
+        elif "SphericalTensor" in field_class:
+            uniform_val = "0"
+        else:
+            uniform_val = "0"
+        _write_mapfields_seed_field(
+            target / src_file.name, src_file.name, field_class, dims, uniform_val
+        )
+        seeded.append(src_file.name)
+    return seeded
+
+
+def _extract_boundary_field(text):
+    """Extract the boundaryField { ... } block from an OpenFOAM field file.
+    Returns the full block as a string (including 'boundaryField' keyword and
+    outer braces), or None if not found."""
+    idx = text.find("boundaryField")
+    if idx < 0:
+        return None
+    # Find the opening brace
+    brace_start = text.find("{", idx)
+    if brace_start < 0:
+        return None
+    depth = 1
+    i = brace_start + 1
+    while i < len(text) and depth > 0:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+        i += 1
+    return text[idx:i]
+
+
+def _graft_boundary_field(mapped_text, original_boundary_block):
+    """Replace the boundaryField section in a mapped field file with the
+    original PATO boundary conditions, preserving the mapped internalField."""
+    idx = mapped_text.find("boundaryField")
+    if idx < 0:
+        return mapped_text + "\n" + original_boundary_block + "\n"
+    brace_start = mapped_text.find("{", idx)
+    if brace_start < 0:
+        return mapped_text
+    depth = 1
+    i = brace_start + 1
+    while i < len(mapped_text) and depth > 0:
+        if mapped_text[i] == "{":
+            depth += 1
+        elif mapped_text[i] == "}":
+            depth -= 1
+        i += 1
+    return mapped_text[:idx] + original_boundary_block + mapped_text[i:]
+
+
+def _count_cells_from_polymesh(polymesh_dir):
+    """Return the number of volume cells by reading the nCells entry
+    from the polyMesh/owner file header note, or by computing max(owner)+1."""
+    import re
+    owner_file = pathlib.Path(polymesh_dir) / "owner"
+    if not owner_file.exists():
+        return -1
+    text = owner_file.read_text(errors="ignore")
+
+    m = re.search(r"nCells:\s*(\d+)", text)
+    if m:
+        return int(m.group(1))
+
+    in_list = False
+    max_val = -1
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped == "(":
+            in_list = True
+            continue
+        if stripped == ")":
+            break
+        if in_list and stripped.isdigit():
+            val = int(stripped)
+            if val > max_val:
+                max_val = val
+    return max_val + 1 if max_val >= 0 else -1
+
+
+def _parse_of_scalar_field(text):
+    """Parse an OpenFOAM volScalarField text and return the internalField
+    values as a list of floats.  Returns None if uniform or unparseable."""
+    in_internal = False
+    collecting = False
+    vals = []
+    for line in text.splitlines():
+        s = line.strip()
+        if "internalField" in s:
+            in_internal = True
+            if "nonuniform" in s:
+                continue
+            return None  # uniform or other
+        if in_internal and not collecting:
+            if s == "(":
+                collecting = True
+                continue
+            # The line right after internalField nonuniform List<scalar> is the count
+            continue
+        if collecting:
+            if s == ")" or s == ");":
+                break
+            try:
+                vals.append(float(s))
+            except ValueError:
+                continue
+    return vals if vals else None
+
+
+def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf, assembly=None):
 
     """
     Compute the aerothermodynamic properties using the CFD software
@@ -46,6 +256,8 @@ def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf):
     options: Options
         Object of class Options
     """
+
+    obj.pato.q_conv = hf.copy()
     start_time = round(start_time,5)
     end_time = round(end_time, 5)
     time_step = round(end_time - start_time,5)
@@ -56,9 +268,37 @@ def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf):
                                                        time_step))
 
     time_to_postprocess = setup_PATO_simulation(obj, start_time, time_step, iteration, options, hf, Tinf)
+
+    # Quick check: what temperature does processor0/0/subMat1/Ta start at?
+    _p0_ta = pathlib.Path(options.output_folder) / f"PATO_{obj.global_ID}" / "processor0" / "0" / "subMat1" / "Ta"
+    if _p0_ta.exists():
+        _ta_text = _p0_ta.read_text(errors="ignore")
+        _vals = _parse_of_scalar_field(_ta_text)
+        if _vals is not None and len(_vals) > 0:
+            print(f"[PATO start] processor0 Ta: {len(_vals)} values, "
+                  f"min={min(_vals):.4f}, max={max(_vals):.4f}, mean={sum(_vals)/len(_vals):.4f}", flush=True)
+        else:
+            for _line in _ta_text.splitlines():
+                if "internalField" in _line.strip():
+                    print(f"[PATO start] processor0 Ta: {_line.strip()}", flush=True)
+                    break
+    else:
+        print(f"[PATO start] processor0/0/subMat1/Ta does not exist yet", flush=True)
+
     run_PATO(options, obj.global_ID)
 
-    postprocess_PATO_solution(options, obj, time_to_postprocess)
+    # Check end-of-step temperature in processor0 result
+    _p0_ta_end = pathlib.Path(options.output_folder) / f"PATO_{obj.global_ID}" / "processor0" / str(time_to_postprocess) / "subMat1" / "Ta"
+    if _p0_ta_end.exists():
+        _vals_end = _parse_of_scalar_field(_p0_ta_end.read_text(errors="ignore"))
+        if _vals_end and len(_vals_end) > 0:
+            print(f"[PATO end]   processor0 Ta: {len(_vals_end)} values, "
+                  f"min={min(_vals_end):.4f}, max={max(_vals_end):.4f}, mean={sum(_vals_end)/len(_vals_end):.4f}", flush=True)
+
+    postprocess_PATO_solution(options, obj, time_to_postprocess, assembly)
+    # Keep root 0/ synchronized with the latest solved state so the following
+    # mesh-update decomposePar step seeds processor*/0/ with the current thermal field.
+    sync_root_zero_from_latest_parallel(options, obj, time_to_postprocess)
     options.pato.prev_dt = time_step
 
 def setup_PATO_simulation(obj, time, time_step, iteration, options, hf, Tinf):
@@ -70,7 +310,9 @@ def setup_PATO_simulation(obj, time, time_step, iteration, options, hf, Tinf):
 	?????????????????????????
     """
 
-    write_PATO_BC(options, obj, time, hf, Tinf)
+    write_PATO_BC(options, obj, 0, hf, Tinf)  # PATO-from-0: always BC_0
+    # Store convective heat flux for postprocessing
+    obj.pato.q_conv = np.asarray(hf, dtype=float)
     time_to_postprocess = write_All_run(options, obj, time, time_step, iteration)
     write_system_folder(options, obj.global_ID, time, time_step)
 
@@ -82,13 +324,14 @@ def write_material_properties(options, obj):
     emissivity_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'emissivity', 1)
     cp_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'specificHeatCapacity', 4)
     k_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'heatConductivity', 4)
-    density = obj.material.density
 
     T0 = obj.pato.initial_temperature
 
-    cp = obj.material.specificHeatCapacity(T0+(obj.material.meltingTemperature-T0)/2)
-    em = obj.material.emissivity(T0+(obj.material.meltingTemperature-T0)/2)
-    tc = obj.material.heatConductivity(T0+(obj.material.meltingTemperature-T0)/2)
+    eval_T = T0 + (obj.material.meltingTemperature - T0) / 2
+    cp = obj.material.specificHeatCapacity(eval_T)
+    em = obj.material.emissivity(eval_T)
+    tc = obj.material.heatConductivity(eval_T)
+    density = obj.material.density
 
     object_id = obj.global_ID
 
@@ -118,7 +361,7 @@ def write_material_properties(options, obj):
         f.write('// e.g. W: kg m^2 s^{-3}    [1 2 -3 0 0 0 0]\n')
         f.write('\n')
         f.write('/***        Temperature dependent material properties   ***/\n')
-        f.write('/***        5 coefs - n0 + n1 T + n2 T² + n3 T³ + n4 T⁴ ***/\n')
+        f.write('/***        5 coefs - n0 + n1 T + n2 TÂ² + n3 TÂ³ + n4 Tâ´ ***/\n')
         f.write('// specific heat capacity - cp - [0 2 -2 -1 0 0 0]\n')
         f.write('cp_sub_n[0] '+str(cp)+';\n')
         f.write('cp_sub_n[1] 0;\n')
@@ -188,6 +431,7 @@ def write_All_run_init(options, object_id):
         f.write('fi\n')                                                                                                                                                                                                                             
         f.write('decomposePar -region subMat1\n')
 
+        
     f.close()
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -197,32 +441,20 @@ def write_All_run_init(options, object_id):
 
 def write_All_run(options, obj, time, time_step, iteration):
     """
-    Write the Allrun PATO file
-
-    Generates an executable file to run a PATO simulation according to the state of the object and the user-defined parameters.
-
-    Parameters
-    ----------
-    options: Options
-        Object of class Options
+    Write the Allrun PATO file.
+    PATO-from-0: PATO always runs 0 -> pato_dt.
+    At start: copy processor*/pato_dt/ -> processor*/0/ if available.
+    At end: delete processor*/0/ (next run repopulates from pato_dt).
     """
 
-    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pato_dt = round(time_step, 5)
+    if isinstance(pato_dt, float) and pato_dt.is_integer():
+        pato_dt = int(pato_dt)
 
-    end_time = round(time + time_step, 5)
-    start_time = round(time, 5)
-
-    time_step_to_delete = round(start_time - options.pato.prev_dt, 5)
-    iteration_to_delete = int((iteration-1)*time_step/options.pato.time_step)
-
-    print('copying BC:', end_time, ' - ', start_time)
+    print(f'[Allrun] PATO-from-0: running 0 -> {pato_dt}')
 
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/Allrun', 'w') as f:
 
-        if ((end_time).is_integer()): end_time = int(end_time)
-        else: end_time = np.round(end_time, 5)
-        if ((start_time).is_integer()): start_time = int(start_time)
-        if ((time_step_to_delete).is_integer()): time_step_to_delete = int(time_step_to_delete)
         f.write('#!/bin/bash \n')
         f.write('cd ${0%/*} || exit 1 \n')
         f.write('. $PATO_DIR/src/applications/utilities/runFunctions/RunFunctions \n')
@@ -251,10 +483,28 @@ def write_All_run(options, obj, time, time_step, iteration):
         f.write('    sed_cmd=sed\n')
         f.write('fi\n')
         f.write('$sed_cmd -i "s/numberOfSubdomains \\+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
-        f.write('cp qconv/BC_'+str(start_time) + ' qconv/BC_' + str(end_time) + '\n')
+
+        # PATO-from-0: copy previous result (pato_dt/) to 0/ as initial condition
+        f.write('# Copy previous result to 0/ (skip on first run / after remesh)\n')
+        f.write('if [ -d processor0/' + str(pato_dt) + ' ]; then\n')
+        f.write('    for p in processor*; do\n')
+        f.write('        cp -r "$p/' + str(pato_dt) + '" "$p/0"\n')
+        f.write('        # Reset time metadata to 0 so PATOx solves the full interval\n')
+        f.write('        for tf in "$p/0/uniform/time" "$p/0/subMat1/uniform/time"; do\n')
+        f.write('            if [ -f "$tf" ]; then\n')
+        f.write('                $sed_cmd -i \'s/value\\s\\+[^;]*/value           0/\' "$tf"\n')
+        f.write('                $sed_cmd -i \'s/deltaT0\\s\\+[^;]*/deltaT0         0/\' "$tf"\n')
+        f.write('            fi\n')
+        f.write('        done\n')
+        f.write('    done\n')
+        f.write('fi\n')
+
+        f.write('cp qconv/BC_0 qconv/BC_' + str(pato_dt) + '\n')
         f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
-        f.write('TIME_STEP='+str(end_time)+' \n')
+        f.write('TIME_STEP='+str(pato_dt)+' \n')
         f.write('MAT_NAME=subMat1 \n')
+
+        # Flatten subMat1 fields into time folder for foamToVTK
         for n in range(options.pato.n_cores):
             f.write('cd processor' + str(n) + '/\n')
             f.write('cp -r "$TIME_STEP/$MAT_NAME"/* "$TIME_STEP" \n')
@@ -263,39 +513,33 @@ def write_All_run(options, obj, time, time_step, iteration):
         f.write('cp system/"$MAT_NAME"/fvSchemes  system/ \n')
         f.write('cp system/"$MAT_NAME"/fvSolution system/ \n')
         f.write('cp system/"$MAT_NAME"/decomposeParDict system/ \n')
-        f.write('foamJob -p -s foamToVTK -time '+str(end_time)+' -useTimeName\n')
+
+        # Patch controlDict so foamToVTK finds the right time
+        f.write('$sed_cmd -i "s/startTime *[^;]*;/startTime       $TIME_STEP;/g" system/controlDict\n')
+        f.write('foamJob -p -s foamToVTK -time '+str(pato_dt)+' -useTimeName\n')
+
+        # Restore controlDict startTime to 0 for next PATO run
+        f.write('$sed_cmd -i "s/startTime *[^;]*;/startTime       0;/g" system/controlDict\n')
+
         f.write('cp qconv/BC* qconv-bkp/ \n')
         f.write('rm qconv/BC* \n')
-        f.write('rm mesh/*su2 \n')
-        #f.write('rm mesh/*meshb \n')
-        print('time_step_to_delete:', time_step_to_delete)
-        print('end_time:', end_time)
-        print('start_time:', start_time)
+        f.write('rm -f mesh/*su2 \n')
+
+        # Cleanup: save restart if needed, then delete processor*/0/
         for n in range(options.pato.n_cores):
-            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
-            f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
-            #f.write('rm -rf processor'+str(n)+'/restart/* \n')
+            f.write('rm -f processor'+str(n)+'/VTK/top/top_0.vtk \n')
             if options.current_iter%options.save_freq == 0:
                 f.write('rm -rf processor'+str(n)+'/restart/* \n')
-                f.write('cp -r  processor'+str(n)+'/'+str(start_time)+'/ processor'+str(n)+'/restart/ \n')
-                f.write('cp -r  processor'+str(n)+'/'+str(end_time)+'/ processor'+str(n)+'/restart/ \n')
+                f.write('cp -r  processor'+str(n)+'/0/ processor'+str(n)+'/restart/ \n')
+                f.write('cp -r  processor'+str(n)+'/'+str(pato_dt)+'/ processor'+str(n)+'/restart/ \n')
                 f.write('cp  processor'+str(n)+'/VTK/proce* processor'+str(n)+'/restart/ \n')
-            f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-            #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
-        #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-        #if time_step_to_delete/options.dynamics.time_step != options.save_freq:
-            #f.write('rm -rf processor'+str(n)+'/'+str(time_step_to_delete)+' \n')
-            #print('delete time_step_to_delete:', time_step_to_delete)
-        #if options.current_iter%options.save_freq != 0:
-        #    f.write('rm -rf processor'+str(n)+'/'+str(end_time)+' \n')
-        
+            f.write('rm -rf processor'+str(n)+'/0 \n')
 
     f.close()
 
-    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.system("chmod +x " + options.output_folder +'/PATO_'+str(obj.global_ID)+'/Allrun' )
 
-    return end_time
+    return pato_dt
 
 def write_constant_folder(options, object_id):
     """
@@ -413,7 +657,7 @@ def write_constant_folder(options, object_id):
             f.write('\n')
             f.write('/****************************** GENERAL ************************************/\n')
             f.write('//debug yes;\n')
-            f.write('movingMesh      yes;\n')
+            f.write('movingMesh      no;\n')
             f.write('/****************************** end GENERAL ********************************/\n')
             f.write('\n')
             f.write('/****************************** IO *****************************************/\n')
@@ -488,7 +732,7 @@ def write_constant_folder(options, object_id):
             f.write('    Provides boundary-condition information at the surface, tabulated as a function of time.\n')
             f.write('\\*---------------------------------------------------------------------------*/\n')
             f.write('/*\n')
-            f.write('t(s)    p_total_w(Pa)   rhoUeCH(kg/m²/s)    h_r(J/kg)   chemistryOn\n')
+            f.write('t(s)    p_total_w(Pa)   rhoUeCH(kg/mÂ²/s)    h_r(J/kg)   chemistryOn\n')
             f.write('*/\n')
             f.write('0       101325          0.3e-2                  0               1\n')
             f.write('0.1     101325          0.3                     2.5e7           1\n')
@@ -605,7 +849,7 @@ def write_origin_folder(options, obj):
             f.write('type             Bprime;\n')
             f.write('mixtureMutationBprime '+(mix_file)+';\n')
             f.write('environmentDirectory "$PATO_DIR/data/Environments/RawData/Earth";\n')
-            f.write('movingMesh yes;\n')
+            f.write('movingMesh no;\n')
             f.write('mappingType "3D-tecplot";\n')
             f.write('mappingFileName "$FOAM_CASE/qconv/BC";\n')
             f.write('mappingFields\n')
@@ -998,7 +1242,8 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
     z = obj.mesh.facet_COG[:,2]
     Tinf = np.full(n_data_points, freestream_temperature)
 
-    if ((time).is_integer()): time = int(time)  
+    if isinstance(time, float) and time.is_integer():
+        time = int(time)
 
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/qconv/BC_' + str(time), 'w') as f:
 
@@ -1090,17 +1335,11 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
 
 def write_system_folder(options, object_id, time, time_step):
     """
-    Write the system/ PATO folder
-
-    Generates input files defining the 'system' folder in PATO
-
-    Parameters
-    ----------
-    options: Options
-        Object of class Options
+    Write the system/ PATO folder.
+    PATO-from-0: always startTime=0, endTime=time_step.
     """
-    start_time = time
-    end_time = time+time_step
+    start_time = 0
+    end_time = time_step
     wrt_interval = time_step
     pato_time_step = options.pato.time_step#round(time_step*options.pato.time_step,6)
     print('#### PATO STEP {} ####'.format(pato_time_step))
@@ -1251,6 +1490,12 @@ def write_system_folder(options, object_id, time, time_step):
             f.write('  };\n')
             f.write('}\n')
             f.write('\n')
+            f.write('PIMPLE\n')
+            f.write('{\n')
+            f.write('    nOuterCorrectors  1;\n')
+            f.write('    nCorrectors       1;\n')
+            f.write('}\n')
+            f.write('\n')
             f.write('// ************************************************************************* //\n')
 
 
@@ -1304,6 +1549,12 @@ def write_system_folder(options, object_id, time, time_step):
             f.write('    relTol          0;\n')
             f.write('  };\n')
             f.write('\n')
+            f.write('}\n')
+            f.write('\n')
+            f.write('PIMPLE\n')
+            f.write('{\n')
+            f.write('    nOuterCorrectors  1;\n')
+            f.write('    nCorrectors       1;\n')
             f.write('}\n')
             f.write('\n')
             f.write('// ************************************************************************* //\n')
@@ -1512,17 +1763,467 @@ def run_PATO(options, object_id):
     #     cmd+=arg
     #     cmd+=' '
     print(cmd)
-    subprocess.run(cmd, text = True,shell=True)
+    case_path = pathlib.Path(options.output_folder + '/PATO_' + str(object_id)).resolve()
+
+    # Mesh quality check just before Allrun (so user can see issues before PATO/foamToVTK run)
+    from .meshUpdate import print_mesh_quality
+    print("[PATO] Running checkMesh before Allrun...", flush=True)
+    print_mesh_quality(case_path, "subMat1")
+
+    _res = subprocess.run(cmd, text=True, shell=True)
     #subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun'], text = True)
 
-def postprocess_PATO_solution(options, obj, time_to_read):
+def sync_root_zero_from_latest_parallel(options, obj, time_to_postprocess):
+    """
+    Reconstruct latest parallel PATO fields and refresh root 0/subMat1.
+
+    Why:
+    meshUpdate runs decomposePar after point motion, and decomposePar seeds
+    processor*/0 from root 0/. If root 0/ stays at the initial condition,
+    each step effectively restarts from the initial temperature.
+    """
+    pato_case = pathlib.Path(options.output_folder + f'/PATO_{obj.global_ID}').resolve()
+    time_str = str(time_to_postprocess)
+    src = pato_case / time_str / "subMat1"
+    dst = pato_case / "0" / "subMat1"
+
+    try:
+        print(f"[Restart sync] reconstructPar at t={time_str}", flush=True)
+        subprocess.run(
+            conda_preamble + [
+                "reconstructPar", "-region", "subMat1",
+                "-time", time_str, "-case", str(pato_case)
+            ],
+            cwd=str(pato_case), text=True, check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"[Restart sync] WARNING: reconstructPar failed (rc={e.returncode})", flush=True)
+        return
+    except Exception as e:
+        print(f"[Restart sync] WARNING: reconstructPar error: {e}", flush=True)
+        return
+
+    if not src.exists():
+        print(f"[Restart sync] WARNING: missing reconstructed source {src}", flush=True)
+        return
+
+    try:
+        if dst.exists():
+            shutil.rmtree(dst)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(src, dst)
+        print(f"[Restart sync] Updated root 0/subMat1 from {time_str}/subMat1", flush=True)
+    except Exception as e:
+        print(f"[Restart sync] WARNING: could not refresh root 0/subMat1: {e}", flush=True)
+
+def write_Ta_from_previous(options, obj, temperature_cell):
+
+    path = options.output_folder + f"/PATO_{obj.global_ID}/origin.0/subMat1/Ta"
+
+    with open(path, "w") as f:
+
+        f.write("FoamFile\n{\n")
+        f.write("  version     2.0;\n")
+        f.write("  format      ascii;\n")
+        f.write("  class       volScalarField;\n")
+        f.write("  location    \"0\";\n")
+        f.write("  object      Ta;\n")
+        f.write("}\n\n")
+
+        f.write("dimensions      [0 0 0 1 0 0 0];\n\n")
+
+        N = len(temperature_cell)
+
+        f.write(f"internalField nonuniform List<scalar>\n{N}\n(\n")
+
+        for T in temperature_cell:
+            f.write(f"{float(T)}\n")
+
+        f.write(")\n;\n\n")
+
+        f.write("boundaryField\n{\n")
+        f.write("    top { type zeroGradient; }\n")
+        f.write("    bottom { type zeroGradient; }\n")
+        f.write("}\n")
+
+
+def perform_PATO_remesh(options, obj, titan, n_cores):
+    """
+    Full mesh regeneration: reconstruct serial fields from old mesh,
+    generate new mesh (GMSH + Bloom + gmshToFoam), map fields from old
+    to new mesh via mapFields (nearest-neighbor), then decompose for parallel.
+
+    Uses PATO-from-0: mapped fields are placed in 0/ so the next PATO run
+    starts from processor*/0/ as usual.
+    """
+    from Geometry import gmsh_api as GMSH
+    from Aerothermo import bloom
+    from .meshUpdate import archive_processor_VTK_to_history
+
+    object_id = obj.global_ID
+    pato_case = pathlib.Path(options.output_folder + '/PATO_' + str(object_id)).resolve()
+    current_time = titan.time
+    time_str = str(current_time)
+
+    print(f"\n{'='*60}", flush=True)
+    print(f"[Remesh] Starting full mesh regeneration at t={current_time}", flush=True)
+    print(f"{'='*60}", flush=True)
+
+    # 1. Archive VTK files before touching processor dirs
+    try:
+        archive_processor_VTK_to_history(pato_case, time_value=current_time)
+    except Exception as e:
+        print(f"[Remesh] VTK archiving skipped: {e}", flush=True)
+
+    # 2. Reconstruct parallel fields to serial
+    # Use the latest available processor time instead of current simulation time.
+    # In PATO-from-0 mode, processors often only store [0.25] even at larger titan.time.
+    source_time = _latest_numeric_time_name(pato_case / "processor0")
+    if source_time is None:
+        source_time = time_str
+    print("[Remesh] Reconstructing parallel fields to serial...", flush=True)
+    try:
+        subprocess.run(
+            conda_preamble + [
+                "reconstructPar", "-region", "subMat1",
+                "-time", source_time, "-case", str(pato_case)
+            ],
+            cwd=str(pato_case), text=True, check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"[Remesh] WARNING: reconstructPar failed (rc={e.returncode}), "
+              "attempting remesh anyway", flush=True)
+
+    # 3. Create temporary source case with old mesh + reconstructed fields
+    source_case = pato_case / "_remesh_source"
+    if source_case.exists():
+        shutil.rmtree(source_case)
+    source_case.mkdir()
+    (source_case / "constant").mkdir()
+    (source_case / "system").mkdir()
+
+    old_poly = pato_case / "constant" / "subMat1"
+    if old_poly.exists():
+        shutil.copytree(str(old_poly), str(source_case / "constant" / "subMat1"))
+
+    serial_time_dir = pato_case / source_time
+    if serial_time_dir.exists():
+        shutil.copytree(str(serial_time_dir), str(source_case / source_time))
+
+    sys_src = pato_case / "system"
+    if sys_src.exists():
+        shutil.copytree(str(sys_src), str(source_case / "system"), dirs_exist_ok=True)
+
+    # 4. Generate new mesh from current (recessed) obj.mesh
+    print("[Remesh] Generating new GMSH + Bloom mesh...", flush=True)
+    GMSH.generate_PATO_domain(obj, output_folder=options.output_folder)
+    bloom.generate_PATO_mesh(options, object_id, bloom=obj.bloom)
+
+    # 5. Run gmshToFoam to create new polyMesh
+    mesh_msh = pato_case / "mesh" / "mesh.msh"
+    verif_dir = pato_case / "verification" / "unstructured_gmsh"
+    verif_dir.mkdir(parents=True, exist_ok=True)
+    link_target = verif_dir / "mesh.msh"
+    if link_target.exists() or link_target.is_symlink():
+        link_target.unlink()
+    try:
+        link_target.symlink_to(mesh_msh)
+    except OSError:
+        shutil.copy2(str(mesh_msh), str(link_target))
+
+    subprocess.run(
+        conda_preamble + [
+            "gmshToFoam", str(link_target), "-case", str(pato_case)
+        ],
+        cwd=str(pato_case), text=True, check=True,
+    )
+    new_poly_src = pato_case / "constant" / "polyMesh"
+    new_poly_dst = pato_case / "constant" / "subMat1" / "polyMesh"
+    if new_poly_src.exists():
+        if new_poly_dst.exists():
+            shutil.rmtree(new_poly_dst)
+        shutil.move(str(new_poly_src), str(new_poly_dst))
+    print("[Remesh] gmshToFoam complete, new polyMesh installed", flush=True)
+
+    # 6. Remove old processor dirs and stale time dirs (incompatible cell counts)
+    _preserve = {"constant", "system", "mesh", "qconv", "qconv-bkp", "VTK_history",
+                 "verification", "origin.0", "data", "Output", "mesh_evolution",
+                 "outputs_test", "recession_debug", "_remesh_source"}
+    for _d in list(pato_case.iterdir()):
+        if _d.is_dir() and _d.name not in _preserve and not _d.name.startswith("_"):
+            try:
+                _n = _d.name
+                if _n.replace(".", "").replace("-", "").isdigit() or _n.startswith("processor"):
+                    shutil.rmtree(_d)
+                    print(f"[Remesh] Removed stale {_n}/", flush=True)
+            except OSError:
+                pass
+
+    # 7. Patch controlDict startTime=0 for PATO-from-0 (mapFields writes to 0)
+    ctrl_path = pato_case / "system" / "controlDict"
+    try:
+        ctrl_txt = ctrl_path.read_text(errors="ignore")
+        ctrl_txt = re.sub(r"startTime\s+[^;]+;", "startTime       0;", ctrl_txt)
+        ctrl_path.write_text(ctrl_txt)
+        print("[Remesh] Patched controlDict: startTime = 0", flush=True)
+    except Exception as e:
+        print(f"[Remesh] WARNING: could not patch controlDict: {e}", flush=True)
+
+    # 8. Write mapFieldsDict (inconsistent mapping: explicit patch map)
+    map_fields_dict = pato_case / "system" / "mapFieldsDict"
+    with open(map_fields_dict, "w", encoding="utf-8") as _mf:
+        _mf.write("FoamFile\n{\n")
+        _mf.write("    version     2.0;\n")
+        _mf.write("    format      ascii;\n")
+        _mf.write("    class       dictionary;\n")
+        _mf.write("    object      mapFieldsDict;\n")
+        _mf.write("}\n\n")
+        _mf.write("patchMap       ( top top );\n")
+        _mf.write("cuttingPatches ();\n")
+
+    # 8b. Save original PATO boundary conditions from origin.0/subMat1/ BEFORE
+    #     overwriting with clean seeds.  These will be grafted back after mapFields.
+    seed_src = pato_case / "origin.0" / "subMat1"
+    original_bcs = {}  # field_name -> boundaryField block string
+    if seed_src.exists():
+        for _f in seed_src.iterdir():
+            if _f.is_file():
+                _bc = _extract_boundary_field(_f.read_text(errors="ignore"))
+                if _bc:
+                    original_bcs[_f.name] = _bc
+    print(f"[Remesh] Saved original BCs for: {sorted(original_bcs.keys())}", flush=True)
+
+    # Write clean seed fields (uniform internalField + zeroGradient BCs) that
+    # mapFields can parse without PATO libraries.
+    seed_dst = pato_case / "0" / "subMat1"
+    seeded_fields = _seed_all_fields_from_origin(seed_src, seed_dst)
+    print(f"[Remesh] Wrote {len(seeded_fields)} clean seed fields in 0/subMat1/: {seeded_fields}", flush=True)
+
+    # Count cells via checkMesh (owner file first integer = nFaces, not nCells)
+    src_n_cells = _count_cells_from_polymesh(source_case / "constant" / "subMat1" / "polyMesh")
+    tgt_n_cells = _count_cells_from_polymesh(pato_case / "constant" / "subMat1" / "polyMesh")
+    print(f"[Remesh] Source mesh (_remesh_source): {src_n_cells} cells", flush=True)
+    print(f"[Remesh] Target mesh (new polyMesh):   {tgt_n_cells} cells", flush=True)
+
+    # List source fields
+    src_field_dir = source_case / source_time / "subMat1"
+    src_fields = []
+    if src_field_dir.exists():
+        src_fields = sorted([f.name for f in src_field_dir.iterdir()
+                             if f.is_file() and f.name != "uniform"])
+    print(f"[Remesh] Source fields in {source_case.name}/{source_time}/subMat1/: {src_fields}", flush=True)
+
+    # List target fields before mapping
+    tgt_field_dir = pato_case / "0" / "subMat1"
+    tgt_fields_before = []
+    if tgt_field_dir.exists():
+        tgt_fields_before = sorted([f.name for f in tgt_field_dir.iterdir()
+                                    if f.is_file() and f.name != "uniform"])
+    print(f"[Remesh] Target fields in 0/subMat1/ before mapFields: {tgt_fields_before}", flush=True)
+
+    # 9. Map fields from old mesh to new mesh
+    print(f"[Remesh] Mapping fields: {source_case} (t={source_time}) --> {pato_case} (t=0)", flush=True)
+    try:
+        _mf = subprocess.run(
+            conda_preamble + [
+                "mapFields", str(source_case),
+                "-sourceTime", source_time,
+                "-targetRegion", "subMat1",
+                "-sourceRegion", "subMat1",
+                "-mapMethod", "mapNearest",
+                "-case", str(pato_case),
+            ],
+            cwd=str(pato_case), text=True, check=True,
+            capture_output=True,
+        )
+
+        print("[Remesh] mapFields complete (rc=0)", flush=True)
+
+        # mapFields may create source_time dir; normalize to 0.
+        mapped_dir = pato_case / source_time
+        zero_dir = pato_case / "0"
+        if mapped_dir.exists() and mapped_dir.is_dir() and mapped_dir != zero_dir:
+            if zero_dir.exists():
+                shutil.rmtree(zero_dir)
+            shutil.move(str(mapped_dir), str(zero_dir))
+            print(f"[Remesh] Renamed {source_time}/ -> 0/", flush=True)
+
+        # Verify mapped Ta
+        mapped_field_dir = pato_case / "0" / "subMat1"
+        mapped_ta = mapped_field_dir / "Ta"
+        ta_n_values = 0
+        if mapped_ta.exists():
+            ta_content = mapped_ta.read_text(errors="ignore")
+            in_internal = False
+            for line in ta_content.splitlines():
+                stripped = line.strip()
+                if "internalField" in stripped:
+                    in_internal = True
+                    if "nonuniform" in stripped:
+                        continue
+                    elif "uniform" in stripped:
+                        ta_n_values = -1
+                        break
+                    continue
+                if in_internal and stripped.isdigit():
+                    ta_n_values = int(stripped)
+                    break
+        if ta_n_values > 0:
+            print(f"[Remesh] Mapped Ta: {ta_n_values} values (target mesh: {tgt_n_cells} cells) "
+                  f"{'MATCH' if ta_n_values == tgt_n_cells else 'MISMATCH!'}", flush=True)
+        elif ta_n_values == -1:
+            print(f"[Remesh] WARNING: Mapped Ta is still 'uniform' — mapping may not have worked", flush=True)
+        else:
+            print(f"[Remesh] WARNING: Could not parse mapped Ta internalField", flush=True)
+
+        # 9b. Graft original PATO boundary conditions back onto the mapped fields.
+        #     mapFields preserved the seed's zeroGradient BCs, but PATO needs
+        #     HeatFlux/Bprime on the top patch to apply heat flux.
+        grafted = []
+        if mapped_field_dir.exists():
+            for _fname, _bc_block in original_bcs.items():
+                _fpath = mapped_field_dir / _fname
+                if _fpath.exists():
+                    _mapped_text = _fpath.read_text(errors="ignore")
+                    _fpath.write_text(_graft_boundary_field(_mapped_text, _bc_block))
+                    grafted.append(_fname)
+        print(f"[Remesh] Restored original PATO BCs on: {grafted}", flush=True)
+
+        # Update origin.0/subMat1/ with the mapped fields (now with correct BCs)
+        origin_submat = pato_case / "origin.0" / "subMat1"
+        if mapped_field_dir.exists():
+            if origin_submat.exists():
+                shutil.rmtree(origin_submat)
+            shutil.copytree(str(mapped_field_dir), str(origin_submat))
+            print(f"[Remesh] Updated origin.0/subMat1/ with mapped fields + restored BCs", flush=True)
+        else:
+            print(f"[Remesh] WARNING: mapped 0/subMat1/ not found, origin.0 NOT updated", flush=True)
+
+    except subprocess.CalledProcessError as e:
+        print(f"[Remesh] WARNING: mapFields failed (rc={e.returncode})", flush=True)
+        print(f"[Remesh] mapFields stdout:\n{e.stdout[-1500:] if getattr(e, 'stdout', None) else '(empty)'}", flush=True)
+        print(f"[Remesh] mapFields stderr:\n{e.stderr[-1500:] if getattr(e, 'stderr', None) else '(empty)'}", flush=True)
+        raise RuntimeError("Remesh aborted: mapFields failed; skipping decomposePar to avoid corrupt restart state.")
+
+    # 10. Decompose for parallel (creates processor*/0/ with mapped fields)
+    print("[Remesh] Running decomposePar...", flush=True)
+    for proc_dir in sorted(pato_case.glob("processor*")):
+        shutil.rmtree(proc_dir)
+    subprocess.run(
+        conda_preamble + [
+            "decomposePar", "-region", "subMat1", "-case", str(pato_case)
+        ],
+        cwd=str(pato_case), text=True, check=True,
+    )
+    print("[Remesh] decomposePar complete", flush=True)
+
+    # 11. Cleanup temp source case
+    if source_case.exists():
+        shutil.rmtree(source_case)
+
+    # Mark that remesh happened (cumulative recession resets)
+    if hasattr(options.pato, '_cumulative_recession'):
+        options.pato._cumulative_recession = 0.0
+
+    # Signal to caller that remesh happened so write_Ta_from_previous is skipped
+    # (origin.0 already has the correctly mapped fields for the new mesh)
+    options.pato._remesh_just_happened = True
+
+    print(f"[Remesh] Full mesh regeneration complete at t={current_time}", flush=True)
+    print(f"{'='*60}\n", flush=True)
+
+
+def _build_surface_1ring(nodes, facets):
+    """Build 1-ring neighbor lists and per-node mean edge length from a triangle mesh.
+
+    Parameters
+    ----------
+    nodes : np.ndarray (N, 3)
+    facets : np.ndarray (F, 3)  vertex indices per triangle
+
+    Returns
+    -------
+    neighbors : list[np.ndarray]  neighbors[i] = array of node indices sharing an edge with i
+    mean_edge_length : np.ndarray (N,)  mean length of edges incident to each node
+    """
+    from collections import defaultdict
+
+    N = nodes.shape[0]
+    adj = defaultdict(set)
+    for i, j, k in facets:
+        adj[i].update((j, k))
+        adj[j].update((i, k))
+        adj[k].update((i, j))
+
+    neighbors = [np.array(sorted(adj[i]), dtype=int) if i in adj else np.array([], dtype=int) for i in range(N)]
+
+    mean_edge_length = np.zeros(N)
+    for i in range(N):
+        nbrs = neighbors[i]
+        if len(nbrs) == 0:
+            continue
+        lengths = np.linalg.norm(nodes[nbrs] - nodes[i], axis=1)
+        mean_edge_length[i] = np.mean(lengths)
+
+    # Fallback for isolated nodes: use global mean edge length
+    valid = mean_edge_length > 0
+    if np.any(valid) and not np.all(valid):
+        global_mean = np.mean(mean_edge_length[valid])
+        mean_edge_length[~valid] = global_mean
+
+    return neighbors, mean_edge_length
+
+
+# Guassian-kernel smoothing function for node displacements
+
+# Each node only smoothed based on the 'ring' around it - the 1st set of nodes it contacts
+# Sigma factor controls the spatial radius of smoothing (based on local edge length). Increase for stronger smoothing
+# Blend_alpha blends the smoothed displacement with original. 
+# e.g. a blend_alpha of 0.2 means the node displacement cannot change more than 20% from the unsmoothed one
+
+def _smooth_nodal_displacement_1ring(vertex_disp, nodes, neighbors, mean_edge_length,
+                                     sigma_factor=1.5, blend_alpha=0.3):
+
+    N = vertex_disp.shape[0]
+    smoothed = np.zeros_like(vertex_disp)
+
+    for i in range(N):
+        nbrs = neighbors[i]
+        sigma_i = sigma_factor * mean_edge_length[i]
+        if len(nbrs) == 0 or sigma_i < 1e-30:
+            smoothed[i] = vertex_disp[i]
+            continue
+
+        dists = np.linalg.norm(nodes[nbrs] - nodes[i], axis=1)
+        weights = np.exp(-dists**2 / (2.0 * sigma_i**2))
+
+        # Include node i itself with weight 1
+        all_weights = np.empty(len(nbrs) + 1)
+        all_weights[0] = 1.0
+        all_weights[1:] = weights
+
+        all_disps = np.empty((len(nbrs) + 1, 3))
+        all_disps[0] = vertex_disp[i]
+        all_disps[1:] = vertex_disp[nbrs]
+
+        w_sum = np.sum(all_weights) + 1e-20
+        smoothed[i] = np.sum(all_weights[:, None] * all_disps, axis=0) / w_sum
+
+    vertex_disp_final = (1.0 - blend_alpha) * vertex_disp + blend_alpha * smoothed
+    return vertex_disp_final
+
+
+def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
     """
     Postprocesses the PATO output
 
     Parameters
     ----------
 	?????????????????????????
-    """ 
+    """
+    # Defaults for simulation summary CSV (overwritten when ablation outputs are computed)
+    obj.pato.total_mdot_kg_s = 0.0
+    obj.pato.max_recession_mm_s = 0.0
 
     #if options.pato.Ta_bc == 'ablation': postprocess_mass_inertia(obj, options, time_to_read)
 
@@ -1541,12 +2242,15 @@ def postprocess_PATO_solution(options, obj, time_to_read):
 
     # extract distribution
     cell_data = data.GetCellData()
-    n_cells=data.GetNumberOfCells()
+    n_cells = data.GetNumberOfCells()
 
-    #extract temperature distribution
+    # extract temperature distribution
     temperature = cell_data.GetArray('Ta')
     temperature_cell = [temperature.GetValue(i) for i in range(n_cells)]
     temperature_cell = np.array(temperature_cell)
+    obj.pato.Ta_prev = temperature_cell.copy()
+    #write_Ta_from_previous(options, obj, temperature_cell)
+
 
     #extract mDotVapor distribution if BC ablation is used
     if options.pato.Ta_bc == "ablation":
@@ -1560,25 +2264,165 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     # mapping: sort vtk and TITAN surface mesh cell numbering by checking facet COG
 
     # get cell COG from vtk
-    vtk_cell_centers=vtk.vtkCellCenters()
+    vtk_cell_centers = vtk.vtkCellCenters()
     vtk_cell_centers.SetInputData(data)
     vtk_cell_centers.Update()
     vtk_cell_centers_data = vtk_cell_centers.GetOutput()
-    vtk_COG = vtk_to_numpy(vtk_cell_centers_data.GetPoints().GetData())
+    points = vtk_cell_centers_data.GetPoints() if vtk_cell_centers_data else None
+    if points is None:
+        raise RuntimeError(
+            "VTK cell centers returned no points. VTK data may be empty or corrupted. "
+            "foamToVTK may have crashed (FPE) before writing valid VTK files."
+        )
+    vtk_COG = vtk_to_numpy(points.GetData())
     
     mapping = mapping_facetCOG_TITAN_PATO(obj.mesh.facet_COG, vtk_COG)
 
     #retrieve solution
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
+    obj.pato.Tw_pato = obj.pato.temperature.copy()
 
-    print('obj ID:', obj.global_ID)
-    print('max temp:', max(obj.temperature))
+    # # Save PATO wall temperature in a protected attribute name
+    # obj.pato.Tw_pato = np.array(obj.pato.temperature, copy=True)
+    # print("[DEBUG postprocess] Tw_pato(min/max):",
+    #     float(np.min(obj.pato.Tw_pato)), float(np.max(obj.pato.Tw_pato)))
+
+    
+    # print("[DEBUG postprocess] Ta(min/max):",
+    #   float(np.min(obj.pato.temperature)),
+    #   float(np.max(obj.pato.temperature)))
+
+    # print('obj ID:', obj.global_ID)
+    # print('max temp:', max(obj.temperature))
 
     if options.pato.Ta_bc == "ablation":
         obj.pato.mDotVapor = mDotVapor_cell[mapping]
         obj.pato.mDotMelt = mDotMelt_cell[mapping]
         obj.pato.molten[obj.temperature >= obj.material.meltingTemperature] = 1
+
+    # Compute interior temperature T_int and distance dx_s
+    facet_COG = np.asarray(obj.mesh.facet_COG)
+    tree = KDTree(vtk_COG)
+
+    # Query 2 nearest grid cells → second nearest is solid interior
+    dists, idxs = tree.query(facet_COG, k=2)
+    if dists.ndim == 1:   # ensure 2D arrays
+        dists = dists[:, None]
+        idxs  = idxs[:, None]
+
+    interior_idx = idxs[:, 1]
+    dx_s = dists[:, 1]
+    T_int = temperature_cell[interior_idx]
+
+    # Known variables
+    Tw   = obj.pato.temperature
+    COG  = obj.mesh.facet_COG
+    N    = len(Tw)
+
+    rho_s = obj.material.density
+    Tmelt = obj.material.meltingTemperature
+    Lf    = obj.material.meltingHeat
+    k_fun = getattr(obj.material, "heatConductivity", None)
+
+    # q_conv from PATO
+    q_conv_arr = np.asarray(getattr(obj.pato, "q_conv", np.zeros(N)), float)
+    mdot = np.zeros(N)
+    v_n = np.zeros(N)
+    d_n = np.zeros(N)
+    delta_t = options.pato.time_step
+    normals = obj.pato.facet_normal
+
+    for i in range(N):
+        k_Tw = float(k_fun(Tw[i]))
+
+        # conductive heat flux
+        if callable(k_fun) and dx_s[i] > 0:
+            k_mid = float(k_fun(0.5*(Tw[i] + T_int[i])))
+            q_cond = -k_mid * (T_int[i]-Tw[i]) / dx_s[i]
+        else:
+            q_cond = 0.0
+
+        q_conv   = q_conv_arr[i]
+        q_excess = q_conv - q_cond
+
+        # melting model
+        if (Tmelt and Lf and rho_s) and (Tw[i] >= Tmelt) and (q_excess > 0):
+            mdot[i] = q_excess / Lf
+            v_n[i]  = mdot[i] / rho_s
+            d_n[i]  = v_n[i] * delta_t
+        else:
+            mdot[i] = v_n[i] = 0
+
+    # store arrays
+    obj.pato.q_conv_field = q_conv_arr
+    obj.pato.mdot_field   = mdot
+    obj.pato.v_n_field    = v_n
+
+    # Total mass loss rate (kg/s) = integral of mdot over surface area
+    facet_areas = np.linalg.norm(normals, axis=1)
+    total_mdot_kg_s = np.sum(mdot * facet_areas)
+    obj.pato.total_mdot_kg_s = total_mdot_kg_s
+    obj.pato.max_recession_mm_s = float(np.max(v_n)) * 1000.0  # m/s -> mm/s
+    print('***** Total mass loss rate = {:.6e} kg/s *****'.format(total_mdot_kg_s))
+
+    if assembly is not None and total_mdot_kg_s != 0:
+        dt_titan = options.dynamics.time_step
+        dm = -total_mdot_kg_s * dt_titan
+        new_mass = obj.mass + dm
+        if new_mass > 0:
+            obj.material.density *= new_mass / obj.mass
+            obj.mass = new_mass
+            assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
+            assembly.compute_mass_properties()
+            print(f'[Mass update] new mass = {obj.mass:.4f} kg (dm = {dm:.6e} kg)')
+
+    # ============================================================
+    # Facet recession → vertex displacement → VTK
+    # ============================================================
+    dt = options.pato.time_step
+
+    d_n_step = (v_n * dt) * 250  # recession (m) over TITAN timestep (0.25s)
+
+    nodes   = obj.pato.nodes
+    facets  = obj.pato.facets
+    normals = obj.pato.facet_normal
+
+    unit_normals = normals / (np.linalg.norm(normals, axis=1, keepdims=True) + 1e-20)
+
+    facet_disp = -d_n_step[:, None] * unit_normals
+
+    # Area-weighted nodal displacement
+    facet_area = np.linalg.norm(normals, axis=1) + 1e-20
+
+    N_nodes = nodes.shape[0]
+    vertex_disp  = np.zeros((N_nodes, 3))
+    vertex_area_sum = np.zeros(N_nodes)
+
+    for f_id, (i, j, k) in enumerate(facets):
+        d = facet_disp[f_id]
+        a = facet_area[f_id]
+        vertex_disp[i] += d * a
+        vertex_disp[j] += d * a
+        vertex_disp[k] += d * a
+        vertex_area_sum[i] += a
+        vertex_area_sum[j] += a
+        vertex_area_sum[k] += a
+
+    mask = vertex_area_sum > 0
+    vertex_disp[mask] /= vertex_area_sum[mask][:, None]
+
+    # 1-ring Gaussian smoothing + blend
+    sigma_factor = getattr(options.pato, 'recession_sigma_factor', 1.0)
+    blend_alpha  = getattr(options.pato, 'recession_smooth_alpha', 0.2)
+    neighbors, mean_edge_length = _build_surface_1ring(nodes, facets)
+    vertex_disp = _smooth_nodal_displacement_1ring(
+        vertex_disp, nodes, neighbors, mean_edge_length,
+        sigma_factor=sigma_factor, blend_alpha=blend_alpha
+    )
+
+    obj.pato.vertex_disp_field = vertex_disp
+
 
 def postprocess_mass_inertia(obj, options, time_to_read):
 
@@ -1719,15 +2563,19 @@ def retrieve_surface_vtk_data(n_proc, path, time_to_read):
 
 def retrieve_volume_vtk_data(n_proc, path, time_to_read):
 
-    #n_proc = 1
-
     filename = [''] * n_proc
-
     for n in range(n_proc):
         filename[n] = path + "processor" + str(n) + "/VTK/" + "processor" + str(n) + "_" + str(time_to_read) + ".vtk"
-        #filename[n] = path + "/VTK/" + "PATO" + "_" + str(time_to_read) + ".vtk"
 
     print('\n PATO solution filenames:', filename)
+
+    # Check that VTK files exist before reading (foamToVTK may have crashed with FPE)
+    missing = [fn for fn in filename if not os.path.isfile(fn)]
+    if missing:
+        raise FileNotFoundError(
+            "PATO volume VTK files not found. foamToVTK may have crashed (e.g. FPE in FourierMaterialPropertiesModel). "
+            "Missing: " + ", ".join(missing) + ". Check PATO/material config (Ta, conductivity) for invalid values."
+        )
 
     #Open the VTK solution files and merge them together into one dataset
     appendFilter = vtkAppendFilter()
@@ -1737,8 +2585,8 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
         file_data.SetFileName(filename[f])
         file_data.Update()
         file_data = file_data.GetOutput()
-        appendFilter.AddInputData(file_data)   
-  
+        appendFilter.AddInputData(file_data)
+
     appendFilter.SetMergePoints(True)
     appendFilter.Update()
     data = appendFilter.GetOutput()
@@ -1752,10 +2600,10 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
     writer.Write()
 
     # extract surface data
-    extractSurface=vtk.vtkGeometryFilter()
+    extractSurface = vtk.vtkGeometryFilter()
     extractSurface.SetInputData(data)
     extractSurface.Update()
-    vtk_data = extractSurface.GetOutput()    
+    vtk_data = extractSurface.GetOutput()
 
     return vtk_data
 
@@ -1843,5 +2691,3 @@ def adjacent_facets(facet_COG_A, facet_COG_B):
     index_B = [dict_B[row] for row in common_rows]
     
     return index_A, index_B
-
-

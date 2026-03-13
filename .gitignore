@@ -27,6 +27,7 @@ config.json
 config.cfg
 launch.json
 settings.json
+<<<<<<< HEAD
 link*.cfg
 
 # =========================
@@ -36,3 +37,8 @@ link*.cfg
 *.csv
 *.xml
 
+=======
+titan_env/
+__pycache__/
+*.pyc
+>>>>>>> navraj/main
