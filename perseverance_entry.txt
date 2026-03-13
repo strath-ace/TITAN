@@ -4,7 +4,7 @@ Fidelity = Low
 Output_folder = Perseverance_2021_Entry
 Load_state = False
 Load_mesh = False
-Plot = true
+#Plot = true
 
 [Mesh]
 #Mesh saving recursion limit, increase if saving/loading meshes causes errors
@@ -33,7 +33,7 @@ Area_reference = 15.904
 Drag_file = perseverance_cd.csv
 
 [Freestream]
-Method = GRAM
+Method = Mutationpp
 Model = GRAM
 
 [GRAM]
@@ -52,11 +52,12 @@ ComputeMinMaxFactor = 0
 
 [Time]
 Time_step = 0.01                 
-Propagator = RK45
+Propagator = RK23
 
 [Assembly]
 Path = Examples/Geometry/Sphere/
 
 [Objects]
-Primary = [NAME = sphere.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]
+Primary = [name=sphere.stl, material=Unittest, type=Primitive, fenics_id=-1]
+
 
