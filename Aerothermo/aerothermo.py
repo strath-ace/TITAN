@@ -23,7 +23,6 @@ from Dynamics.frames import *
 from scipy import special
 from copy import copy
 from Aerothermo import su2, switch, sparta
-from Geometry.enclosure import check_enclosure
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RigidTransform as Trans

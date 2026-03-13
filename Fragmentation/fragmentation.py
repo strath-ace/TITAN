@@ -666,11 +666,6 @@ def fragmentation(titan, options):
         for assembly in titan.assembly:
             assembly.rearrange_ids()
 
-            if np.any([abs(obj.enclosure)>0 for obj in assembly.objects]):
-                from Geometry.enclosure import build_enclosure_AABB, build_enclosure_num
-                assembly.enclosure_AABB = build_enclosure_AABB(assembly)
-                assembly.enclosure_component_num  = build_enclosure_num(assembly)
-
         if options.collision.flag and len(assembly_id) != 0:
             for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
             collision.generate_collision_handler(titan, options)

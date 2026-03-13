@@ -31,13 +31,13 @@ class Component_list():
         
     def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', 
                          trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, 
-                         global_ID = 0, bloom_config = [False, 0, 0, 0], explosive_parameters=None, enclosure=0, alpha = 1.0):
+                         global_ID = 0, bloom_config = [False, 0, 0, 0], explosive_parameters=None, alpha = 1.0):
 
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
                            trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, 
                            options = options, global_ID = global_ID, bloom_config = bloom_config,
-                           explosive_parameters=explosive_parameters, enclosure=enclosure, alpha=alpha))
+                           explosive_parameters=explosive_parameters, alpha=alpha))
         self.id += 1
 
 class Component():
@@ -49,7 +49,7 @@ class Component():
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
                  trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest',
                  v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0, 
-                 bloom_config = [False, 0, 0, 0], explosive_parameters = None, enclosure = 0, alpha = 1.0):
+                 bloom_config = [False, 0, 0, 0], explosive_parameters = None, alpha = 1.0):
 
         print("Generating Body: ", filename)
         
@@ -138,7 +138,6 @@ class Component():
 
         self.density_ratio = 1
 
-        self.enclosure = enclosure
         self.debug_alpha = alpha
         self.volume = 0
 

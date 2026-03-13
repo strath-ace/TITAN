@@ -161,7 +161,7 @@ def build_new_assemblies(fragment_list, titan, options, i_parent, explosion_para
         titan.assembly.append(new_assem.assembly[0])
         titan.id+=1
         titan.assembly[-1].generate_inner_domain(size_override=explosion_parameters['lref'][i_fragment]*1e-2, 
-                                                 min_size=explosion_parameters['lref'][i_fragment]*1e-3)
+                                                 min_size=explosion_parameters['lref'][i_fragment]*5e-3)
         titan.assembly[-1].compute_mass_properties()
 
         titan.assembly[-1].roll  = angle[0]

@@ -31,7 +31,6 @@ from vtk.util.numpy_support import vtk_to_numpy
 import subprocess
 import os
 import trimesh
-import open3d as o3d
 import pandas as pd
 
 class Solver():

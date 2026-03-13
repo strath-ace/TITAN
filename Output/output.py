@@ -108,10 +108,10 @@ def write_output_data(titan, options, smooth=False):
         df['Quat_z']   = [assembly.quaternion[2]]
 
         #Quaternion Body -> ECEF frame of the previous iteration, for emissions post-processing   
-        df['Quat_prev_w']   = [assembly.quaternion_prev[3]]
-        df['Quat_prev_x']   = [assembly.quaternion_prev[0]]
-        df['Quat_prev_y']   = [assembly.quaternion_prev[1]]
-        df['Quat_prev_z']   = [assembly.quaternion_prev[2]]
+        # df['Quat_prev_w']   = [assembly.quaternion_prev[3]]
+        # df['Quat_prev_x']   = [assembly.quaternion_prev[0]]
+        # df['Quat_prev_y']   = [assembly.quaternion_prev[1]]
+        # df['Quat_prev_z']   = [assembly.quaternion_prev[2]]
 
         #Freestream properties
         df['Mach'] = [assembly.freestream.mach]

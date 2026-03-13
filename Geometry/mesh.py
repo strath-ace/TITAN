@@ -22,7 +22,7 @@ import numpy as np
 import scipy.special as special
 # THis import causes some problems to say the least, removing it enables a much more up to date env
 #from trimesh.viewer.windowed import SceneViewer
-import open3d as o3d
+#import open3d as o3d
 import trimesh
 from copy import deepcopy
 from scipy.spatial import KDTree
@@ -317,24 +317,24 @@ def compute_curvature(_nodes, _facets,_nodes_normal, _facet_normals, _facets_are
     radiiOnVerts[radiiOnVerts > Rmax] = Rmax
     radiiOnVerts[radiiOnVerts < Rmin] = Rmin
 
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(_nodes)
-    tree = o3d.geometry.KDTreeFlann(pcd)
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(_nodes)
+    # tree = o3d.geometry.KDTreeFlann(pcd)
 
-    for i in range(len(_nodes)):
-        [k, idx, _] = tree.search_hybrid_vector_3d(pcd.points[i],SearchRadius,Nsmooth+3)
-        if k <= Nsmooth: [k, idx, _] = tree.search_hybrid_vector_3d(pcd.points[i],10*SearchRadius,Nsmooth+3)    
-        if k <= 1: continue
+    # for i in range(len(_nodes)):
+    #     [k, idx, _] = tree.search_hybrid_vector_3d(pcd.points[i],SearchRadius,Nsmooth+3)
+    #     if k <= Nsmooth: [k, idx, _] = tree.search_hybrid_vector_3d(pcd.points[i],10*SearchRadius,Nsmooth+3)    
+    #     if k <= 1: continue
 
-        radiiOnVerts[i]= sphVolSmoothing(np.asarray(idx)[::-1], radiiOnVerts, avType, Nsmooth, Rmax, flatEdge, flatWeightFlag)
+    #     radiiOnVerts[i]= sphVolSmoothing(np.asarray(idx)[::-1], radiiOnVerts, avType, Nsmooth, Rmax, flatEdge, flatWeightFlag)
 
-    """
-    for i in range(2):
-        InnerPointsInd = searchableRadius(nodes[i],nodes,SearchRadius,Nsmooth)
-        print(InnerPointsInd)
-        if len(InnerPointsInd) <= 1: continue
-        radiiOnVerts[i]= sphVolSmoothing(InnerPointsInd, radiiOnVerts, avType, Nsmooth, Rmax, flatEdge, flatWeightFlag)
-    """
+    # """
+    # for i in range(2):
+    #     InnerPointsInd = searchableRadius(nodes[i],nodes,SearchRadius,Nsmooth)
+    #     print(InnerPointsInd)
+    #     if len(InnerPointsInd) <= 1: continue
+    #     radiiOnVerts[i]= sphVolSmoothing(InnerPointsInd, radiiOnVerts, avType, Nsmooth, Rmax, flatEdge, flatWeightFlag)
+    # """
    
     radiiOnVerts[radiiOnVerts <= 0] = Rmin
 

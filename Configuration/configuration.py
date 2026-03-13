@@ -1019,16 +1019,10 @@ def read_geometry(configParser, options):
                     print('Need to set up BLOOM if using PATO!'); exit()
 
                 if object_type == 'Primitive':
-                    try:
-                        enclosure = int([s for s in value if "enclosure=" in s.lower()][0].split("=")[1])
-                    except:
-                        enclosure = 0   
-
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path, 
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), 
                                              fenics_bc_id = fenics_bc_id,  material = material, temperature = temperature, 
-                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha,
-                                             enclosure=enclosure,)
+                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha)
 
                 if object_type == 'Joint':
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
@@ -1246,7 +1240,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.gram.day = get_config_value(configParser, options.gram.day, 'GRAM', 'Day', 'str')
         options.gram.hour = get_config_value(configParser, options.gram.hour, 'GRAM', 'Hour', 'int')
         options.gram.minute = get_config_value(configParser, options.gram.minute, 'GRAM', 'Minute', 'int')
-        options.gram.seconds = get_config_value(configParser, options.gram.second, 'GRAM', 'Seconds', 'float')
+        options.gram.seconds = get_config_value(configParser, options.gram.seconds, 'GRAM', 'Seconds', 'float')
 
     #Read Planet
     options.planet = planet.ModelPlanet(get_config_value(configParser, "Earth", 'Model', 'Planet', 'str'))
@@ -1376,11 +1370,6 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
                     #for each object, define connectivity to connected objects for heat conduction between objects
                     pato.identify_object_connections(assembly)
-                
-                if np.any([abs(obj.enclosure)>0 for obj in assembly.objects]):
-                    from Geometry.enclosure import build_enclosure_AABB, build_enclosure_num
-                    assembly.enclosure_AABB = build_enclosure_AABB(assembly)
-                    assembly.enclosure_component_num  = build_enclosure_num(assembly)
                     
             options.save_mesh(titan)
         

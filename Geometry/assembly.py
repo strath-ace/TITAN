@@ -20,7 +20,7 @@
 from Geometry import mesh as Mesh
 from Geometry import gmsh_api as GMSH
 from Geometry.tetra import inertia_tetra, vol_tetra
-from Geometry.enclosure import build_enclosure_AABB, build_enclosure_num
+
 import numpy as np
 from copy import deepcopy
 import subprocess
@@ -529,8 +529,6 @@ class Assembly():
         self.angle_blackbody = np.zeros(len(self.mesh.facets))
         self.angle_atomic    = np.zeros(len(self.mesh.facets))
 
-        # self.enclosure_AABB = build_enclosure_AABB(self)
-        # self.enclosure_component_num = build_enclosure_num(self)
 
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = [], size_override=None, min_size = None):

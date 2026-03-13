@@ -129,8 +129,8 @@ def state_equation(titan,options,time,state_vectors):
         update_dynamic_attributes(_assembly,state_vector,options)
     
     # Then business as usual for computing forces...
-    
     aerothermo.compute_aerothermo(titan, options)
+
     aero_states = [copy(_assembly.aerothermo) for _assembly in titan.assembly]
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
@@ -141,13 +141,16 @@ def state_equation(titan,options,time,state_vectors):
         angularDerivatives = dynamics.compute_angular_derivatives(_assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(_assembly, options)
 
-        if options.vehicle: # Some junk numerics to keep the aoa=0 condition
-            angularDerivatives.droll   = 0
-            angularDerivatives.dpitch  = -6.4*_assembly.aoa
-            angularDerivatives.dyaw   = 0
-            angularDerivatives.ddroll  = 0
-            #angularDerivatives.ddyaw   = 10*_assembly.slip
-            #angularDerivatives.ddpitch = -10*_assembly.aoa
+        if options.vehicle: # Aim to keep the aoa=0 condition
+            gamma_dot = cartesianDerivatives.dx*cartesianDerivatives.dw - cartesianDerivatives.dz*cartesianDerivatives.du
+            gamma_dot /= cartesianDerivatives.dx**2 + cartesianDerivatives.dz**2
+            #_assembly.pitch = _assembly.trajectory.gamma
+            angularDerivatives.dpitch = gamma_dot
+            angularDerivatives.dyaw = 0
+            angularDerivatives.droll = 0
+
+            angularDerivatives.ddyaw  = 0
+            angularDerivatives.ddroll = 0
 
 
         # Use quaternion derivative equation 
