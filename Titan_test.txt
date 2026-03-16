@@ -1,0 +1,51 @@
+[Options]
+Num_iters = 5
+Fidelity = Low
+Output_folder = Titan_Atmosphere_Test
+Load_state = False
+Load_mesh = False
+
+[Trajectory]
+Frame = Geodetic
+Altitude = 150000
+Velocity = 1
+Flight_path_angle = 0
+Heading_angle = 0
+Latitude = 0
+Longitude = 0
+Min_altitude = 0
+
+[Model]
+Planet = titan
+Vehicle = True
+Drag_model = False
+
+[Vehicle]
+Mass = 1000
+Nose_radius = 0.5
+Area_reference = 5.0
+Drag_file = perseverance_cd.csv
+
+[Freestream]
+Method = GRAM
+Model = GRAM
+
+[GRAM]
+GRAM_Path = /root/TITAN/Executables/GRAM_Suite/
+SPICE_Path = /root/TITAN/Executables/GRAM_Suite/SPICE/
+Year = 2026
+Month = 1
+Day = 1
+Hour = 0
+Minute = 0
+Seconds = 0.0
+
+[Time]
+Time_step = 1.0
+Propagator = EULER
+
+[Assembly]
+Path = Examples/Geometry/Sphere/
+
+[Objects]
+Primary = [NAME = sphere.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]

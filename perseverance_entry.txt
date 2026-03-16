@@ -1,0 +1,63 @@
+[Options]
+Num_iters = 5000
+Fidelity = Low
+Output_folder = Perseverance_2021_Entry
+Load_state = False
+Load_mesh = False
+#Plot = true
+
+[Mesh]
+#Mesh saving recursion limit, increase if saving/loading meshes causes errors
+Recursion_limit = 5000
+
+[Trajectory]
+Frame = Geodetic
+Altitude = 130000               
+Velocity = 5900                 
+Flight_path_angle = -16.2       
+Heading_angle = 0               
+Latitude = 18.4                
+Longitude = 77.6       
+Min_altitude = 10000         
+
+[Model]
+Planet = mars
+Vehicle = True
+Drag_model = True
+
+
+[Vehicle]
+Mass = 3350                     
+Nose_radius = 0.66              
+Area_reference = 15.904         
+Drag_file = perseverance_cd.csv
+
+[Freestream]
+Method = Mutationpp
+Model = GRAM
+
+[GRAM]
+GRAM_Path = /root/TITAN/Executables/GRAM_Suite/          
+SPICE_Path = /root/TITAN/Executables/GRAM_Suite/SPICE/                      
+Year = 2021
+Month = 2
+Day = 18
+Hour = 20
+Minute = 55
+Seconds = 0.0
+MinMaxFactor = 0.0
+ComputeMinMaxFactor = 0
+; MinMaxFactor = 0.0
+; ComputeMinMaxFactor = 0
+
+[Time]
+Time_step = 0.01                 
+Propagator = RK23
+
+[Assembly]
+Path = Examples/Geometry/Sphere/
+
+[Objects]
+Primary = [name=sphere.stl, material=Unittest, type=Primitive, fenics_id=-1]
+
+

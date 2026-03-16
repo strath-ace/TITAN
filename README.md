@@ -57,15 +57,15 @@ If you have issues with the standard conda environment creation a less restricte
 ```console
 $ conda env create --name myenv --file titan_compatibility_env.yml
 ```
-This should work on any system architecture, specification of your platform may be needed, e.g.
+If using an ARM architecture (i.e. Apple silicon) you will likely need to specify an alternate platform, e.g.
 
 ```console
-$ conda env create --name myenv --platform=osx-arm64 --file titan_compatibility_env.yml
+$ conda env create --name myenv --platform=osx-64 --file titan_compatibility_env.yml
 ```
 This compatibility environment combines conda and pip packages into a single command, you don't need to run 
 ```pip install -r pip_requirements.txt```. Ideally in the future, this will become the default method of installation 
-but currently the compatibility environment is still in development. It has been verified on Ubuntu, 
-Fedora and Windows.
+but currently the compatibility environment is still in development. It has been preliminarily verified on Ubuntu, 
+Fedora, Windows and OSX.
 
 ***NOTE:*** TITAN is developed for **linux** first and foremost, you should **not expect perfect behaviour** on other operating systems. 
 

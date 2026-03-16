@@ -123,6 +123,10 @@ class Dynamics():
 
         #: [ECEF/Geodetic] Frame of specified input state
         self.trajectory_frame = 'geodetic'
+
+        self.trajectory_epoch = '1970/01/01 01:01:01'
+
+        self.trajectory_state = np.zeros(6)
         #: [str] Name of the propagator to be used in the dynamics (options - euler, ).
         self.propagator = propagator
 
@@ -268,6 +272,15 @@ class PATO():
 
         #: [boolean] Flag to model heat conduction between objects
         self.conduction_flag = conduction_flag
+
+        #: [float] Max recession per mesh substep [m]; 0 = disabled - This is for moveDynamicMesh only
+        self.max_recession_per_step = 0.001
+
+         #: [float] Gaussian smoothing sigma = sigma_factor * mean_edge_length for nodal displacement
+        self.recession_sigma_factor = 1.0
+
+        #: [float] Blend factor: final_disp = (1 - blend_alpha)*raw + blend_alpha*smoothed
+        self.recession_smooth_alpha = 0.2
 
 
 class Radiation():
@@ -501,6 +514,23 @@ class GRAM():
         # [float] Seconds
         self.seconds = 0.0
 
+class Uncertainty():
+    def __init__(self, yaml_path='./Uncertainty/uq_example.yaml', master_seed = 0, n_procs=1):
+        self.yaml = yaml_path
+        self.prime_seed = master_seed
+        self.n_procs = n_procs
+    
+    def build_quantities(self, path):
+        self.outputs = [name.strip() for name in self.outputs.split(',')] if not self.outputs=='demise_points' else ['Latitude','Longitude','Altitude']
+        self.objects = [name.strip() for name in self.objects.split(',')]
+        for i_obj, obj in enumerate(self.objects):
+            self.stls.append(path+obj)
+            self.objects[i_obj] = obj.rsplit( ".", 1 )[ 0 ]
+            self.quantities[self.stls[i_obj]] = {output : [] for output in self.outputs}
+        filepath = self.qoi_filepath
+        if not os.path.exists(filepath):
+            with open(filepath,'wb') as file: 
+                pickle.dump(self.quantities, file)
 
 class Options():
     """ Options class
@@ -540,6 +570,9 @@ class Options():
         self.freestream = Freestream()
 
         self.planet = planet.ModelPlanet("Earth")
+        
+        self.uncertainty = Uncertainty()
+
         self.vehicle = None
         
         #: [int] Number of dynamic iterations
@@ -955,16 +988,23 @@ def read_geometry(configParser, options):
                         for s in value:
                             if 'bloom' in s.lower():
                                 bloom = s.split('=')[1].strip('()').split(';')  
-                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]       
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])] 
+                                print(bloom)      
                     except:
                         bloom = [False, 0, 0, 0]               
+
+                    try:
+                        obj_ablation = eval([s for s in value if "ablation=" in s.lower()][0].split("=")[1])
+                    except:
+                        obj_ablation = options.thermal.ablation
 
                     if options.pato.flag and bloom[0] == False:
                         print('Need to set up BLOOM if using PATO!'); exit()
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
                                              fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, 
-                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, enclosure=enclosure, alpha=alpha)
+                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, enclosure=enclosure, alpha=alpha,
+                                             ablation=obj_ablation)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -1006,10 +1046,16 @@ def read_geometry(configParser, options):
                     except:
                         bloom = [False, 0, 0, 0]              
 
+                    try:
+                        obj_ablation = eval([s for s in value if "ablation=" in s.lower()][0].split("=")[1])
+                    except:
+                        obj_ablation = options.thermal.ablation
+
                     objects.insert_component(filename = object_path, file_type = object_type, inner_stl = inner_path,
                                              trigger_type = trigger_type, trigger_value = float(trigger_value), 
                                              fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, 
-                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha) 
+                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha,
+                                             ablation=obj_ablation) 
 
 
                 # print('bloom:', bloom)
@@ -1080,6 +1126,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.time_fidelity = get_config_value(configParser, options.time_fidelity, 'Options', 'Time_fidelity','float')
     options.write_dense_solutions = get_config_value(configParser, False, 'Options','Dense_solutions', 'boolean' )
     options.postproc_in_loop = get_config_value(configParser, None, 'Options', 'Postprocess_in_loop','str')
+    options.write_object_properties = get_config_value(configParser, False, 'Options', 'Write_object_properties', 'boolean')
     options.time_counter   = 0
 
 
@@ -1133,6 +1180,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             options.pato.fstrip = get_config_value(configParser, options.pato.fstrip, 'PATO', 'fStrip', 'float')
             if options.pato.n_cores < 2: print('Error: PATO run on 2 cores minimum.'); exit()
             options.pato.conduction_flag = get_config_value(configParser, options.pato.conduction_flag, 'PATO', 'Conduction_objects', 'boolean')
+            options.pato.max_recession_per_step = get_config_value(configParser, 0.001, 'PATO', 'Max_recession_per_step', 'float')
+            options.pato.recession_sigma_factor = get_config_value(configParser, 1.0, 'PATO', 'Recession_sigma_factor', 'float')
+            options.pato.recession_smooth_alpha = get_config_value(configParser, 0.2, 'PATO', 'Recession_smooth_alpha', 'float')
             options.radiation.particle_emissions  = get_config_value(configParser, False,  'Radiation', 'Particle_emissions', 'boolean')
 
             if options.pato.conduction_flag and (options.dynamics.time_step != options.pato.time_step):
@@ -1185,7 +1235,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
     #Read Planet
     options.planet = planet.ModelPlanet(get_config_value(configParser, "Earth", 'Model', 'Planet', 'str'))
-
+    print(options.planet)
     #Read Vehicle
     vehicleFlag = get_config_value(configParser, False, 'Model', 'Vehicle', 'boolean')
     if vehicleFlag:
@@ -1253,6 +1303,12 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.collision.mesh_factor = get_config_value(configParser, options.collision.mesh_factor, 'Collision', 'Mesh_factor', 'float')
         options.collision.elastic_factor = get_config_value(configParser, options.collision.elastic_factor, 'Collision', 'Elastic_factor', 'float')
 
+    if configParser.has_section('Uncertainty'):
+        options.uncertainty.n_procs = get_config_value(configParser, options.uncertainty.n_procs, 'Uncertainty', 'Num_cores', 'int')
+        options.uncertainty.prime_seed = get_config_value(configParser, options.uncertainty.prime_seed, 'Uncertainty', 'Seed', 'int')
+        options.uncertainty.yaml = get_config_value(configParser, options.uncertainty.yaml, 'Uncertainty', 'Yaml_path', 'str')
+
+
     output.options_information(options)
 
     if options.load_mesh != True and options.load_state != True:
@@ -1266,6 +1322,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     else:
         #Read the initial trajectory details
         options.dynamics.trajectory_frame = get_config_value(configParser, options.dynamics.trajectory_frame, 'Trajectory', 'Frame', 'str')
+        options.dynamics.trajectory_epoch = get_config_value(configParser, options.dynamics.trajectory_epoch, 'Trajectory', 'Epoch', 'str')
+        options.dynamics.trajectory_state = get_config_value(configParser, '0,0,0,0,0,0', 'Trajectory', 'State', 'str').split(',')
+        options.dynamics.trajectory_state = np.array([float(value) for value in options.dynamics.trajectory_state])
         trajectory = read_trajectory(configParser, options.dynamics.trajectory_frame, options.planet)
 
         if options.load_mesh:

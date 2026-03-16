@@ -3,7 +3,6 @@ import re
 import numpy as np
 
 def lookup(string):
-
     line_num = 0
     for line in Lines:
         line_num += 1
@@ -91,9 +90,7 @@ f.close()
 
 # extract and write element data: type, node connectivity, element_id
 
-
 # surface (only triangles)
-
 elem_id = 1
 for i in range(n_elements_marker):
     line = Lines[line_number_surf+i]

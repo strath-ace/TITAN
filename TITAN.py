@@ -29,8 +29,9 @@ def loop(options = [], titan = []):
     options.current_iter = titan.iter
     options.user_time    = options.dynamics.time_step
 
-    if hasattr(options, 'vehicle') and options.vehicle and titan.assembly:
-        titan.assembly[0].mass = options.vehicle.mass   
+    #The mass input in the options file is given for one vehicle/assembly
+    if options.vehicle:
+        titan.assembly[0].mass = options.vehicle.mass
 
     # ==================================================
     # 1. INITIALIZE FENICS SOLVER
@@ -77,51 +78,27 @@ def loop(options = [], titan = []):
         
         output.iteration(titan = titan, options = options)
         
-        # ==================================================
-        # 2. RUN FENICS STRESS STEP
-        # ==================================================
-        if stress_solver and titan.assembly:
-            coupling_freq = 50
-            
-            if titan.iter == 0 or (titan.iter + 1) % coupling_freq == 0:
-                try:
-                    # 1. Safely extract VELOCITY
-                    try:
-                        v_raw = titan.assembly[0].velocity
-                        v = float(np.linalg.norm(v_raw)) 
-                    except:
-                        v = 6500.0 
-                        
-                    # 2. Safely extract DENSITY (rho)
-                    try:
-                        rho_raw = titan.freestream.rho
-                        if isinstance(rho_raw, np.ndarray):
-                            rho = float(rho_raw.flatten()[0]) 
-                        else:
-                            rho = float(rho_raw)
-                    except:
-                        rho = 0.001 
+        if options.dynamic_plots:
+            for _assembly in titan.assembly: plot = dynamic_plots.update_plot(_assembly, plot, titan.time)
 
-                    # 3. Ensure TIME is a pure float
-                    try:
-                        current_t = float(titan.time)
-                    except:
-                        current_t = float(titan.iter * options.dynamics.time_step)
+        if options.postproc_in_loop is not None:
+            if not os.path.exists(options.output_folder+'/Dense_surface_solution') and os.path.exists(options.output_folder+'/Data/data.csv'):
+                data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
+                data_obj = pd.read_csv(options.output_folder+'/Data/data_assembly.csv', index_col = False)
+                iter_interval = np.unique(data['Iter'].to_numpy())
+                iters_to_run = iter_interval[~np.isin(iter_interval,pp_existing)]
+                for iter_value in range(min(iters_to_run), max(iters_to_run)+1, options.output_freq):
+                    pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, None, data_obj)
+                pp_existing = np.hstack((pp_existing,iters_to_run))
+            if os.path.exists(options.output_folder+'/Data/data_smooth.csv'):
+                data_smooth = pd.read_csv(options.output_folder+'/Data/data_smooth.csv')
+                times = np.unique(data_smooth['Time'].to_numpy())
+                times_to_run = times[~np.isin(times, pp_existing)]
+                for time in times_to_run:
+                    pp.generate_visualization(options, data_smooth, np.round(time,6), options.postproc_in_loop,is_dense=True, iter_override=i_time)
+                    i_time+=1
+                pp_existing = np.hstack((pp_existing,times_to_run))
 
-                    # 4. Calculate pressure 
-                    current_p = float(0.5 * rho * (v**2) * 1.84)
-                    
-                    # 5. Hand the clean numbers to FEniCS
-                    stress_solver.solve_step(current_p, current_t)
-                    
-                    print(f"      [FEniCS] Stress calculated for P = {current_p:.0f} Pa at t = {current_t:.2f}s")
-                    
-                except Exception as e:
-                    print(f"      [FEniCS Error] {e}")
-                    # --- NEW: Print exactly where the error is happening ---
-                    print("      --- Full Traceback ---")
-                    traceback.print_exc()
-                    print("      ----------------------")
 
         titan.iter += 1
         options.current_iter = titan.iter
@@ -144,15 +121,63 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
 
     if (not postprocess) and (not emissions):
         loop(options, titan)
-        print("Finished simulation")
+        print("Finished simulation\n")
+        #print(titan.nfeval)
+        return options, titan
+
+    #Postprocess of the simulated solution to pass from Body-frame
+    #to ECEF-Frame or Wind-Frame
+    if postprocess:
+        Path(options.output_folder+'/Postprocess/').mkdir(parents=True, exist_ok=True)
+        pp.postprocess(options, postprocess, filter_name)
+    if emissions:
+        Path(options.output_folder+'/Postprocess_emissions/').mkdir(parents=True, exist_ok=True)
+        pp_emissions.postprocess_emissions(options)
     
 if __name__ == "__main__":
     output.TITAN_information()
     parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
-    parser.add_argument("-c", "--config", dest="configfilename", type=str, help="input config file")
+
+    parser.add_argument("-c", "--config",
+                        dest="configfilename",
+                        type=str,
+                        help="input config file",
+                        metavar="configfile")
+    parser.add_argument("-pp", "--postprocess",
+                        dest="postprocess",
+                        type=str,
+                        help="simulation postprocess (ECEF, WIND)",
+                        metavar="postprocess")
+    parser.add_argument("-MC", "--montecarlo",
+                        dest="n_samples",
+                        type=int,
+                        help = "run a Monte Carlo campaign of N simulations",
+                        metavar="n_samples")
+    parser.add_argument("-flt", "--filter",
+                        dest="filtername",
+                        type=str,
+                        help="filter postprocess (name of the object)",
+                        metavar="filtername")
+    parser.add_argument("-em", "--emissions",
+                        dest="emissions",
+                        action="store_true")
+    
     args=parser.parse_args()
 
     if not args.configfilename:
         raise Exception('The user needs to provide a file!.\n')
 
-    main(filename = args.configfilename)
+    filename = args.configfilename
+    postprocess = args.postprocess
+    filter_name = args.filtername
+    emissions = args.emissions
+
+    if args.n_samples is not None:
+        from Uncertainty import MC_wrapper
+        MC_wrapper.run(filename,args.n_samples)
+        exit()
+
+    if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef" and postprocess.lower()!="int"):
+        raise Exception("Postprocess can only be WIND, ECEF or INT")
+
+    main(filename = filename, postprocess = postprocess, filter_name = filter_name, emissions = emissions)

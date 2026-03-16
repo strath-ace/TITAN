@@ -228,7 +228,9 @@ def compute_cartesian_derivatives(assembly, options):
     a_centrif_I = -np.cross(np.array([0,0,wE]), np.cross(np.array([0,0,wE]), assembly.position))
     a_coriolis_I  = -2*np.cross(np.array([0,0,wE]), assembly.velocity)
 
-
+    print(Fgrav_I)
+    print(a_centrif_I)
+    print(a_coriolis_I)
     #For ECI, we need to work with the epochs to convert from ECEF to ECI -> To obtain Latitude, Longitude and Altitude
     #pymap3d has the functions we need
 

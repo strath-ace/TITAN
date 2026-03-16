@@ -6,6 +6,9 @@ dependencies:
   - numpy
   - pandas
   - scipy
+  - scikit-build
+  - pyyaml
+  - swig
   - trimesh
   - meshio
   - vtk

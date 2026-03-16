@@ -32,7 +32,7 @@ from scipy.optimize import fsolve
 try:
     import mutationpp as mpp
 except:
-    print("Mutationpp library not set up")
+   print("Mutationpp library not set up")
 
 def mixture_mpp(mixture = "air5"):
     """
@@ -358,11 +358,13 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
     #Pressure calculation only if Drag model is False
     if (not options.vehicle) or (options.vehicle and not options.vehicle.Cd):
         if  (assembly.freestream.knudsen <= Kn_cont_pressure):
-            assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly, index, flow_direction)
+            assembly.aerothermo.pressure[index] += aerodynamics_module_continuum(assembly, index, flow_direction)
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
 
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly, index, flow_direction)
+            pres, shear = aerodynamics_module_freemolecular(assembly, index, flow_direction)
+            assembly.aerothermo.pressure[index] += pres
+            assembly.aerothermo.shear[index] += shear
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
             assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
@@ -414,6 +416,19 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)*StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
 
+        free = assembly.freestream
+
+        print("\n[DEBUG AEROTHERM]")
+        print("rho =", free.density)
+        print("V   =", free.velocity)
+        print("Mach =", free.mach)
+        print("Knudsen =", free.knudsen)
+
+        StConst = free.density * free.velocity**3 / 2.0
+        print("rho*V^3/2 =", StConst)
+        #print("heatflux =", assembly.aerothermo.heatflux[index])
+
+        
 
     elif options.planet.name == "neptune" or options.planet.name == "uranus":
         #https://sci.esa.int/documents/34923/36148/1567260384517-Ice_Giants_CDF_study_report.pdf        
@@ -465,7 +480,7 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
         _assembly.aero_index = index
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
-        if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture, index)
+        #if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture, index)
         #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
 
 
@@ -615,7 +630,7 @@ def compute_equilibrium_chemistry(assembly, mixture, p):
 
     #print('chemistry mixture:', mixture)
 
-    mix = mixture_mpp('air5')
+    mix = mixture_mpp(mixture)
 
     nSpecies = mix.nSpecies()
 

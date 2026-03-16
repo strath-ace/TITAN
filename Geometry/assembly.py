@@ -424,6 +424,7 @@ class Assembly():
         self.roll_vel = 0
         self.pitch_vel = 0
         self.yaw_vel = 0
+        self.unmodded_angles = np.array([0.0, 0.0, 0.0])
 
         if len(objects) != 0:
             self.objects=objects
