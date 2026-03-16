@@ -415,20 +415,7 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)*StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
-
-        free = assembly.freestream
-
-        print("\n[DEBUG AEROTHERM]")
-        print("rho =", free.density)
-        print("V   =", free.velocity)
-        print("Mach =", free.mach)
-        print("Knudsen =", free.knudsen)
-
-        StConst = free.density * free.velocity**3 / 2.0
-        print("rho*V^3/2 =", StConst)
-        #print("heatflux =", assembly.aerothermo.heatflux[index])
-
-        
+    
 
     elif options.planet.name == "neptune" or options.planet.name == "uranus":
         #https://sci.esa.int/documents/34923/36148/1567260384517-Ice_Giants_CDF_study_report.pdf        

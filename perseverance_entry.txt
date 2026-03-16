@@ -1,10 +1,11 @@
 [Options]
-Num_iters = 5000
+Num_iters = 10
 Fidelity = Low
 Output_folder = Perseverance_2021_Entry
 Load_state = False
 Load_mesh = False
 #Plot = true
+Material_file = database_material.xml
 
 [Mesh]
 #Mesh saving recursion limit, increase if saving/loading meshes causes errors
@@ -25,6 +26,16 @@ Planet = mars
 Vehicle = True
 Drag_model = True
 
+[Thermal]
+Ablation = True
+Ablation_mode = pato
+Time_fidelity = 0.1
+
+[PATO]
+Time_step = 0.001
+N_cores = 2
+Solution_type = Volume
+PATO_mode = qconv
 
 [Vehicle]
 Mass = 3350                     
@@ -58,6 +69,6 @@ Propagator = RK23
 Path = Examples/Geometry/Sphere/
 
 [Objects]
-Primary = [name=sphere.stl, material=Unittest, type=Primitive, fenics_id=-1]
+Primary = [name=sphere.stl, material=Unittest, type=Primitive, fenics_id=-1, bloom=(True;20;0.0006;1.075)]
 
 
