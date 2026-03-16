@@ -22,22 +22,49 @@ import os
 import subprocess
 import numpy as np
 
-def generate_script(assembly, options):
-	with open(options.output_folder+"/GRAM/gram_config_"+str(assembly.id), 'w') as f:
 
-		f.write(" $INPUT \n")
-		f.write("  SpicePath      = '"+options.gram.spicePath+"'\n")                                         
-		f.write("  DataPath       = '"+options.gram.gramPath+"/Earth/data'\n")
-		f.write("  ListFileName   = '"+options.output_folder+"/GRAM/LIST'\n")          
-		f.write("  ColumnFileName = '"+options.output_folder+"/GRAM/OUTPUT'\n")       
-		
-		f.write("  Month = '"+options.gram.month+"\n")       
-		f.write("  Day = '"+options.gram.day+"\n")       
-		f.write("  Year = '"+options.gram.year+"\n")       
-		f.write("  Hour = '"+options.gram.hour+"\n")       
-		f.write("  Minute = '"+options.gram.minute+"\n")       
-		f.write("  Seconds = '"+options.gram.seconds+"\n")       
-	
+def generate_script(assembly, options):
+
+    config_path = options.output_folder + "/GRAM/gram_config_" + str(assembly.id)
+
+    with open(config_path, 'w') as f:
+
+        f.write(" $INPUT\n")
+
+        # --- Paths ---
+        f.write("  SpicePath      = '" + str(options.gram.spicePath) + "'\n")
+
+        planet_folder = options.planet.name.capitalize()
+        data_path = os.path.abspath(os.path.join(options.gram.gramPath, "../../", planet_folder, "data"))
+        f.write("  DataPath       = '" + data_path + "'\n")
+
+        f.write("  ListFileName   = '" + str(options.output_folder) + "/GRAM/LIST'\n")
+        f.write("  ColumnFileName = '" + str(options.output_folder) + "/GRAM/OUTPUT'\n")
+
+        # --- Time (NO QUOTES) ---
+        f.write("  Month   = " + str(options.gram.month) + "\n")
+        f.write("  Day     = " + str(options.gram.day) + "\n")
+        f.write("  Year    = " + str(options.gram.year) + "\n")
+        f.write("  Hour    = " + str(options.gram.hour) + "\n")
+        f.write("  Minute  = " + str(options.gram.minute) + "\n")
+        f.write("  Seconds = " + str(options.gram.seconds) + "\n")
+
+        # --- Position ---
+        f.write("  NumberOfPositions     = 1\n")
+        f.write("  EastLongitudePositive = 1\n")
+        f.write("  InitialHeight    = " + str(assembly.trajectory.altitude / 1000.0) + "\n")
+        f.write("  InitialLatitude  = " + str(assembly.trajectory.latitude * 180 / np.pi) + "\n")
+        f.write("  InitialLongitude = " + str(assembly.trajectory.longitude * 180 / np.pi) + "\n")
+
+        planet = options.planet.name.lower()
+
+        if planet in ["venus", "titan"]:
+            f.write("  MinMaxFactor       = " + str(options.gram.MinMaxFactor) + "\n")
+            f.write("  ComputeMinMaxFactor = " + str(options.gram.ComputeMinMaxFactor) + "\n")
+
+        f.write(" $END\n")
+
+    return config_path
 #  Month     = 3
 #  Day       = 25
 #  Year      = 2020
@@ -45,12 +72,12 @@ def generate_script(assembly, options):
 #  Minute    = 30
 #  Seconds   = 0.0
 #
-#  InitialRandomSeed               = 1001    
-#  RandomPerturbationScale         = 1.6   
-#  HorizontalWindPerturbationScale = 1.75   
-#  VerticalWindPerturbationScale   = 2.0   
+#  InitialRandomSeed               = 1001
+#  RandomPerturbationScale         = 1.6
+#  HorizontalWindPerturbationScale = 1.75
+#  VerticalWindPerturbationScale   = 2.0
 #  NumberOfMonteCarloRuns          = 1
-# 
+#
 #  AP         = 16.0
 #  DailyF10   = 148.0
 #  MeanF10    = 67.0
@@ -61,7 +88,7 @@ def generate_script(assembly, options):
 #  DailyY10   = 0.0
 #  MeanY10    = 0.0
 #  DSTTemperatureChange = 0.0
-#  
+#
 #  ThermosphereModel = 1
 #
 #  NCEPYear = 9715
@@ -71,7 +98,7 @@ def generate_script(assembly, options):
 #  RRAYear = 2019
 #  RRAOuterRadius = 2.0
 #  RRAInnerRadius = 1.0
-#  
+#
 #  Patchy = 0
 #  SurfaceRoughness = -1
 #
@@ -83,21 +110,13 @@ def generate_script(assembly, options):
 #  InitialVerticalWindPerturbation = 0.0
 #
 #  UseTrajectoryFile     = 0
-#  TrajectoryFileName    = 'null' 
-		f.write("NumberOfPositions     = 1 \n")   
-		f.write("EastLongitudePositive = 1 \n")  
-		f.write("InitialHeight         = "+str(assembly.trajectory.altitude/1000)+" \n")    
-		f.write("InitialLatitude       = "+str(assembly.trajectory.latitude*180/np.pi)+"\n")
-		f.write("InitialLongitude      = "+str(assembly.trajectory.longitude*180/np.pi)+" \n") 
-#  DeltaHeight           = 40.0    
-#  DeltaLatitude         = 0.3     
-#  DeltaLongitude        = 0.5     
+#  TrajectoryFileName    = 'null'
+#  DeltaHeight           = 40.0
+#  DeltaLatitude         = 0.3
+#  DeltaLongitude        = 0.5
 #  DeltaTime             = 500.0
 #
 
-		if options.planet.name != 'earth':
-			f.write("MinMaxFactor = " + options.gram.MinMaxFactor + " \n") 
-			f.write("ComputeMinMaxFactor = " + options.gram.ComputeMinMaxFactor + " \n")
 
 
 #  MinMaxFactor           = Factor (-1. to +1. to vary between minimum and 
@@ -115,42 +134,73 @@ def generate_script(assembly, options):
 #
 #  FastModeOn        = 0
 #  ExtraPrecision    = 0
-#  UseLegacyOutputs  = 0 
-#
-		f.write(" $END")                
+#  UseLegacyOutputs  = 0
 
 def read_gram_species(altitude, options):
-	data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
 
-	if options.planet.name == "earth":   species_index = ["N2","O2","O","He","N","H"]
-	if options.planet.name == "neptune": species_index = ["H2","He","CH4"]
-	if options.planet.name == "uranus":  species_index = ["H2","He","CH4"]
+    data = pd.read_csv(options.output_folder + "/GRAM/OUTPUT.csv")
 
-	temperature = data['Temperature_K'].to_numpy()[0]
-	density = data['Density_kgm3'].to_numpy()[0]
+    planet = options.planet.name.lower()
 
-	species_data = np.zeros(len(species_index)+2)
+    if planet == "earth":
+        species_index = ["N2", "O2", "O", "He", "N", "H"]
 
-	species_data[0] = altitude
-	species_data[1] = temperature
+    elif planet == "mars":
+        species_index = ["CO2", "N2", "Ar", "O2", "CO"]
 
-	for index, specie in enumerate(species_index):
-		species_data[index+2] = data[specie+"mass_pct"].to_numpy()[0]/100
+    elif planet == "venus":
+        species_index = ["CO2", "N2"]
 
-	species_data[2:] /= np.sum(species_data[2:])
-	species_data[2:] *= density
+    elif planet == "titan":
+        species_index = ["N2", "CH4"]
 
-	return species_data, species_index
+    elif planet == "neptune":
+        species_index = ["H2", "He", "CH4"]
+
+    elif planet == "uranus":
+        species_index = ["H2", "He", "CH4"]
+
+    else:
+        raise ValueError(f"Unsupported planet for GRAM species: {planet}")
+
+    temperature = data['Temperature_K'].to_numpy()[0]
+    density = data['Density_kgm3'].to_numpy()[0]
+
+    species_data = np.zeros(len(species_index) + 2)
+    species_data[0] = altitude
+    species_data[1] = temperature
+
+    for index, specie in enumerate(species_index):
+        species_data[index + 2] = data[specie + "mass_pct"].to_numpy()[0] / 100.0
+
+    # Normalize and scale by density
+    species_data[2:] /= np.sum(species_data[2:])
+    species_data[2:] *= density
+
+    return species_data, species_index
+
 
 def read_gram(assembly, options):
-	data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
-	return data
+    data = pd.read_csv(options.output_folder + "/GRAM/OUTPUT.csv")
+    return data
+
 
 def run_single_gram(assembly, options):
-	generate_script(assembly, options)
-	path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-	#Run the GRAM model
-	if options.planet.name == "earth": os.system("echo "+options.output_folder+"/GRAM/gram_config_"+str(assembly.id)+" | "+path+"/Executables/EarthGRAM")
-	if options.planet.name == "neptune": os.system("echo "+options.output_folder+"/GRAM/gram_config_"+str(assembly.id)+" | "+path+"/Executables/NeptuneGRAM")
-	if options.planet.name == "uranus": os.system("echo "+options.output_folder+"/GRAM/gram_config_"+str(assembly.id)+" | "+path+"/Executables/UranusGRAM")
+    # Generate GRAM config file
+    config_file = generate_script(assembly, options)
+
+    # Build executable path using external GRAM build
+    exe_name = options.planet.name.capitalize() + "GRAM"
+    gram_executable = os.path.join(options.gram.gramPath, exe_name)
+
+    if not os.path.exists(gram_executable):
+        raise RuntimeError(f"GRAM executable not found: {gram_executable}")
+
+    # Ensure output folder exists
+    os.makedirs(options.output_folder + "/GRAM", exist_ok=True)
+
+    # Pipe config file into GRAM executable
+    command = f"echo {config_file} | {gram_executable}"
+    print(f"[GRAM] Running: {gram_executable}")
+    os.system(command)

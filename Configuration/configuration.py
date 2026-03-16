@@ -1012,7 +1012,7 @@ def read_geometry(configParser, options):
                                              options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha) 
 
 
-                print('bloom:', bloom)
+                # print('bloom:', bloom)
                 obj_global_ID += 1
 
 
@@ -1181,7 +1181,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.gram.day = get_config_value(configParser, options.gram.day, 'GRAM', 'Day', 'str')
         options.gram.hour = get_config_value(configParser, options.gram.hour, 'GRAM', 'Hour', 'int')
         options.gram.minute = get_config_value(configParser, options.gram.minute, 'GRAM', 'Minute', 'int')
-        options.gram.seconds = get_config_value(configParser, options.gram.second, 'GRAM', 'Seconds', 'float')
+        options.gram.seconds = get_config_value(configParser, options.gram.seconds, 'GRAM', 'Seconds', 'float')
 
     #Read Planet
     options.planet = planet.ModelPlanet(get_config_value(configParser, "Earth", 'Model', 'Planet', 'str'))

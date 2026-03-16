@@ -499,5 +499,90 @@
 		<oxideReactionProbability>0.0</oxideReactionProbability>
 	</metalMaterial>
 
+
+<metalMaterial>
+    <name>Aluminium_6061_T6</name>
+    <density>2700.0</density>
+    <specificHeatCapacity>
+        <values>293,896.0;313,903.0;333,910.0;353,918.0;373,925.0;393,933.0;413,940.0;433,948.0;453,955.0;473,963.0;493,970.0;513,978.0;533,985.0;553,993.0;573,1000.0;593,1008.0;613,1015.0;633,1023.0;653,1030.0;673,1038.0;693,1045.0;713,1053.0;733,1060.0;753,1068.0;773,1075.0;793,1083.0;813,1090.0;833,1098.0;853,1105.0;873,1113.0;893,1120.0;913,1128.0;933,1135.0;953,1143.0;973,1150.0;993,1158.0;933.15,1170.0;</values>
+    </specificHeatCapacity>
+    <meltingHeat>397000.0</meltingHeat>
+    <meltingTemperature>933.15</meltingTemperature>
+    <emissivity>
+        <values>300.0,0.05;400.0,0.07;600.0,0.09;800.0,0.10;933.15,0.11;</values>
+    </emissivity>
+    <heatConductivity>
+        <values>293,237.0;313,235.0;333,233.0;353,231.0;373,229.0;393,227.0;413,225.0;433,223.0;453,221.0;473,219.0;493,217.0;513,215.0;533,213.0;553,211.0;573,209.0;593,207.0;613,205.0;633,203.0;653,201.0;673,199.0;693,197.0;713,195.0;733,193.0;753,191.0;773,189.0;793,187.0;813,185.0;833,183.0;853,181.0;873,179.0;893,177.0;913,175.0;933,173.0;</values>
+    </heatConductivity>
+    <oxideActivationTemperature>773.15</oxideActivationTemperature>
+    <oxideEmissivity>
+        <values>773.15,0.30;873.15,0.35;933.15,0.40;</values>
+    </oxideEmissivity>
+    <oxideHeatOfFormation>-1675000.0</oxideHeatOfFormation>
+    <oxideReactionProbability>0.25</oxideReactionProbability>
+    <youngModulus>
+        <values>293.15,69E9;473.15,66E9;573.15,61E9;773.15,50E9;933.15,25E9;</values>
+    </youngModulus>
+    <yieldStress>
+        <values>293.15,275E6;473.15,240E6;573.15,150E6;773.15,60E6;933.15,25E6;</values>
+    </yieldStress>
+</metalMaterial>
+
+<metalMaterial>
+    <name>Tungsten_Pure</name>
+    <density>19250.0</density>
+    <specificHeatCapacity>
+        <values>293,134.0;313,136.0;333,138.0;353,140.0;373,142.0;393,144.0;413,146.0;433,148.0;453,150.0;473,152.0;493,154.0;513,156.0;533,158.0;553,160.0;573,162.0;593,164.0;613,166.0;633,168.0;653,170.0;673,172.0;693,174.0;713,176.0;733,178.0;753,180.0;773,182.0;793,184.0;813,186.0;833,188.0;853,190.0;873,192.0;893,194.0;913,196.0;933,198.0;</values>
+    </specificHeatCapacity>
+    <meltingHeat>192000.0</meltingHeat>
+    <meltingTemperature>3695.0</meltingTemperature>
+    <emissivity>
+        <values>300.0,0.04;500.0,0.05;1000.0,0.07;1500.0,0.10;2000.0,0.15;2500.0,0.20;3000.0,0.25;3500.0,0.30;3695.0,0.35;</values>
+    </emissivity>
+    <heatConductivity>
+        <values>293,173.0;313,171.0;333,169.0;353,167.0;373,165.0;393,163.0;413,161.0;433,159.0;453,157.0;473,155.0;493,153.0;513,151.0;533,149.0;553,147.0;573,145.0;593,143.0;613,141.0;633,139.0;653,137.0;673,135.0;693,133.0;713,131.0;733,129.0;753,127.0;773,125.0;793,123.0;813,121.0;833,119.0;853,117.0;873,115.0;893,113.0;913,111.0;933,109.0;</values>
+    </heatConductivity>
+    <oxideActivationTemperature>923.15</oxideActivationTemperature>
+    <oxideEmissivity>
+        <values>923.15,0.35;1200.0,0.45;1600.0,0.55;</values>
+    </oxideEmissivity>
+    <oxideHeatOfFormation>-842000.0</oxideHeatOfFormation>
+    <oxideReactionProbability>0.15</oxideReactionProbability>
+    <youngModulus>
+        <values>293.15,411E9;473.15,405E9;673.15,395E9;873.15,380E9;1073.15,360E9;1273.15,330E9;1473.15,300E9;</values>
+    </youngModulus>
+    <yieldStress>
+        <values>293.15,750E6;473.15,700E6;673.15,600E6;873.15,450E6;1073.15,250E6;1273.15,120E6;1473.15,50E6;</values>
+    </yieldStress>
+</metalMaterial>
+
+<metalMaterial>
+    <name>Titanium_Grade5</name>
+    <density>4430.0</density>
+    <specificHeatCapacity>
+        <values>293,526.0;313,530.0;333,534.0;353,538.0;373,542.0;393,546.0;413,550.0;433,554.0;453,558.0;473,562.0;493,566.0;513,570.0;533,574.0;553,578.0;573,582.0;593,586.0;613,590.0;633,594.0;653,598.0;673,602.0;693,606.0;713,610.0;733,614.0;753,618.0;773,622.0;793,626.0;813,630.0;833,634.0;853,638.0;873,642.0;893,646.0;913,650.0;933,654.0;</values>
+    </specificHeatCapacity>
+    <meltingHeat>364000.0</meltingHeat>
+    <meltingTemperature>1923.0</meltingTemperature>
+    <emissivity>
+        <values>300.0,0.20;400.0,0.25;600.0,0.30;800.0,0.35;1000.0,0.40;1200.0,0.45;1500.0,0.50;1800.0,0.55;1923.0,0.60;</values>
+    </emissivity>
+    <heatConductivity>
+        <values>293,7.2;313,7.3;333,7.4;353,7.5;373,7.6;393,7.7;413,7.8;433,7.9;453,8.0;473,8.1;493,8.2;513,8.3;533,8.4;553,8.5;573,8.6;593,8.7;613,8.8;633,8.9;653,9.0;673,9.1;693,9.2;713,9.3;733,9.4;753,9.5;773,9.6;793,9.7;813,9.8;833,9.9;853,10.0;873,10.1;893,10.2;913,10.3;933,10.4;</values>
+    </heatConductivity>
+    <oxideActivationTemperature>873.15</oxideActivationTemperature>
+    <oxideEmissivity>
+        <values>873.15,0.45;1073.15,0.55;1273.15,0.65;</values>
+    </oxideEmissivity>
+    <oxideHeatOfFormation>-1590000.0</oxideHeatOfFormation>
+    <oxideReactionProbability>0.30</oxideReactionProbability>
+    <youngModulus>
+        <values>293.15,113E9;473.15,110E9;673.15,105E9;873.15,95E9;1073.15,80E9;1273.15,60E9;1473.15,40E9;</values>
+    </youngModulus>
+    <yieldStress>
+        <values>293.15,880E6;473.15,800E6;673.15,650E6;873.15,400E6;1073.15,150E6;1273.15,80E6;1473.15,40E6;</values>
+    </yieldStress>
+</metalMaterial>
+
 </materialList>
 

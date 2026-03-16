@@ -17,9 +17,11 @@ dependencies:
   - pip
   - lxml
   - open3d
+  - astropy
+  - scikit-build
+  - pyembree
   - pip:
       - stl
       - vg
-      - gmsh==4.11.1
+      - gmsh
       - python-fcl
-      - embreex
