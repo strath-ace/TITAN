@@ -32,8 +32,7 @@ from Geometry.tetra import inertia_tetra
 import requests
 import subprocess
 import pathlib
-from .meshUpdate import run_mesh_update, save_mesh_snapshot, print_mesh_quality, should_remesh
-from .recession_substep import run_substep_loop
+from .meshUpdate import run_mesh_update, save_mesh_snapshot, print_mesh_quality
 
 
 
@@ -354,15 +353,13 @@ def compute_thermal_PATO(titan, options):
                             print("OBJECT HAS DEMISED. SIMULATION ENDED")
                             sys.exit(1)
 
-                    if pato.remesh_volume and not pato.move_dynamic_mesh:
-                        run_substep_loop(assembly, obj, full_disp, options)
-                    else:
-                        assembly.mesh.nodes += full_disp
-                        obj_disp = full_disp[obj.node_index]
-                        obj.mesh.nodes += obj_disp
-                        sync_surface_from_nodes(assembly.mesh)
-                        obj.mesh = sync_surface_from_nodes(obj.mesh)
+                    assembly.mesh.nodes += full_disp
+                    obj_disp = full_disp[obj.node_index]
+                    obj.mesh.nodes += obj_disp
+                    sync_surface_from_nodes(assembly.mesh)
+                    obj.mesh = sync_surface_from_nodes(obj.mesh)
 
+                    # FOR TESTING: remesh and mapFields every step (ignore needs_remesh / should_remesh)
                     if pato.remesh_volume:
                         if pato.move_dynamic_mesh:
                             pato.perform_PATO_remesh(options, obj, titan, n_cores)

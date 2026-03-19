@@ -1480,8 +1480,8 @@ def write_system_folder(options, object_id, time, time_step):
             f.write('  Ta\n')
             f.write('  {\n')
             f.write('    solver           GAMG;\n')
-            f.write('    tolerance        1e-05;\n')
-            f.write('    relTol           0.01;\n')
+            f.write('    tolerance        1e-6;\n')
+            f.write('    relTol           0.1;\n')
             f.write('    smoother         GaussSeidel;\n')
             f.write('    cacheAgglomeration true;\n')
             f.write('    nCellsInCoarsestLevel 2;\n')
@@ -2212,68 +2212,6 @@ def _smooth_nodal_displacement_1ring(vertex_disp, nodes, neighbors, mean_edge_le
     vertex_disp_final = (1.0 - blend_alpha) * vertex_disp + blend_alpha * smoothed
     return vertex_disp_final
 
-# Facets within this angle of each other will be clustered into one face
-FACE_THETA_DEG = 20.0
-
-
-def _nodal_displacement_from_facets_clustered(nodes, facets, unit_normals, facet_disp, facet_area, face_theta_deg):
-    """
-    Compute nodal displacement by clustering incident facets by normal direction,
-    then summing area-weighted cluster displacements. Avoids edge/corner pinching.
-    """
-    N_nodes = nodes.shape[0]
-    vertex_disp = np.zeros((N_nodes, 3))
-
-    # Build node -> incident facet indices
-    node_facets = [[] for _ in range(N_nodes)]
-    for f_id, (i, j, k) in enumerate(facets):
-        node_facets[i].append(f_id)
-        node_facets[j].append(f_id)
-        node_facets[k].append(f_id)
-
-    face_theta_rad = np.deg2rad(face_theta_deg)
-
-    for i in range(N_nodes):
-        incident = node_facets[i]
-        if not incident:
-            continue
-        incident = np.array(incident)
-        n_f = unit_normals[incident]
-        d_f = facet_disp[incident]
-        A_f = facet_area[incident]
-
-        # Cluster: two facets in same cluster if angle(n_i, n_j) < face_theta_deg
-        used = np.zeros(len(incident), dtype=bool)
-        clusters = []
-        while not np.all(used):
-            seed = int(np.where(~used)[0][0])
-            cluster = [seed]
-            used[seed] = True
-            added = True
-            while added:
-                added = False
-                for j in range(len(incident)):
-                    if used[j]:
-                        continue
-                    for c in cluster:
-                        dot = np.clip(float(np.dot(n_f[j], n_f[c])), -1.0, 1.0)
-                        if np.arccos(dot) < face_theta_rad:
-                            cluster.append(j)
-                            used[j] = True
-                            added = True
-                            break
-            clusters.append(cluster)
-
-        # Per cluster: area-weighted mean displacement; then sum over clusters
-        for cluster in clusters:
-            idx = np.array(cluster)
-            a_sum = A_f[idx].sum()
-            if a_sum <= 0:
-                continue
-            d_k = np.sum(d_f[idx] * A_f[idx, None], axis=0) / a_sum
-            vertex_disp[i] += d_k
-
-    return vertex_disp
 
 def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
     """
@@ -2444,7 +2382,7 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
     # ============================================================
     dt = options.pato.time_step
 
-    d_n_step = (v_n * dt) * 100  # recession (m) over TITAN timestep (0.25s)
+    d_n_step = (v_n * dt) * 250  # recession (m) over TITAN timestep (0.25s)
 
     nodes   = obj.pato.nodes
     facets  = obj.pato.facets
@@ -2454,32 +2392,25 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
 
     facet_disp = -d_n_step[:, None] * unit_normals
 
-    # # Area-weighted nodal displacement
-    # facet_area = np.linalg.norm(normals, axis=1) + 1e-20
-
-    # N_nodes = nodes.shape[0]
-    # vertex_disp  = np.zeros((N_nodes, 3))
-    # vertex_area_sum = np.zeros(N_nodes)
-
-    # for f_id, (i, j, k) in enumerate(facets):
-    #     d = facet_disp[f_id]
-    #     a = facet_area[f_id]
-    #     vertex_disp[i] += d * a
-    #     vertex_disp[j] += d * a
-    #     vertex_disp[k] += d * a
-    #     vertex_area_sum[i] += a
-    #     vertex_area_sum[j] += a
-    #     vertex_area_sum[k] += a
-
-    # mask = vertex_area_sum > 0
-    # vertex_disp[mask] /= vertex_area_sum[mask][:, None]
-
+    # Area-weighted nodal displacement
     facet_area = np.linalg.norm(normals, axis=1) + 1e-20
 
-    # Nodal displacement: cluster incident facets by normal, sum cluster displacements
-    vertex_disp = _nodal_displacement_from_facets_clustered(
-        nodes, facets, unit_normals, facet_disp, facet_area, face_theta_deg=FACE_THETA_DEG
-    )
+    N_nodes = nodes.shape[0]
+    vertex_disp  = np.zeros((N_nodes, 3))
+    vertex_area_sum = np.zeros(N_nodes)
+
+    for f_id, (i, j, k) in enumerate(facets):
+        d = facet_disp[f_id]
+        a = facet_area[f_id]
+        vertex_disp[i] += d * a
+        vertex_disp[j] += d * a
+        vertex_disp[k] += d * a
+        vertex_area_sum[i] += a
+        vertex_area_sum[j] += a
+        vertex_area_sum[k] += a
+
+    mask = vertex_area_sum > 0
+    vertex_disp[mask] /= vertex_area_sum[mask][:, None]
 
     # 1-ring Gaussian smoothing + blend
     sigma_factor = getattr(options.pato, 'recession_sigma_factor', 1.0)
@@ -2491,7 +2422,6 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
     )
 
     obj.pato.vertex_disp_field = vertex_disp
-
 
 
 def postprocess_mass_inertia(obj, options, time_to_read):

@@ -318,6 +318,12 @@ def compute_aerothermo(titan, options):
         #Compute the freestream properties and stagnation quantities
         mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
         mix_properties.compute_stagnation(assembly.freestream, options.freestream)
+        free = assembly.freestream
+        print("\n[DEBUG FREESTREAM]")
+        print("Kn =", free.knudsen)
+        print("rho =", free.density)
+        print("T =", free.temperature)
+        print("Mach =", free.mach)
 
     if options.fidelity.lower() == 'low':
         compute_low_fidelity_aerothermo(titan.assembly, options, titan.iter)
@@ -400,7 +406,7 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
     if StConst<0.05: StConst = 0.05 # Neglect Cooling effect    
 
     # Heatflux calculation for Earth
-    if options.planet.name == "earth":
+    if options.planet.name in ("earth", "mars", "venus", "titan"):
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly, index, flow_direction, options)*StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
@@ -411,11 +417,20 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
 
         else: 
             #atmospheric model for the aerothermodynamics bridging needs to be the NRLSMSISE00
-            atmo_model = "NRLMSISE00"
+            atmo_model = options.freestream.model
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)*StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
-    
+
+        #free = assembly.freestream
+        #print("\n[DEBUG AEROTHERM]")
+        #print("rho =, ", free.density)
+        #print("V = ", free.velocity)
+        #print("Mach = ", free.mach)
+        #print("Knudsen = ", free.knudsen)
+        #StConst = free.density * free.velocity**3 / 2.0
+        #print("rho*V^3/2 = ", StConst)
+        #print("heatflux = ", assembly.aerothermo.heatflux[index])
 
     elif options.planet.name == "neptune" or options.planet.name == "uranus":
         #https://sci.esa.int/documents/34923/36148/1567260384517-Ice_Giants_CDF_study_report.pdf        
@@ -1289,14 +1304,18 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     facet_normal = assembly.mesh.facet_normal
 
     #Computes the altitude of which the transition between flow regimes occur
-    alt_cont, alt_free = bridging_altitudes(atm_data, Kn_cont, Kn_free, lref)
+    alt_cont, alt_free = bridging_altitudes(atm_data, Kn_cont, Kn_free, lref,options)
     
-    free_cont = copy(free)
-    free_free = copy(free)
+    if alt_cont is None or alt_free is None:
+        free_cont = copy(free)
+        free_free = copy(free)
+    else:
+    	free_cont = copy(free)
+    	free_free = copy(free)
 
     #Computes the freestream properties for the transition altitudes
-    mix_properties.compute_freestream(atm_data, alt_cont, free.velocity, lref, free_cont, assembly, options)
-    mix_properties.compute_freestream(atm_data, alt_free, free.velocity, lref, free_free, assembly, options)
+    	mix_properties.compute_freestream(atm_data, alt_cont, free.velocity, lref, free_cont, assembly, options)
+    	mix_properties.compute_freestream(atm_data, alt_free, free.velocity, lref, free_free, assembly, options)
     
     #HFcont = aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p, wall_temperature, flow_direction, hf_model)
     #HFfree = aerothermodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, wall_temperature)
@@ -1410,10 +1429,14 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     St.shape = (-1)
     return St
 
-def bridging_altitudes(model, Kn_cont,Kn_free, lref):
+def bridging_altitudes(model, Kn_cont,Kn_free, lref, options=None):
+
+    if options is not None and options.freestream.model.upper() == "GRAM":
+        return None, None
+
 
     h_interval = np.linspace(1000,300000,25000)
-    altitude_knudsen = mix_properties.interpolate_atmosphere_knudsen(model, lref, h_interval)
+    altitude_knudsen = mix_properties.interpolate_atmosphere_knudsen(model, lref, h_interval, options)
 
     alt_cont = altitude_knudsen(Kn_cont)
     alt_free = altitude_knudsen(Kn_free)

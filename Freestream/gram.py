@@ -30,10 +30,10 @@ def generate_script(assembly, options):
         f.write("  SpicePath      = '" + str(options.gram.spicePath) + "'\n")
 
         if options.planet.name == "earth":
-            f.write("  DataPath       = '" + str(options.gram.gramPath) + "/Earth/data'\n")
+            f.write("  DataPath       = '/home/ME525/GRAM_BUILD/GRAM/Earth/data'\n")
 
         elif options.planet.name == "mars":
-            f.write("  DataPath       = '" + str(options.gram.gramPath) + "/Mars/data'\n")
+            f.write("  DataPath       = '/home/ME525/GRAM_BUILD/GRAM/Mars/data'\n")
 
         elif options.planet.name == "venus":
             f.write("  DataPath       = '" + str(options.gram.gramPath) + "/Venus/data'\n")
@@ -188,32 +188,16 @@ def read_gram(assembly, options):
 
 def run_single_gram(assembly, options):
     generate_script(assembly, options)
-    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     #Run the GRAM model
-    if options.planet.name == "earth":
-        os.system("echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) +
-                  " | " + path + "/Executables/EarthGRAM")
 
-    if options.planet.name == "neptune":
-        os.system("echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) +
-                  " | " + path + "/Executables/NeptuneGRAM")
+    exe = options.gram.gramPath + "/" + options.planet.name.capitalize() + "GRAM"
 
-    if options.planet.name == "uranus":
-        os.system("echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) +
-                  " | " + path + "/Executables/UranusGRAM")
+    command = "echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) + " | " + exe
 
-    if options.planet.name == "mars":
-        os.system("echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) +
-                  " | " + path + "/Executables/MarsGRAM")
-        
-    if options.planet.name == "venus":
-        os.system("echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) +
-                  " | " + path + "/Executables/VenusGRAM")
+    print ("[GRAM] Running:", exe)
 
-    if options.planet.name == "titan":
-        os.system("echo " + options.output_folder + "/GRAM/gram_config_" + str(assembly.id) +
-                  " | " + path + "/Executables/TitanGRAM") 
+    subprocess.run(command, shell=True, check=True)
 
 
 
