@@ -1107,7 +1107,7 @@ def read_geometry(configParser, options):
                         if len(deflection_limits) != 2:
                             raise ValueError
                     except:
-                        deflection_limits = (np.radians(-30.0), np.radians(30.0))
+                        deflection_limits = (np.radians(-90.0), np.radians(90.0))
 
                     bloom = [False, 0, 0, 0]
                     try:
