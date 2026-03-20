@@ -1,0 +1,17 @@
+ $INPUT
+  SpicePath      = '/home/ME525/GRAM_BUILD/GRAM/SPICE'
+  DataPath       = '/home/ME525/GRAM_BUILD/GRAM/Titan/data'
+  ListFileName   = 'Freestream/temp_gram_profile/LIST'
+  ColumnFileName = 'Freestream/temp_gram_profile/OUTPUT'
+  Month = '2'
+  Day = '18'
+  Year = '2021'
+  Hour = '12'
+  Minute = '0'
+  Seconds = '0.0'
+NumberOfPositions     = 1
+EastLongitudePositive = 1
+InitialHeight         = 300.0
+InitialLatitude       = 0.0
+InitialLongitude      = 0.0
+ $END

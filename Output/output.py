@@ -163,12 +163,12 @@ def write_output_data(titan, options, smooth=False):
         # Fixed number of object columns (pad with NaN so every row has same columns)
         df_temp = pd.DataFrame()
         df_mass = pd.DataFrame()
-<<<<<<< HEAD
+
         if options.write_object_properties:
             for i, obj in enumerate(assembly.objects):
                 df_temp["Temperature_obj_"+str(i)] = [obj.temperature]
                 df_mass["Mass_obj_"+str(i)] = [obj.mass]
-=======
+
         for i in range(n_objs_max):
             if i < len(assembly.objects):
                 df_temp["Temperature_obj_"+str(i)] = [float(np.mean([assembly.objects[i].temperature]))]
@@ -176,7 +176,7 @@ def write_output_data(titan, options, smooth=False):
             else:
                 df_temp["Temperature_obj_"+str(i)] = [np.nan]
                 df_mass["Mass_obj_"+str(i)] = [np.nan]
->>>>>>> navraj/main
+
 
         df = pd.concat([df, df_temp], axis = 1)
         df = pd.concat([df, df_mass], axis = 1)

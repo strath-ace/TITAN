@@ -411,12 +411,12 @@ def compute_stagnation(free, options):
     elif options.method == "Standard":
         free.mu_s = compute_sutherland(species_index = free.species_index, percent_gas = free.percent_mole, temperature = free.T1_s)
 
-def interpolate_atmosphere_knudsen(name, lref, altitude):
+def interpolate_atmosphere_knudsen(name, lref, altitude, options=None):
 
     avo = 6.0221408E+23 
 
     #This is only possible for the NRLSMISE00 at the moment
-    f_values, species_index = load_atmosphere(name = name)
+    f_values, species_index = load_atmosphere(name = name, options = options)
 
     data = f_values(altitude)
     
@@ -438,4 +438,6 @@ def interpolate_atmosphere_knudsen(name, lref, altitude):
 
     f=interp1d(knudsen, altitude, kind = 'cubic')
 
+    total_rho = np.sum(density, axis=1)
+    print("[DEBUG GRAM] lref={:.6e} | rho min={:.6e} max={:.6e} kg/m3 | Kn min={:.6e} max={:.6e}".format(lref, total_rho.min(), total_rho.max(), knudsen.min(), knudsen.max()))
     return f
