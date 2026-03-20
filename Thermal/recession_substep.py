@@ -16,7 +16,7 @@ import triangle as tr
 from collections import defaultdict
 from Geometry.mesh import sync_surface_from_nodes, map_edges_connectivity
 
-A_MIN_RATIO = 0
+A_MIN_RATIO = 0.05
 #0.05
 
 def compute_mean_edge_length(nodes, facets):
@@ -731,10 +731,10 @@ def run_substep_loop(assembly, obj, full_disp, options=None):
     mel = compute_mean_edge_length(nodes, facets)
 
     max_disp_mm = 0.2
-    min_angle_deg = 0
+    min_angle_deg = 15
     if options is not None and hasattr(options, "pato"):
         max_disp_mm = getattr(options.pato, "max_substep_displacement_mm", 0.2)
-        min_angle_deg = getattr(options.pato, "min_triangle_angle_deg", 20.0)
+        min_angle_deg = getattr(options.pato, "min_triangle_angle_deg", 15)
     max_disp_per_substep_m = max_disp_mm * 1e-3
     n_sub = substep_count(full_disp, max_disp_per_substep_m)
 

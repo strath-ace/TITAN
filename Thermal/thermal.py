@@ -325,7 +325,16 @@ def compute_thermal_PATO(titan, options):
 
                     max_T = float(np.max(obj.pato.temperature)) if hasattr(obj.pato, 'temperature') and obj.pato.temperature is not None and len(obj.pato.temperature) > 0 else 0.0
                     Tmelt = getattr(obj.material, 'meltingTemperature', float('inf'))
-                    needs_remesh = (max_T >= Tmelt)
+                    margin_k = getattr(options.pato, 'remesh_temperature_margin_k', 150.0)
+                    T_remesh_start = Tmelt - margin_k
+                    at_threshold = (max_T >= T_remesh_start)
+                    if getattr(obj.pato, '_remesh_zone_entered', False):
+                        needs_remesh = True
+                    elif at_threshold:
+                        obj.pato._remesh_zone_entered = True
+                        needs_remesh = True
+                    else:
+                        needs_remesh = False
 
                     if pato.move_dynamic_mesh:
                         max_per_step = getattr(options.pato, 'max_recession_per_step', 0.001)
@@ -363,14 +372,11 @@ def compute_thermal_PATO(titan, options):
                         sync_surface_from_nodes(assembly.mesh)
                         obj.mesh = sync_surface_from_nodes(obj.mesh)
 
-                    if pato.remesh_volume:
-                        if pato.move_dynamic_mesh:
-                            pato.perform_PATO_remesh(options, obj, titan, n_cores)
-                        else:
-                            pato.perform_PATO_remesh(options, obj, titan, n_cores)
-                    elif not needs_remesh:
+                    if pato.remesh_volume and needs_remesh:
+                        pato.perform_PATO_remesh(options, obj, titan, n_cores)
+                    elif pato.remesh_volume and not needs_remesh:
                         print(f"[Remesh] Skipping remesh for obj {obj.global_ID} ({getattr(obj, 'name', '?')}): "
-                              f"max T = {max_T:.1f} K < Tmelt = {Tmelt:.1f} K", flush=True)
+                              f"max T = {max_T:.1f} K < remesh threshold = {T_remesh_start:.1f} K (Tmelt - {margin_k:.0f})", flush=True)
 
                     obj.pato.vertex_disp_field = None
 
