@@ -1058,7 +1058,7 @@ def read_geometry(configParser, options):
                                              ablation=obj_ablation) 
 
 
-                print('bloom:', bloom)
+                # print('bloom:', bloom)
                 obj_global_ID += 1
 
 

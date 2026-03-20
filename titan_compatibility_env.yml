@@ -20,9 +20,11 @@ dependencies:
   - pip
   - lxml
   - open3d
+  - astropy
+  - scikit-build
+  - pyembree
   - pip:
       - stl
       - vg
       - gmsh
       - python-fcl
-      - embreex
