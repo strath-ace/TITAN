@@ -142,7 +142,6 @@ class Material():
         #: [float] Catalycity rate
         self.catalycity = self.material_catalycity(index)
 
-
     def material_name(self,index):
         """
         Function to retrieve the material name
@@ -287,17 +286,24 @@ class Material():
 
         return interpolate.interp1d(values_T, values_Y, fill_value='extrapolate')	
 
-    def material_oxideActivationTemperature(self,index):
-        """
-        Function to retrieve the oxide activation Temperatire
-        
-        Returns
-        -------
-        oxideActivationTemperature: float
-            Return oxide activation temperature value
-        """
+    # def material_oxideActivationTemperature(self,index):
+    #     """
+    #     Function to retrieve the oxide activation Temperatire
 
-        return float(self.metalMaterial.find('oxideActivationTemperature').get_text())
+    #     Returns
+    #     -------
+    #     oxideActivationTemperature: float
+    #         Return oxide activation temperature value
+    #     """
+
+    #     return float(self.metalMaterial.find('oxideActivationTemperature').get_text())
+    
+    def material_oxideActivationTemperature(self, index):
+        print("[DEBUG] oxide tags present:",
+            [c.name for c in self.metalMaterial.find_all(recursive=False)])
+        tag = self.metalMaterial.find('oxideActivationTemperature')
+        print("[DEBUG] found oxideActivationTemperature:", tag)
+        return None if tag is None else float(tag.get_text())
 
     def material_oxideEmissivity(self,index):
         """

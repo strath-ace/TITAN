@@ -99,9 +99,9 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	mesh = []
 	for i, _id in enumerate(assembly_ID):
 		if not is_dense:
-			mesh.append(meshio.read(options.output_folder+'/Surface_solution/ID_'+str(int(_id))+'/solution_iter_'+str(iter_value).zfill(3)+'.xdmf'))
+			mesh.append(meshio.read(options.output_folder+'/Surface_solution/ID_'+str(int(_id))+'/solution_iter_'+str(iter_value).zfill(3)+'.vtk'))
 		else:
-			mesh.append(meshio.read(options.output_folder+'/Dense_surface_solution/ID_'+str(int(_id))+'/solution_iter_'+str(iter_value).zfill(3)+'.xdmf'))
+			mesh.append(meshio.read(options.output_folder+'/Dense_surface_solution/ID_'+str(int(_id))+'/solution_iter_'+str(iter_value).zfill(3)+'.vtk'))
 		
 		R_B_ECEF = Rot.from_quat(q[i])
 
@@ -183,4 +183,4 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
         cell_data = cell_data)
 	iter_write = iter_override if iter_override is not None else iter_value
 	if not os.path.exists(options.output_folder+'/Postprocess_{}'.format(postprocess.lower())): os.mkdir(options.output_folder+'/Postprocess_{}'.format(postprocess.lower()))
-	trimesh.write(options.output_folder+'/Postprocess_{}/'.format(postprocess.lower())+ 'solution_iter_' + str(iter_write).zfill(3)+'.xdmf')
+	trimesh.write(options.output_folder+'/Postprocess_{}/'.format(postprocess.lower())+ 'solution_iter_' + str(iter_write).zfill(3)+'.vtk')

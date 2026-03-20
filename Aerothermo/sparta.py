@@ -575,17 +575,23 @@ def compute_dsmc_properties(dsmc, free, assembly_list):
 
     # ratio of real atoms or molecules with simulation particles in DSMC
     dsmc.fnum = (dsmc.nrho * volume) / (total_cells * dsmc.ppc)
-
-
     # === SPECIES DEFINITION ===
-    # Species fractions hardcoded for NRLMSISE00
-    N2 = abs(np.around(1 - (np.around(free.percent_mass[0][1], 5) + np.around(free.percent_mass[0][5], 5) + np.around(free.percent_mass[0][2], 5)), 5))
-    O2 = abs(np.around(free.percent_mass[0][1], 5))
-    N  = abs(np.around(free.percent_mass[0][5], 5))
-    O  = abs(np.around(free.percent_mass[0][2], 5))
+    # # Dynamically read species from Mutation++ / GRAM mixture
+    
+    species = free.species_index
+    massfrac = free.percent_mass[0]
 
-    dsmc.sp_frac = [N2, O2, N, O]
-    species = ['N2', 'O2', 'N', 'O']
+    species_list = []
+    sp_frac_list = []
+
+    for sp in species:
+        frac = abs(np.around(massfrac[species.index(sp)],5))
+        if frac > 0.0:
+            species_list.append(sp)
+            sp_frac_list.append(frac)
+
+    dsmc.sp_present = species_list
+    dsmc.sp_frac = sp_frac_list
 
     # Remove any zero-contribution species
     dsmc.sp_present = [sp for sp, frac in zip(species, dsmc.sp_frac) if frac > 0]
@@ -765,15 +771,8 @@ def PostProcess_SPARTA(dsmc, assembly_list, output_folder = '', surface_filename
     
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    env = {
-        "PATH": f"{dsmc.paraview_conda_path}/bin",
-        "LD_LIBRARY_PATH": f"{dsmc.paraview_conda_path}/lib",
-        "PYTHONNOUSERSITE": "1",  # Avoid loading from user site-packages
-        "PYTHONPATH": "",         # Kill path bleed
-        "CONDA_PREFIX": dsmc.paraview_conda_path,
-        "HOME": os.environ["HOME"],}
-
-    pvpython = f"{dsmc.paraview_conda_path}/bin/pvpython"
+    env = os.environ.copy()
+    pvpython = "pvpython"
 
 
     # Postprocess each assembly's surface data using Paraview script (surface postprocess only)
@@ -822,7 +821,6 @@ def PostProcess_SPARTA(dsmc, assembly_list, output_folder = '', surface_filename
 
     print('Post-processing of SPARTA-DSMC simulation is completed!')
 
-
 def write_postprocess_gridtxt(dsmc, output_folder, grid_filename):
 
     """
@@ -862,11 +860,11 @@ def compute_dsmc_aerothermo(titan, options, cluster_tag = 0):
     assembly:List_Assembly
         Object of class List_Assembly
     """
+    output_folder = options.output_folder
 
     assembly_list = titan.assembly
 
     iteration = options.current_iter
-    iteration = 0
     dsmc = options.dsmc 
 
 

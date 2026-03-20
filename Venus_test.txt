@@ -1,0 +1,58 @@
+[Options]
+Num_iters = 5000
+Fidelity = Low
+Output_folder = Venus_Atmosphere_Test
+Load_state = False
+Load_mesh = False
+Output_freq=1
+plot = true
+
+[Trajectory]
+Frame = Geodetic
+Altitude = 120000
+Velocity = 7200
+Flight_path_angle = -1.0
+Heading_angle = 180
+Latitude = 0.0
+Longitude = 0
+Min_altitude = 0
+
+[Mesh]
+Recursion_limit = 5000
+
+[Model]
+Planet = venus
+Vehicle = False
+Drag_model = False
+
+[Vehicle]
+Mass = 3000
+Nose_radius = 0.66
+Area_reference = 15.904
+Drag_file = perseverance_cd.csv
+
+[Freestream]
+Method = Mutationpp
+Model = GRAM
+
+[GRAM]
+GRAM_Path = /root/TITAN/Executables/GRAM_Suite/
+SPICE_Path = /root/TITAN/Executables/GRAM_Suite/SPICE/
+Year = 2021
+Month = 2
+Day = 18
+Hour = 20
+Minute = 55
+Seconds = 0.0
+MinMaxFactor = 0.0
+ComputeMinMaxFactor = 0
+
+[Time]
+Time_step = 0.1
+Propagator = RK23
+
+[Assembly]
+Path = Examples/Geometry/Galileo/
+
+[Objects]
+Primary = [NAME = galileo.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]

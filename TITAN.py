@@ -1,24 +1,9 @@
-#
-# Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
-#
-# This file is part of TITAN 
-# (see https://github.com/strath-ace/TITAN).
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
-#
 import sys
+import os
+import pandas as pd
+import numpy as np
 import configparser
+import traceback  
 from argparse import ArgumentParser, RawTextHelpFormatter
 from Configuration import configuration
 from Output import output, dynamic_plots
@@ -30,32 +15,16 @@ from Thermal import thermal
 from Structural import structural
 from pathlib import Path
 
+# --- FEniCSx Import ---
+try:
+    from cubesat_stress_module import CubeSatStressModule
+    FENICS_AVAILABLE = True
+except ImportError:
+    print("Warning: Could not import 'cubesat_stress_module'. FEniCS features disabled.")
+    FENICS_AVAILABLE = False
+
 def loop(options = [], titan = []):
-
-    """Simulation loop for time propagation
-
-    The function calls the different modules to perform
-    dynamics propagation, thermal ablation, fragmentation
-    assessment and structural dynamics for each time iteration.
-    The loop finishes when the iteration number is higher than
-    the one the user specified.
-
-    Parameters
-    ----------
-    options : Options
-        object of class :class:`configuration.Options`
-    titan : Assembly_list
-        object of class Assembly_list
-    """
-
-    #For collision testing purposes
-    if "sphere-sphere.txt" in options.filepath:
-        titan.assembly[0].mass = 1
-        titan.assembly[1].mass = 2
-        titan.assembly[0].velocity[2] = 5
-
-    if options.structural_dynamics:
-        print("Structural dynamics selected: still requiring further validation")
+    """Simulation loop for time propagation"""
 
     options.current_iter = titan.iter
     options.user_time    = options.dynamics.time_step
@@ -63,6 +32,25 @@ def loop(options = [], titan = []):
     #The mass input in the options file is given for one vehicle/assembly
     if options.vehicle:
         titan.assembly[0].mass = options.vehicle.mass
+        titan.assembly[0].mass = options.vehicle.mass
+
+    # ==================================================
+    # 1. INITIALIZE FENICS SOLVER
+    # ==================================================
+    stress_solver = None
+    if FENICS_AVAILABLE and getattr(options, 'fenics_active', True):
+        print("--- Initializing Coupled FEniCSx Solver ---")
+        try:
+            stress_solver = CubeSatStressModule("cubesat_volumetric_60deg_up.xdmf")
+            print("   [FEniCSx] CubeSat Structural Solver Ready.")
+        except Exception as e:
+            print(f"   [Error] FEniCS Initialization failed: {e}")
+            stress_solver = None
+
+    print(f"\n--- Simulation Start ---")
+    print(f"   Target Iterations: {options.iters}")
+    print(f"   Objects Loaded:    {len(titan.assembly)}")
+    print("------------------------\n")
 
     # Apply commands at t=0 so initial output/visualisation starts consistent
     for ass in titan.assembly:
@@ -94,31 +82,24 @@ def loop(options = [], titan = []):
 
         fragmentation.fragmentation(titan = titan, options = options)
 
-        if not titan.assembly:
-            return
+        if not titan.assembly: 
+            print("Empty assembly. Aborting.")
+            return      
 
-
-        if options.time_counter>0:
-            options.dynamics.time_step = options.collision.post_fragmentation_timestep
-            options.time_counter-=1
-        else:
-            options.dynamics.time_step = options.user_time
-
-        if 'legacy' in options.dynamics.propagator: dynamics.integrate(titan = titan, options = options)
+        # Dynamics Propagation
+        if 'legacy' in options.dynamics.propagator: 
+            dynamics.integrate(titan = titan, options = options)
         else:
             propagation.propagate(titan = titan, options = options)
 
         if hasattr(titan,'end_trigger'): return
         
+        # Thermal Computation
         if options.thermal.ablation:
             thermal.compute_thermal(titan = titan, options = options)
 
-        if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
-            #TODO
-            structural.run_FENICS(titan = titan, options = options)
-            output.generate_volume_solution(titan = titan, options = options)
-            
-        if options.current_iter%options.output_freq == 0:
+        # Output Generation
+        if options.current_iter % options.output_freq == 0:
             output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)         
         
         output.iteration(titan = titan, options = options)
@@ -133,7 +114,7 @@ def loop(options = [], titan = []):
                 iter_interval = np.unique(data['Iter'].to_numpy())
                 iters_to_run = iter_interval[~np.isin(iter_interval,pp_existing)]
                 for iter_value in range(min(iters_to_run), max(iters_to_run)+1, options.output_freq):
-                    pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, filter_name, data_obj)
+                    pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, None, data_obj)
                 pp_existing = np.hstack((pp_existing,iters_to_run))
             if os.path.exists(options.output_folder+'/Data/data_smooth.csv'):
                 data_smooth = pd.read_csv(options.output_folder+'/Data/data_smooth.csv')
@@ -146,36 +127,27 @@ def loop(options = [], titan = []):
 
 
         titan.iter += 1
-        titan.post_event_iter +=1
         options.current_iter = titan.iter
-        if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
-            options.save_state(titan, options.current_iter)
-
+            
+    if stress_solver:
+        stress_solver.close()
+        print("Coupled Simulation Complete.")
 
 def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
-    """TITAN main function
-
-    Parameters
-    ----------
-    filename : str
-        Name of the configuration file
-    postprocess : str
-        Postprocess method. If specified, TITAN will only perform the postprocess of the already obtained solution in the specified output folder.
-        The config fille still needs to be specified.
-    """
-
     configParser = configparser.RawConfigParser()   
-    configFilePath = filename.strip()
-    configParser.read(configFilePath)
+    configParser.read(filename.strip())
 
-    #Pre-processing phase: Creates the options and titan class
     options, titan = configuration.read_config_file(configParser, postprocess, emissions)
     options.filepath = filename
 
-    #Initialization of the simulation
+    try:
+        options.fenics_active = configParser.getboolean('Options', 'FENICS')
+    except:
+        options.fenics_active = False
+
     if (not postprocess) and (not emissions):
         loop(options, titan)
-        print("Finished simulation")
+        print("Finished simulation\n")
         #print(titan.nfeval)
         return options, titan
 
@@ -189,10 +161,7 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
         pp_emissions.postprocess_emissions(options)
     
 if __name__ == "__main__":
-
     output.TITAN_information()
-
-    # To run TITAN, it requires the user to specify a configuration 
     parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
 
     parser.add_argument("-c", "--config",
@@ -205,6 +174,11 @@ if __name__ == "__main__":
                         type=str,
                         help="simulation postprocess (ECEF, WIND)",
                         metavar="postprocess")
+    parser.add_argument("-MC", "--montecarlo",
+                        dest="n_samples",
+                        type=int,
+                        help = "run a Monte Carlo campaign of N simulations",
+                        metavar="n_samples")
     parser.add_argument("-flt", "--filter",
                         dest="filtername",
                         type=str,
@@ -223,6 +197,12 @@ if __name__ == "__main__":
     postprocess = args.postprocess
     filter_name = args.filtername
     emissions = args.emissions
+
+    if args.n_samples is not None:
+        from Uncertainty import MC_wrapper
+        MC_wrapper.run(filename,args.n_samples)
+        exit()
+
     if postprocess and (postprocess.lower()!="wind" and postprocess.lower()!="ecef" and postprocess.lower()!="int"):
         raise Exception("Postprocess can only be WIND, ECEF or INT")
 

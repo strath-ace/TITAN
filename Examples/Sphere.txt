@@ -9,6 +9,39 @@ Fidelity = Low
 #High, Low or Hybrid
 Output_folder = Sphere
 FENICS = False
+Output_freq = 1
+#Postprocess_in_loop = WIND
+
+[Mesh]
+Recursion_limit = 5000
+
+[Thermal]
+Ablation = True
+Ablation_mode = 0
+Time_fidelity = 0.1
+
+
+[Aerothermo]
+# Heat flux computation model, Van-Driest, SCARAB, Fay-Riddell for fully, partially and non-catalytic and Sutton-Graves (vd/sc/fr/fr_noncat/fr_parcat/sg)
+Heat_model = vd
+
+# Calculate velocity gradient according to the following method, default is fr (fr/linnel/newton/stokes/olivier)
+Vel_grad = fr
+
+# Calculate shock standoff according to the following method, default is Billig (Freeman/Billig/Lobb/Serbin/Probstein)
+Standoff  = Billig
+
+# Can define per-material Catalicity_rate in the material file, otherwise a constant value, default is constant (constant/material)
+Catalicity_method = Constant
+
+# Recombinative efficiency wall if Catalicity_method is constant (0-1)
+Catalicity_rate   = 1.0
+
+# If >0 recursively subdivide mesh tris n times before calculating aero properties for increased accuracy
+Level_division = 0
+
+# mutation++ mixture to use default is air5
+Mixture = air5
 
 [Trajectory]
 Altitude = 200000
@@ -18,12 +51,18 @@ Heading_angle = 45.0
 Latitude = 20
 Longitude = -32
 
+[Freestream]
+Model = NRLMSISE00
+Method = Standard
+
 [Time]
 Time_step = 0.3
+Propagator = euler
 
 [Assembly]
 # Path for the geometry files
-Path = Examples/Geometry/Sphere/
+Path = Examples/Geometry/sphere
 
 [Objects]
 Primary = [NAME = sphere.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]
+

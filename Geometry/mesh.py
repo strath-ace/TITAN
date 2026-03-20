@@ -132,6 +132,22 @@ def update_surface_displacement(mesh, surface_displacement_vector):
     mesh.min, mesh.max = compute_min_max(mesh.nodes)
 
 
+def sync_surface_from_nodes(mesh):
+    """Recalculate v0/v1/v2 and derived quantities (facet_area, facet_COG, facet_normal, etc.)
+    from the current mesh.nodes. Use after updating nodes in-place (e.g. ablation recession)."""
+    mesh.v0 = mesh.nodes[mesh.facets[:, 0]]
+    mesh.v1 = mesh.nodes[mesh.facets[:, 1]]
+    mesh.v2 = mesh.nodes[mesh.facets[:, 2]]
+    mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
+    mesh.facet_COG = compute_facet_COG(mesh.v0, mesh.v1, mesh.v2)
+    mesh.COG = compute_geometrical_COG(mesh.facet_COG, mesh.facet_area)
+    mesh.facet_normal = compute_facet_normal(mesh.COG, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2, mesh.facet_area)
+    mesh.nodes_normal = compute_nodes_normals(len(mesh.nodes), mesh.facets, mesh.facet_COG, mesh.v0, mesh.v1, mesh.v2)
+    mesh.min, mesh.max = compute_min_max(mesh.nodes)
+
+    return mesh
+
+
 def update_volume_displacement(mesh, volume_displacement_vector):
     mesh.vol_coords += volume_displacement_vector
 
