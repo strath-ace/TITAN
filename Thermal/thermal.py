@@ -1,4 +1,4 @@
-#
+    #
 # Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
 #
 # This file is part of TITAN 
@@ -303,7 +303,8 @@ def compute_thermal_PATO(titan, options):
                                                                    titan.time,
                                                                    round(titan.time-options.thermal.prev_thermal_time,5)))
                 q_aero = assembly.aerothermo.heatflux[obj.facet_index]
-                #print("[DEBUG] aerothermo heatflux min/max:", float(np.min(q_aero)), float(np.max(q_aero)))
+                print(f"[DEBUG-HF] obj {obj.global_ID}: max(hf)={float(np.max(hf)):.2f}, "
+                      f"mean(hf)={float(np.mean(hf)):.2f}, max(q_aero)={float(np.max(q_aero)):.2f}", flush=True)
                 obj.pato.facet_normal = assembly.mesh.facet_normal[obj.facet_index]
                 # Full node list 
                 obj.pato.nodes = assembly.mesh.nodes
@@ -319,66 +320,79 @@ def compute_thermal_PATO(titan, options):
                 # ---- Apply ablation mesh recession (only for ablation-enabled objects) ----
                 if getattr(obj, 'ablation', False) and hasattr(obj.pato, "vertex_disp_field") and obj.pato.vertex_disp_field is not None:
                     full_disp = obj.pato.vertex_disp_field
-                    object_id   = obj.global_ID
-                    pato_case   = pathlib.Path(options.output_folder + '/PATO_'+str(object_id)).resolve()
-                    n_cores     = options.pato.n_cores
+                    max_disp_mag = float(np.max(np.linalg.norm(full_disp, axis=1)))
+                    print(f"[DEBUG-DISP] obj {obj.global_ID}: max vertex displacement = {max_disp_mag*1e3:.6f} mm", flush=True)
 
-                    max_T = float(np.max(obj.pato.temperature)) if hasattr(obj.pato, 'temperature') and obj.pato.temperature is not None and len(obj.pato.temperature) > 0 else 0.0
-                    Tmelt = getattr(obj.material, 'meltingTemperature', float('inf'))
-                    margin_k = getattr(options.pato, 'remesh_temperature_margin_k', 150.0)
-                    T_remesh_start = Tmelt - margin_k
-                    at_threshold = (max_T >= T_remesh_start)
-                    if getattr(obj.pato, '_remesh_zone_entered', False):
-                        needs_remesh = True
-                    elif at_threshold:
-                        obj.pato._remesh_zone_entered = True
-                        needs_remesh = True
+                    if max_disp_mag < 1e-12:
+                        print(f"[DEBUG-DISP] No actual recession — skipping mesh update and remesh", flush=True)
+                        obj.pato.vertex_disp_field = None
                     else:
-                        needs_remesh = False
+                        object_id   = obj.global_ID
+                        pato_case   = pathlib.Path(options.output_folder + '/PATO_'+str(object_id)).resolve()
+                        n_cores     = options.pato.n_cores
 
-                    if pato.move_dynamic_mesh:
-                        max_per_step = getattr(options.pato, 'max_recession_per_step', 0.001)
-                        steps = 1
-                        if max_per_step > 0:
-                            max_disp = float(np.max(np.linalg.norm(full_disp, axis=1)))
-                            if max_disp > max_per_step:
-                                steps = int(np.ceil(max_disp / max_per_step))
-                                print(f"[Mesh] Sub-stepping: max disp {max_disp*1e3:.2f} mm -> "
-                                      f"{steps} steps of ~{max_per_step*1e3:.2f} mm", flush=True)
-                        sub_disp = full_disp / steps
-                        mesh_evolution = True
-                        intact = run_mesh_update(
-                            case=pato_case,
-                            mesh_nodes=assembly.mesh.nodes.copy(),
-                            vertex_disp=sub_disp,
-                            region="subMat1",
-                            patch="top",
-                            n_cores=n_cores,
-                            steps=steps,
-                        )
-                        quality = print_mesh_quality(pato_case, "subMat1", time_value=titan.time, n_substeps=steps)
-                        if mesh_evolution:
-                            save_mesh_snapshot(pato_case, "subMat1", titan.time)
-                        if not intact:
-                            print("OBJECT HAS DEMISED. SIMULATION ENDED")
-                            sys.exit(1)
+                        max_T = float(np.max(obj.pato.temperature)) if hasattr(obj.pato, 'temperature') and obj.pato.temperature is not None and len(obj.pato.temperature) > 0 else 0.0
+                        Tmelt = getattr(obj.material, 'meltingTemperature', float('inf'))
+                        margin_k = getattr(options.pato, 'remesh_temperature_margin_k', 50.0)
+                        T_remesh_start = Tmelt - margin_k
+                        at_threshold = (max_T >= T_remesh_start)
+                        if getattr(obj.pato, '_remesh_zone_entered', False):
+                            needs_remesh = True
+                        elif at_threshold:
+                            obj.pato._remesh_zone_entered = True
+                            needs_remesh = True
+                        else:
+                            needs_remesh = False
+                        print(f"[DEBUG-REMESH] obj {obj.global_ID}: max_T={max_T:.2f}, Tmelt={Tmelt:.2f}, "
+                              f"T_remesh_start={T_remesh_start:.2f}, needs_remesh={needs_remesh}, "
+                              f"zone_entered={getattr(obj.pato, '_remesh_zone_entered', False)}", flush=True)
 
-                    if pato.remesh_volume and not pato.move_dynamic_mesh:
-                        run_substep_loop(assembly, obj, full_disp, options)
-                    else:
-                        assembly.mesh.nodes += full_disp
-                        obj_disp = full_disp[obj.node_index]
-                        obj.mesh.nodes += obj_disp
-                        sync_surface_from_nodes(assembly.mesh)
-                        obj.mesh = sync_surface_from_nodes(obj.mesh)
+                        if pato.move_dynamic_mesh:
+                            max_per_step = getattr(options.pato, 'max_recession_per_step', 0.001)
+                            steps = 1
+                            if max_per_step > 0:
+                                max_disp_check = float(np.max(np.linalg.norm(full_disp, axis=1)))
+                                if max_disp_check > max_per_step:
+                                    steps = int(np.ceil(max_disp_check / max_per_step))
+                                    print(f"[Mesh] Sub-stepping: max disp {max_disp_check*1e3:.2f} mm -> "
+                                          f"{steps} steps of ~{max_per_step*1e3:.2f} mm", flush=True)
+                            sub_disp = full_disp / steps
+                            mesh_evolution = True
+                            intact = run_mesh_update(
+                                case=pato_case,
+                                mesh_nodes=assembly.mesh.nodes.copy(),
+                                vertex_disp=sub_disp,
+                                region="subMat1",
+                                patch="top",
+                                n_cores=n_cores,
+                                steps=steps,
+                            )
+                            quality = print_mesh_quality(pato_case, "subMat1", time_value=titan.time, n_substeps=steps)
+                            if mesh_evolution:
+                                save_mesh_snapshot(pato_case, "subMat1", titan.time)
+                            if not intact:
+                                print("OBJECT HAS DEMISED. SIMULATION ENDED")
+                                sys.exit(1)
 
-                    if pato.remesh_volume and needs_remesh:
-                        pato.perform_PATO_remesh(options, obj, titan, n_cores)
-                    elif pato.remesh_volume and not needs_remesh:
-                        print(f"[Remesh] Skipping remesh for obj {obj.global_ID} ({getattr(obj, 'name', '?')}): "
-                              f"max T = {max_T:.1f} K < remesh threshold = {T_remesh_start:.1f} K (Tmelt - {margin_k:.0f})", flush=True)
+                        if pato.remesh_volume and not pato.move_dynamic_mesh:
+                            run_substep_loop(assembly, obj, full_disp, options)
+                            ablation_mesh_changed = True
+                        else:
+                            assembly.mesh.nodes += full_disp
+                            ablation_mesh_changed = True
+                            obj_disp = full_disp[obj.node_index]
+                            obj.mesh.nodes += obj_disp
+                            sync_surface_from_nodes(assembly.mesh)
+                            obj.mesh = sync_surface_from_nodes(obj.mesh)
 
-                    obj.pato.vertex_disp_field = None
+                        if pato.remesh_volume and needs_remesh:
+                            pato.perform_PATO_remesh(options, obj, titan, n_cores)
+                            ablation_mesh_changed = True
+                        elif pato.remesh_volume and not needs_remesh:
+                            print(f"[Remesh] Skipping remesh for obj {obj.global_ID} ({getattr(obj, 'name', '?')}): "
+                                  f"max T = {max_T:.1f} K < remesh threshold = {T_remesh_start:.1f} K (Tmelt - {margin_k:.0f})", flush=True)
+
+                        obj.pato.vertex_disp_field = None
 
                 if getattr(options.pato, '_remesh_just_happened', False):
                     print("[Thermal] Skipping write_Ta_from_previous (remesh already set origin.0)", flush=True)

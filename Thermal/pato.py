@@ -326,21 +326,31 @@ def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf, ass
 
     time_to_postprocess = setup_PATO_simulation(obj, start_time, time_step, iteration, options, hf, Tinf)
 
-    # Quick check: what temperature does processor0/0/subMat1/Ta start at?
-    _p0_ta = pathlib.Path(options.output_folder) / f"PATO_{obj.global_ID}" / "processor0" / "0" / "subMat1" / "Ta"
-    if _p0_ta.exists():
-        _ta_text = _p0_ta.read_text(errors="ignore")
+    # IC for the upcoming PATOx run: Allrun copies processor*/<pato_dt>/ -> processor*/0/ before
+    # PATOx. processor0/0/ does not exist yet from Python's view (and is rm -rf'd after each run).
+    _pato_case = pathlib.Path(options.output_folder) / f"PATO_{obj.global_ID}"
+    _ic_ta = _pato_case / "processor0" / str(time_to_postprocess) / "subMat1" / "Ta"
+    if _ic_ta.exists():
+        _ta_text = _ic_ta.read_text(errors="ignore")
         _vals = _parse_of_scalar_field(_ta_text)
         if _vals is not None and len(_vals) > 0:
-            print(f"[PATO start] processor0 Ta: {len(_vals)} values, "
-                  f"min={min(_vals):.4f}, max={max(_vals):.4f}, mean={sum(_vals)/len(_vals):.4f}", flush=True)
+            print(
+                f"[PATO start] IC from PATO_{obj.global_ID}/processor0/{time_to_postprocess}/subMat1/Ta "
+                f"(Allrun copies this to processor*/0/ before PATOx): {len(_vals)} values, "
+                f"min={min(_vals):.4f}, max={max(_vals):.4f}, mean={sum(_vals)/len(_vals):.4f}",
+                flush=True,
+            )
         else:
             for _line in _ta_text.splitlines():
                 if "internalField" in _line.strip():
-                    print(f"[PATO start] processor0 Ta: {_line.strip()}", flush=True)
+                    print(f"[PATO start] IC Ta internalField line: {_line.strip()}", flush=True)
                     break
     else:
-        print(f"[PATO start] processor0/0/subMat1/Ta does not exist yet", flush=True)
+        print(
+            f"[PATO start] No parallel IC file yet at processor0/{time_to_postprocess}/subMat1/Ta "
+            f"(first PATO step after init, or missing previous write).",
+            flush=True,
+        )
 
     run_PATO(options, obj.global_ID)
 
@@ -1934,6 +1944,212 @@ def write_Ta_from_previous(options, obj, temperature_cell):
         f.write("}\n")
 
 
+def _skip_foam_header(text):
+    """Skip past the FoamFile { ... } header block in OpenFOAM file text."""
+    idx = text.find("FoamFile")
+    if idx < 0:
+        return text
+    brace = text.find("{", idx)
+    if brace < 0:
+        return text
+    depth = 1
+    i = brace + 1
+    while i < len(text) and depth > 0:
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+        i += 1
+    return text[i:]
+
+
+def _parse_boundary_patch(text, patch_name):
+    """Return (startFace, nFaces) for *patch_name* from an OpenFOAM boundary file."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if line.strip() == patch_name:
+            nf = sf = None
+            for j in range(i + 1, min(i + 15, len(lines))):
+                m_nf = re.search(r'nFaces\s+(\d+)', lines[j])
+                m_sf = re.search(r'startFace\s+(\d+)', lines[j])
+                if m_nf:
+                    nf = int(m_nf.group(1))
+                if m_sf:
+                    sf = int(m_sf.group(1))
+                if nf is not None and sf is not None:
+                    return sf, nf
+    return None, None
+
+
+def _parse_int_list(text):
+    """Parse an OpenFOAM integer list file (owner, neighbour, …) into a Python list."""
+    body = _skip_foam_header(text)
+    in_list = False
+    vals = []
+    for line in body.splitlines():
+        s = line.strip()
+        if not in_list:
+            if s == "(":
+                in_list = True
+            continue
+        if s == ")":
+            break
+        try:
+            vals.append(int(s))
+        except ValueError:
+            pass
+    return vals
+
+
+def _parse_of_points(text):
+    """Parse an OpenFOAM points file into an (N, 3) numpy array."""
+    body = _skip_foam_header(text)
+    in_list = False
+    pts = []
+    for line in body.splitlines():
+        s = line.strip()
+        if not in_list:
+            if s == "(":
+                in_list = True
+            continue
+        if s == ")":
+            break
+        if s.startswith("("):
+            coords = s.strip("()").split()
+            if len(coords) >= 3:
+                pts.append([float(c) for c in coords[:3]])
+    return np.array(pts) if pts else np.zeros((0, 3))
+
+
+def _parse_faces_range(text, start, count):
+    """Parse faces [start, start+count) from an OpenFOAM faces file.
+    Returns a list of vertex-index lists."""
+    body = _skip_foam_header(text)
+    in_list = False
+    idx = 0
+    faces = []
+    end = start + count
+    for line in body.splitlines():
+        s = line.strip()
+        if not in_list:
+            if s == "(":
+                in_list = True
+            continue
+        if s == ")":
+            break
+        if idx >= end:
+            break
+        if idx >= start:
+            paren = s.find("(")
+            if paren >= 0:
+                verts_str = s[paren:].strip("()").split()
+                faces.append([int(v) for v in verts_str])
+        idx += 1
+    return faces
+
+
+def _restore_surface_Ta_after_mapfields(pato_case, obj):
+    """After mapFields smears the thermal peak during remesh, overwrite the
+    boundary-adjacent volume cells of the 'top' patch with the pre-remesh
+    surface temperatures from obj.temperature, spatially mapped to the new mesh.
+
+    Must be called after mapFields + BC-grafting but before decomposePar.
+    Modifies 0/subMat1/Ta in-place."""
+    from scipy.spatial import KDTree
+
+    ta_path = pato_case / "0" / "subMat1" / "Ta"
+    polymesh = pato_case / "constant" / "subMat1" / "polyMesh"
+
+    if not ta_path.exists():
+        print("[Remesh-TaFix] 0/subMat1/Ta not found, skipping surface restore", flush=True)
+        return False
+
+    src_T = getattr(obj, 'temperature', None)
+    src_COG = getattr(obj.mesh, 'facet_COG', None) if hasattr(obj, 'mesh') else None
+    if src_T is None or len(src_T) == 0 or src_COG is None or len(src_COG) == 0:
+        print("[Remesh-TaFix] obj.temperature or obj.mesh.facet_COG not available, skipping", flush=True)
+        return False
+
+    try:
+        sf, nf = _parse_boundary_patch(
+            (polymesh / "boundary").read_text(errors="ignore"), "top")
+        if sf is None:
+            print("[Remesh-TaFix] 'top' patch not found in boundary file", flush=True)
+            return False
+        print(f"[Remesh-TaFix] Top patch: startFace={sf}, nFaces={nf}", flush=True)
+
+        owner = _parse_int_list((polymesh / "owner").read_text(errors="ignore"))
+        if len(owner) < sf + nf:
+            print(f"[Remesh-TaFix] Owner list too short ({len(owner)} < {sf + nf}), skipping", flush=True)
+            return False
+        top_cells = owner[sf:sf + nf]
+
+        pts = _parse_of_points((polymesh / "points").read_text(errors="ignore"))
+        top_faces = _parse_faces_range(
+            (polymesh / "faces").read_text(errors="ignore"), sf, nf)
+        if len(top_faces) != nf:
+            print(f"[Remesh-TaFix] Parsed {len(top_faces)} faces, expected {nf}, skipping", flush=True)
+            return False
+
+        centers = np.zeros((nf, 3))
+        for i, fv in enumerate(top_faces):
+            centers[i] = np.mean(pts[fv], axis=0)
+
+        tree = KDTree(src_COG)
+        dists, idxs = tree.query(centers)
+        restored_T = src_T[idxs]
+
+        print(f"[Remesh-TaFix] Mapped {nf} top-patch faces to TITAN facets "
+              f"(max_dist={float(np.max(dists)):.6f} m, mean_dist={float(np.mean(dists)):.6f} m)",
+              flush=True)
+        print(f"[Remesh-TaFix] Pre-remesh surface Ta: "
+              f"min={float(np.min(restored_T)):.2f}, max={float(np.max(restored_T)):.2f}, "
+              f"mean={float(np.mean(restored_T)):.2f}", flush=True)
+
+        ta_text = ta_path.read_text(errors="ignore")
+        ta_vals = _parse_of_scalar_field(ta_text)
+        if ta_vals is None or len(ta_vals) == 0:
+            print("[Remesh-TaFix] Could not parse Ta internalField", flush=True)
+            return False
+
+        pre_max = max(ta_vals)
+        n_updated = 0
+        for i, ci in enumerate(top_cells):
+            if 0 <= ci < len(ta_vals):
+                ta_vals[ci] = float(restored_T[i])
+                n_updated += 1
+        post_max = max(ta_vals)
+
+        print(f"[Remesh-TaFix] InternalField max: {pre_max:.2f} -> {post_max:.2f} "
+              f"({n_updated}/{nf} surface cells updated)", flush=True)
+
+        int_idx = ta_text.find("internalField")
+        bnd_idx = ta_text.find("boundaryField", int_idx if int_idx >= 0 else 0)
+        if int_idx < 0:
+            print("[Remesh-TaFix] No internalField marker found in Ta", flush=True)
+            return False
+
+        header = ta_text[:int_idx]
+        boundary = ta_text[bnd_idx:] if bnd_idx >= 0 else ""
+
+        with open(ta_path, "w") as f:
+            f.write(header)
+            f.write(f"internalField nonuniform List<scalar>\n{len(ta_vals)}\n(\n")
+            for v in ta_vals:
+                f.write(f"{v}\n")
+            f.write(")\n;\n\n")
+            f.write(boundary)
+
+        print("[Remesh-TaFix] Successfully restored surface temperatures in 0/subMat1/Ta", flush=True)
+        return True
+
+    except Exception as e:
+        print(f"[Remesh-TaFix] Error restoring surface Ta: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def perform_PATO_remesh(options, obj, titan, n_cores):
     """
     Full mesh regeneration: reconstruct serial fields from old mesh,
@@ -2126,7 +2342,7 @@ def perform_PATO_remesh(options, obj, titan, n_cores):
 
     # 8b. Save original PATO boundary conditions from origin.0/subMat1/ BEFORE
     #     overwriting with clean seeds.  These will be grafted back after mapFields.
-    seed_src = pato_case / "origin.0" / "subMat1"
+    seed_src = source_case / source_time / "subMat1"
     original_bcs = {}  # field_name -> boundaryField block string
     if seed_src.exists():
         for _f in seed_src.iterdir():
@@ -2199,6 +2415,19 @@ def perform_PATO_remesh(options, obj, titan, n_cores):
 
         print("[Remesh] mapFields complete (rc=0)", flush=True)
 
+        # Read pre-rename Ta to check for smoothing
+        _pre_rename_ta = pato_case / source_time / "subMat1" / "Ta"
+        if not _pre_rename_ta.exists():
+            _pre_rename_ta = pato_case / "0" / "subMat1" / "Ta"
+        if _pre_rename_ta.exists():
+            _mf_vals = _parse_of_scalar_field(_pre_rename_ta.read_text(errors="ignore"))
+            if _mf_vals and len(_mf_vals) > 0:
+                print(f"[DEBUG-MAPFIELDS] Post-mapFields Ta: n={len(_mf_vals)}, "
+                      f"min={min(_mf_vals):.4f}, max={max(_mf_vals):.4f}, "
+                      f"mean={sum(_mf_vals)/len(_mf_vals):.4f}", flush=True)
+            else:
+                print("[DEBUG-MAPFIELDS] Could not parse post-mapFields Ta values", flush=True)
+
         # mapFields may create source_time dir; normalize to 0.
         mapped_dir = pato_case / source_time
         zero_dir = pato_case / "0"
@@ -2248,6 +2477,10 @@ def perform_PATO_remesh(options, obj, titan, n_cores):
                     _fpath.write_text(_graft_boundary_field(_mapped_text, _bc_block))
                     grafted.append(_fname)
         print(f"[Remesh] Restored original PATO BCs on: {grafted}", flush=True)
+
+        # 9c. Restore pre-remesh surface temperatures into the boundary-adjacent
+        #     volume cells to prevent mapFields interpolation from smearing the peak.
+        _restore_surface_Ta_after_mapfields(pato_case, obj)
 
         # Update origin.0/subMat1/ with the mapped fields (now with correct BCs)
         origin_submat = pato_case / "origin.0" / "subMat1"
@@ -2497,7 +2730,9 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
     temperature_surface = [temperature_surface.GetValue(i) for i in range(n_surface_cells)]
     temperature_surface = np.array(temperature_surface)
     obj.pato.Ta_prev = temperature_surface.copy()
-    #write_Ta_from_previous(options, obj, temperature_surface)
+    print(f"[DEBUG-VTK] surface Ta: n={n_surface_cells}, "
+          f"min={np.min(temperature_surface):.4f}, max={np.max(temperature_surface):.4f}, "
+          f"mean={np.mean(temperature_surface):.4f}", flush=True)
 
     if options.pato.Ta_bc == "ablation":
         mDotVapor_surface = surface_cell_data.GetArray('mDotVapor')
@@ -2524,6 +2759,9 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
     obj.pato.temperature = temperature_surface[mapping]
     obj.temperature = obj.pato.temperature
     obj.pato.Tw_pato = obj.pato.temperature.copy()
+    print(f"[DEBUG-MAP] mapped Ta: min={float(np.min(obj.pato.temperature)):.4f}, "
+          f"max={float(np.max(obj.pato.temperature)):.4f}, "
+          f"mean={float(np.mean(obj.pato.temperature)):.4f}", flush=True)
 
     if options.pato.Ta_bc == "ablation":
         obj.pato.mDotVapor = mDotVapor_cell[mapping]
@@ -2602,9 +2840,7 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
 
             # conductive heat flux
             if callable(k_fun) and dx_s[i] > 0:
-                Tmid = 0.5 * (Tw[i] + T_int[i])
-                Tq = min(Tmid, Tmelt)
-                k_mid = float(k_fun(Tq))
+                k_mid = float(k_fun(0.5*(Tw[i] + T_int[i])))
                 q_cond = -k_mid * (T_int[i]-Tw[i]) / dx_s[i]
             else:
                 k_mid = 0.0
