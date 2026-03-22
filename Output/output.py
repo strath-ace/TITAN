@@ -174,10 +174,6 @@ def write_output_data(titan, options, smooth=False):
         df_temp = pd.DataFrame()
         df_mass = pd.DataFrame()
 
-        if options.write_object_properties:
-            for i, obj in enumerate(assembly.objects):
-                df_temp["Temperature_obj_"+str(i)] = [obj.temperature]
-                df_mass["Mass_obj_"+str(i)] = [obj.mass]
 
         for i in range(n_objs_max):
             if i < len(assembly.objects):

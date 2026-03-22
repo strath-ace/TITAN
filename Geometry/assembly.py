@@ -364,7 +364,7 @@ class Assembly():
     
         A class to store the information respective to each assembly at every time iteration
     """
-
+    #def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):
     def __init__(self, objects, id, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):
         #: [int] ID of the assembly
         self.id = id
@@ -445,6 +445,7 @@ class Assembly():
             self.mesh.nodes, self.mesh.facets = Mesh.map_facets_connectivity(self.mesh.v0, self.mesh.v1, self.mesh.v2)
             self.mesh.min, self.mesh.max      = Mesh.compute_min_max(self.mesh.nodes)
             self.mesh.edges, self.mesh.facet_edges = Mesh.map_edges_connectivity(self.mesh.facets)
+            self.mesh.nodes_normal = Mesh.compute_nodes_normals(len(self.mesh.nodes), self.mesh.facets ,self.mesh.facet_COG, self.mesh.v0,self.mesh.v1,self.mesh.v2)
 
             # keep these consistent with nodes+facets (do NOT rely on old v0/v1/v2 after edits)
             self.mesh.v0 = self.mesh.nodes[self.mesh.facets[:, 0]]
@@ -460,6 +461,8 @@ class Assembly():
                 self.mesh.v2,
             )
             self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
+            
+            #self.mesh.facet_radius = np.ones((len(self.mesh.facets)))
 
             (
                 self.mesh.nodes_radius,
@@ -548,7 +551,9 @@ class Assembly():
             # baseline nodes must match the *current* node array
             self.original_nodes = self.mesh.nodes.copy()
 
-            self.inside_shock = np.zeros(len(self.mesh.nodes))
+        self.Lref = (self.mesh.xmax-self.mesh.xmin)[0]
+
+        self.inside_shock = np.zeros(len(self.mesh.nodes))
 
         # reference length (recompute after any duplication)
         self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
