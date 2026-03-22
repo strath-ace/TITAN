@@ -1,4 +1,3 @@
-q#
 # Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
 #
 # This file is part of TITAN 
