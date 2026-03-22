@@ -1,4 +1,4 @@
-#
+q#
 # Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
 #
 # This file is part of TITAN 
@@ -23,7 +23,10 @@ import os
 import subprocess
 import numpy as np
 
+
 def generate_script(assembly, options):
+
+
     with open(options.output_folder + "/GRAM/gram_config_" + str(assembly.id), 'w') as f:
 
         f.write(" $INPUT \n")
@@ -47,6 +50,7 @@ def generate_script(assembly, options):
         f.write("  ListFileName   = '" + str(options.output_folder) + "/GRAM/LIST'\n")
         f.write("  ColumnFileName = '" + str(options.output_folder) + "/GRAM/OUTPUT'\n")
 
+
         f.write("  Month = '" + str(options.gram.month) + "'\n")
         f.write("  Day = '" + str(options.gram.day) + "'\n")
         f.write("  Year = '" + str(options.gram.year) + "'\n")
@@ -68,6 +72,7 @@ def generate_script(assembly, options):
 
      
 	
+
 #  Month     = 3
 #  Day       = 25
 #  Year      = 2020
@@ -75,12 +80,12 @@ def generate_script(assembly, options):
 #  Minute    = 30
 #  Seconds   = 0.0
 #
-#  InitialRandomSeed               = 1001    
-#  RandomPerturbationScale         = 1.6   
-#  HorizontalWindPerturbationScale = 1.75   
-#  VerticalWindPerturbationScale   = 2.0   
+#  InitialRandomSeed               = 1001
+#  RandomPerturbationScale         = 1.6
+#  HorizontalWindPerturbationScale = 1.75
+#  VerticalWindPerturbationScale   = 2.0
 #  NumberOfMonteCarloRuns          = 1
-# 
+#
 #  AP         = 16.0
 #  DailyF10   = 148.0
 #  MeanF10    = 67.0
@@ -91,7 +96,7 @@ def generate_script(assembly, options):
 #  DailyY10   = 0.0
 #  MeanY10    = 0.0
 #  DSTTemperatureChange = 0.0
-#  
+#
 #  ThermosphereModel = 1
 #
 #  NCEPYear = 9715
@@ -101,7 +106,7 @@ def generate_script(assembly, options):
 #  RRAYear = 2019
 #  RRAOuterRadius = 2.0
 #  RRAInnerRadius = 1.0
-#  
+#
 #  Patchy = 0
 #  SurfaceRoughness = -1
 #
@@ -187,6 +192,8 @@ def read_gram(assembly, options):
 
 
 def run_single_gram(assembly, options):
+
+    # Generate GRAM config file 
     generate_script(assembly, options)
 
     #Run the GRAM model
@@ -198,7 +205,4 @@ def run_single_gram(assembly, options):
     print ("[GRAM] Running:", exe)
 
     subprocess.run(command, shell=True, check=True)
-
-
-
 

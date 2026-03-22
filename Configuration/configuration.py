@@ -27,10 +27,12 @@ import pickle
 import copy
 from Geometry import component as Component
 from Geometry import assembly as Assembly
+from Control.controlsystem import ControlSystem
 from Dynamics import dynamics, propagation
 from Dynamics import collision
 from Output import output
 from Model import planet, vehicle, drag_model
+from Propulsion.propellant import PropellantTank
 from Aerothermo import bloom
 from Thermal import pato
 from Geometry import gmsh_api as GMSH
@@ -1056,9 +1058,131 @@ def read_geometry(configParser, options):
                                              fenics_bc_id = fenics_bc_id, material = material, temperature = temperature, 
                                              options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha,
                                              ablation=obj_ablation) 
+                    
+                if object_type == 'ControlSurface':
+
+                    object_path = path + [s for s in value if "name=" in s.lower()][0].split("=")[1]
+                    material    = [s for s in value if "material=" in s.lower()][0].split("=")[1]
+
+                    try:
+                        enclosure = int([s for s in value if "enclosure=" in s.lower()][0].split("=")[1])
+                    except:
+                        enclosure = 0
+
+                    try:
+                        inner_stl_file = [s for s in value if "inner_stl=" in s.lower()][0].split("=")[1]
+                    except:
+                        inner_stl_file = 'none'
+
+                    if inner_stl_file not in ('None', 'none'):
+                        inner_path = path + inner_stl_file
+                    else:
+                        inner_path = ''
+
+                    try:
+                        trigger_type  = [s for s in value if "trigger_type=" in s.lower()][0].split("=")[1]
+                        trigger_value = [s for s in value if "trigger_value=" in s.lower()][0].split("=")[1]
+                    except:
+                        trigger_type  = ""
+                        trigger_value = 0
+
+                    try:
+                        fenics_bc_id = [s for s in value if "fenics_id=" in s.lower()][0].split("=")[1]
+                    except:
+                        fenics_bc_id = None
+
+                    try:
+                        temperature = float([s for s in value if "temperature=" in s.lower()][0].split("=")[1])
+                    except:
+                        temperature = 300
+
+                    # ---------------- tuple parsing for AXIS / ORIGIN ----------------
+                    def parse_tuple(tokens, keyname, default=(0.0, 0.0, 0.0)):
+                        """
+                        Extract numeric tuple from tokens like:
+                            AXIS=(0,0,1)
+                            ORIGIN=(-12.0, 10.25, 2.0)
+                        even when tokenised as:
+                            ['AXIS=(0', '0', '1)']
+                        """
+                        out = []
+                        found = False
+
+                        for t in tokens:
+                            tl = t.lower()
+                            if tl.startswith(keyname):
+                                # token may be "axis=(0" or "axis=(0,0,1)"
+                                if "=" in t:
+                                    t = t.split("=", 1)[1]
+                                found = True
+
+                            if found:
+                                out.append(t)
+                                if t.endswith(")"):
+                                    break
+
+                        if not found:
+                            return list(default)
+
+                        combined = " ".join(out)
+                        combined = combined.replace("(", "").replace(")", "").strip()
+
+                        # split on comma OR whitespace (handles "0 0 1" and "0,0,1")
+                        parts = combined.replace(",", " ").split()
+                        if len(parts) != 3:
+                            return list(default)
+
+                        return [float(x) for x in parts]
+
+                    hinge_axis   = parse_tuple(value, "axis",   default=(0.0, 0.0, 1.0))
+                    hinge_origin = parse_tuple(value, "origin", default=(0.0, 0.0, 0.0))
+                    # ----------------------------------------------------------------
+
+                    # DEFLECTION in config is degrees -> radians
+                    try:
+                        deflection_deg = float([s.split("=")[1] for s in value if "deflection=" in s.lower()][0])
+                        deflection = np.radians(deflection_deg)
+                    except:
+                        deflection = 0.0
+
+                    # LIMITS in config are degrees -> radians
+                    try:
+                        lim_str = [s for s in value if "limits=" in s.lower()][0].split("=")[1]
+                        lims_deg = [float(x) for x in lim_str.strip("()").split(",")]
+                        deflection_limits = tuple(np.radians(x) for x in lims_deg)
+                        if len(deflection_limits) != 2:
+                            raise ValueError
+                    except:
+                        deflection_limits = (np.radians(-90.0), np.radians(90.0))
+
+                    bloom = [False, 0, 0, 0]
+                    try:
+                        for s in value:
+                            if 'bloom' in s.lower():
+                                bloom = s.split('=')[1].strip('()').split(';')
+                                bloom = [eval(bloom[0]), float(bloom[1]), float(bloom[2]), float(bloom[3])]
+                    except:
+                        bloom = [False, 0, 0, 0]
+
+                    objects.insert_control_surface(
+                        filename=object_path,
+                        file_type=object_type,
+                        inner_stl=inner_path,
+                        hinge_axis=hinge_axis,
+                        hinge_origin=hinge_origin,
+                        deflection=deflection,
+                        deflection_limits=deflection_limits,
+                        material=material,
+                        temperature=temperature,
+                        options=options,
+                        global_ID=obj_global_ID,
+                        bloom_config=bloom,
+                        enclosure=enclosure,
+                        alpha=alpha,
+                    )
 
 
-                print('bloom:', bloom)
+                # print('bloom:', bloom)
                 obj_global_ID += 1
 
 
@@ -1084,6 +1208,231 @@ def read_initial_conditions(titan, options, configParser):
             titan.assembly[i-1].pitch_vel = value[1]*np.pi/180.0
             titan.assembly[i-1].yaw_vel   = value[2]*np.pi/180.0
     return
+
+def _parse_tuple_from_tokens(tokens, keyname, default=(0.0, 0.0, 0.0)):
+    """
+    Extract numeric tuple from tokens like ORIGIN=(0,0,1) even when tokenised as:
+        ['ORIGIN=(0', '0', '1)']
+    tokens are assumed to have had spaces removed.
+    """
+    out = []
+    found = False
+    keyname = keyname.lower()
+
+    for s in tokens:
+        s_low = s.lower()
+        if s_low.startswith(keyname):
+            if "=" in s:
+                s = s.split("=", 1)[1]
+            found = True
+
+        if found:
+            out.append(s)
+            if s.endswith(")"):
+                break
+
+    if not found:
+        return list(default)
+
+    combined = " ".join(out).replace("(", "").replace(")", "").strip()
+    raw = combined.replace(",", " ").split()
+    vals = [float(x) for x in raw]
+    if len(vals) != 3:
+        return list(default)
+    return vals
+
+def _parse_tuple_from_tokens(tokens, keyname, default=(0.0, 0.0, 0.0)):
+    out = []
+    found = False
+    keyname = keyname.lower()
+
+    for s in tokens:
+        s_low = s.lower()
+        if s_low.startswith(keyname):
+            if "=" in s:
+                s = s.split("=", 1)[1]
+            found = True
+
+        if found:
+            out.append(s)
+            if s.endswith(")"):
+                break
+
+    if not found:
+        return list(default)
+
+    combined = " ".join(out).replace("(", "").replace(")", "").strip()
+    parts = combined.replace(",", " ").split()
+    if len(parts) != 3:
+        return list(default)
+    return [float(x) for x in parts]
+
+def _match_parent_name(target_name: str, obj_name: str) -> bool:
+    """
+    Match config PARENT like 'Cube' against an object filename like '.../cube.stl'.
+    Accepts both the stem ('cube') and full base name ('cube.stl').
+    """
+    t = str(target_name).strip().lower()
+    base = str(obj_name).split("/")[-1].split("\\")[-1]
+    stem = base.split(".")[0].lower()
+    return (t == stem) or (t == base.lower())
+
+def _find_assembly_by_parent(titan, parent_name: str):
+    """
+    Return the first Assembly that contains an object matching PARENT.
+    """
+    if parent_name is None:
+        return None
+    for ass in titan.assembly:
+        for obj in ass.objects:
+            if _match_parent_name(parent_name, obj.name):
+                return ass
+    return None
+
+def read_jets(configParser, titan, options):
+    if not configParser.has_section("Jets"):
+        for ass in titan.assembly:
+            ass.jets = []
+            ass.jet_system = None
+        return
+
+    from Control.jets import Jet, JetSystem
+
+    # Ensure attributes exist
+    for ass in titan.assembly:
+        ass.jets = []
+        ass.jet_system = None
+
+    for jet_name, value in configParser.items("Jets"):
+        tokens = value.replace("[", "").replace("]", "").replace(" ", "").split(",")
+
+        # Required: parent object name (e.g. Cube)
+        try:
+            parent = [s for s in tokens if "parent=" in s.lower()][0].split("=")[1]
+        except Exception:
+            parent = None
+
+        # Parse POS and DIR (support aliases)
+        pos = _parse_tuple_from_tokens(tokens, "pos", default=(0.0, 0.0, 0.0))
+        if pos == [0.0, 0.0, 0.0]:
+            # allow ORIGIN as alias
+            pos = _parse_tuple_from_tokens(tokens, "origin", default=(0.0, 0.0, 0.0))
+
+        direc = _parse_tuple_from_tokens(tokens, "dir", default=(0.0, 0.0, 0.0))
+        if direc == [0.0, 0.0, 0.0]:
+            # allow DIRECTION as alias
+            direc = _parse_tuple_from_tokens(tokens, "direction", default=(0.0, 0.0, 0.0))
+
+        try:
+            tmax = float([s for s in tokens if "tmax=" in s.lower()][0].split("=")[1])
+        except Exception:
+            tmax = 0.0
+
+        try:
+            isp = float([s for s in tokens if "isp=" in s.lower()][0].split("=")[1])
+        except Exception:
+            isp = None
+
+        try:
+            group = [s for s in tokens if "group=" in s.lower()][0].split("=")[1]
+        except Exception:
+            group = None
+
+        jet = Jet(
+            name=jet_name,
+            position_B=pos,
+            direction_B=direc,
+            thrust_max_N=tmax,
+            isp=isp,
+            group=group,
+        )
+
+        if np.linalg.norm(jet.direction_B) < 1e-9:
+            raise ValueError(f"Jet '{jet_name}' has zero DIR after parsing: DIR={direc} tokens={tokens}")
+
+
+        ass = _find_assembly_by_parent(titan, parent)
+        if ass is None:
+            raise ValueError(
+                f"Jet '{jet_name}' could not attach: PARENT='{parent}' not found in any assembly objects."
+            )
+        ass.jets.append(jet)
+
+    # Build JetSystem(s)
+    for ass in titan.assembly:
+        if ass.jets:
+            tank = getattr(ass, "tank", None)
+            ass.jet_system = JetSystem(ass.jets, tank=tank)
+
+            # auto-groups from jet.group (if present)
+            groups = {}
+            for j in ass.jets:
+                if j.group:
+                    groups.setdefault(str(j.group).strip().lower(), []).append(j.name)
+            for g, names in groups.items():
+                ass.jet_system.add_group(g, names)
+            
+        if ass.jet_system and getattr(ass, "tank", None) is not None:
+            ass.jet_system.tank = ass.tank
+
+def read_propellant_tanks(configParser, titan, options):
+    if not configParser.has_section("PropellantTanks"):
+        for ass in titan.assembly:
+            ass.propellant_tanks = {}
+            ass.tank = None
+        return
+
+    for ass in titan.assembly:
+        ass.propellant_tanks = {}
+        ass.tank = None
+
+    def _get(tokens, key, default=None):
+        key = key.lower() + "="
+        for s in tokens:
+            if s.lower().startswith(key):
+                return s.split("=", 1)[1]
+        return default
+
+    for tank_name, value in configParser.items("PropellantTanks"):
+        tokens = value.replace("[", "").replace("]", "").replace(" ", "").split(",")
+
+        try:
+            parent = [s for s in tokens if "parent=" in s.lower()][0].split("=")[1].strip()
+        except Exception:
+            raise ValueError(f"Tank '{tank_name}' missing PARENT")
+
+        prop_type = _get(tokens, "type", "N2")
+        capacity = float(_get(tokens, "capacity", "0.0"))
+        initial = _get(tokens, "initial", None)
+        initial = float(initial) if initial is not None else None
+        residual = float(_get(tokens, "residual", "0.0"))
+
+        pos = _parse_tuple_from_tokens(tokens, "pos", default=(0.0, 0.0, 0.0))
+        dry_mass = float(_get(tokens, "dry_mass", "0.0"))
+        radius = float(_get(tokens, "radius", "0.0"))
+
+        ass = _find_assembly_by_parent(titan, parent)
+        if ass is None:
+            raise ValueError(f"Tank '{tank_name}' parent '{parent}' not found.")
+
+        tank = PropellantTank(
+            propellant_type=prop_type,
+            capacity=capacity,
+            initial_amount=initial,
+            residual=residual,
+            position_B=pos,
+            dry_mass=dry_mass,
+            radius=radius
+        )
+
+        ass.propellant_tanks[str(tank_name)] = tank
+
+        # Link default tank to JetSystem automatically (very important)
+        if ass.tank is None:
+            ass.tank = tank
+            if hasattr(ass, "jet_system") and ass.jet_system is not None:
+                ass.jet_system.tank = tank
+
 
 
 def read_config_file(configParser, postprocess = "", emissions = ""):
@@ -1359,6 +1708,12 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         #Reads the Initial pitch/yaw/roll 
         read_initial_conditions(titan, options, configParser)
 
+        #Adds propellant tanks (if present)
+        read_propellant_tanks(configParser, titan, options)
+
+        #Adds jets (if present)
+        read_jets(configParser, titan, options)
+
         #Computes the quaternion and cartesian for the initial position
         for assembly in titan.assembly:
             assembly.trajectory = copy.deepcopy(trajectory)
@@ -1367,6 +1722,21 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             
         options.save_state(titan)
         output.generate_volume(titan = titan, options = options)
+
+        # ----------------- CONTROL SYSTEM SETUP -----------------
+        control_file = get_config_value(configParser, "", "Control", "Command_file", "str")
+        control_mode = get_config_value(configParser, "time", "Control", "Mode", "str")          # "time" or "iter"
+        # control_degs = get_config_value(configParser, True, "Control", "Degrees", "boolean")    # True if CSV values are deg
+
+        if control_file:
+            titan.controlsystem = ControlSystem(
+                command_file=control_file,
+                mode=control_mode,
+            )
+        else:
+            titan.controlsystem = None
+        # --------------------------------------------------------
+
 
     if options.collision.flag:
         for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)

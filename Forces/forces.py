@@ -145,3 +145,54 @@ def compute_inertial_forces(assembly, options):
 
 def compute_coefficients(todo):
     pass
+
+def reset_body_forces(titan):
+    """
+    Ensure we start each iteration from a clean slate.
+    Call once per iteration before accumulating aero/jet/etc.
+    """
+    for assembly in titan.assembly:
+        assembly.body_force.force = np.zeros((3, 1))
+        assembly.body_force.moment = np.zeros((3, 1))
+
+
+def compute_jet_forces(titan, options):
+    for ass in titan.assembly:
+        if not hasattr(ass, "jet_system") or ass.jet_system is None:
+            continue
+
+        # --- Debug: per-jet thrust ---
+        for j in ass.jet_system.jets.values():
+            print(
+                f"[JETS][DBG] t={titan.time:.3f} ass={ass.id} "
+                f"jet={j.name} T={j.thrust_N:.3f} N"
+            )
+
+        # Step jet system (consumes propellant if implemented there)
+        dt = titan.delta_t
+        ass.jet_system.step(dt)
+
+        # Compute net force & moment
+        Fjet, Mjet = ass.jet_system.net_force_moment_B(ass.COG)
+        Fjet = np.asarray(Fjet, dtype=float).reshape(3)
+        Mjet = np.asarray(Mjet, dtype=float).reshape(3)
+
+        print(f"[JETS] t={titan.time:.3f} ass={ass.id} Fjet={Fjet} Mjet={Mjet}")
+
+        # --- Update assembly mass from propellant tanks ---
+        if hasattr(ass, "propellant_tanks") and ass.propellant_tanks:
+            prop_mass_total = 0.0
+            for tank in ass.propellant_tanks.values():
+                prop_mass_total += tank.prop_mass
+
+            # Assuming dry mass already stored separately
+            if hasattr(ass, "dry_mass"):
+                ass.mass = ass.dry_mass + prop_mass_total
+            else:
+                # First-time setup: infer dry mass once
+                ass.dry_mass = ass.mass - prop_mass_total
+                ass.mass = ass.dry_mass + prop_mass_total
+
+        # Apply to body forces
+        ass.body_force.force  = ass.body_force.force.reshape(3) + Fjet
+        ass.body_force.moment = ass.body_force.moment.reshape(3) + Mjet

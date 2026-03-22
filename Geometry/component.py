@@ -39,6 +39,45 @@ class Component_list():
                            options = options, global_ID = global_ID, bloom_config = bloom_config, 
                            enclosure=enclosure, alpha=alpha, ablation=ablation))
         self.id += 1
+        
+    def insert_control_surface(
+        self,
+        filename,
+        file_type,
+        inner_stl,
+        hinge_axis,
+        hinge_origin,
+        deflection,
+        deflection_limits,
+        material,
+        temperature,
+        options,
+        global_ID,
+        bloom_config,
+        enclosure=0,
+        alpha=1.0,
+    ):
+        
+        from Control.actuator import ControlSurface
+        obj = ControlSurface(
+            filename=filename,
+            file_type=file_type,
+            inner_stl=inner_stl,
+            hinge_axis=hinge_axis,
+            hinge_origin=hinge_origin,
+            deflection=deflection,
+            deflection_limits=deflection_limits,
+            material=material,
+            temperature=temperature,
+            options=options,
+            global_ID=global_ID,
+            bloom_config=bloom_config,
+            enclosure=enclosure,
+            alpha=alpha,
+        )
+
+        self.object.append(obj)
+
 
 class Component():
     """ Component class

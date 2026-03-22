@@ -1,0 +1,9 @@
+time_s,type,name,field,value,units
+0.0,jet,fwd_jet_1,thrust,10,N
+0.0,jet,fwd_jet_2,thrust,10,N
+0.0,jet,fwd_jet_3,thrust,10,N
+0.0,jet,fwd_jet_4,thrust,10,N
+10.0,jet,fwd_jet_1,thrust,0,N
+10.0,jet,fwd_jet_2,thrust,0,N
+10.0,jet,fwd_jet_3,thrust,0,N
+10.0,jet,fwd_jet_4,thrust,0,N

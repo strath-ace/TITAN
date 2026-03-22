@@ -438,6 +438,8 @@ def interpolate_atmosphere_knudsen(name, lref, altitude, options=None):
 
     f=interp1d(knudsen, altitude, kind = 'cubic')
 
+
     total_rho = np.sum(density, axis=1)
     print("[DEBUG GRAM] lref={:.6e} | rho min={:.6e} max={:.6e} kg/m3 | Kn min={:.6e} max={:.6e}".format(lref, total_rho.min(), total_rho.max(), knudsen.min(), knudsen.max()))
+
     return f
