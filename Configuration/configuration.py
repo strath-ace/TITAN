@@ -1480,12 +1480,11 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
 
     #Read FENICS options
-    if options.structural_dynamics:
-        options.fenics.E            = get_config_value(configParser, options.fenics.E, 'FENICS', 'E', 'float')
-        options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'boolean')
-        options.fenics.FE_MPI_cores = get_config_value(configParser, options.fenics.FE_MPI_cores, 'FENICS', 'FENICS_cores', 'int')
-        options.fenics.FE_verbose   = get_config_value(configParser, options.fenics.FE_verbose, 'FENICS', 'FENICS_verbose', 'boolean')
-        options.fenics.FE_freq      = get_config_value(configParser, options.fenics.FE_freq, 'FENICS', 'FENICS_freq', 'int')
+    options.fenics.E            = get_config_value(configParser, options.fenics.E, 'FENICS', 'E', 'float')
+    options.fenics.FE_MPI       = get_config_value(configParser, options.fenics.FE_MPI, 'FENICS', 'FENICS_MPI', 'boolean')
+    options.fenics.FE_MPI_cores = get_config_value(configParser, options.fenics.FE_MPI_cores, 'FENICS', 'FENICS_cores', 'int')
+    options.fenics.FE_verbose   = get_config_value(configParser, options.fenics.FE_verbose, 'FENICS', 'FENICS_verbose', 'boolean')
+    options.fenics.FE_freq      = get_config_value(configParser, options.fenics.FE_freq, 'FENICS', 'FENICS_freq', 'int')
 
     #Read Dynamics options
     options.dynamics.time = 0
@@ -1746,5 +1745,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     ###     fenics = TITAN.FENICS()
     ### else:
     ###     fenics = None
-
+    print("\n===== DEBUG FENICS =====")
+    print("Structural dynamics:", options.structural_dynamics)
+    print("FEniCS object:", options.fenics)
+    print("FEniCS MPI:", options.fenics.FE_MPI)
+    print("========================\n")
     return options, titan

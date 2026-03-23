@@ -533,7 +533,8 @@ def ray_trace(_assembly, flow_direction, n, options):
     _assembly.freestream.per_facet_mach = pfm
     flow_dirs = flow_dirs[p,:]
     mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
-    ray = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
+    ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
+    #ray = trimesh.ray.ray_triangle.RayMeshIntersector(mesh)
 
     COG = edge_subdivision(_assembly.mesh.v0[p], _assembly.mesh.v1[p], _assembly.mesh.v2[p], n)
     for _ in range(n):
