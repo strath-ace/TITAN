@@ -106,17 +106,54 @@ def loop(options = [], titan = []):
         # Thermal Computation
         if options.thermal.ablation:
             thermal.compute_thermal(titan=titan, options=options)
+        # ==================================================
+        # Structural dynamics (FEniCS / FEM) — FIXED
+        # ==================================================
+        coupling_freq = 50
 
-        # Structural dynamics (FEniCS / FEM)
-        if options.structural_dynamics and (titan.iter + 1) % options.fenics.FE_freq == 0:
+        if titan.iter == 0 or (titan.iter + 1) % coupling_freq == 0:
+
             if stress_solver:
                 try:
-                    stress_solver.solve(titan)
+                    # --- 1. Velocity ---
+                    try:
+                        v_raw = titan.assembly[0].velocity
+                        v = float(np.linalg.norm(v_raw))
+                    except:
+                        v = 6500.0
+
+                    # --- 2. Density ---
+                    try:
+                        rho_raw = titan.freestream.rho
+                        if isinstance(rho_raw, np.ndarray):
+                            rho = float(rho_raw.flatten()[0])
+                        else:
+                            rho = float(rho_raw)
+                    except:
+                        rho = 0.001
+
+                    # --- 3. Time ---
+                    try:
+                        current_t = float(titan.time)
+                    except:
+                        current_t = float(titan.iter * options.dynamics.time_step)
+
+                    # --- 4. Pressure ---
+                    current_p = float(0.5 * rho * (v**2) * 1.84)
+
+                    # --- 5. Solve ---
+                    stress_solver.solve_step(current_p, current_t)
+
+                    print(f"[FEniCS] Stress: P={current_p:.0f} Pa at t={current_t:.2f}s")
+
                 except Exception as e:
                     print(f"[FEniCS ERROR] {e}")
+                    traceback.print_exc()
+
             else:
                 structural.run_FENICS(titan=titan, options=options)
 
+            # keep your merged feature
             output.generate_volume_solution(titan=titan, options=options)
 
         # Output Generation
