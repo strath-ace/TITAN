@@ -161,13 +161,6 @@ def compute_jet_forces(titan, options):
         if not hasattr(ass, "jet_system") or ass.jet_system is None:
             continue
 
-        # --- Debug: per-jet thrust ---
-        for j in ass.jet_system.jets.values():
-            print(
-                f"[JETS][DBG] t={titan.time:.3f} ass={ass.id} "
-                f"jet={j.name} T={j.thrust_N:.3f} N"
-            )
-
         # Step jet system (consumes propellant if implemented there)
         dt = titan.delta_t
         ass.jet_system.step(dt)

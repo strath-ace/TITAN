@@ -69,15 +69,11 @@ def loop(options = [], titan = []):
         
     while titan.iter < options.iters:
 
-        # 1) Apply commanded deflections for this time/iter
         if hasattr(titan, "controlsystem") and titan.controlsystem is not None:
             titan.controlsystem.step(titan, options)
-
-        # 2) Apply those deflections to the assembly mesh
         for ass in titan.assembly:
             ass.update_geometry()
 
-        # 3) Now proceed with everything else using the updated geometry
         options.high_fidelity_flag = False
 
         fragmentation.fragmentation(titan = titan, options = options)
