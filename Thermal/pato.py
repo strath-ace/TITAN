@@ -574,6 +574,11 @@ def write_All_run(options, obj, time, time_step, iteration):
         f.write('            fi\n')
         f.write('        done\n')
         f.write('    done\n')
+        f.write('else\n')
+        f.write('    # First run or dt mismatch: recreate processor*/0/ from root 0/\n')
+        f.write('    if [ -d 0 ]; then\n')
+        f.write('        decomposePar -region subMat1\n')
+        f.write('    fi\n')
         f.write('fi\n')
 
         f.write('cp qconv/BC_0 qconv/BC_' + str(pato_dt) + '\n')
@@ -2342,7 +2347,7 @@ def perform_PATO_remesh(options, obj, titan, n_cores):
 
     # 8b. Save original PATO boundary conditions from origin.0/subMat1/ BEFORE
     #     overwriting with clean seeds.  These will be grafted back after mapFields.
-    seed_src = source_case / source_time / "subMat1"
+    seed_src = pato_case / "origin.0" / "subMat1"
     original_bcs = {}  # field_name -> boundaryField block string
     if seed_src.exists():
         for _f in seed_src.iterdir():
@@ -2406,7 +2411,7 @@ def perform_PATO_remesh(options, obj, titan, n_cores):
                 "-sourceTime", source_time,
                 "-targetRegion", "subMat1",
                 "-sourceRegion", "subMat1",
-                "-mapMethod", "mapNearest",
+                "-mapMethod", "cellPointInterpolate",
                 "-case", str(pato_case),
             ],
             cwd=str(pato_case), text=True, check=True,
@@ -2704,7 +2709,7 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
     Parameters
     ----------
 	?????????????????????????
-    """
+    """ 
     # Defaults for simulation summary CSV (overwritten when ablation outputs are computed)
     obj.pato.total_mdot_kg_s = 0.0
     obj.pato.max_recession_mm_s = 0.0
@@ -2834,7 +2839,7 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
         d_n = np.zeros(N, dtype=float)
         delta_t = options.pato.time_step
         normals = obj.pato.facet_normal
-
+        
         for i in range(N):
             k_Tw = float(k_fun(Tw[i])) if callable(k_fun) else 0.0
 
@@ -2884,7 +2889,7 @@ def postprocess_PATO_solution(options, obj, time_to_read, assembly=None):
     obj.pato.q_conv_field = q_conv_arr
     obj.pato.mdot_field   = mdot
     obj.pato.v_n_field    = v_n
-
+    
     # Total mass loss rate (kg/s) = integral of mdot over surface area
     facet_areas = np.linalg.norm(normals, axis=1)
     total_mdot_kg_s = np.sum(mdot * facet_areas)
@@ -3138,8 +3143,8 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
         file_data.SetFileName(filename[f])
         file_data.Update()
         file_data = file_data.GetOutput()
-        appendFilter.AddInputData(file_data)
-
+        appendFilter.AddInputData(file_data)   
+  
     appendFilter.SetMergePoints(True)
     appendFilter.Update()
     volume_data = appendFilter.GetOutput()
