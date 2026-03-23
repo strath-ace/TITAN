@@ -770,57 +770,57 @@ class Assembly():
             self.mesh.vol_tag[copy_vol_tag == id] = d[id]
 
     def update_geometry(self):
-            if (not hasattr(self, "original_nodes")) or (self.original_nodes is None) or (self.original_nodes.shape != self.mesh.nodes.shape):
-                self.original_nodes = self.mesh.nodes.copy()
+        if (not hasattr(self, "original_nodes")) or (self.original_nodes is None) or (self.original_nodes.shape != self.mesh.nodes.shape):
+            self.original_nodes = self.mesh.nodes.copy()
 
-            # apply rigid rotations from baseline -> current mesh nodes
+        # apply rigid rotations from baseline -> current mesh nodes
 
-            for obj in self.objects:
-                # ensure it's the ControlSurface style signature
-                if obj.__class__.__name__ == "ControlSurface" and hasattr(obj, "update_geometry") and hasattr(obj, "node_index"):
-                    obj.update_geometry(self.mesh, self.original_nodes)
+        for obj in self.objects:
+            # ensure it's the ControlSurface style signature
+            if obj.__class__.__name__ == "ControlSurface" and hasattr(obj, "update_geometry") and hasattr(obj, "node_index"):
+                obj.update_geometry(self.mesh, self.original_nodes)
 
-            # rebuild surface caches from (nodes, facets) safely
-            self.mesh.v0 = self.mesh.nodes[self.mesh.facets[:, 0]]
-            self.mesh.v1 = self.mesh.nodes[self.mesh.facets[:, 1]]
-            self.mesh.v2 = self.mesh.nodes[self.mesh.facets[:, 2]]
+        # rebuild surface caches from (nodes, facets) safely
+        self.mesh.v0 = self.mesh.nodes[self.mesh.facets[:, 0]]
+        self.mesh.v1 = self.mesh.nodes[self.mesh.facets[:, 1]]
+        self.mesh.v2 = self.mesh.nodes[self.mesh.facets[:, 2]]
 
-            # facet normals + areas
-            self.mesh.facet_area = Mesh.compute_facet_area(self.mesh.v0, self.mesh.v1, self.mesh.v2)
-            self.mesh.facet_COG = Mesh.compute_facet_COG(self.mesh.v0, self.mesh.v1, self.mesh.v2)
-            self.mesh.COG = Mesh.compute_geometrical_COG(self.mesh.facet_COG, self.mesh.facet_area)
-            self.mesh.facet_normal = Mesh.compute_facet_normal(
-                self.mesh.COG,
-                self.mesh.facet_COG,
-                self.mesh.v0,
-                self.mesh.v1,
-                self.mesh.v2,
-                self.mesh.facet_area,
-            )
+        # facet normals + areas
+        self.mesh.facet_area = Mesh.compute_facet_area(self.mesh.v0, self.mesh.v1, self.mesh.v2)
+        self.mesh.facet_COG = Mesh.compute_facet_COG(self.mesh.v0, self.mesh.v1, self.mesh.v2)
+        self.mesh.COG = Mesh.compute_geometrical_COG(self.mesh.facet_COG, self.mesh.facet_area)
+        self.mesh.facet_normal = Mesh.compute_facet_normal(
+            self.mesh.COG,
+            self.mesh.facet_COG,
+            self.mesh.v0,
+            self.mesh.v1,
+            self.mesh.v2,
+            self.mesh.facet_area,
+        )
 
-            # nodes array is already current; keep these up to date
-            self.mesh.min, self.mesh.max = Mesh.compute_min_max(self.mesh.nodes)
-            self.mesh.edges, self.mesh.facet_edges = Mesh.map_edges_connectivity(self.mesh.facets)
-            self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
+        # nodes array is already current; keep these up to date
+        self.mesh.min, self.mesh.max = Mesh.compute_min_max(self.mesh.nodes)
+        self.mesh.edges, self.mesh.facet_edges = Mesh.map_edges_connectivity(self.mesh.facets)
+        self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
 
-            # curvature etc (uses facet_normal/area we just refreshed)
-            (
-                self.mesh.nodes_radius,
-                self.mesh.facet_radius,
-                self.mesh.Avertex,
-                self.mesh.Acorner,
-            ) = Mesh.compute_curvature(
-                self.mesh.nodes,
-                self.mesh.facets,
-                self.mesh.nodes_normal,
-                self.mesh.facet_normal,
-                self.mesh.facet_area,
-                self.mesh.v0,
-                self.mesh.v1,
-                self.mesh.v2,
-            )
-            if (not hasattr(self.mesh, "surface_displacement")) or (self.mesh.surface_displacement.shape != self.mesh.nodes.shape):
-                self.mesh.surface_displacement = np.zeros_like(self.mesh.nodes)
+        # curvature etc (uses facet_normal/area we just refreshed)
+        (
+            self.mesh.nodes_radius,
+            self.mesh.facet_radius,
+            self.mesh.Avertex,
+            self.mesh.Acorner,
+        ) = Mesh.compute_curvature(
+            self.mesh.nodes,
+            self.mesh.facets,
+            self.mesh.nodes_normal,
+            self.mesh.facet_normal,
+            self.mesh.facet_area,
+            self.mesh.v0,
+            self.mesh.v1,
+            self.mesh.v2,
+        )
+        if (not hasattr(self.mesh, "surface_displacement")) or (self.mesh.surface_displacement.shape != self.mesh.nodes.shape):
+            self.mesh.surface_displacement = np.zeros_like(self.mesh.nodes)
 
     def init_propellant_baseline(self):
         """Call once after the assembly is fully constructed."""
