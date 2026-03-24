@@ -1,0 +1,93 @@
+[Options]
+Num_iters = 250
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+Output_folder = /home/ME525/HussainTitan/ControlTests/Results/Tanks
+FENICS = False
+Output_freq = 1
+Postprocess_in_loop = WIND
+
+[Mesh]
+Recursion_limit = 5000
+
+[Model]
+Planet = mars
+
+[Trajectory]
+Altitude = 90000
+Velocity = 7000
+Flight_path_angle = 0
+Heading_angle = 0
+Latitude = 0
+Longitude = 0
+
+[GRAM]
+
+MinMaxFactor = 0.0
+ComputeMinMaxFactor = 0
+
+SPICE_Path = /home/ME525/GRAM_BUILD/GRAM/SPICE/
+GRAM_Path = /home/ME525/GRAM_BUILD/GRAM/Build/bin/
+
+Year = 2021
+Month = 2
+Day = 18
+Hour = 12
+Minute = 0
+Seconds = 0.0
+
+[Freestream]
+Model = GRAM
+Method = Mutationpp
+
+[Time]
+Time_step = 0.1
+Propagator = euler
+
+[Assembly]
+Path = /home/ME525/HussainTitan/Examples/Geometry/Cubesat_Controlled/
+Connectivity = [[1, 6, 2],
+                [1, 7, 3],
+                [1, 8, 4],
+                [1, 9, 5]]
+
+[Objects]
+Cube = [NAME = cubesatCube.stl, MATERIAL = drama-AA7075, TYPE = Primitive, FENICS_ID = -1]
+Hinge_L = [NAME = cubesatHinge_L.stl, MATERIAL = drama-AA7075, TYPE = Joint, FENICS_ID = -1]
+Hinge_R = [NAME = cubesatHinge_R.stl, MATERIAL = drama-AA7075, TYPE = Joint, FENICS_ID = -1]
+Hinge_T = [NAME = cubesatHinge_T.stl, MATERIAL = drama-AA7075, TYPE = Joint, FENICS_ID = -1]
+Hinge_B = [NAME = cubesatHinge_B.stl, MATERIAL = drama-AA7075, TYPE = Joint, FENICS_ID = -1]
+Flap_L = [NAME = cubesatFlap_L.stl, MATERIAL = drama-AA7075, TYPE = ControlSurface, FENICS_ID = -1, DEFLECTION = 60, AXIS = (0, 0, 1), ORIGIN = (-.3, 0.05, 0)]
+Flap_R = [NAME = cubesatFlap_R.stl, MATERIAL = drama-AA7075, TYPE = ControlSurface, FENICS_ID = -1, DEFLECTION = 60, AXIS = (0, 0,-1), ORIGIN = (-.3,-0.05, 0)]
+Flap_T = [NAME = cubesatFlap_T.stl, MATERIAL = drama-AA7075, TYPE = ControlSurface, FENICS_ID = -1, DEFLECTION = 60, AXIS = (0,-1, 0), ORIGIN = (-.3, 0,    0.05)]
+Flap_B = [NAME = cubesatFlap_B.stl, MATERIAL = drama-AA7075, TYPE = ControlSurface, FENICS_ID = -1, DEFLECTION = 60, AXIS = (0, 1, 0), ORIGIN = (-.3, 0,   -0.05)]
+
+[Jets]
+RetroThruster = [PARENT = cubesatCube, POS = (0,0,0), DIR = (-1,0,0), TMAX = 100, ISP = 70]
+
+Roll_Jet_1_pos = [PARENT = cubesatCube, POS = (-0.15,  0.05, 0), DIR = (0,0, 1), TMAX = 10, ISP = 70, GROUP = roll_pos]
+Roll_Jet_1_neg = [PARENT = cubesatCube, POS = (-0.15,  0.05, 0), DIR = (0,0,-1), TMAX = 10, ISP = 70, GROUP = roll_neg]
+Roll_Jet_2_pos = [PARENT = cubesatCube, POS = (-0.15, -0.05, 0), DIR = (0,0,-1), TMAX = 10, ISP = 70, GROUP = roll_pos]
+Roll_Jet_2_neg = [PARENT = cubesatCube, POS = (-0.15, -0.05, 0), DIR = (0,0, 1), TMAX = 10, ISP = 70, GROUP = roll_neg]
+Roll_Jet_3_pos = [PARENT = cubesatCube, POS = (-0.15,  0, 0.05), DIR = (0,-1,0), TMAX = 10, ISP = 70, GROUP = roll_pos]
+Roll_Jet_3_neg = [PARENT = cubesatCube, POS = (-0.15,  0, 0.05), DIR = (0, 1,0), TMAX = 10, ISP = 70, GROUP = roll_neg]
+Roll_Jet_4_pos = [PARENT = cubesatCube, POS = (-0.15,  0,-0.05), DIR = (0, 1,0), TMAX = 10, ISP = 70, GROUP = roll_pos]
+Roll_Jet_4_neg = [PARENT = cubesatCube, POS = (-0.15,  0,-0.05), DIR = (0,-1,0), TMAX = 10, ISP = 70, GROUP = roll_neg]
+
+Pitch_Jet_1_pos = [PARENT = cubesatCube, POS = (-0.15, 0, 0.05), DIR = (-1,0,0), TMAX = 10, ISP = 70, GROUP = pitch_pos]
+Pitch_Jet_1_neg = [PARENT = cubesatCube, POS = (-0.15, 0, 0.05), DIR = ( 1,0,0), TMAX = 10, ISP = 70, GROUP = pitch_neg]
+Pitch_Jet_2_pos = [PARENT = cubesatCube, POS = (-0.15, 0,-0.05), DIR = ( 1,0,0), TMAX = 10, ISP = 70, GROUP = pitch_pos]
+Pitch_Jet_2_neg = [PARENT = cubesatCube, POS = (-0.15, 0,-0.05), DIR = (-1,0,0), TMAX = 10, ISP = 70, GROUP = pitch_neg]
+
+Yaw_Jet_1_pos = [PARENT = cubesatCube, POS = (-0.15, 0.05, 0), DIR = (-1,0,0), TMAX = 10, ISP = 70, GROUP = yaw_pos]
+Yaw_Jet_1_neg = [PARENT = cubesatCube, POS = (-0.15, 0.05, 0), DIR = ( 1,0,0), TMAX = 10, ISP = 70, GROUP = yaw_neg]
+Yaw_Jet_2_pos = [PARENT = cubesatCube, POS = (-0.15,-0.05, 0), DIR = ( 1,0,0), TMAX = 10, ISP = 70, GROUP = yaw_pos]
+Yaw_Jet_2_neg = [PARENT = cubesatCube, POS = (-0.15,-0.05, 0), DIR = (-1,0,0), TMAX = 10, ISP = 70, GROUP = yaw_neg]
+
+[PropellantTanks]
+MainTank = [PARENT = cubesatCube, TYPE = N2, CAPACITY = 1.0, DRY_MASS = 0.10, INITIAL_PROP = 1.0, RESIDUAL_PROP = 0.01, POS = (-0.15,0,0), RADIUS = 0.05]
+
+[Control]
+Command_file = ControlTests/JetTests/showcase_commands.csv
+Mode = time
