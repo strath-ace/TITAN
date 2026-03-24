@@ -791,39 +791,22 @@ class Assembly():
         self.mesh.v2 = self.mesh.nodes[self.mesh.facets[:, 2]]
 
         # facet normals + areas
-        e1 = self.mesh.v1 - self.mesh.v0
-        e2 = self.mesh.v2 - self.mesh.v0
-        fn = np.cross(e1, e2)
-        fn_norm = np.linalg.norm(fn, axis=1)
-        eps = 1e-14
-        good = fn_norm > eps
-        self.mesh.facet_area = 0.5 * fn_norm
-        self.mesh.facet_normal = np.zeros_like(fn)
-        self.mesh.facet_normal[good] = fn[good] / fn_norm[good, None]
-
-        # facet COG
-        self.mesh.facet_COG = (self.mesh.v0 + self.mesh.v1 + self.mesh.v2) / 3.0
+        self.mesh.facet_area = Mesh.compute_facet_area(self.mesh.v0, self.mesh.v1, self.mesh.v2)
+        self.mesh.facet_COG = Mesh.compute_facet_COG(self.mesh.v0, self.mesh.v1, self.mesh.v2)
+        self.mesh.COG = Mesh.compute_geometrical_COG(self.mesh.facet_COG, self.mesh.facet_area)
+        self.mesh.facet_normal = Mesh.compute_facet_normal(
+            self.mesh.COG,
+            self.mesh.facet_COG,
+            self.mesh.v0,
+            self.mesh.v1,
+            self.mesh.v2,
+            self.mesh.facet_area,
+        )
 
         # nodes array is already current; keep these up to date
         self.mesh.min, self.mesh.max = Mesh.compute_min_max(self.mesh.nodes)
         self.mesh.edges, self.mesh.facet_edges = Mesh.map_edges_connectivity(self.mesh.facets)
         self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
-
-        # node normals (area-weighted accumulation of facet normals)
-        nn = np.zeros((len(self.mesh.nodes), 3), dtype=float)
-        fa = self.mesh.facet_area
-        nfa = self.mesh.facet_normal * fa[:, None]
-
-        f = self.mesh.facets
-        np.add.at(nn, f[:, 0], nfa)
-        np.add.at(nn, f[:, 1], nfa)
-        np.add.at(nn, f[:, 2], nfa)
-
-        nn_norm = np.linalg.norm(nn, axis=1)
-        goodn = nn_norm > eps
-        nn_out = np.zeros_like(nn)
-        nn_out[goodn] = nn[goodn] / nn_norm[goodn, None]
-        self.mesh.nodes_normal = nn_out
 
         # curvature etc (uses facet_normal/area we just refreshed)
         (
