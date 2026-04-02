@@ -375,6 +375,7 @@ def interpolate_atmosphere_knudsen(name, lref, altitude):
     mfp = C1/np.sum(density, axis = 1)
     knudsen = mfp/lref
 
-    f=interp1d(knudsen, altitude, kind = 'cubic')
+    # Clip to upper and lower altitudes
+    f=interp1d(knudsen, altitude, kind = 'cubic', bounds_error=False, fill_value=(np.min(altitude),np.max(altitude)))
 
     return f

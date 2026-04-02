@@ -144,10 +144,18 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	#Create new mesh
 	points = mesh[0].points
 	facets = mesh[0].cells[0].data
-	pressure = mesh[0].cell_data['pressure']
-	heatflux = mesh[0].cell_data['heatflux']
-	temperature  = mesh[0].cell_data['temperature']
-	debug_alpha = mesh[0].cell_data['debug_alpha']
+	cell_data = {}
+	# All included fields as union of all cell_data keys
+	all_fields = set()
+	for i, _id in enumerate(assembly_ID): all_fields = all_fields | mesh[i].cell_data.keys()
+	for field in all_fields:
+		if field in mesh[0].cell_data.keys():
+			cell_data[field] = mesh[0].cell_data[field]
+		else:
+			cell_data[field] = [np.zeros(len(facets))]
+		# heatflux = mesh[0].cell_data['heatflux']
+		# temperature  = mesh[0].cell_data['temperature']
+		# debug_alpha = mesh[0].cell_data['debug_alpha']
 
 	facet_dev = len(points)
 
@@ -155,27 +163,34 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		if i == 0: continue
 		points = np.append(points, mesh[i].points, axis = 0)
 		facets = np.append(facets, mesh[i].cells[-1].data+facet_dev, axis = 0)
-		pressure = np.append(pressure,mesh[i].cell_data['pressure'])
-		heatflux = np.append(heatflux,mesh[i].cell_data['heatflux'])
-		temperature = np.append(temperature, mesh[i].cell_data['temperature'])
-		debug_alpha = np.append(debug_alpha, mesh[i].cell_data['debug_alpha'])
-
+		for field in all_fields:
+			if field in mesh[i].cell_data.keys(): values = mesh[i].cell_data[field]
+			else: values =  [np.zeros(len(mesh[i].cells[-1]))]
+			if len(values[0].shape)>1:
+				cell_data[field] = [np.vstack([cell_data[field][0],values[0]])]
+			else:
+				cell_data[field] = [np.hstack([cell_data[field][0],values[0]])]
+		# heatflux = np.append(heatflux,mesh[i].cell_data['heatflux'])
+		# temperature = np.append(temperature, mesh[i].cell_data['temperature'])
+		# debug_alpha = np.append(debug_alpha, mesh[i].cell_data['debug_alpha'])
 		facet_dev = len(points)
 
 	cells = {"triangle": facets}
 
-	cell_data = {"pressure": pressure,
-                  "heatflux": heatflux,
-                  "temperature": temperature,
-				  "debug_alpha" : debug_alpha
-				 }
+	# cell_data = {"pressure": pressure,
+    #               "heatflux": heatflux,
+    #               "temperature": temperature,
+	# 			  "debug_alpha" : debug_alpha
+	# 			 }
 
-	if len(assembly_ID) > 1:
-		cell_data = {"pressure": [pressure],
-                  "heatflux": [heatflux],
-                  "temperature": [temperature],
-				  "debug_alpha": [debug_alpha]
-				 }	
+	# if len(assembly_ID) > 1:
+	# 	for field, values in cell_data.items(): 
+	# 		cell_data[field] = np.array([values])
+		# cell_data = {"pressure": [pressure],
+        #           "heatflux": [heatflux],
+        #           "temperature": [temperature],
+		# 		  "debug_alpha": [debug_alpha]
+		# 		 }	
 
 	trimesh = meshio.Mesh(
         points,

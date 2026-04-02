@@ -71,33 +71,42 @@ def loop(options = [], titan = []):
         import os
         pp_existing = np.array([])
         i_time=0
+
+    # Run main TITAN loop
     while titan.iter < options.iters:
         options.high_fidelity_flag = False
-
+        
+        # Check fragmentation case
         fragmentation.fragmentation(titan = titan, options = options)
 
         if not titan.assembly: return      
 
+        # Adjust post-event counter
         if options.time_counter>0:
             options.dynamics.time_step = options.collision.post_fragmentation_timestep
             options.time_counter-=1
         else:
             options.dynamics.time_step = options.user_time
 
+        # Perform dynamics integrations
         if 'legacy' in options.dynamics.propagator: dynamics.integrate(titan = titan, options = options)
         else:
             propagation.propagate(titan = titan, options = options)
 
+        # Finish if integrator signals ending
         if hasattr(titan,'end_trigger'): return
         
-        if options.thermal.ablation:
+        # Perform thermal step
+        if options.thermal.ablation and not options.dynamics.augmented_state:
             thermal.compute_thermal(titan = titan, options = options)
 
+        # Structural mechanics (not well-implemented here)
         if options.structural_dynamics and (titan.iter+1)%options.fenics.FE_freq == 0:
             #TODO
             structural.run_FENICS(titan = titan, options = options)
             output.generate_volume_solution(titan = titan, options = options)
-            
+        
+        # Generate
         if options.current_iter%options.output_freq == 0:
             output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)         
         

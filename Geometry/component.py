@@ -31,13 +31,14 @@ class Component_list():
         
     def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', 
                          trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, 
-                         global_ID = 0, bloom_config = [False, 0, 0, 0], enclosure=0, alpha = 1.0):
+                         global_ID = 0, bloom_config = [False, 0, 0, 0], alpha = 1.0, mixture=None,
+                         mass_fractions=None, species=None):
 
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
                            trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, 
                            options = options, global_ID = global_ID, bloom_config = bloom_config, 
-                           enclosure=enclosure, alpha=alpha))
+                           alpha=alpha, mixture=mixture, mass_fractions=mass_fractions, species=species))
         self.id += 1
 
 class Component():
@@ -49,7 +50,7 @@ class Component():
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
                  trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest',
                  v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0, 
-                 bloom_config = [False, 0, 0, 0], enclosure = 0, alpha = 1.0):
+                 bloom_config = [False, 0, 0, 0], alpha = 1.0, mixture=None, mass_fractions=None, species=None):
 
         print("Generating Body: ", filename)
         
@@ -137,8 +138,16 @@ class Component():
 
         self.density_ratio = 1
 
-        self.enclosure = enclosure
+
+        ## For use with byproducts
+        # Name of a mutation mixture
+        self.mixture = mixture
+        # Array of mass fractions for the object
+        self.mass_fraction = mass_fractions
+        # Names of species corresponding to the relevant mass fractions
+        self.species = species
         self.debug_alpha = alpha
+
 
     def compute_mass_properties(self, coords, elements, density):
         """

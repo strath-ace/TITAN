@@ -29,25 +29,30 @@ import vg
 import sys
 from Geometry.tetra import inertia_tetra
 import requests
+import mutationpp as mpp
+import subprocess
+cutoff = 0.0
 
 def compute_thermal(titan, options):
     thermal_delta_t = titan.time - options.thermal.prev_thermal_time
-    if thermal_delta_t>=options.thermal.time_fidelity: 
+    if thermal_delta_t>=options.thermal.time_fidelity or options.dynamics.augmented_state: 
         if options.thermal.ablation_mode == "tetra":
-            compute_thermal_tetra(titan = titan, options = options)
+            compute_thermal_tetra(titan = titan, options = options, dt=thermal_delta_t)
         elif options.thermal.ablation_mode == "0d":
-            compute_thermal_0D(titan = titan, options = options)
+            compute_thermal_0D(titan = titan, options = options, dt=thermal_delta_t)
         elif options.thermal.ablation_mode == "pato":
             compute_thermal_PATO(titan = titan, options = options)
+        elif options.thermal.ablation_mode == "byproducts":
+            compute_thermal_byproducts(titan = titan, options = options, dt=thermal_delta_t)
         else:
             raise ValueError("Ablation Mode can only be 0D, Tetra or PATO")
         options.thermal.prev_thermal_time = round(titan.time,5)
 
-def compute_thermal_0D(titan, options):
+def compute_thermal_0D(titan, options, dt=None):
 
-    dt = titan.delta_t
     Tref = 273
-
+    # Unity timestep gives us rates instead of integrated values
+    if options.dynamics.augmented_state: dt = 1.0 
     for assembly in titan.assembly:
         recompute_mass_flag = False
         #if assembly.ablation_mode != '0d': continue
@@ -78,30 +83,33 @@ def compute_thermal_0D(titan, options):
             else:
                 dm = 0
 
-            new_mass = obj.mass + dm
-            new_T = obj.temperature + dT
+            if options.dynamics.augmented_state:
+                obj.mdot = dm
+                obj.Tdot = dT
+            else:
+                new_mass = obj.mass + dm
+                new_T = obj.temperature + dT
 
-            obj.material.density *= new_mass/obj.mass
-            obj.mass = new_mass
-            obj.temperature = new_T
-            #obj.pato.temperature[:] = obj.temperature
+                obj.material.density *= new_mass/obj.mass
+                obj.mass = new_mass
+                obj.temperature = new_T
+                #obj.pato.temperature[:] = obj.temperature
 
-            if obj.material.density < 0:
-                obj.material.density = 0
-                obj.mass = 0
-            
-            assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
-            assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+                if obj.material.density < 0:
+                    obj.material.density = 0
+                    obj.mass = 0
+                
+                assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
+                assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
     
             #obj.photons = compute_radiance(obj.temperature, Atot, emissivity)
 
-        if recompute_mass_flag: assembly.compute_mass_properties()
+        if recompute_mass_flag and not options.dynamics.augmented_state: assembly.compute_mass_properties()
 
     return
 
-def compute_thermal_tetra(titan, options):
+def compute_thermal_tetra(titan, options, dt):
   
-    dt = titan.delta_t
 
     for assembly in titan.assembly:
         if assembly.ablation_mode != 'tetra': continue
@@ -303,6 +311,73 @@ def compute_thermal_PATO(titan, options):
             assembly.mMelt  = assembly.mDotMelt*options.dynamics.time_step
 
     return
+
+def compute_thermal_byproducts(titan, options, dt):
+    Tref = 273
+    # Unity timestep gives us rates instead of integrated values
+    if options.dynamics.augmented_state: dt = 1.0 
+    for assembly in titan.assembly:
+        recompute_mass_flag = False
+        #if assembly.ablation_mode != '0d': continue
+
+        for obj in assembly.objects:
+
+            facet_area = np.linalg.norm(obj.mesh.facet_normal, ord = 2, axis = 1)
+            heatflux = assembly.aerothermo.heatflux[obj.facet_index]
+            Qin = np.sum(heatflux*facet_area)
+            
+            cp  = obj.material.specificHeatCapacity(obj.temperature)
+            emissivity = obj.material.emissivity(obj.temperature)
+
+            Atot = np.sum(facet_area)
+
+            # Estimating the radiation heat-flux
+            Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
+
+            # Computing temperature change
+            dT = (Qin-Qrad)*dt/(obj.mass*cp)
+            obj.facet_dm = np.zeros_like(facet_area)
+            net_flux = heatflux
+            index_heat = np.where(net_flux>0)[0]
+            normalized_flux = net_flux[index_heat] / np.sum(net_flux[index_heat])
+
+            if obj.temperature+dT > obj.material.meltingTemperature:
+                dT_melt = obj.material.meltingTemperature - obj.temperature
+                melt_Q = (obj.mass*cp)*(dT-dT_melt)
+                dm = -melt_Q/(obj.material.meltingHeat)
+                dT = dT_melt
+                recompute_mass_flag = True
+            else:
+                dm = 0
+
+            obj.facet_dm[index_heat] = normalized_flux * dm
+            assembly.mDotMelt[obj.facet_index] = obj.facet_dm/dt
+            if options.dynamics.augmented_state:
+                obj.mdot = dm
+                obj.Tdot = dT
+            
+            else:
+                new_mass = obj.mass + dm
+                new_T = obj.temperature + dT
+
+                obj.material.density *= new_mass/obj.mass
+                obj.mass = new_mass
+                obj.temperature = new_T
+            #obj.pato.temperature[:] = obj.temperature
+
+            if obj.material.density < 0:
+                obj.material.density = 0
+                obj.mass = 0
+            
+            assembly.mesh.vol_density[assembly.mesh.vol_tag == obj.id] = obj.material.density
+            assembly.aerothermo.temperature[obj.facet_index] = obj.temperature
+            assembly.byproducts_rho = [{} for _ in range(len(assembly.mesh.facet_area))]
+            assembly.byproducts_mf  = [{} for _ in range(len(assembly.mesh.facet_area))]
+            assembly.byproducts_m   = [{} for _ in range(len(assembly.mesh.facet_area))]
+        if recompute_mass_flag and not options.dynamics.augmented_state: 
+            assembly.compute_mass_properties()
+            assembly.byproducts.mix(assembly, options)
+
 
 def compute_black_body_emissions(titan, options, q = []):
 

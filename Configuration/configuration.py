@@ -140,6 +140,8 @@ class Dynamics():
         #: [int] Number of previous derivatives to hold
         self.n_derivs_to_hold = 0
 
+        self.augmented_state = True
+
         self.prop_warning = ('''
         No Propagator selected! Selecting Euler, see list for options
                             
@@ -250,6 +252,11 @@ class Thermal():
 
         self.prev_thermal_time = 0.0
 
+        self.volume_method = 'BLE'
+
+        self.mf_cutoff = 1e-10
+
+        self.excess_ratio = 2.5
 
 class PATO():
     def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = False):
@@ -939,13 +946,22 @@ def read_geometry(configParser, options):
                 except:
                     alpha = 1.0
 
+                try: mixture = str([s for s in value if "mixture=" in s.lower()][0].split("=")[1])
+                except: mixture = None
+
+                try: 
+                    mass_fraction = ([s for s in value if "mass_fraction=" in s.lower()][0].split("=")[1])
+                    mass_fraction = [float(mf) for mf in mass_fraction.split(';')]
+                except: mass_fraction = None
+
+                try: 
+                    species = ([s for s in value if "species=" in s.lower()][0].split("=")[1])
+                    species = [sp for sp in species.split(';')]
+                except: species = None
+
                 if object_type == 'Primitive':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
                     material= [s for s in value if "material=" in s.lower()][0].split("=")[1]
-                    try:
-                        enclosure = int([s for s in value if "enclosure=" in s.lower()][0].split("=")[1])
-                    except:
-                        enclosure = 0
 
                     try:
                         inner_stl_file = [s for s in value if "inner_stl=" in s.lower()][0].split("=")[1]
@@ -988,7 +1004,8 @@ def read_geometry(configParser, options):
                     
                     objects.insert_component(filename = object_path, file_type = object_type, trigger_type = trigger_type, trigger_value = float(trigger_value), 
                                              fenics_bc_id = fenics_bc_id, inner_stl = inner_path, material = material, temperature = temperature, 
-                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, enclosure=enclosure, alpha=alpha)
+                                             options = options, global_ID = obj_global_ID, bloom_config = bloom, alpha=alpha, 
+                                             mixture=mixture, mass_fractions=mass_fraction, species=species)
 
                 if object_type == 'Joint':
                     object_path = path+[s for s in value if "name=" in s.lower()][0].split("=")[1]
@@ -1129,7 +1146,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
     options.dynamics.prop_func =  propagation.get_integrator_func(options,options.dynamics.propagator.lower())
     options.dynamics.dt_max = get_config_value(configParser, 10*options.dynamics.time_step, 'Time', 'Adaptive_dt_max', 'float')
-    options.dynamics.t_end = get_config_value(configParser, options.iters*options.dynamics.time_step, 'Time', 'Adaptive_end_time', 'float')
+    options.dynamics.t_end = get_config_value(configParser, np.inf, 'Time', 'Adaptive_end_time', 'float')
     options.dynamics.dt_initial = get_config_value(configParser, 0.1*options.dynamics.time_step, 'Time', 'Adaptive_dt_init', 'float')
 
     if not (options.dynamics.propagator=='RK23' or options.dynamics.propagator=='RK45' or options.dynamics.propagator=='DOP853'):
@@ -1163,7 +1180,8 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
             if options.pato.conduction_flag and (options.dynamics.time_step != options.pato.time_step):
                 print("If modelling conduction between objects, time-step in TITAN and PATO must be the same."); exit()  
 
-
+        elif options.thermal.ablation_mode == "byproducts":
+            options.thermal.volume_method = get_config_value(configParser, options.thermal.volume_method,'Thermal', 'Ablation_volume','str')
         options.radiation.spectral               = get_config_value(configParser, options.radiation.spectral, 'Radiation', 'Spectral_emissions', 'boolean')
 
         if(options.radiation.spectral):
@@ -1324,10 +1342,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
                     #for each object, define connectivity to connected objects for heat conduction between objects
                     pato.identify_object_connections(assembly)
                 
-                if np.any([abs(obj.enclosure)>0 for obj in assembly.objects]):
-                    from Geometry.enclosure import build_enclosure_AABB, build_enclosure_num
-                    assembly.enclosure_AABB = build_enclosure_AABB(assembly)
-                    assembly.enclosure_component_num  = build_enclosure_num(assembly)
+
                     
             options.save_mesh(titan)
         

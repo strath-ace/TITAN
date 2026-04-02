@@ -2,6 +2,7 @@ import os
 from Dynamics import dynamics, frames, collision
 from Aerothermo import aerothermo
 from Forces import forces
+from Thermal import thermal
 import pymap3d
 import numpy as np
 import pandas as pd
@@ -66,6 +67,19 @@ def propagate(titan, options):
         if not hasattr(_assembly,'unmodded_angles'): 
             _assembly.unmodded_angles  = np.array([getattr(_assembly,angle) for angle in angle_names])
     # Writes the output data
+    # Increment time step
+    if hasattr(titan,'rk_params'): time_step = titan.delta_t
+    else: titan.delta_t = time_step
+
+    if options.thermal.ablation_mode=='byproducts' and options.dynamics.augmented_state: 
+        for _assembly in titan.assembly: 
+            if np.any(_assembly.mDotMelt<0): _assembly.byproducts.mix_excess(_assembly, options, delta_t=titan.delta_t)
+            else:
+                for speci in _assembly.byproducts.species:
+                    _assembly.byproducts.rho[speci] = np.zeros_like(_assembly.byproducts.column_height_mix)
+                    _assembly.byproducts.mf[speci] = np.zeros_like(_assembly.byproducts.column_height_mix)
+                    _assembly.byproducts.mass[speci] = np.zeros_like(_assembly.byproducts.column_height_mix)
+                    _assembly.byproducts.emission[speci] = np.zeros_like(_assembly.byproducts.column_height_mix)
     output.write_output_data(titan = titan, options = options)
     if options.time_fidelity>0.0: write_dense_output(titan, options)
     # Communicate new vectors to assemblies
@@ -75,9 +89,7 @@ def propagate(titan, options):
         for i_angle, angle in enumerate(angle_names): 
             _assembly.unmodded_angles[i_angle]+=time_step*_assembly.state_vector[10+i_angle]
     
-    # Increment time step
-    if hasattr(titan,'rk_params'): time_step = titan.delta_t
-    else: titan.delta_t = time_step
+
     
     titan.time += time_step
     titan.time = round(titan.time,5)
@@ -89,11 +101,12 @@ def state_equation(titan,options,time,state_vectors):
     # This state equation will for each assembly compute the rate of change of a state vector (at that state),
     
     # State vectors can be passed flattened, need to account for this
-    state_vectors = np.array(state_vectors)
+    #state_vectors = np.array(state_vectors)
     reshape_flat = False
-    if len(state_vectors.shape)<2:
+    if not isinstance(state_vectors[0], (list,np.ndarray)):
         reshape_flat = True
-        state_vectors = np.reshape(state_vectors,[-1,13])
+        state_vectors = unflatten_state_vectors(titan, options, state_vectors)
+            #state_vectors = np.reshape(state_vectors,[-1,13])
 
     # First we communicate the state vector to assembly attributes
     # if titan.iter>0:
@@ -108,6 +121,8 @@ def state_equation(titan,options,time,state_vectors):
     aero_states = [copy(_assembly.aerothermo) for _assembly in titan.assembly]
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
+    if options.dynamics.augmented_state:
+        thermal.compute_thermal(titan,options)
 
     # Then determine the necessary derivatives to return the state vector(s)
     d_dt_state_vectors = []
@@ -119,7 +134,7 @@ def state_equation(titan,options,time,state_vectors):
         omega_q = [angularDerivatives.droll,angularDerivatives.dpitch,angularDerivatives.dyaw,0.0]
         d_q  = 0.5 *  quaternion_mult(_assembly.quaternion,omega_q)
 
-        d_dt_state_vectors.append([cartesianDerivatives.dx,
+        d_dt_state_vector = [cartesianDerivatives.dx,
                                    cartesianDerivatives.dy,
                                    cartesianDerivatives.dz,
                                    cartesianDerivatives.du,
@@ -131,13 +146,19 @@ def state_equation(titan,options,time,state_vectors):
                                    d_q[3],
                                    angularDerivatives.ddroll,
                                    angularDerivatives.ddpitch,
-                                   angularDerivatives.ddyaw,])
+                                   angularDerivatives.ddyaw,]
+        if options.dynamics.augmented_state: 
+            for component in _assembly.objects:
+                d_dt_state_vector.append(component.Tdot)
+                d_dt_state_vector.append(component.mdot)
+        d_dt_state_vectors.append(d_dt_state_vector)
     
     # Finally reset the Dynamic state to be controlled by the chosen propagator
     for _assembly, return_state in zip(titan.assembly, unaltered_states):
         update_dynamic_attributes(_assembly,return_state,options,force=True)
 
-    if reshape_flat: d_dt_state_vectors = np.array(d_dt_state_vectors).flatten()
+    if reshape_flat: 
+        d_dt_state_vectors = flatten_state_vectors(d_dt_state_vectors)
     return d_dt_state_vectors, aero_states
 
 def update_dynamic_attributes(assembly,state_vector,options, force=False, return_output_array=False):
@@ -164,6 +185,22 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
         assembly.roll_vel = state_vector[10]
         assembly.pitch_vel = state_vector[11]
         assembly.yaw_vel = state_vector[12]
+
+        if options.dynamics.augmented_state:
+            recompute_mass = False
+            for i_component, component in enumerate(assembly.objects):
+                component.temperature = state_vector[13+2*i_component]
+                assembly.aerothermo.temperature[component.facet_index] = component.temperature
+                if not component.mass == state_vector[14+2*i_component]:
+                    recompute_mass = True
+                    component.material.density *= state_vector[14+2*i_component]/component.mass
+                    component.mass = state_vector[14+2*i_component]
+                    if component.material.density < 0:
+                        component.material.density = 0
+                        component.mass = 0
+                    assembly.mesh.vol_density[assembly.mesh.vol_tag == component.id] = component.material.density
+                    assembly.aerothermo.temperature[component.facet_index] = component.temperature
+                if recompute_mass: assembly.compute_mass_properties()
 
         # Communicate state to other assembly attributes...
         [latitude, longitude, altitude] = pymap3d.ecef2geodetic(assembly.position[0], assembly.position[1], assembly.position[2],
@@ -209,7 +246,7 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
                                              assembly.quaternion[3],assembly.quaternion[0],assembly.quaternion[1],assembly.quaternion[2]])
     return assembly
 
-def construct_state_vector(assembly):
+def construct_state_vector(assembly, augmented = False):
     assembly.state_vector = [0 for _ in range(13)]
 
     assembly.state_vector[0]  = assembly.position[0]
@@ -229,6 +266,11 @@ def construct_state_vector(assembly):
     assembly.state_vector[11]  = assembly.pitch_vel
     assembly.state_vector[12]  = assembly.yaw_vel    
 
+    if augmented: 
+        for component in assembly.objects:
+            assembly.state_vector.append(component.temperature)
+            assembly.state_vector.append(component.mass)
+
     assembly.state_vector_prior = []
     assembly.derivs_prior = []
 
@@ -244,7 +286,7 @@ def collect_state_vectors(titan,options):
 
     for _assembly in titan.assembly:
 
-        if not hasattr(_assembly,'state_vector'): construct_state_vector(_assembly) 
+        if not hasattr(_assembly,'state_vector'): construct_state_vector(_assembly, options.dynamics.augmented_state) 
         #^ Something of a hack but assemblies must be fully instantiated *before* the state vectors can be constructed
         current_state_vectors.append(_assembly.state_vector)
 
@@ -279,7 +321,7 @@ def write_dense_output(titan, options):
     times = times[np.where(times<true_time+titan.rk_adapt.step_size)]
     if options.write_dense_solutions: surface_solutions = output.create_surface_solution(titan,options)
     if len(times)>0:
-        prior_states = copy(np.reshape(titan.rk_adapt.y,[-1,13]))
+        prior_states = copy(unflatten_state_vectors(titan,options,titan.rk_adapt.y))
         interpolant = titan.rk_adapt.dense_output()
         times += interpolant.t_min - true_time
         n_assem = len(titan.assembly)
@@ -291,7 +333,7 @@ def write_dense_output(titan, options):
         if not np.max(times)<=interpolant.t_max:
             warn('Extrapolating interpolant forwards! Past valid t={} to t={}'.format(interpolant.t_max,np.max(times)))
 
-        timestep_func = partial(generate_dense_timestep,titan.assembly,options,interpolant)
+        timestep_func = partial(generate_dense_timestep,titan,options,interpolant)
 
         for i_time, time in enumerate(times):
             timestep_data, overwrite = timestep_func(time)
@@ -319,20 +361,27 @@ def write_dense_output(titan, options):
         titan.last_output_time=np.max(times)-interpolant.t_min + true_time
         df.to_csv(options.output_folder + '/Data/'+ 'data_smooth.csv',header=header,mode='a',index=False)
 
-def generate_dense_timestep(assemblies, options, interpolant, time):
+def generate_dense_timestep(titan, options, interpolant, time):
     
-    n_assem = len(assemblies)
-    state_vectors = np.reshape(interpolant(time),[-1,13])
+    n_assem = len(titan.assembly)
+    state_vectors = unflatten_state_vectors(titan, options, interpolant(time))
     data_array = np.zeros([n_assem,38])
     data_array[:,0] = np.array([time for _ in range(n_assem)])
     overwrite_solutions = []
-    for i_assem, _assembly in enumerate(assemblies): 
+    for i_assem, _assembly in enumerate(titan.assembly): 
         data_array[i_assem,1:] = update_dynamic_attributes(_assembly, state_vectors[i_assem], options, return_output_array=True)
         if hasattr(_assembly,'prev_surf_data'):
             overwrite_data = copy(_assembly.prev_surf_data)
             lerp_value = (time-interpolant.t_min)/(interpolant.t_max - interpolant.t_min)
             for field in overwrite_data.keys():
-                overwrite_data[field][:] = (1-lerp_value)*np.array(_assembly.prev_surf_data[field][:]) + lerp_value * getattr(_assembly.aerothermo,field)
+                try:
+                    overwrite_data[field][:] = (1-lerp_value)*np.array(_assembly.prev_surf_data[field][:]) + lerp_value * getattr(_assembly.aerothermo,field)
+                except: #TODO Fix this ugly hack
+                    try:
+                        param, species = field.split('_')
+                        overwrite_data[field][:] = (1-lerp_value)*np.array(_assembly.prev_surf_data[field][:])
+                        overwrite_data[field][:] += lerp_value * getattr(_assembly.byproducts,param)[species]
+                    except: pass
             overwrite_solutions.append(overwrite_data)
     return data_array, overwrite_solutions
     
@@ -492,12 +541,13 @@ def explicit_adams_bashforth_n(N,state_vectors,state_vectors_prior,derivatives_p
 
 def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     if not hasattr(titan,'rk_params'): recompute_params = True
-    elif not np.shape(titan.rk_params['state'])==np.shape(np.array(state_vectors).flatten()): recompute_params = True
+    elif not np.shape(titan.rk_params['state'])==np.shape(np.array(flatten_state_vectors(state_vectors))): 
+        recompute_params = True
     else: recompute_params = False
     if recompute_params: 
         if titan.post_event_iter>0: titan.time-=dt
         titan.rk_params = {'time'    : titan.time, 
-                           'state'   : np.array(state_vectors).flatten(),
+                           'state'   : np.array(flatten_state_vectors(state_vectors)),
                            't_end'   : options.dynamics.t_end, 
                            't_first' : options.dynamics.dt_initial,  # Prefer a small initial timestep to combat discontinuities
                            't_max'   : options.dynamics.dt_max,
@@ -521,7 +571,7 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
         titan.end_trigger = True
 
     titan.delta_t = titan.rk_adapt.step_size
-    return np.reshape(titan.rk_adapt.y,[-1,13]), None
+    return unflatten_state_vectors(titan, options, titan.rk_adapt.y), None
 
 def proj_area_adapt_wrapper(N, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     if titan.post_event_iter==0:
@@ -598,15 +648,19 @@ def proj_area_adapt_wrapper(N, state_vectors,state_vectors_prior,derivatives_pri
 def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
     k_n = []
     for i_k in range(RK_N_actual[str(N)]):
-        k_state_vectors = np.array(state_vectors)
-        for i_coeff in range(i_k): k_state_vectors += RK_tableaus[str(N)][i_k][i_coeff] * dt * k_n[i_coeff]
+        k_state_vectors = state_vectors
+        for i_coeff in range(i_k): 
+            delta_tableau = states_op(titan, options, k_n[i_coeff], RK_tableaus[str(N)][i_k][i_coeff] * dt,'*')
+            k_state_vectors = states_op(titan, options, k_state_vectors, delta_tableau,'sv+')
         if i_k==0:
             d_dt_state_vectors, aero_states = state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt,k_state_vectors)
         else: d_dt_state_vectors, _ = state_equation(titan, options, dt + RK_tableaus[str(N)][i_k][0] * dt,k_state_vectors)
-        k_n.append(np.array(d_dt_state_vectors))
-    new_state_vectors = np.array(state_vectors)
+        k_n.append(d_dt_state_vectors)
+    new_state_vectors = state_vectors
 
-    for i_k in range(N): new_state_vectors+= RK_k_factors[str(N)][i_k] * dt * k_n[i_k]
+    for i_k in range(N): 
+        delta_factors = states_op(titan, options, k_n[i_k], RK_k_factors[str(N)][i_k] * dt, '*')
+        new_state_vectors = states_op(titan, options, new_state_vectors, delta_factors, 'sv+')
     for i_assem, _assembly in enumerate(titan.assembly): _assembly.aerothermo = aero_states[i_assem]
     return new_state_vectors, k_n[0]
 
@@ -679,3 +733,41 @@ def quaternion_to_matrix(q):
         [2 * (q[0] * q[2] - q[3] * q[1]), 2 * (q[1] * q[2] + q[3] * q[0]), 1 - 2 * (q[0]**2 + q[1]**2),     0],
         [0,                               0,                               0,                               1]
     ])
+
+def unflatten_state_vectors(titan, options, state_vectors):
+    new_state_vectors = []
+    start_pointer = 0
+    for _assembly in titan.assembly:
+        end_pointer = start_pointer + 13 + 2*len(_assembly.objects) * options.dynamics.augmented_state
+        new_state_vectors.append(state_vectors[start_pointer:end_pointer])
+        start_pointer = end_pointer
+    return new_state_vectors
+
+def flatten_state_vectors(state_vectors):
+    new_state_vectors = []
+    for state_vector in state_vectors: [new_state_vectors.append(elem) for elem in state_vector]
+    return new_state_vectors
+
+def states_op(titan, options, state_vectors, operand, operation='sv+'):
+    out_sv = []
+    if 'sv' in operation:
+        for state_1, state_2 in zip(state_vectors, operand):
+            out_sv.append([])
+            for element_1, element_2 in zip(state_1,state_2):
+                match operation:
+                    case 'sv+' : out_sv[-1].append(element_1 +  element_2)
+                    case 'sv-' : out_sv[-1].append(element_1 -  element_2)
+                    case 'sv*' : out_sv[-1].append(element_1 *  element_2)
+                    case 'sv/' : out_sv[-1].append(element_1 /  element_2)
+                    case 'sv**': out_sv[-1].appned(element_1 ** element_2)
+    else:
+        for state in state_vectors:
+            out_sv.append([])
+            for element in state: 
+                match operation:
+                    case '+'  : out_sv[-1].append(element +  operand)
+                    case '-'  : out_sv[-1].append(element -  operand)
+                    case '*'  : out_sv[-1].append(element *  operand)
+                    case '/'  : out_sv[-1].append(element /  operand)
+                    case '**' : out_sv[-1].append(element ** operand)
+    return out_sv

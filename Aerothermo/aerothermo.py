@@ -23,7 +23,6 @@ from Dynamics.frames import *
 from scipy import special
 from copy import copy
 from Aerothermo import su2, switch, sparta
-from Geometry.enclosure import check_enclosure
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
 import trimesh
@@ -86,7 +85,7 @@ def energy_loop(mix, T_eq, P_eq, h_ref):
     tol = 1
     h_eq = 0
     dT = 1
-
+    i_run = 1
     while abs(h_ref-h_eq)>tol:
         mix.equilibrate(T_eq, P_eq)
 
@@ -94,8 +93,12 @@ def energy_loop(mix, T_eq, P_eq, h_ref):
         cp_eq = mix.mixtureFrozenCpMass()
 
         dT = (h_eq-h_ref)/cp_eq
-        T_eq = T_eq - dT*0.1
-
+        alpha = min(0.01, max(1/i_run, 0.8))
+        T_eq = max(T_eq - alpha*dT, 200) # A little hack to ensure our mix temp isn't really cold
+        i_run +=1
+        if i_run>1e6:
+            print('Warning! Could not converge stagnation energy loop! eps={}K'.format(abs(h_ref-h_eq)))
+            break
     return mix
 
 class stagnation_line():
@@ -358,17 +361,21 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
     #Pressure calculation only if Drag model is False
     if (not options.vehicle) or (options.vehicle and not options.vehicle.Cd):
         if  (assembly.freestream.knudsen <= Kn_cont_pressure):
-            assembly.aerothermo.pressure[index] = aerodynamics_module_continuum(assembly, index, flow_direction)
+            assembly.aerothermo.pressure[index] += aerodynamics_module_continuum(assembly, index, flow_direction)
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
 
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_freemolecular(assembly, index, flow_direction)
+            pressures, shears = aerodynamics_module_freemolecular(assembly, index, flow_direction)
+            assembly.aerothermo.pressure[index] += pressures
+            assembly.aerothermo.shear[index] += shears
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
             assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
         else: 
             aerobridge = bridging(assembly.freestream, Kn_cont_pressure, Kn_free )
-            assembly.aerothermo.pressure[index], assembly.aerothermo.shear[index] = aerodynamics_module_bridging(assembly, index, aerobridge, flow_direction)
+            pressures, shears = aerodynamics_module_bridging(assembly, index, aerobridge, flow_direction)
+            assembly.aerothermo.pressure[index] += pressures
+            assembly.aerothermo.shear[index] += shears
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
             assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
@@ -455,12 +462,8 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
         _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
 
         #_assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
-        if check_enclosure(assembly,options,it, iteration):
-            index = ray_trace(_assembly,flow_direction,n, options)
-        else:
-            index = np.array([],dtype=np.int16)#np.zeros(len(_assembly.mesh.facets),dtype=np.int16)
-            _assembly.freestream.per_facet_mach =  np.ones(len(_assembly.mesh.facets)) *_assembly.freestream.mach
-            _assembly.aerothermo.partial_factor = np.zeros(len(_assembly.mesh.facets))
+
+        index = ray_trace(_assembly,flow_direction,n, options)
 
         _assembly.aero_index = index
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
@@ -930,7 +933,6 @@ def aerothermodynamics_module_continuum(assembly, p, flow_direction, options):
     Stc: np.array
         Vector with Stanton number
     """
-
     facet_normal = assembly.mesh.facet_normal
     facet_radius = assembly.mesh.facet_radius
     free = assembly.freestream
@@ -1000,6 +1002,7 @@ def aerothermodynamics_module_continuum(assembly, p, flow_direction, options):
     mu_T0s = free.mu_s
 
     dudx = 1.0/facet_radius* np.sqrt(2*(P02-free.pressure)/rhos)
+    flow_ble = None
 
     StConst = free.density*free.velocity**3 / 2.0
     if StConst<0.05: StConst = 0.05 # Neglect Cooling effect (as in Fostrad)
@@ -1050,7 +1053,15 @@ def aerothermodynamics_module_continuum(assembly, p, flow_direction, options):
 
     Stc[Stc < 0] = 0
     Stc.shape = (-1)
-
+    if options.thermal.ablation_mode=='byproducts':
+        if flow_ble is not None:
+            assembly.byproducts.column_height_mix[p] = 0.99*flow_ble.u_post/vel_grad
+            assembly.byproducts.rho_mix = flow_ble.rhoe
+            assembly.byproducts.c_i_mix = flow_ble.ce_i
+            assembly.byproducts.T_mix = flow_ble.Te
+            assembly.byproducts.P_mix = flow_ble.Pe
+        else:
+            assembly.byproducts.column_height_mix[p] = np.zeros_like(assembly.aerothermo.theta)
     return Stc
 
 def aerothermodynamics_module_freemolecular(assembly, p, flow_direction):

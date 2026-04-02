@@ -120,14 +120,30 @@ def write_output_data(titan, options, smooth=False):
         df['Temperature'] = [assembly.freestream.temperature]
         df['Pressure'] = [assembly.freestream.pressure]
         df['SpecificHeatRatio'] = [assembly.freestream.gamma]
-        #df['Qint'] = [np.sum(assembly.aerothermo.heatflux*assembly.mesh.facet_area)]
-        df['qmax'] = [max(assembly.aerothermo.heatflux)]
+        df['Qint'] = [np.sum(assembly.aerothermo.heatflux*assembly.mesh.facet_area)]
+        df['Qmax'] = [max(assembly.aerothermo.heatflux)]
         df['Tmax'] = [max(assembly.aerothermo.temperature)]
         df['knudsen'] = [assembly.freestream.knudsen]
 
         for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.percent_mass[0]) :
             df[specie+"_mass_pct"] = [pct]
+        if options.thermal.ablation_mode=='byproducts':
+            df_by = pd.DataFrame()
+            df_by['Time'] = [titan.time]
+            df_by['Iter'] = [titan.iter]
+            df_by['Assembly_ID']   = [assembly.id]
+            df_by['Mass'] = [assembly.mass]
+            df_by['Tmax'] = [max(assembly.aerothermo.temperature)]
+            df_by['Altitude'] = [assembly.trajectory.altitude]
+            df_by['mDotMelt'] = [np.sum(assembly.mDotMelt)*titan.delta_t]
 
+            for species in list(assembly.byproducts.species):
+                df_by['mass_'+species] = [np.sum(assembly.byproducts.mass[species])]
+                df_by['mean_rho_'+species] = [np.mean(assembly.byproducts.rho[species])]
+                df_by['mean_mf_'+species] = [np.mean(assembly.byproducts.mf[species])]
+                df_by['emission_'+species] = [np.sum(assembly.byproducts.emission[species])]
+            header = False if os.path.exists(options.output_folder+'/Data/data_byproducts.csv') else True
+            df_by.to_csv(options.output_folder+'/Data/data_byproducts.csv',mode='a',header=header,index=False)
         #Stagnation properties
         try:
             df['Qstag'] = [assembly.aerothermo.qconvstag]
@@ -232,6 +248,8 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
         if options.thermal.ablation_mode.lower() == 'pato' and options.pato.Ta_bc == 'ablation':
             mDotVapor = assembly.mDotVapor
             mDotMelt = assembly.mDotMelt
+        elif options.thermal.ablation_mode.lower() == 'byproducts':
+            mDotMelt = assembly.mDotMelt
         #hf_cond = assembly.hf_cond
 
         #cellID = np.arange(len(assembly.mesh.facets))
@@ -255,6 +273,13 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
         if options.thermal.ablation:
             if options.thermal.ablation_mode == 'PATO':
                 cell_data["mDotVapor"] = [mDotVapor]
+                cell_data["mDotMelt"]  = [mDotMelt]
+            elif options.thermal.ablation_mode.lower() == 'byproducts':
+                for byproduct in assembly.byproducts.species:
+                    cell_data['rho_'+byproduct] = np.array([assembly.byproducts.rho[byproduct]])
+                    cell_data['mf_'+byproduct] = np.array([assembly.byproducts.mf[byproduct]])
+                    cell_data['mass_'+byproduct] = np.array([assembly.byproducts.mass[byproduct]])
+                    cell_data['emission_'+byproduct] = np.array([assembly.byproducts.emission[byproduct]])
                 cell_data["mDotMelt"]  = [mDotMelt]
         point_data = { "displacement": displacement}
 
@@ -311,11 +336,19 @@ def create_surface_solution(titan, options):
         # hw = assembly.aerothermo.hw
         # Te = assembly.aerothermo.Te
         debug_alpha = assembly.aerothermo.debug_alpha
-
+        cell_data = {}
         if options.thermal.ablation_mode.lower() == 'pato' and options.pato.Ta_bc == 'ablation':
             mDotVapor = np.zeros(len(assembly.mesh.facets))
             mDotMelt  = np.zeros(len(assembly.mesh.facets))
             mDotVapor = assembly.mDotVapor
+            mDotMelt = assembly.mDotMelt
+        elif options.thermal.ablation_mode.lower() == 'byproducts':
+            for byproduct in assembly.byproducts.species:
+                cell_data['rho_'+byproduct] = np.array([assembly.byproducts.rho[byproduct]])
+                cell_data['mf_'+byproduct] = np.array([assembly.byproducts.mf[byproduct]])
+                cell_data['mass_'+byproduct] = np.array([assembly.byproducts.mass[byproduct]])
+                cell_data['emission_'+byproduct] = np.array([assembly.byproducts.emission[byproduct]])
+            mDotMelt = np.zeros(len(assembly.mesh.facets))
             mDotMelt = assembly.mDotMelt
         #hf_cond = assembly.hf_cond
 
@@ -326,20 +359,22 @@ def create_surface_solution(titan, options):
         
         cells = {"triangle": facets}
 
-        cell_data = { "pressure": [pressure],
-                      "heatflux": [heatflux],
-                      "temperature": [temperature],
-                      "shear": [shear],
-                      "theta": [theta],
-                      "debug_alpha" : [debug_alpha]
+        cell_data["pressure"] = [pressure]
+        cell_data["heatflux"] = [heatflux]
+        cell_data["temperature"] = [temperature]
+        cell_data["shear"] = [shear]
+        cell_data["theta"] =  [theta]
+        cell_data["debug_alpha"] = [debug_alpha]
                       #"Enthalpy BLE": [he],
                       #"Enthalpy Wall": [hw],
                       #"Temperatue BLE": [Te],
-                    }
+                    #}
         # I don't believe He, Hw and Te are functional at present
         if options.thermal.ablation:
             if options.thermal.ablation_mode == 'PATO':
                 cell_data["mDotVapor"] = [mDotVapor]
+                cell_data["mDotMelt"]  = [mDotMelt]
+            elif options.thermal.ablation_mode.lower() == 'byproducts':
                 cell_data["mDotMelt"]  = [mDotMelt]
         point_data = { "displacement": displacement}
 

@@ -20,7 +20,7 @@
 from Geometry import mesh as Mesh
 from Geometry import gmsh_api as GMSH
 from Geometry.tetra import inertia_tetra, vol_tetra
-from Geometry.enclosure import build_enclosure_AABB, build_enclosure_num
+from Thermal.byproducts import Byproducts
 import numpy as np
 from copy import deepcopy
 import subprocess
@@ -469,6 +469,9 @@ class Assembly():
         self.aerothermo = Aerothermo(len(self.mesh.facets))
         self.aerothermo_cfd = Aerothermo(len(self.mesh.nodes))
 
+        if options.thermal.ablation_mode=='byproducts': 
+            self.byproducts = Byproducts(len(self.mesh.facets), cutoff=options.thermal.mf_cutoff)
+            self.byproducts.get_species_list(self)
         #Initialize surface temperature of the assembly
         for obj in self.objects:
             self.aerothermo.temperature[obj.facet_index] = obj.temperature
@@ -490,6 +493,9 @@ class Assembly():
                     self.ablation_mode = 'tetra'
             else:
                 self.ablation_mode = '0d'
+        elif options.thermal.ablation_mode.lower() == 'byproducts':
+            self.ablation_mode = 'byproducts'
+            self.mDotMelt = np.zeros(len(self.mesh.facets))
 
         elif options.thermal.ablation_mode.lower() == 'tetra':
             self.ablation_mode = 'tetra'
@@ -523,8 +529,7 @@ class Assembly():
         self.angle_blackbody = np.zeros(len(self.mesh.facets))
         self.angle_atomic    = np.zeros(len(self.mesh.facets))
 
-        # self.enclosure_AABB = build_enclosure_AABB(self)
-        # self.enclosure_component_num = build_enclosure_num(self)
+
 
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):

@@ -212,8 +212,12 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].slip = titan.assembly[i].slip
 
         from Dynamics.propagation import construct_state_vector
-        construct_state_vector(titan.assembly[-1])
+        construct_state_vector(titan.assembly[-1], augmented=options.dynamics.augmented_state)
         titan.assembly[-1].unmodded_angles = titan.assembly[i].unmodded_angles
+        if options.thermal.ablation_mode=='byproducts':
+            from Thermal.byproducts import Byproducts
+            titan.assembly[-1].byproducts = Byproducts(len(titan.assembly[-1].mesh.facet_area),cutoff=options.thermal.mf_cutoff)
+            titan.assembly[-1].byproducts.get_species_list(titan.assembly[-1])
 
 
 def check_breakup_v2(titan, options):
@@ -620,11 +624,6 @@ def fragmentation(titan, options):
         titan.event_time = titan.time
         for assembly in titan.assembly:
             assembly.rearrange_ids()
-
-            if np.any([abs(obj.enclosure)>0 for obj in assembly.objects]):
-                from Geometry.enclosure import build_enclosure_AABB, build_enclosure_num
-                assembly.enclosure_AABB = build_enclosure_AABB(assembly)
-                assembly.enclosure_component_num  = build_enclosure_num(assembly)
 
         if options.collision.flag and len(assembly_id) != 0:
             for assembly in titan.assembly: collision.generate_collision_mesh(assembly, options)
