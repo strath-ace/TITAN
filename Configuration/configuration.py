@@ -1202,6 +1202,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.aerothermo.cat_rate   = get_config_value(configParser, 1.0, 'Aerothermo', 'Catalicity_rate', 'float')
     options.aerothermo.subdivision_triangle = get_config_value(configParser, 0, 'Aerothermo', 'Level_division', 'int')
     options.aerothermo.mixture = get_config_value(configParser, options.aerothermo.mixture, 'Aerothermo', 'Mixture', 'str')
+    options.aerothermo.knc_heatflux = get_config_value(configParser, options.aerothermo.knc_heatflux, 'Aerothermo', 'Continuum_limit', 'float')
 
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')

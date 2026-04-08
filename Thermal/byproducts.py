@@ -70,17 +70,19 @@ class Byproducts():
         for component in assembly.objects:
             if component.mixture is None: continue
             rhos, mf = self.air_in_excess(component, [mx.speciesName(i_spec) for i_spec in range(mx.nSpecies())])
+            notable_species = np.argwhere(mf>self.cutoff).flatten()
+            rhos = np.tile(np.array(rhos), (len(component.facet_dm), 1))
+            mf = np.tile(np.array(mf), (len(component.facet_dm), 1))
 
-            facet_ablation_mass = component.facet_dm
-            per_species_mass = np.full_like(mf, facet_ablation_mass) * facet_ablation_mass
-            for i_nz in np.argwhere(mf>self.cutoff).flatten():
+            per_species_mass = mf * component.facet_dm[:,np.newaxis]
+            for i_nz in notable_species:
                 name = self.species[i_nz]
-                self.rho[name]  = rhos[i_nz]
-                self.mf[name][i_facet]   = mf[i_nz]
-                mass = mf[i_nz] * augmented_total_mass[i_facet][0]
-                self.mass[name][i_facet] = mass
+                self.rho[name]  = rhos[:,i_nz]
+                self.mf[name]   = mf[:,i_nz]
+                mass = per_species_mass[:,i_nz]
+                self.mass[name] = mass
                 ## Emission as kg of byproduct/kilometre of altitude = m/dt / [ v sin(gamma)]
-                self.emission[name][i_facet] = 1000*np.abs(mass/(delta_t*assembly.trajectory.velocity*np.sin(assembly.trajectory.gamma)))
+                self.emission[name] = 1000*np.abs(mass/(delta_t*assembly.trajectory.velocity*np.sin(assembly.trajectory.gamma)))
 
     def mix_deprec(self, assembly, options, vol_method='excess', delta_t=1):
 
@@ -159,18 +161,20 @@ class Byproducts():
             del ablated_mix, ablated_mix_opts
     
 
-    def air_in_excess(self, component, air_mix_species_names, excess_ratio=2.5, tol=1e-16):
+    def air_in_excess(self, component, air_mix_species_names, excess_ratio=2.5, tol=1e-6):
         '''
             Function to generate stoichiometric mixture of air and ablated components
         '''
+        print('Getting mix opts')
         ablated_mix_opts = mpp.MixtureOptions(component.mixture)
         ablated_mix_opts.setStateModel("Equil")
+        print('Setting mix opts')
         ablated_mix = mpp.Mixture(ablated_mix_opts)
         species_map = [ablated_mix.speciesIndex(name) for name in component.species]
-        oxygen_species = [ablated_mix.speciesIndex('O2'), 
-                          ablated_mix.speciesIndex('O'), 
-                          ablated_mix.speciesIndex('NO'),
-                          ablated_mix.speciesIndex('NO2')]
+        oxygen_species = [ablated_mix.speciesIndex('O2')], 
+                        #   ablated_mix.speciesIndex('O'), 
+                        #   ablated_mix.speciesIndex('NO'),
+                        #   ablated_mix.speciesIndex('NO2')]
         if np.any(np.array(species_map)<0): raise Exception('Could not find all species!')
         
         
@@ -178,35 +182,38 @@ class Byproducts():
 
         stoichiometric_mult = 1.0
 
-        ub = 1e5
-        lb = 1e-5
+        ub = 7.5
+        lb = 0.5
         n_iter = 0
-        while eps>tol:
+        equil_prev = 1
+        # while abs(eps)>tol:
             
-            stoichiometric_mult = np.mean([lb,ub])
+        #     stoichiometric_mult = np.mean([lb,ub])
 
-            elem_list = self.get_composition(ablated_mix, air_mix_species_names, component.mass_fraction, 
-                                             species_map, stoichiometric_mult)
+        #     elem_list = self.get_composition(ablated_mix, air_mix_species_names, component.mass_fraction, 
+        #                                      species_map, stoichiometric_mult)
 
-            ablated_mix.addComposition(elem_list, True)
-            ablated_mix.equilibrate(self.P_mix, self.T_mix)
+        #     ablated_mix.addComposition(elem_list, True)
+        #     ablated_mix.equilibrate(self.P_mix, self.T_mix)
 
-            O2_equil = np.max([ablated_mix.X()[index] for index in oxygen_species])
+        #     O2_equil = np.max([ablated_mix.X()[index] for index in oxygen_species])
 
-            if O2_equil>0: # Air in excess
-                ub = stoichiometric_mult
-            else: # Rich mixture
-                lb = stoichiometric_mult
+        #     eps = 1-abs(O2_equil/equil_prev)
 
-            eps = abs(O2_equil)
-            if n_iter>1e6: break
-            n_iter +=1
-        
+        #     if eps>0: # Mixture tending rich ()
+        #         lb = stoichiometric_mult
+        #     else: # Mixture tending lean
+        #         ub = stoichiometric_mult
+        #     if n_iter>1e6: break
+        #     n_iter +=1
+        #     equil_prev = O2_equil
+        stoichiometric_mult = 3.384
         elem_list = self.get_composition(ablated_mix, air_mix_species_names, component.mass_fraction, 
                                          species_map, excess_ratio*stoichiometric_mult)
 
         ablated_mix.addComposition(elem_list, True)
-        ablated_mix.equilibrate(self.P_mix, self.T_mix)
+        print('Setting state...')
+        ablated_mix.setState(self.P_mix, self.T_mix[0], 1)
 
         mf   = ablated_mix.Y()
         rhos = ablated_mix.densities()
@@ -220,7 +227,8 @@ class Byproducts():
             i_species = ablated_mix.speciesIndex(name)
             if i_species<0: raise Exception('Could not find {} in mixture!'.format(name))
             mass_fractions[i_species] = stoichiometric_mult*mf_a
-
+        mass_fractions/=np.sum(mass_fractions)
+        
         species_x = ablated_mix.convert_y_to_x(mass_fractions)
         elements_x = ablated_mix.convert_x_to_xe(species_x)
         elements_x = np.array(elements_x)/np.sum(elements_x)

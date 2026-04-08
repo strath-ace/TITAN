@@ -70,10 +70,11 @@ def propagate(titan, options):
     # Increment time step
     if hasattr(titan,'rk_params'): time_step = titan.delta_t
     else: titan.delta_t = time_step
-
     if options.thermal.ablation_mode=='byproducts' and options.dynamics.augmented_state: 
         for _assembly in titan.assembly: 
-            if np.any(_assembly.mDotMelt<0): _assembly.byproducts.mix_excess(_assembly, options, delta_t=titan.delta_t)
+            if np.any(_assembly.mDotMelt<0):
+                print('Beginning mix')
+                _assembly.byproducts.mix_excess(_assembly, options, delta_t=titan.delta_t)
             else:
                 for speci in _assembly.byproducts.species:
                     _assembly.byproducts.rho[speci] = np.zeros_like(_assembly.byproducts.column_height_mix)
