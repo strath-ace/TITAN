@@ -29,7 +29,6 @@ import vg
 import sys
 from Geometry.tetra import inertia_tetra
 import requests
-import mutationpp as mpp
 import subprocess
 cutoff = 0.0
 
@@ -376,7 +375,7 @@ def compute_thermal_byproducts(titan, options, dt):
             assembly.byproducts_m   = [{} for _ in range(len(assembly.mesh.facet_area))]
         if recompute_mass_flag and not options.dynamics.augmented_state: 
             assembly.compute_mass_properties()
-            assembly.byproducts.mix(assembly, options)
+            assembly.byproducts.mix_excess(assembly, options)
 
 
 def compute_black_body_emissions(titan, options, q = []):

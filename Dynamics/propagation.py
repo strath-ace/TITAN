@@ -73,6 +73,7 @@ def propagate(titan, options):
     if options.thermal.ablation_mode=='byproducts' and options.dynamics.augmented_state: 
         for _assembly in titan.assembly: 
             if np.any(_assembly.mDotMelt<0):
+                if hasattr(titan,'rk_params'): options.dynamics.dt_max= 0.01
                 print('Beginning mix')
                 _assembly.byproducts.mix_excess(_assembly, options, delta_t=titan.delta_t)
             else:

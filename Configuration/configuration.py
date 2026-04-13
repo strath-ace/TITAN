@@ -1148,6 +1148,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.dynamics.dt_max = get_config_value(configParser, 10*options.dynamics.time_step, 'Time', 'Adaptive_dt_max', 'float')
     options.dynamics.t_end = get_config_value(configParser, np.inf, 'Time', 'Adaptive_end_time', 'float')
     options.dynamics.dt_initial = get_config_value(configParser, 0.1*options.dynamics.time_step, 'Time', 'Adaptive_dt_init', 'float')
+    options.dynamics.augmented_state = get_config_value(configParser, options.dynamics.augmented_state, 'Time', 'Augmented_state', 'boolean')
 
     if not (options.dynamics.propagator=='RK23' or options.dynamics.propagator=='RK45' or options.dynamics.propagator=='DOP853'):
         options.time_fidelity = 0.0
@@ -1182,6 +1183,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
 
         elif options.thermal.ablation_mode == "byproducts":
             options.thermal.volume_method = get_config_value(configParser, options.thermal.volume_method,'Thermal', 'Ablation_volume','str')
+            options.thermal.mf_cutoff = get_config_value(configParser, options.thermal.mf_cutoff, 'Thermal','Mass_fraction_cutoff', 'float')
         options.radiation.spectral               = get_config_value(configParser, options.radiation.spectral, 'Radiation', 'Spectral_emissions', 'boolean')
 
         if(options.radiation.spectral):
