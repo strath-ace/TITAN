@@ -128,20 +128,24 @@ def write_output_data(titan, options, smooth=False):
         for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.percent_mass[0]) :
             df[specie+"_mass_pct"] = [pct]
         if options.thermal.ablation_mode=='byproducts':
-            df_by = pd.DataFrame()
-            df_by['Time'] = [titan.time]
-            df_by['Iter'] = [titan.iter]
-            df_by['Assembly_ID']   = [assembly.id]
-            df_by['Mass'] = [assembly.mass]
-            df_by['Tmax'] = [max(assembly.aerothermo.temperature)]
-            df_by['Altitude'] = [assembly.trajectory.altitude]
-            df_by['mDotMelt'] = [np.sum(assembly.mDotMelt)*titan.delta_t]
+            just_emissions = True #TODO turn this into a proper option
+            columns = ['Time','Iter','Assembly_ID', 'Mass', 'Tmax', 'Altitude', 'mDotMelt']
+            [columns.append('emission_'+species) for species in list(assembly.byproducts.species)]
+            if not just_emissions:
+                [columns.append('mass_'+species) for species in list(assembly.byproducts.species)]
+                [columns.append('mean_rho_'+species) for species in list(assembly.byproducts.species)]
+                [columns.append('mean_mf_'+species) for species in list(assembly.byproducts.species)]
+            data = [titan.time, titan.iter, assembly.id, assembly.mass, max(assembly.aerothermo.temperature), 
+                    assembly.trajectory.altitude, np.sum(assembly.mDotMelt)*titan.delta_t]
+            [data.append(np.sum(assembly.byproducts.emission[species])) for species in list(assembly.byproducts.species)]
 
-            for species in list(assembly.byproducts.species):
-                df_by['mass_'+species] = [np.sum(assembly.byproducts.mass[species])]
-                df_by['mean_rho_'+species] = [np.mean(assembly.byproducts.rho[species])]
-                df_by['mean_mf_'+species] = [np.mean(assembly.byproducts.mf[species])]
-                df_by['emission_'+species] = [np.sum(assembly.byproducts.emission[species])]
+            if not just_emissions:
+                [data.append(np.sum(assembly.byproducts.mass[species])) for species in list(assembly.byproducts.species)]
+                [data.append(np.mean(assembly.byproducts.rho[species])) for species in list(assembly.byproducts.species)]
+                [data.append(np.mean(assembly.byproducts.mf[species]))  for species in list(assembly.byproducts.species)]
+            
+            df_by = pd.DataFrame(data=[data],columns=[columns])
+
             header = False if os.path.exists(options.output_folder+'/Data/data_byproducts.csv') else True
             df_by.to_csv(options.output_folder+'/Data/data_byproducts.csv',mode='a',header=header,index=False)
         #Stagnation properties
