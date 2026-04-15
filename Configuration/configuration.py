@@ -536,7 +536,7 @@ class Explosion():
         self.nucleus_choice = 'random'
 
         # [int] Compute budget for the voronoi kd-tree optimisation problem to recover an empirical law
-        self.voronoi_budget = 1e5
+        self.voronoi_budget = 0.0
 
         # [int] Maximum number of attempts at mesh generation before throwing an error, hopefully this will never matter for you
         self.max_mesh_attempts = 30

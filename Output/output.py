@@ -341,6 +341,8 @@ def create_surface_solution(titan, options):
         # Te = assembly.aerothermo.Te
         debug_alpha = assembly.aerothermo.debug_alpha
         cell_data = {}
+
+
         if options.thermal.ablation_mode.lower() == 'pato' and options.pato.Ta_bc == 'ablation':
             mDotVapor = np.zeros(len(assembly.mesh.facets))
             mDotMelt  = np.zeros(len(assembly.mesh.facets))

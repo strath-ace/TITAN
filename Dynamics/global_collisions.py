@@ -81,7 +81,7 @@ def construct_global_velocities(titan, ids, local_velocity_ECEF):
 	for i_assem, assem_id in enumerate(ids):
 		state = np.array(titan.assembly[assem_id].state_vector)
 		v[6*i_assem   : 6*i_assem+3] = state[3:6] - np.array(local_velocity_ECEF)
-		v[6*i_assem+3 : 6*i_assem+6] = Rot.from_quat(state[6:10]).apply(state[10:])
+		v[6*i_assem+3 : 6*i_assem+6] = Rot.from_quat(state[6:10]).apply(state[10:13])
 
 	return v
 
@@ -224,7 +224,7 @@ def impulse_update(options, ids, correction_method='split', correction_only=Fals
 		body.position = np.array(body.state_vector[:3])
 		body.velocity = np.array(body.state_vector[3:6])
 		body.quaternion = np.array(body.state_vector[6:10])
-		body.rol_vel, body.pitch_vel, body.yaw_vel = body.state_vector[10:]
+		body.rol_vel, body.pitch_vel, body.yaw_vel = body.state_vector[10:13]
 	return titan
 
 def sequential_collision_resolution(titan, options, imp_update_func, MInv, J_func, b_shape, n_iters = 100, bounds =[0, np.inf], epsilon = 1e-10, warm_start = None):

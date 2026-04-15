@@ -82,7 +82,7 @@ parser = argparse.ArgumentParser(description="Verify an stl using blenders clean
 parser.add_argument('--file',type=str,help='Path to target .stl object')
 parser.add_argument('--stats', type=str,default='', help='Path to stats file, leave blank to disable stat collection')
 parser.add_argument('-d', type=float,default=2810, help='Density for statistics computation')
-parser.add_argument('-o', type=bool,action=argparse.BooleanOptionalAction, help='Overwrite file with cleaned mesh')
+parser.add_argument('-o', action=argparse.BooleanOptionalAction, help='Overwrite file with cleaned mesh')
 parser.add_argument('-w', type=float,default=0.0, help='Wall thickness if thin-walled')
 parser.add_argument('-m', type=float,default=0.0, help='Merge distance to remove degenerate geometry')
 

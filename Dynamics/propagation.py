@@ -757,7 +757,7 @@ def adaptive_integrator_selector(N_AB, N_RK,state_vectors,state_vectors_prior,de
         new_state_vectors = AB_new_state_vectors
         d_dt_state_vectors = AB_d_dt_state_vectors
         new_state_vectors[6:10] = angles
-        new_state_vectors[10:] = accelerations
+        new_state_vectors[10:13] = accelerations
         d_dt_state_vectors[6:] = np.zeros(7)
         return new_state_vectors, d_dt_state_vectors
     elif bridging[1]>0:
@@ -770,5 +770,41 @@ def adaptive_integrator_selector(N_AB, N_RK,state_vectors,state_vectors_prior,de
     d_dt_state_vectors = bridging[0]*np.array(AB_d_dt_state_vectors) + bridging[1] * np.array(RK_d_dt_state_vectors)
     return new_state_vectors, d_dt_state_vectors
     
+def unflatten_state_vectors(titan, options, state_vectors):
+    new_state_vectors = []
+    start_pointer = 0
+    for _assembly in titan.assembly:
+        end_pointer = start_pointer + 13 + 2*len(_assembly.objects) * options.dynamics.augmented_state
+        new_state_vectors.append(state_vectors[start_pointer:end_pointer])
+        start_pointer = end_pointer
+    return new_state_vectors
 
+def flatten_state_vectors(state_vectors):
+    new_state_vectors = []
+    for state_vector in state_vectors: [new_state_vectors.append(elem) for elem in state_vector]
+    return new_state_vectors
+
+def states_op(titan, options, state_vectors, operand, operation='sv+'):
+    out_sv = []
+    if 'sv' in operation:
+        for state_1, state_2 in zip(state_vectors, operand):
+            out_sv.append([])
+            for element_1, element_2 in zip(state_1,state_2):
+                match operation:
+                    case 'sv+' : out_sv[-1].append(element_1 +  element_2)
+                    case 'sv-' : out_sv[-1].append(element_1 -  element_2)
+                    case 'sv*' : out_sv[-1].append(element_1 *  element_2)
+                    case 'sv/' : out_sv[-1].append(element_1 /  element_2)
+                    case 'sv**': out_sv[-1].appned(element_1 ** element_2)
+    else:
+        for state in state_vectors:
+            out_sv.append([])
+            for element in state: 
+                match operation:
+                    case '+'  : out_sv[-1].append(element +  operand)
+                    case '-'  : out_sv[-1].append(element -  operand)
+                    case '*'  : out_sv[-1].append(element *  operand)
+                    case '/'  : out_sv[-1].append(element /  operand)
+                    case '**' : out_sv[-1].append(element ** operand)
+    return out_sv
 

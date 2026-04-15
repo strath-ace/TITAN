@@ -133,7 +133,9 @@ def fracture_object(explobject, parent, options, dt = None, base_rng = None):
         new_fragments.insert_component(filename=expl_dir+'/'+'frag_'+str(ids[i_frag])+'.stl',
                                                   file_type='Primitive',material=frag_material,
                                                   temperature=frag_temp, options=options, 
-                                                  global_ID=-1*(i_frag+1), alpha=explobject.debug_alpha)
+                                                  global_ID=-1*(i_frag+1), alpha=explobject.debug_alpha, 
+                                                  mixture=explobject.mixture, mass_fractions=explobject.mass_fraction,
+                                                  species=explobject.species)
     
     return new_fragments, explosion_parameters
 
@@ -218,7 +220,7 @@ def build_new_assemblies(fragment_list, titan, options, i_parent, explosion_para
         # titan.assembly[-1].slip = parent.slip
 
         from Dynamics.propagation import construct_state_vector
-        construct_state_vector(titan.assembly[-1])
+        construct_state_vector(titan.assembly[-1], options.dynamics.augmented_state)
         titan.assembly[-1].unmodded_angles = parent.unmodded_angles
 
         if options.collision.flag: 

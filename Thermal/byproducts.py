@@ -86,14 +86,14 @@ class Byproducts():
             mf = np.tile(np.array(mf), (len(component.facet_dm), 1))
 
             per_species_mass = mf * component.facet_dm[:,np.newaxis]
-            for i_nz in range(len(self.species)):#notable_species:
+            for i_nz in notable_species:
                 name = self.species[i_nz]
-                self.rho[name]  = rhos[:,i_nz]
-                self.mf[name]   = mf[:,i_nz]
+                self.rho[name][component.facet_index]  = rhos[:,i_nz]
+                self.mf[name][component.facet_index]   = mf[:,i_nz]
                 mass = per_species_mass[:,i_nz]
-                self.mass[name] = mass
+                self.mass[name][component.facet_index] = mass
                 ## Emission as kg of byproduct/kilometre of altitude = m/dt / [ v sin(gamma)]
-                self.emission[name] = 1000*np.abs(mass/(delta_t*assembly.trajectory.velocity*np.sin(assembly.trajectory.gamma)))
+                self.emission[name][component.facet_index] = 1000*np.abs(mass/(delta_t*assembly.trajectory.velocity*np.sin(assembly.trajectory.gamma)))
     
 
     def air_in_excess(self, component, air_mix_species_names, excess_ratio=2.5, tol=1e-6):

@@ -53,7 +53,7 @@ def create_assembly_flag(list_bodies, Flags):
     #Loop the components list
     #If they are Primitive or the mass is larger or equal than 0, the correspondent diagonal entry is set to true
     for i in range(len(list_bodies)):
-        if list_bodies[i].type == 'Primitive' and list_bodies[i].mass >= 0:
+        if not list_bodies[i].type == 'Joint' and list_bodies[i].mass >= 0:
             assembly_flag[i,i] = True
     
     #Loops the Flags variable

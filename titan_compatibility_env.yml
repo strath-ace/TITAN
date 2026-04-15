@@ -24,8 +24,11 @@ dependencies:
   - scikit-build
   - pyembree
   - rtree
+  - psutil
+  - networkx
   - pip:
       - stl
       - vg
       - gmsh
       - python-fcl
+      - manifold3d

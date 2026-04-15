@@ -20,35 +20,39 @@ def generate_fragment_meshes(stl, voronoi, write_dir, extrude=3e-2, verbose=Fals
     base_mesh = trimesh.load_mesh(stl)
     manifold_mesh = manifold3d.Mesh(vert_properties=np.array(base_mesh.vertices),tri_verts=np.array(base_mesh.faces))
     base_manifold = manifold3d.Manifold(manifold_mesh)
+    bool_list = [base_manifold]
     if verbose: print('Building prisms')
-    prisms = build_voro_prisms(voronoi, base_mesh.bounding_box.bounds, extrude=extrude)
-    #combined_prisms = trimesh.boolean.boolean_manifold(prisms, 'union')
-#        bool_mesh = trimesh.boolean.boolean_manifold([base_mesh, combined_prisms],'difference')
-    #bool_mesh = base_mesh
-    bool_mani = prisms[0]
+    #prisms = build_voro_prisms(voronoi, base_mesh.bounding_box.bounds, extrude=extrude)
+    prisms = orthogonal_planes(base_mesh.bounding_box.bounds,extrude=extrude, rng=np.random.RandomState(69420), n=9)
+    prism_tool = manifold3d.Manifold.batch_boolean(prisms, manifold3d.OpType.Add).to_mesh()
+    trimesh.Trimesh(vertices=prism_tool.vert_properties, faces=prism_tool.tri_verts).export('Planes.stl')
+    [bool_list.append(prism) for prism in prisms]
     if verbose: print('Performing boolean')
-    for i_prism, prism in enumerate(prisms[1:]):
-        if i_prism % np.floor(0.1*len(prisms)) == 0 and verbose:
-            print('...',np.round(100*i_prism/len(prisms)),'%')
-        bool_mani = bool_mani + prism
+    # for i_prism, prism in enumerate(prisms[1:]):
+    #     if i_prism % np.floor(0.1*len(prisms)) == 0 and verbose:
+    #         print('...',np.round(100*i_prism/len(prisms)),'%')
+    #     bool_mani = bool_mani + prism
+    bool_mani = manifold3d.Manifold.batch_boolean(bool_list, manifold3d.OpType.Subtract)
     if verbose: print('Converting manifold to mesh')
     #bool_mani = bool_mani + bool_mani
-    bool_mani = base_manifold - bool_mani
-    mesh = bool_mani.to_mesh()# bool_mani.to_mesh()
+    
+
+    mesh = bool_mani.set_tolerance(1e-5).to_mesh()# bool_mani.to_mesh()
 
     bool_mesh = trimesh.Trimesh(vertices=mesh.vert_properties, faces=mesh.tri_verts)
-    #bool_mesh.export('prisms0.stl')
+    bool_mesh.export('prisms0.stl')
     splits = bool_mesh.split()
     n_frags = 0
     n_fails = 0
     for split in splits:
-        if np.abs(split.volume)>5e-7 or (not split.is_watertight):
+        if np.abs(split.volume)>5e-7 and split.is_watertight:
             split.export('{}/frag_{}.stl'.format(write_dir, n_frags))
             n_frags+=1
-        else: 
-            pass
-            # split.export('{}/fail_{}.stl'.format(write_dir, n_fails))
-            # n_fails += 1
+        else:
+            continue
+            split.export('{}/fail_{}.stl'.format(write_dir, n_fails))
+            n_fails += 1
+
 def build_voro_prisms(voronoi, bb = None, extrude=1e-2, use_trimesh=True):
     prisms = [] # Final built tri-prisms to use in boolean
     surf_list = [] # Already existing surfs in str format
@@ -122,10 +126,13 @@ def build_voro_prisms(voronoi, bb = None, extrude=1e-2, use_trimesh=True):
 
 
                 vert_normals = [v_normals[tri[0]],v_normals[tri[1]],v_normals[tri[2]]]
+                if extrude>0:
                 # For each tri we symmetrically extrude it to make a triangular prism
-                prism_verts, prism_faces = extrude_prism_from_verts(verts, extrude, normals[i_tri], vert_normals, debug_trimesh=True)
-                prism = manifold3d.Manifold(manifold3d.Mesh(vert_properties=prism_verts, 
+                    prism_verts, prism_faces = extrude_prism_from_verts(verts, extrude, normals[i_tri], vert_normals, debug_trimesh=True)
+                    prism = manifold3d.Manifold(manifold3d.Mesh(vert_properties=prism_verts, 
                                                             tri_verts=prism_faces))#trimesh.Trimesh(vertices=prism_verts, faces=prism_faces)
+                else:
+                    prism = manifold3d.Manifold(manifold3d.Mesh(vert_properties=verts, tri_verts=np.array([[0,1,2]])))
                 prisms.append(prism)
                 # if (not prism.is_volume) or (not prism.is_watertight) or (not prism.is_winding_consistent):
                 #     print('Error on prism {}\n Volume : {}\n Watertight : {}\n Winding : {}'.format(len(prisms),
@@ -135,6 +142,44 @@ def build_voro_prisms(voronoi, bb = None, extrude=1e-2, use_trimesh=True):
                 #     prism.export('Error_'+str(len(prisms))+'.stl')
                
                 surf_list.append(str_full_loop)
+    return prisms
+
+def orthogonal_planes(bounding_box, rng, n=50, extrude=1e-2):
+    prisms = []
+    normals = np.eye(3)
+    normals[1] *= -1
+    for i_plane in range(n):
+        axis = rng.choice(3)
+        height = bounding_box[0][axis]+rng.rand()*(bounding_box[1][axis]-bounding_box[0][axis])#
+        quad = np.zeros([4,3])
+        quad[:,axis] = height*np.ones(4)
+        flip = False
+        for i_ax in range(3):
+            if not i_ax==axis and not flip:
+                quad[0,i_ax] = bounding_box[0][i_ax]
+                quad[1,i_ax] = bounding_box[0][i_ax]
+                quad[2,i_ax] = bounding_box[1][i_ax]
+                quad[3,i_ax] = bounding_box[1][i_ax]
+                flip = True
+            elif not i_ax==axis and flip:
+                quad[0,i_ax] = bounding_box[0][i_ax]
+                quad[1,i_ax] = bounding_box[1][i_ax]
+                quad[2,i_ax] = bounding_box[0][i_ax]
+                quad[3,i_ax] = bounding_box[1][i_ax]
+        prism_verts, prism_faces = extrude_prism_from_verts(quad[:3,:], 
+                                                            extrude, 
+                                                            normal=normals[axis],
+                                                            vert_normals=[normals[axis] for _ in range(3)], 
+                                                            debug_trimesh=True)
+        prisms.append(manifold3d.Manifold(manifold3d.Mesh(vert_properties=prism_verts, 
+                                                            tri_verts=prism_faces)))
+        
+        prism_verts, prism_faces = extrude_prism_from_verts(quad[:0:-1,:], 
+                                                            extrude, 
+                                                            normal=normals[axis],
+                                                            vert_normals=[normals[axis] for _ in range(3)])
+        prisms.append(manifold3d.Manifold(manifold3d.Mesh(vert_properties=prism_verts, 
+                                                            tri_verts=prism_faces)))
     return prisms
 
 def extrude_prism_from_verts(verts, base_extrude_height, normal, vert_normals = None, bias = 0.5, scale=1.0, debug_trimesh=False):
@@ -195,14 +240,14 @@ def mesh_check(folder, density, target_volume=None, threshold=10.0, delete_bad=F
                                     '--file={}'.format(frag),
                                     '-d={}'.format(density),
                                     '--stats='+folder+'/stats.csv',
-                                    '-m={}'.format(0.00000),
+                                    '-m={}'.format(1e-4),
                                     '-o'], stdout=subprocess.DEVNULL)
         else:
             proc = subprocess.run(['blender','-b','-P','./Explosion/stl_verify_blender.py','--',
                                     '--file={}'.format(frag),
                                     '-d={}'.format(density),
                                     '--stats='+folder+'/stats.csv',
-                                    '-m={}'.format(0.00000),
+                                    '-m={}'.format(1e-4),
                                     '-o'])
             
         if proc.returncode==1:
