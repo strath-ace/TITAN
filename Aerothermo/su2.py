@@ -31,7 +31,6 @@ from vtk.util.numpy_support import vtk_to_numpy
 import subprocess
 import os
 import trimesh
-import open3d as o3d
 import pandas as pd
 
 class Solver():
@@ -183,7 +182,7 @@ class Solver_Numerical_Method():
         self.cfl = "CFL_NUMBER = " + str(su2.cfl)
         
         #[str] Adaptive CFL boolean (Default is NO)
-        self.cfl_adapt = "CFL_ADAPT = NO"
+        self.cfl_adapt = "CFL_ADAPT = YES"
 
         #Parameters of the adaptive CFL number (factor down, factor up, CFL min value,CFL max value )
         self.cfl_adapt_param = "CFL_ADAPT_PARAM= ( 0.05, 1.025, 0.01, 0.95 )"
@@ -270,7 +269,7 @@ class Solver_Input_Output():
         self.output_surf = "SURFACE_FILENAME= "+output_folder+"/CFD_sol/surface_flow_"+ str(iteration) + '_adapt_' + str(it) + '_cluster_'+str(cluster_tag)
 
         #: [str] Frequency for the output file generation
-        self.output_freq = "OUTPUT_WRT_FREQ= 500"
+        self.output_freq = "OUTPUT_WRT_FREQ= 100"
 
         #: [str] Screen output
         self.screen = "SCREEN_OUTPUT= (INNER_ITER,WALL_TIME, RMS_RES, CAUCHY, AVG_CFL)"
@@ -548,7 +547,9 @@ def run_SU2(n, options):
 
     options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    subprocess.run(['mpirun','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    if n <=1: 
+        subprocess.run([path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
+    else: subprocess.run(['mpirun','--use-hwthread-cpus','-n', str(n), path+'/Executables/SU2_CFD',options.output_folder +'/CFD_sol/Config.cfg'], text = True)
 
 
 def generate_BL(assembly, options, it, cluster_tag, iteration):
@@ -747,9 +748,6 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
     GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
 
-    #Automatically generates the CFD domain
-    input_grid = 'Domain_iter_'+ str(titan.iter) + '_adapt_' +str(0)+'_cluster_'+str(cluster_tag)+'.su2'
-    GMSH.generate_cfd_domain(assembly_windframe, 3, ref_size_surf = options.meshing.surf_size, ref_size_far = options.meshing.far_size , output_folder = options.output_folder, output_grid = input_grid, options = options)
     #Generate the Boundary Layer (if flag = True)
     generate_BL(assembly_list, options, 0, cluster_tag, iteration)
     #Writes the configuration file

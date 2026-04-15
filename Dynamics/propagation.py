@@ -1,5 +1,7 @@
 import os
 from Dynamics import dynamics, frames, collision
+from Dynamics.global_collisions import global_collision_physics
+from Dynamics.quaternion_operations import *
 from Aerothermo import aerothermo
 from Forces import forces
 from Thermal import thermal
@@ -14,6 +16,7 @@ from functools import partial
 from Output import output
 from warnings import warn
 from copy import copy, deepcopy
+#from messaging import messenger
 ## Current implented integrators (define in cfg under [Time] as Time_integration='')...
 
 ## Constant time-step methods  
@@ -36,8 +39,15 @@ def propagate(titan, options):
     #  a propagator specified by options.dynamics.propagator
 
     if options.collision.flag and len(titan.assembly)>1:
-        flag_collision, __ = collision.check_collision(titan, options, 0)
-        if flag_collision: collision.collision_physics(titan, options)
+        has_collided, _, col_data = collision.update_and_check(titan, options, 0)
+        if has_collided:
+            # if titan.collision_data is None: 
+            titan.collision_data = col_data
+            
+            if not options.collision.use_legacy:
+                global_collision_physics(titan, options, correction_method=options.collision.stabilisation, recurse=0)
+            else:
+                collision.collision_physics(titan, options)
 
     # If we go to switch.py or su2.py, Because we call deepcopy() function, we need to rebuild
     #the collision mesh
@@ -49,23 +59,37 @@ def propagate(titan, options):
     current_state_vectors, state_vectors_prior, derivatives_prior = collect_state_vectors(titan, options)
 
     time_step = options.dynamics.time_step if not hasattr(titan,'rk_adapt') else options.dynamics.dt_max
-    if options.collision.flag and len(titan.assembly)>1:
+    if options.collision.flag and len(titan.assembly)>1 and np.any(np.array([len(group) for group in titan.groups])>1):
         #Check collision for future time intervals with respect to current time-step velocity
-        __, time_step = collision.check_collision(titan, options, time_step)
+        minLref = np.min([_assembly.Lref for _assembly in titan.assembly])
+        time_step = collision.compute_time_resolution(titan, options, minLref)
+        if hasattr(titan, 'body_length_dt'): 
+            time_step = copy(titan.body_length_dt)
+            del titan.body_length_dt
+        time_to_impact = collision.find_ToI_timestep(titan, options, time_step)
+        time_step = time_to_impact
     
     surface_solutions = output.create_surface_solution(titan,options)
     for _assembly, sol in zip(titan.assembly, surface_solutions): 
         _assembly.prev_surf_data = deepcopy(sol.cell_data)
 
     # Propagate according to propagator function...
-    new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,state_vectors_prior,derivatives_prior,time_step,titan,options)
+    new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,
+                                                               state_vectors_prior,
+                                                               derivatives_prior,
+                                                               time_step,
+                                                               titan,
+
+                                                               options)
     # Update prior derivatives
     if new_derivs is not None: append_derivatives(titan,options,new_derivs)
+
     # Total angular distance (unmodded) is useful for 6DoF propagation stability analysis
     angle_names = ['roll','pitch','yaw']
     for _assembly in titan.assembly:
         if not hasattr(_assembly,'unmodded_angles'): 
             _assembly.unmodded_angles  = np.array([getattr(_assembly,angle) for angle in angle_names])
+
     # Writes the output data
     # Increment time step
     if hasattr(titan,'rk_params'): time_step = titan.delta_t
@@ -84,6 +108,7 @@ def propagate(titan, options):
                     _assembly.byproducts.emission[speci] = np.zeros_like(_assembly.byproducts.column_height_mix)
     output.write_output_data(titan = titan, options = options)
     if options.time_fidelity>0.0: write_dense_output(titan, options)
+
     # Communicate new vectors to assemblies
     for i_assem, _assembly in enumerate(titan.assembly):  
         update_dynamic_attributes(_assembly,new_state_vectors[i_assem],options)
@@ -118,8 +143,8 @@ def state_equation(titan,options,time,state_vectors):
         update_dynamic_attributes(_assembly,state_vector,options)
     
     # Then business as usual for computing forces...
-    
     aerothermo.compute_aerothermo(titan, options)
+
     aero_states = [copy(_assembly.aerothermo) for _assembly in titan.assembly]
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
@@ -131,6 +156,18 @@ def state_equation(titan,options,time,state_vectors):
     for _assembly in titan.assembly:
         angularDerivatives = dynamics.compute_angular_derivatives(_assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(_assembly, options)
+
+        if options.vehicle: # Aim to keep the aoa=0 condition
+            gamma_dot = cartesianDerivatives.dx*cartesianDerivatives.dw - cartesianDerivatives.dz*cartesianDerivatives.du
+            gamma_dot /= cartesianDerivatives.dx**2 + cartesianDerivatives.dz**2
+            #_assembly.pitch = _assembly.trajectory.gamma
+            angularDerivatives.dpitch = gamma_dot
+            angularDerivatives.dyaw = 0
+            angularDerivatives.droll = 0
+
+            angularDerivatives.ddyaw  = 0
+            angularDerivatives.ddroll = 0
+
 
         # Use quaternion derivative equation 
         omega_q = [angularDerivatives.droll,angularDerivatives.dpitch,angularDerivatives.dyaw,0.0]
@@ -231,21 +268,42 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
         assembly.trajectory.velocity = np.linalg.norm([Vx_B, Vy_B, Vz_B])
 
         assembly.aoa = np.arctan2(Vz_B,Vx_B)
+        #if options.vehicle: assembly.aoa = 0
         assembly.slip = np.arcsin(Vy_B/np.sqrt(Vx_B**2 + Vy_B**2 +  Vz_B**2))
-        angular_momentum = assembly.inertia @ np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel] )
-    if return_output_array: return np.array([assembly.id,assembly.mass,assembly.trajectory.altitude,
-                                             assembly.trajectory.velocity,assembly.trajectory.gamma*180/np.pi,assembly.trajectory.chi*180/np.pi,
-                                             assembly.trajectory.latitude*180/np.pi,assembly.trajectory.longitude*180/np.pi,
-                                             assembly.aoa*180/np.pi,assembly.slip*180/np.pi,
-                                             assembly.position[0],assembly.position[1],assembly.position[2],
-                                             assembly.velocity[0],assembly.velocity[1],assembly.velocity[2],
-                                             assembly.COG[0],assembly.COG[1],assembly.COG[2],
-                                             assembly.roll*180/np.pi,assembly.pitch*180/np.pi,assembly.yaw*180/np.pi,
-                                             assembly.unmodded_angles[0]*180/np.pi,assembly.unmodded_angles[1]*180/np.pi,assembly.unmodded_angles[2]*180/np.pi, 
-                                             assembly.roll_vel*180/np.pi,assembly.pitch_vel*180/np.pi,assembly.yaw_vel*180/np.pi,
-                                             np.linalg.norm([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])*180/np.pi,
-                                             angular_momentum[0], angular_momentum[1], angular_momentum[2], np.linalg.norm(angular_momentum),
-                                             assembly.quaternion[3],assembly.quaternion[0],assembly.quaternion[1],assembly.quaternion[2]])
+    if return_output_array:
+        try: 
+            angular_momentum = assembly.inertia @ np.array([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel] )
+            momentum_norm = np.linalg.norm(angular_momentum)
+            output_array  = np.array([assembly.id,assembly.mass,assembly.trajectory.altitude,
+                                        assembly.trajectory.velocity,assembly.trajectory.gamma*180/np.pi,assembly.trajectory.chi*180/np.pi,
+                                        assembly.trajectory.latitude*180/np.pi,assembly.trajectory.longitude*180/np.pi,
+                                        assembly.aoa*180/np.pi,assembly.slip*180/np.pi,
+                                        assembly.position[0],assembly.position[1],assembly.position[2],
+                                        assembly.velocity[0],assembly.velocity[1],assembly.velocity[2],
+                                        assembly.COG[0],assembly.COG[1],assembly.COG[2],
+                                        assembly.roll*180/np.pi,assembly.pitch*180/np.pi,assembly.yaw*180/np.pi,
+                                        assembly.unmodded_angles[0]*180/np.pi,assembly.unmodded_angles[1]*180/np.pi,assembly.unmodded_angles[2]*180/np.pi, 
+                                        assembly.roll_vel*180/np.pi,assembly.pitch_vel*180/np.pi,assembly.yaw_vel*180/np.pi,
+                                        np.linalg.norm([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])*180/np.pi,
+                                        angular_momentum[0], angular_momentum[1], angular_momentum[2], momentum_norm,
+                                        assembly.quaternion[3],assembly.quaternion[0],assembly.quaternion[1],assembly.quaternion[2]])
+        except: 
+            angular_momentum = np.zeros(3)
+            momentum_norm = 0
+            output_array  = np.array([assembly.id,assembly.mass,assembly.trajectory.altitude,
+                        assembly.trajectory.velocity,assembly.trajectory.gamma*180/np.pi,assembly.trajectory.chi*180/np.pi,
+                        assembly.trajectory.latitude*180/np.pi,assembly.trajectory.longitude*180/np.pi,
+                        assembly.aoa*180/np.pi,assembly.slip*180/np.pi,
+                        assembly.position[0],assembly.position[1],assembly.position[2],
+                        assembly.velocity[0],assembly.velocity[1],assembly.velocity[2],
+                        assembly.COG[0],assembly.COG[1],assembly.COG[2],
+                        assembly.roll*180/np.pi,assembly.pitch*180/np.pi,assembly.yaw*180/np.pi,
+                        assembly.unmodded_angles[0]*180/np.pi,assembly.unmodded_angles[1]*180/np.pi,assembly.unmodded_angles[2]*180/np.pi, 
+                        assembly.roll_vel*180/np.pi,assembly.pitch_vel*180/np.pi,assembly.yaw_vel*180/np.pi,
+                        np.linalg.norm([assembly.roll_vel,assembly.pitch_vel,assembly.yaw_vel])*180/np.pi,
+                        angular_momentum[0], angular_momentum[1], angular_momentum[2], momentum_norm,
+                        assembly.quaternion[3],assembly.quaternion[0],assembly.quaternion[1],assembly.quaternion[2]])
+        return output_array
     return assembly
 
 def construct_state_vector(assembly, augmented = False):
@@ -565,7 +623,10 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
                                                                                     t_bound=titan.rk_params['t_end'],
                                                                                     first_step=titan.rk_params['t_first'],
                                                                                     max_step=titan.rk_params['t_max'])
-    if titan.rk_adapt.status == 'running':
+    if titan.time>options.dynamics.t_end:
+        print('Propagation concluding ({} function evaluations)'.format(titan.rk_adapt.nfev))
+        titan.end_trigger = True
+    elif titan.rk_adapt.status == 'running':
         titan.rk_adapt.max_step = dt
         titan.rk_adapt.step()
     else: 
@@ -573,6 +634,7 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
         titan.end_trigger = True
 
     titan.delta_t = titan.rk_adapt.step_size
+    if options.verbose: print('Propagated dt={}'.format(titan.delta_t))
     return unflatten_state_vectors(titan, options, titan.rk_adapt.y), None
 
 def proj_area_adapt_wrapper(N, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
@@ -710,66 +772,3 @@ def adaptive_integrator_selector(N_AB, N_RK,state_vectors,state_vectors_prior,de
     
 
 
-#############################################################################################################################################
-#############################################################################################################################################
-###################################################  QUATERNION HELPER FUNCTIONS  ###########################################################
-#############################################################################################################################################
-#############################################################################################################################################
-
-def quaternion_mult(q1,q2):
-    return np.array([q1[3]*q2[0]+q1[0]*q2[3]+q1[1]*q2[2]-q1[2]*q2[1],
-            q1[3]*q2[1]+q1[1]*q2[3]-q1[0]*q2[2]+q1[2]*q2[0],
-            q1[3]*q2[2]+q1[2]*q2[3]+q1[0]*q2[1]-q1[1]*q2[0],
-            q1[3]*q2[3]-q1[0]*q2[0]-q1[1]*q2[1]-q1[2]*q2[2]])
-
-def quaternion_conjugate(q): return np.array([-q[0],-q[1],-q[2],q[3]])
-
-def quaternion_normalize(q):
-    norm = np.linalg.norm(q)
-    return q/norm
-
-def quaternion_to_matrix(q):
-    return np.array([
-        [1 - 2 * (q[1]**2 + q[2]**2),     2 * (q[0] * q[1] - q[3] * q[2]), 2 * (q[0] * q[2] + q[3] * q[1]), 0],
-        [2 * (q[0] * q[1] + q[3] * q[2]), 1 - 2 * (q[0]**2 + q[2]**2),     2 * (q[1] * q[2] - q[3] * q[0]), 0],
-        [2 * (q[0] * q[2] - q[3] * q[1]), 2 * (q[1] * q[2] + q[3] * q[0]), 1 - 2 * (q[0]**2 + q[1]**2),     0],
-        [0,                               0,                               0,                               1]
-    ])
-
-def unflatten_state_vectors(titan, options, state_vectors):
-    new_state_vectors = []
-    start_pointer = 0
-    for _assembly in titan.assembly:
-        end_pointer = start_pointer + 13 + 2*len(_assembly.objects) * options.dynamics.augmented_state
-        new_state_vectors.append(state_vectors[start_pointer:end_pointer])
-        start_pointer = end_pointer
-    return new_state_vectors
-
-def flatten_state_vectors(state_vectors):
-    new_state_vectors = []
-    for state_vector in state_vectors: [new_state_vectors.append(elem) for elem in state_vector]
-    return new_state_vectors
-
-def states_op(titan, options, state_vectors, operand, operation='sv+'):
-    out_sv = []
-    if 'sv' in operation:
-        for state_1, state_2 in zip(state_vectors, operand):
-            out_sv.append([])
-            for element_1, element_2 in zip(state_1,state_2):
-                match operation:
-                    case 'sv+' : out_sv[-1].append(element_1 +  element_2)
-                    case 'sv-' : out_sv[-1].append(element_1 -  element_2)
-                    case 'sv*' : out_sv[-1].append(element_1 *  element_2)
-                    case 'sv/' : out_sv[-1].append(element_1 /  element_2)
-                    case 'sv**': out_sv[-1].appned(element_1 ** element_2)
-    else:
-        for state in state_vectors:
-            out_sv.append([])
-            for element in state: 
-                match operation:
-                    case '+'  : out_sv[-1].append(element +  operand)
-                    case '-'  : out_sv[-1].append(element -  operand)
-                    case '*'  : out_sv[-1].append(element *  operand)
-                    case '/'  : out_sv[-1].append(element /  operand)
-                    case '**' : out_sv[-1].append(element ** operand)
-    return out_sv

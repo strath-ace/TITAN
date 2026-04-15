@@ -5,3 +5,5 @@ Executables
 TITAN_sol
 *.xml
 settings.json
+debug*
+*.geo_unrolled

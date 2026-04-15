@@ -25,7 +25,14 @@ from copy import copy
 from Aerothermo import su2, switch, sparta
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
-import trimesh
+from scipy.spatial.transform import RigidTransform as Trans
+from scipy.spatial import KDTree
+import trimesh, pathlib
+try:
+    from trimesh.ray.ray_pyembree import RayMeshIntersector
+except:
+    print('PyEmbree/Embreex library not set up')
+    from trimesh.ray.ray_triangle import RayMeshIntersector
 from scipy.optimize import root
 from scipy.optimize import fsolve
 try:
@@ -323,7 +330,7 @@ def compute_aerothermo(titan, options):
         mix_properties.compute_stagnation(assembly.freestream, options.freestream)
 
     if options.fidelity.lower() == 'low':
-        compute_low_fidelity_aerothermo(titan.assembly, options, titan.iter)
+        titan.groups = compute_low_fidelity_aerothermo(titan.assembly, options, titan.iter)
     elif options.fidelity.lower() == 'high':
 
         if  (assembly.freestream.knudsen <= options.aerothermo.knc_pressure):
@@ -365,9 +372,9 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
 
         elif (assembly.freestream.knudsen >= Kn_free): 
-            pressures, shears = aerodynamics_module_freemolecular(assembly, index, flow_direction)
-            assembly.aerothermo.pressure[index] += pressures
-            assembly.aerothermo.shear[index] += shears
+            pressure, shear = aerodynamics_module_freemolecular(assembly, index, flow_direction)
+            assembly.aerothermo.pressure[index] = pressure
+            assembly.aerothermo.shear[index] = shear
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
             assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
@@ -441,9 +448,12 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
     options: Options
         Object of class Options
     """
+    for _assembly in assembly: del _assembly.aero_index
+
     #Number of subdivisions
     n = options.aerothermo.subdivision_triangle
-
+    flow_directions, groups, group_map = SoI_assembly_groups(assembly, options.aerothermo.SoI_rad)
+    
     for it, _assembly in enumerate(assembly):
         _assembly.aerothermo.heatflux *= 0
         _assembly.aerothermo.pressure *= 0
@@ -456,20 +466,21 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
         _assembly.aerothermo.ue       *= 0
         _assembly.aerothermo.ce_i     *= 0
 
-        #Turning flow direction to ECEF -> Body to be used to the Backface culling algorithm
-        flow_direction = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)/np.linalg.norm(_assembly.velocity)
-
         _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
+        flow_direction = flow_directions[group_map[it]]
+        if not hasattr(_assembly, 'aero_index'):
+            #print('Doing flow solve on assem {}'.format(it))
+            ray_trace(groups[group_map[it]],flow_direction,n, options)
 
-        #_assembly.freestream.per_facet_mach = compute_per_facet_mach(_assembly,flow_direction)
-
-        index = ray_trace(_assembly,flow_direction,n, options)
-
-        _assembly.aero_index = index
+        else: 
+            pass
+            #print('Skipping flow solve on assem {}'.format(it))
+        index = _assembly.aero_index
         compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
         compute_aerodynamics(_assembly, [], index, flow_direction, options)
         #if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture, index)
         #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
+    return groups
 
 
 def edge_subdivision(v0,v1,v2, n):
@@ -507,45 +518,124 @@ def edge_subdivision(v0,v1,v2, n):
 
     return COG
 
-def ray_trace(_assembly, flow_direction, n, options):
+def ray_trace(assembly_group, flow_directions, n, options, output_rays=None):
     # Prefilter our raytracing by flow-facing facets
-    facet_normal = _assembly.mesh.facet_normal
-    length_normal = np.linalg.norm(facet_normal, axis = 1, ord = 2)
-    _assembly.aerothermo.theta =np.pi/2 - np.arccos(np.clip(np.sum(- flow_direction * facet_normal/length_normal[:,None] , axis = 1), -1.0, 1.0))
-    p = np.where(_assembly.aerothermo.theta>0)[0]
+    theta = [0]
+    v0 = [[0,0,0]]
+    v1 = [[0,0,0]]
+    v2 = [[0,0,0]]
+    pointers = [0]
+    flow_dirs = [[0,0,0]]
+    for i_assem, _assembly in enumerate(assembly_group):
+        assem_body_flow_vec = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)
+        assem_body_flow_vec /= np.linalg.norm(assem_body_flow_vec)
+        facet_normals = _assembly.mesh.facet_normal
+        length_normals = np.linalg.norm(facet_normals, axis = 1, ord = 2)
+        _assembly.aerothermo.theta = np.pi/2 - np.arccos(np.clip(np.sum(- assem_body_flow_vec * facet_normals/length_normals[:,None] , axis = 1), -1.0, 1.0))
+        _assembly.freestream.per_facet_mach = np.full_like(length_normals,_assembly.freestream.mach)
+        theta = np.hstack([theta,_assembly.aerothermo.theta])
+        v0 = np.vstack([v0, _assembly.mesh.v0])
+        v1 = np.vstack([v1,_assembly.mesh.v1])
+        v2 = np.vstack([v2, _assembly.mesh.v2])
+        pointers.append(pointers[-1]+len(length_normals))
+        flow_dirs = np.vstack([flow_dirs,[_assembly.velocity for _ in range(len(length_normals))]])
+    
+    theta     = theta[1:]
+    v0        = v0[1:,:]
+    v1        = v1[1:,:]
+    v2        = v2[1:,:]
+    flow_dirs = flow_dirs[1:,:]
+    filtered_facet_indices = np.where(theta>0)[0]
+    
+    #flow_dirs, pfm = compute_per_facet_flow_dir(assembly_group[0],flow_direction, options.dynamics.per_facet_flow)
+    #flow_dirs = np.full_like(v0, flow_direction)
+    
+    flow_dirs = flow_dirs[filtered_facet_indices,:]
 
-    #p = np.arange(len(_assembly.mesh.facet_area))
-    flow_dirs, pfm = compute_per_facet_flow_dir(_assembly,flow_direction, options.dynamics.per_facet_flow)
-    _assembly.freestream.per_facet_mach = pfm
-    flow_dirs = flow_dirs[p,:]
-    mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
-    ray = trimesh.ray.ray_pyembree.RayMeshIntersector(mesh)
+    base_assembly = assembly_group[0]
+    meshlist = []
+    base_facets = len(base_assembly.mesh.facet_area)
 
-    COG = edge_subdivision(_assembly.mesh.v0[p], _assembly.mesh.v1[p], _assembly.mesh.v2[p], n)
+    main_Translate_ECEF = trimesh.transformations.translation_matrix(-_assembly.position)
+    main_Translate_CoG  = trimesh.transformations.translation_matrix(Rot.from_quat(base_assembly.quaternion).apply(_assembly.COG))
+    flow_dirs  = -flow_dirs
+    flow_len   = np.linalg.norm(flow_dirs, axis = 1)
+    flow_dirs /= flow_len[:,np.newaxis]
+
+    for i_assem, _assembly in enumerate(assembly_group):
+        new_mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
+        quaternion = np.append([_assembly.quaternion[3]], _assembly.quaternion[0:3])
+        R_B_ECEF = trimesh.transformations.quaternion_matrix(quaternion)
+        Translate_COG = trimesh.transformations.translation_matrix(-_assembly.COG)
+        Translate_ECEF = trimesh.transformations.translation_matrix(_assembly.position)
+        #
+        Matrix = main_Translate_CoG@main_Translate_ECEF@Translate_ECEF@R_B_ECEF@Translate_COG
+        new_mesh.apply_transform(Matrix)
+        TransMatrix = Trans.from_matrix(Matrix)
+        v0[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
+            v0[pointers[i_assem]:pointers[i_assem+1],:]
+            )
+        v1[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
+            v1[pointers[i_assem]:pointers[i_assem+1],:]
+            )
+        v2[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
+            v2[pointers[i_assem]:pointers[i_assem+1],:]
+            )
+        meshlist.append(new_mesh)
+
+    
+    mesh = trimesh.util.concatenate(meshlist)
+
+    ray = RayMeshIntersector(mesh)
+
+    facet_centroids = edge_subdivision(v0[filtered_facet_indices], 
+                                       v1[filtered_facet_indices], 
+                                       v2[filtered_facet_indices], n)
     for _ in range(n):
         flow_dirs = np.repeat(flow_dirs,4, axis=0)
-        #p_div = np.hstack((p,p+len(p),p+2*len(p),p+3*len(p)))
 
-    ray_list = COG - 1E-4*flow_dirs
+    # ray_origins = facet_centroids - 1e-4*flow_dirs
+    # ray_directions = -flow_dirs
+
+    ray_origins = facet_centroids - 1e-4*flow_dirs
     ray_directions = -flow_dirs
 
     ray_directions.shape = (-1,3)
+    #ray_origins+20*options.aerothermo.SoI_rad*flow_dirs
+    facet_sees_flow =  np.zeros_like(theta, dtype=np.int16)
 
-    index    =  np.zeros(len(_assembly.mesh.facet_area), dtype=np.int16)
-    hits = ~ray.intersects_any(ray_origins = ray_list, ray_directions = ray_directions)
-    
+    match output_rays:
+        case 'leading':
+            ray_ends   = facet_centroids - 10*flow_dirs
+        case 'trailing':
+            ray_ends   = facet_centroids + 10*flow_dirs 
+        
+
+    if output_rays is not None:
+        if not pathlib.Path(options.output_folder+'/Rays').exists():
+            pathlib.Path(options.output_folder+'/Rays').mkdir(parents=True)
+        if not hasattr(options, 'n_debug'): options.n_debug = 0
+        else: options.n_debug+=1
+        mesh.export(options.output_folder+'/Rays/debug_{}.stl'.format(options.n_debug))
+        write_rays_to_vtk(options.output_folder+'/Rays/debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
+
+    #hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
+    hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
     hits.shape = (-1, 4**n)
     hits = np.sum(hits, axis = 1)
-    index[p] = hits
-    _assembly.aerothermo.partial_factor = index/(4**n)
+    facet_sees_flow[filtered_facet_indices] = hits
 
-    index = np.arange(len(_assembly.mesh.facets))[index != 0]
+    for i_assembly, _assembly in enumerate(assembly_group):
 
-    _assembly.aerothermo.proj_area = 0
-    proj_facet_areas = _assembly.mesh.facet_area[index] * np.dot(_assembly.mesh.facet_normal[index],flow_direction)
-    _assembly.aerothermo.proj_area=np.sum(proj_facet_areas)
+        per_assem_see_flow = facet_sees_flow[pointers[i_assembly]:pointers[i_assembly+1]]
+        _assembly.aerothermo.partial_factor = per_assem_see_flow/(4**n)
 
-    return index
+        per_assem_see_flow = np.arange(len(_assembly.mesh.facets))[per_assem_see_flow != 0]
+
+        _assembly.aerothermo.proj_area = 0
+        #proj_facet_areas = _assembly.mesh.facet_area[per_assem_index] * np.dot(_assembly.mesh.facet_normal[per_assem_index],flow_direction)
+        #_assembly.aerothermo.proj_area=np.sum(proj_facet_areas)
+        _assembly.aero_index = per_assem_see_flow
 
 def compute_frozen_chemistry(assembly, mixture):
 
@@ -1527,8 +1617,17 @@ def LAF(flow, method, cat_rate = 0, vel_grad = 0):
 #     return mach_resultant
 
 def compute_per_facet_flow_dir(assembly,flow_direction, do_pfm=False):
-    # This function recalculates flow direction on a per-facet basis, facets rotating into the flow experience faster relative velocity.
-    # This models a dissipative effect to rotation to prevent unbounded spinning.
+    '''
+    Recalculates flow direction on a per-facet basis, returns array of flow directions and array of local Machs
+    
+    Optionally can enable facets rotating into the flow experiencing faster relative velocity, 
+    this models a dissipative effect to rotation to prevent unbounded spinning.
+
+    :assembly: Assembly to calculate per facet flows for
+    :flow_direction: The unit vector of the assembly's velocity
+    :do_pfm: Whether to perform local rotational damping
+    '''
+
     free = assembly.freestream
     velocity_resultant = free.mach*free.sound*np.tile(flow_direction,[len(assembly.mesh.facet_area),1])
     if do_pfm:
@@ -1540,4 +1639,112 @@ def compute_per_facet_flow_dir(assembly,flow_direction, do_pfm=False):
     mach_resultant = np.linalg.norm(velocity_resultant,axis=1)/free.sound
     velocity_norm = np.linalg.norm(velocity_resultant, axis=1, keepdims=True)
     velocity_resultant = velocity_resultant/velocity_norm
-    return velocity_resultant,mach_resultant
+    return velocity_resultant, mach_resultant
+
+
+def SoI_assembly_groups(assembly_list : list, sphere_radius : float):
+    '''
+    Takes a list of assemblies and returns list of assembly groups by sphere of influence as well as mean flow direction and mapping dict
+    
+    Parameters
+    ----------
+    :assembly_list: List of assemblies
+    :sphere_radius: Sphere of Influence (SoI) radius to consider
+    '''
+    # Firstly convert assembly positions into kd-tree and build base groupings
+    positions = np.array([_assembly.position for _assembly in assembly_list])
+    tree = KDTree(positions)
+    groupings =[[i] for i in range(len(assembly_list))]
+
+    # Then query pairs to find "constellations" of assemblies in space
+    assembly_pairs = tree.query_pairs(sphere_radius)
+    
+
+    # Which can be assigned back to the "home" assembly
+    for pair in assembly_pairs:
+        groupings[pair[0]].append(pair[1])
+
+
+    # Then iterate through groups in descending order (largest groups first)
+    group_lengths = [len(group) for group in groupings]
+    assembly_in_group = [False for _ in assembly_list]
+
+    group_ids = []
+    group_mapping = {}
+
+    for i_group in np.argsort(group_lengths)[::-1]:
+        if np.all(assembly_in_group): break # If we've finished assigning assemblies to groups
+        # Otherwise assign the assemblies from the biggest group and remove them from other groups
+        if len(groupings[i_group])>0:
+            group_ids.append(groupings[i_group])
+            for assem_id in groupings[i_group]:
+                group_mapping[assem_id] = len(group_ids)-1
+                assembly_in_group[assem_id] = True
+                for group in groupings:
+                    if len(group)>0:
+                        if (not group==groupings[i_group]) and (assem_id in group):
+                            group.remove(assem_id)
+
+    # Finally collect the actual assembly reference and compute a mean flow vector for the group
+    assembly_groups = []
+    mean_flow_dirs = []
+
+    for assembly_ids in group_ids: 
+        assembly_groups.append([])
+        [assembly_groups[-1].append(assembly_list[i_assem]) for i_assem in assembly_ids]
+        flow_dirs = []
+        for _assembly in assembly_groups[-1]:
+            flow_dirs.append(-Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity))
+            flow_dirs[-1] /= np.linalg.norm(flow_dirs[-1])
+            assert np.isclose(np.linalg.norm(flow_dirs[-1]), 1.0)
+        mean_flow_dirs.append(np.mean(flow_dirs,axis=0))
+
+    return mean_flow_dirs, assembly_groups, group_mapping
+
+def write_rays_to_vtk(filename, origins, ends):
+    """
+    Write ray segments to a legacy VTK PolyData file.
+    
+    Parameters
+    ----------
+    filename : str
+        Output .vtk file path.
+    origins : (N, 3) array
+        Ray start points.
+    ends : (N, 3) array
+        Ray end points.
+    """
+    origins = np.asarray(origins)
+    ends = np.asarray(ends)
+
+    assert origins.shape == ends.shape
+    N = origins.shape[0]
+
+    # Create point list (each ray = 2 points)
+    points = np.vstack([origins, ends])
+    
+    # Connectivity: each ray is a 2-point polyline
+    # VTK polyline format:  "2 i j"
+    lines = []
+    for i in range(N):
+        start = i
+        end = i + N
+        lines.append(f"2 {start} {end}")
+
+    with open(filename, "w") as f:
+        f.write("# vtk DataFile Version 3.0\n")
+        f.write("Rays\n")
+        f.write("ASCII\n")
+        f.write("DATASET POLYDATA\n")
+
+        # Write points
+        f.write(f"POINTS {2*N} float\n")
+        for p in points:
+            f.write(f"{p[0]} {p[1]} {p[2]}\n")
+
+        # Write lines
+        f.write(f"LINES {N} {3*N}\n")
+        for line in lines:
+            f.write(line + "\n")
+
+    print(f"[write_rays_to_vtk] Wrote {N} rays to {filename}")

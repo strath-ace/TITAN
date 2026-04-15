@@ -59,3 +59,6 @@ Uncertain parameters assigned to objects should have the object name after the d
 - **temperature__** [Kelvin] : The initial temperature of the object
 **(Variables exposed by the in-development explosion model)**
 - **energy__** [J] : Available energy of explosion
+
+## Atmospheric
+- **density_mult** [float] : Multiplier applied to freestream density retrieved from database

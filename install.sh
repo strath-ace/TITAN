@@ -42,6 +42,7 @@ conda config --add channels conda-forge
 conda config --add channels pato.devel
 conda config --set channel_priority strict
 conda create -y --name pato -c conda-forge -c pato.devel pato
-echo "
-[INSTALL] Finished, thanks for installing TITAN!
-"
+echo "[INSTALL] Finished, thanks for installing TITAN!"
+export TITAN_PATH=$(realpath .)
+echo "To use TITAN.sh as an executable please add the following to your .bashrc..."
+echo "export \TITAN_PATH="$TITAN_PATH

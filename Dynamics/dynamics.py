@@ -19,7 +19,7 @@
 #
 import numpy as np
 from Dynamics import euler, frames
-from Dynamics.propagation import quaternion_mult, quaternion_normalize
+from Dynamics.quaternion_operations import *
 from Freestream import gram
 import pymap3d
 from scipy.spatial.transform import Rotation as Rot
@@ -235,6 +235,7 @@ def compute_cartesian_derivatives(assembly, options):
     dx = assembly.velocity
     dv = (Faero_I + Fgrav_I)/assembly.mass + a_centrif_I + a_coriolis_I
 
+    assembly.acceleration = dv
     return DerivativesCartesian(dx = dx[0], dy = dx[1], dz = dx[2], du = dv[0], dv = dv[1], dw = dv[2])
 
 

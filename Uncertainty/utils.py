@@ -229,8 +229,10 @@ def get_component_map(assembly_data, component_list):
 def collate_QoI(seedlist, base_folder, campaign_seed = 0):
     root_df = pd.DataFrame()
     for i_sample, seed in enumerate(seedlist):
-        csv_path = base_folder+'/Campaign_{}/MC_{}/QoI.csv'.format(campaign_seed, i_sample)
-        df = pd.read_csv(str(pathlib.Path(csv_path).resolve()))
-        root_df = pd.concat([root_df,df])
+        try: 
+            csv_path = base_folder+'/Campaign_{}/MC_{}/QoI.csv'.format(campaign_seed, i_sample)
+            df = pd.read_csv(str(pathlib.Path(csv_path).resolve()))
+            root_df = pd.concat([root_df,df])
+        except Exception as e: print('Error retrieving result {}: {}'.format(i_sample,e))
     output_path = base_folder+'/Campaign_{}/QoI.csv'.format(campaign_seed)
     root_df.to_csv(str(pathlib.Path(output_path).resolve()))

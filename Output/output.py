@@ -108,10 +108,10 @@ def write_output_data(titan, options, smooth=False):
         df['Quat_z']   = [assembly.quaternion[2]]
 
         #Quaternion Body -> ECEF frame of the previous iteration, for emissions post-processing   
-        df['Quat_prev_w']   = [assembly.quaternion_prev[3]]
-        df['Quat_prev_x']   = [assembly.quaternion_prev[0]]
-        df['Quat_prev_y']   = [assembly.quaternion_prev[1]]
-        df['Quat_prev_z']   = [assembly.quaternion_prev[2]]
+        # df['Quat_prev_w']   = [assembly.quaternion_prev[3]]
+        # df['Quat_prev_x']   = [assembly.quaternion_prev[0]]
+        # df['Quat_prev_y']   = [assembly.quaternion_prev[1]]
+        # df['Quat_prev_z']   = [assembly.quaternion_prev[2]]
 
         #Freestream properties
         df['Mach'] = [assembly.freestream.mach]
@@ -637,6 +637,6 @@ def options_information(options):
            """)
         
 def iteration(titan, options, show_flow_solves = False):
-    print(f"""  Iteration {titan.iter+1} of {options.iters} """)
+    print(f"""  Iteration {titan.iter+1} of {options.iters} """, flush=True)
     if titan.iter>0 and hasattr(titan,'nfeval') and show_flow_solves: 
-        print('Total of {} flow solves'.format(titan.nfeval))
+        print('Total of {} flow solves\n'.format(titan.nfeval))

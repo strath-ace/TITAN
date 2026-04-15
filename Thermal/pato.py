@@ -268,9 +268,9 @@ def write_All_run(options, obj, time, time_step, iteration):
         f.write('rm qconv/BC* \n')
         f.write('rm mesh/*su2 \n')
         #f.write('rm mesh/*meshb \n')
-        print('time_step_to_delete:', time_step_to_delete)
-        print('end_time:', end_time)
-        print('start_time:', start_time)
+        if options.verbose: print('time_step_to_delete:', time_step_to_delete)
+        if options.verbose: print('end_time:', end_time)
+        if options.verbose: print('start_time:', start_time)
         for n in range(options.pato.n_cores):
             #f.write('rm -rf processor'+str(n)+'/VTK/proc* \n')
             f.write('rm processor'+str(n)+'/VTK/top/top_'+str(time_step_to_delete)+'.vtk \n')
@@ -1572,8 +1572,8 @@ def postprocess_PATO_solution(options, obj, time_to_read):
     obj.pato.temperature = temperature_cell[mapping]
     obj.temperature = obj.pato.temperature
 
-    print('obj ID:', obj.global_ID)
-    print('max temp:', max(obj.temperature))
+    if options.verbose: print('obj ID:', obj.global_ID)
+    if options.verbose: print('max temp:', max(obj.temperature))
 
     if options.pato.Ta_bc == "ablation":
         obj.pato.mDotVapor = mDotVapor_cell[mapping]
@@ -1604,15 +1604,15 @@ def postprocess_mass_inertia(obj, options, time_to_read):
 
     obj.density_ratio = density_ratio
 
-    print(f"Mass: {new_mass}")
-    print(f"Density_ratio: {density_ratio}")
+    if options.verbose: print(f"Mass: {new_mass}")
+    if options.verbose: print(f"Density_ratio: {density_ratio}")
 
     if obj.density_ratio != 1:
 
         print('Ablation')
 
         obj.pato.mass_loss = obj.mass - new_mass if new_mass >= 0 else obj.mass
-        print('mass loss:', obj.pato.mass_loss)
+        if options.verbose: print('mass loss:', obj.pato.mass_loss)
         obj.material.density *= density_ratio
         obj.mass = new_mass
     
@@ -1623,8 +1623,8 @@ def postprocess_mass_inertia(obj, options, time_to_read):
     
         obj.inertia *= density_ratio
 
-    print('OBJ: ', obj.global_ID, 'DENSITY: ', obj.material.density)
-    print('OBJ: ', obj.global_ID, 'MASS: ', obj.mass)
+    if options.verbose: print('OBJ: ', obj.global_ID, 'DENSITY: ', obj.material.density)
+    if options.verbose: print('OBJ: ', obj.global_ID, 'MASS: ', obj.mass)
 
     with open(options.output_folder + '/PATO_'+str(obj.global_ID)+'/data/constantProperties', 'r+', encoding='utf-8') as f:
         lines = f.readlines()

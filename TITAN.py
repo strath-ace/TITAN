@@ -110,7 +110,7 @@ def loop(options = [], titan = []):
         if options.current_iter%options.output_freq == 0:
             output.generate_surface_solution(titan = titan, options = options, iter_value = titan.iter)         
         
-        output.iteration(titan = titan, options = options)
+        output.iteration(titan = titan, options = options, show_flow_solves=options.verbose)
         
         if options.dynamic_plots:
             for _assembly in titan.assembly: plot = dynamic_plots.update_plot(_assembly, plot, titan.time)
@@ -124,7 +124,7 @@ def loop(options = [], titan = []):
                 for iter_value in range(min(iters_to_run), max(iters_to_run)+1, options.output_freq):
                     pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, None, data_obj)
                 pp_existing = np.hstack((pp_existing,iters_to_run))
-            if os.path.exists(options.output_folder+'/Data/data_smooth.csv'):
+            elif os.path.exists(options.output_folder+'/Data/data_smooth.csv'):
                 data_smooth = pd.read_csv(options.output_folder+'/Data/data_smooth.csv')
                 times = np.unique(data_smooth['Time'].to_numpy())
                 times_to_run = times[~np.isin(times, pp_existing)]
@@ -164,8 +164,8 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     #Initialization of the simulation
     if (not postprocess) and (not emissions):
         loop(options, titan)
-        print("Finished simulation\n")
-        #print(titan.nfeval)
+        print("Finished simulation")
+        if options.verbose: print('Total of {} flow solves'.format(titan.nfeval))
         return options, titan
 
     #Postprocess of the simulated solution to pass from Body-frame

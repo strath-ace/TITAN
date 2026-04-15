@@ -32,13 +32,13 @@ class Component_list():
     def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', 
                          trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, 
                          global_ID = 0, bloom_config = [False, 0, 0, 0], alpha = 1.0, mixture=None,
-                         mass_fractions=None, species=None):
+                         mass_fractions=None, species=None, explosive_parameters=None):
 
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
                            trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, 
                            options = options, global_ID = global_ID, bloom_config = bloom_config, 
-                           alpha=alpha, mixture=mixture, mass_fractions=mass_fractions, species=species))
+                           alpha=alpha, mixture=mixture, mass_fractions=mass_fractions, species=species, explosive_parameters=explosive_parameters))
         self.id += 1
 
 class Component():
@@ -50,7 +50,7 @@ class Component():
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
                  trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest',
                  v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0, 
-                 bloom_config = [False, 0, 0, 0], alpha = 1.0, mixture=None, mass_fractions=None, species=None):
+                 bloom_config = [False, 0, 0, 0], alpha = 1.0, mixture=None, mass_fractions=None, species=None, explosive_parameters=None):
 
         print("Generating Body: ", filename)
         
@@ -61,7 +61,8 @@ class Component():
         self.type = file_type
     
         #if self.type == "Joint":
-        
+        if self.type == 'Explosive':
+            self.explosive = Explosive(explosive_parameters)
         #: [str] Type of trigger for type joint (Altitude, Temperature, Stress)
         self.trigger_type = trigger_type
 
@@ -147,6 +148,7 @@ class Component():
         # Names of species corresponding to the relevant mass fractions
         self.species = species
         self.debug_alpha = alpha
+        self.volume = 0
 
 
     def compute_mass_properties(self, coords, elements, density):
@@ -168,7 +170,7 @@ class Component():
         
         mass = vol*density
         self.mass = np.sum(mass)
-
+        self.volume = np.sum(vol)
         if self.mass <= 0:
             self.COG = np.array([0,0,0])
         else:
@@ -238,3 +240,29 @@ class bloom():
 
         #: [float] Value of the growth rate, starting at the first element
         self.growth_rate = bloom_config[3]
+
+class Explosive():
+    def __init__(self, explosive_parameters=None):
+
+
+        defaults = [24, 10.0, 1e6, 1.0, 5e-3]
+        if explosive_parameters is None: explosive_parameters = defaults
+        else:
+            for i_param in range(len(explosive_parameters)):
+                if explosive_parameters[i_param] is None: 
+                    explosive_parameters[i_param] = defaults[i_param]
+
+        #: [int] Number of fragments to explode into
+        self.n_fragments = int(explosive_parameters[0])
+
+        #: [float] Characteristic velocity of explosion, overwritten by energy if using nasa_conservation
+        self.char_velocity = float(explosive_parameters[1])
+
+        #: [float] Explosive Energy (J)
+        self.energy = float(explosive_parameters[2])
+
+        #: [float] Amount of energy converted into in kinetic energy if using nasa_conservation
+        self.kinetic_factor = float(explosive_parameters[3])
+
+        #: [float] Wider fractures remove more of an objects initial volume (and mass) but make the fracture algorithm more robust
+        self.crack_width = float(explosive_parameters[4])

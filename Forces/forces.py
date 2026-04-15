@@ -46,6 +46,8 @@ def compute_aerodynamic_forces(titan, options):
             #The statement below assumes the angle of attack to be always 0
             assembly.body_force.force = np.array([-drag, 0, 0])
 
+            return np.array([-drag, 0, 0])
+
     else:
         for assembly in titan.assembly:
 

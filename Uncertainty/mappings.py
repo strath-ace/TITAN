@@ -34,7 +34,10 @@ def option_aero_address(assembly_index): return 'OPTIONS,attr;aerothermo'
 
 def option_traj_address(assembly_index): return 'OPTIONS,attr;dynamics'
 
+def option_free_address(assembly_index): return 'OPTIONS,attr;freestream'
+
 def get_component_index_from_name(name, titan, assembly_index=0):
+    print('Retrieving {} from assembly {}'.format(name, assembly_index))
     for i_component, component in enumerate(titan.assembly[assembly_index].objects):
         if name in component.name: return i_component
     raise Exception('Could not find component {} in assembly {}'.format(name, assembly_index))
@@ -46,7 +49,8 @@ library_addresses = {assembly_address    : ['ECEF_x','ECEF_y','ECEF_z','ECEF_u',
                      trajectory_address  : ['altitude','gamma','chi','velocity','latitude','longitude'],
                      component_address   : ['trigger__','temperature__'],
                      option_aero_address : ['catalycity'],
-                     option_traj_address : ['ECI_x','ECI_y','ECI_z','ECI_u','ECI_v','ECI_w','ECI_epoch_UNIX']}
+                     option_traj_address : ['ECI_x','ECI_y','ECI_z','ECI_u','ECI_v','ECI_w','ECI_epoch_UNIX'],
+                     option_free_address : ['density_mult']}
 
 
 # Here parameters are mapped to relevant attributes (of mapped objects)
@@ -87,7 +91,8 @@ library_assignments = {'ECEF_x'         : ['state_vector', 0],
                        'Iyz'            : ['inertia', [1,2]],
                        'Ixz'            : ['inertia', [0,2]],
                        'ECI_epoch_UNIX' : ['trajectory_epoch'],
-                       'catalycity'     : ['cat_rate']
+                       'catalycity'     : ['cat_rate'],
+                       'density_mult'   : ['density_mult']
                        }
 
 def library_check(name):
@@ -101,10 +106,11 @@ def state_vector_callback(titan, options, assem_ids):
 
 def dynamic_attributes_callback(titan, options, assem_ids):
     from Dynamics.propagation import update_dynamic_attributes
-    for i_assem in assem_ids: update_dynamic_attributes(titan.assembly[i_assem],
-                                                        titan.assembly[i_assem].state_vector,
-                                                        options,
-                                                        force=True)
+    for i_assem in assem_ids: 
+        update_dynamic_attributes(titan.assembly[i_assem],
+                                  titan.assembly[i_assem].state_vector,
+                                  options,
+                                  force=True)
 
 def ECI_position_callback(titan, options, assem_ids):
     import pymap3d
