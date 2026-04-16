@@ -260,7 +260,7 @@ class Thermal():
 
         self.mf_cutoff = 1e-10
 
-        self.excess_ratio = 2.5
+        self.excess_mult = 2.5
 
 class PATO():
     def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = False):
@@ -1221,6 +1221,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         elif options.thermal.ablation_mode == "byproducts":
             options.thermal.volume_method = get_config_value(configParser, options.thermal.volume_method,'Thermal', 'Ablation_volume','str')
             options.thermal.mf_cutoff = get_config_value(configParser, options.thermal.mf_cutoff, 'Thermal','Mass_fraction_cutoff', 'float')
+            options.thermal.excess_mult = get_config_value(configParser, options.thermal.excess_mult, 'Thermal','Excess_multiplier', 'float')
         options.radiation.spectral               = get_config_value(configParser, options.radiation.spectral, 'Radiation', 'Spectral_emissions', 'boolean')
 
         if(options.radiation.spectral):

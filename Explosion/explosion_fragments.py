@@ -136,7 +136,7 @@ def fracture_object(explobject, parent, options, dt = None, base_rng = None):
                                                   global_ID=-1*(i_frag+1), alpha=explobject.debug_alpha, 
                                                   mixture=explobject.mixture, mass_fractions=explobject.mass_fraction,
                                                   species=explobject.species)
-    
+    explobject.mass = 0.0
     return new_fragments, explosion_parameters
 
 def build_new_assemblies(fragment_list, titan, options, i_parent, explosion_parameters):

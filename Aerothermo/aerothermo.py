@@ -40,10 +40,15 @@ try:
 except:
     print("Mutationpp library not set up")
 
-def mixture_mpp(mixture = "air5"):
-    """
-    Retrieve the mixture object of the Mutation++ library
+def mixture_mpp(mixture = "air5") -> mpp.Mixture:
+    """    Retrieve the mixture object of the Mutation++ library
     With the chemical reactions for air5
+
+    Args:
+        mixture (str, optional): Target mixture name. Defaults to "air5".
+
+    Returns:
+        mpp.Mixture: Resultant Mutation++ Mixture object
     """
 
     opts = mpp.MixtureOptions(mixture)
@@ -52,44 +57,111 @@ def mixture_mpp(mixture = "air5"):
     opts.setViscosityAlgorithm("Gupta-Yos")
 
     mix = mpp.Mixture(opts)
-
-    #print("Mixture:", mixture)
     
     return mix
 
 ### Stagnation Equations
-def stagnation_P(P, gamma, M):
+def stagnation_P(P:float, gamma:float, M:float)->float:
+    """Compute stagnation pressure
+
+    Args:
+        P (float): Input pressure (Pa)
+        gamma (float): Input ratio of specific heats
+        M (float): Input Mach number
+
+    Returns:
+        float: Stagnation pressure (Pa)
+    """
     P_0 = P * (1 + ((gamma - 1.0)/2.0)*(M**2))**(gamma / (gamma - 1))
     return P_0
 
-def stagnation_T(T, gamma, M):
+def stagnation_T(T:float, gamma:float, M:float)->float:
+    """Compute stagnation temperature
+
+    Args:
+        T (float): Input temperature (K)
+        gamma (float): Input ratio of specific heats
+        M (float): Input Mach number
+
+    Returns:
+        float: Stagnation temperature (K)
+    """
     T_0 = T * (1 + ((gamma - 1.0)/2.0)*(M**2))
     return T_0
 
 ### Normal Shock Equations
-def normal_shock_P(P, gamma, M):
+def normal_shock_P(P:float, gamma:float, M:float) -> float:
+    """Compute isentropic normal shock pressure
 
+    Args:
+        P (float): Input pressure (Pa)
+        gamma (float): Input ratio of specific heats
+        M (float): Input Mach number
+
+    Returns:
+        float: Post-shock pressure (Pa)
+    """
     P_post = P*((2.0 * gamma * (M**2)) - (gamma - 1.0)) / (gamma + 1.0)
 
     return P_post
 
-def normal_shock_T(T, gamma, M):
+def normal_shock_T(T:float, gamma:float, M:float) -> float:
+    """Compute isentropic normal shock temperature
+
+    Args:
+        T (float): Input temperature (K)
+        gamma (float): Input ratio of specific heats
+        M (float): Input Mach number
+
+    Returns:
+        float: Post-shock temperature (K)
+    """
     T_post = T*(((2.0 * gamma * (M**2.0)) - (gamma - 1.0)) * (((gamma - 1.0) * (M**2.0)) + 2.0)) / (((gamma + 1.0)**2.0) * (M**2.0))
     return T_post
     
 
-def normal_shock_M(gamma, M):
+def normal_shock_M(gamma: float, M:float) -> float:
+    """Compute isentropic normal shock Mach
+
+    Args:
+        gamma (float): Input ratio of specific heats
+        M (float): Input Mach number
+
+    Returns:
+        float: Post-shock Mach number
+    """
     M_post = np.sqrt((((gamma - 1.0) * (M**2.0)) + 2.0) / ((2.0 * gamma * (M**2.0)) - (gamma - 1.0)))
     return M_post
     
 
-def normal_shock_rho(rho, gamma, M):
+def normal_shock_rho(rho:float, gamma:float, M:float)->float:
+    """Compute isentropic normal shock density
+
+    Args:
+        rho (float): Input denisty (kg/m^3)
+        gamma (float): Input ratio of specific heats
+        M (float): Input Mach number
+
+    Returns:
+        float: Post-shock denisty (kg/m^3)
+    """
     rho_post = rho*(((gamma + 1.0) * (M**2.0)) / (((gamma - 1.0) * (M**2.0)) + 2.0))
     return rho_post
 
 ### Loop to match total enthalpy (conserved)
-def energy_loop(mix, T_eq, P_eq, h_ref):
-    tol = 1
+def energy_loop(mix : mpp.Mixture, T_eq : float, P_eq : float, h_ref : float) -> mpp.Mixture:
+    """Stagnation energy loop to ensure conservation of total enthalpy at target equilibrium conditions
+
+    Args:
+        mix (mpp.Mixture): Target mixture
+        T_eq (float): Initial temperature guess (K)
+        P_eq (float): Target pressure (Pa)
+        h_ref (float): Reference enthalpy (J/kg)
+
+    Returns:
+        mpp.Mixture: Resultant mix
+    """
+    tol = 1 # K
     h_eq = 0
     dT = 1
     i_run = 1
@@ -113,8 +185,16 @@ class stagnation_line():
     Class to store the flow conditions at freestream, stagnation, BLE and wall
     """
 
-    def __init__(self, Tfree, Pfree, Mfree, Twall, mix = None):
+    def __init__(self, Tfree : float, Pfree : float, Mfree : float, Twall : float, mix = None):
+        """Solve stations of the stagnation line (Free, Post-Shock, BLE, Wall) from freestream and wall conditions 
 
+        Args:
+            Tfree (float): Freestream temperature (K)
+            Pfree (float): Freestream pressure (Pa)
+            Mfree (float): Freestream Mach
+            Twall (float): Wall temperature (K)
+            mix (mpp.Mixture, optional): Input mixture. Leave as none for air5.
+        """
         if mix == None: 
             print('No mix given to stagnation_line()! Defaulting to air5...')
             self.mix = mixture_mpp("air5")
@@ -132,7 +212,7 @@ class stagnation_line():
         self.mufree = self.mix.viscosity()
         self.rhofree = self.mix.density()
         self.c_i_free = self.mix.Y()
-
+        self.oxygen_mf = self.mix.convert_y_to_ye(self.c_i_free)[self.mix.elementIndex('O')]
         #molecular weight
         self.MW_free = self.mix.mixtureMw()
         
@@ -198,128 +278,13 @@ class stagnation_line():
         self.Pr = 0.71
         self.Le = 1.0
 
-#Not using it anymore -> switched to use Rays
-def backfaceculling(body, nodes, nodes_normal, free_vector, npix):
-    """
-    Backface culling function
-
-    This function detects the facets that are impinged by the flow
-
-    Parameters
-    ----------
-    body: Assembly
-        Object of Assembly class
-    free_vector: np.array
-        Array with the freestream direction with respect to the Body frame
-    npix: int
-        Resolution of the matrix used for the facet projection methodology (pixels)
-
-    Returns
-    -------
-    node_points: np.array
-        Array of IDs of the visible nodes
-    """
-
-    # Matrix of BOdy to ECEF frame
-    R_B_ECEF_0 = Rot.from_quat(body.quaternion)
-   
-    #Matrix of ECEF to NED frame
-    R_ECEF_NED_0 = R_NED_ECEF(lat = body.trajectory.latitude, lon = body.trajectory.longitude).inv()
-    
-    #Matrix of NED to Wind frame
-    R_NED_W_0 = R_W_NED(ha = body.trajectory.chi, fpa = body.trajectory.gamma).inv()
-    
-    #Compute the rotation matrix from Body to Wind
-    R_B_W_0 = R_NED_W_0*R_ECEF_NED_0*R_B_ECEF_0
-
-    #number of pixels along each direction
-    p_y = npix
-    p_z = npix
-
-    normals = np.copy(body.mesh.facet_normal)
-
-    #vector of facets with chance to be wet
-    p1 = np.dot(normals, free_vector)
-    p1 = p1<0 
-
-    x_elem_COG = R_B_W_0.apply(np.copy(body.mesh.facet_COG[p1]))[:,0]
-    p = np.argsort(x_elem_COG)[::-1]
-
-    facets = np.copy(body.mesh.facets[p1][p])
-    elem_COG = R_B_W_0.apply(np.copy(body.mesh.facet_COG[p1]))[p,1:]
-
-    # y,z 3D coordinates of each vertex of each triangular facet
-    v0 = R_B_W_0.apply(np.copy(body.mesh.v0[p1]))[p,1:]
-    v1 = R_B_W_0.apply(np.copy(body.mesh.v1[p1]))[p,1:]
-    v2 = R_B_W_0.apply(np.copy(body.mesh.v2[p1]))[p,1:]
-
-    v = np.stack([v0,v1,v2], axis = 0)
-    v.shape = (-1,2)
-
-    # image = np.zeros((p_z+1,p_y+1)).astype(np.uint8)
-    image = np.zeros((p_z + 1, p_y + 1), dtype = bool)
-
-    #bounding box in y,z for 3D points
-    Start = np.min(v, axis = 0)#-body.mesh.min[1:]*0.01
-    End   = np.max(v, axis = 0)#+body.mesh.max[1:]*0.01
-
-    #Turn v0,v1,v2 and elem_COG into index, i.e., they become 2D coordinates in the pixel space
-    v0 = (((v0 - Start)/(End - Start))*np.array([p_y,p_z])).astype(int)
-    v1 = (((v1 - Start)/(End - Start))*np.array([p_y,p_z])).astype(int)
-    v2 = (((v2 - Start)/(End - Start))*np.array([p_y,p_z])).astype(int)
-    elem_COG = (((elem_COG - Start)/(End - Start))*np.array([p_y,p_z])).astype(int)
-
-    node_points=[]#np.array([]).astype(int)
-
-    #for each triangle, the bounding box in pixel space
-    row_min = np.minimum(np.minimum(v0[:,1],v1[:,1]),v2[:,1])
-    row_max = np.maximum(np.maximum(v0[:,1],v1[:,1]),v2[:,1])
-
-    col_min = np.minimum(np.minimum(v0[:,0],v1[:,0]),v2[:,0])
-    col_max = np.maximum(np.maximum(v0[:,0],v1[:,0]),v2[:,0])
-
-    Area = 0.5 * (-v1[:,1]*v2[:,0] + v0[:,1]*(-v1[:,0]+v2[:,0])+ v0[:,0]*(v1[:,1] - v2[:,1])+v1[:,0]*v2[:,1])
-
-
-    #Loop for each vertex
-    #Check if the Center of Geometry of each facet is already inside any projected facet
-    #If not, project the facet in the 2D matrix pixel space
-    for i in range(len(v0)):
-        if Area[i] == 0: continue
-        if (image[elem_COG[i,1],elem_COG[i,0]]) == 0:
-            node_points.append(facets[i,:])
-
-            rows = np.arange(row_min[i],row_max[i]+1)
-            cols = np.arange(col_min[i],col_max[i]+1)
-
-            p = np.zeros((row_max[i]-row_min[i]+1,col_max[i]-col_min[i]+1,2)).astype(int)
-            p[:,:,1] = rows[:,None]
-            p[:,:,0] = cols[:,None].transpose()
-
-            s = ( v0[i,1]*v2[i,0] - v0[i,0]*v2[i,1] + (v2[i,1] - v0[i,1])*p[:,:,0] + (v0[i,0] - v2[i,0])*p[:,:,1])/(2*Area[i])
-            t = ( v0[i,0]*v1[i,1] - v0[i,1]*v1[i,0] + (v0[i,1] - v1[i,1])*p[:,:,0] + (v1[i,0] - v0[i,0])*p[:,:,1])/(2*Area[i])
-
-            flag = (s>=0)*(t>=0)*(s+t<=1)
-
-            image[row_min[i]:row_max[i] + 1, col_min[i]:col_max[i] + 1] += flag
-            image[elem_COG[i,1],elem_COG[i,0]] = True
-
-    node_points = np.array(node_points)
-    node_points=np.sort(np.unique(node_points))
-
-    return node_points
-
-
 def compute_aerothermo(titan, options):
     """
     Fidelity selection for aerothermo computation
 
-    Parameters
-    ----------
-    titan: Assembly_list
-        Object of class Assembly_list
-    options: Options
-        Object of class Options
+    Args:
+        titan (assembly.Assembly_list): TITAN assembly list
+        options (configuration.Options): TITAN options 
     """
 
     atmo_model = options.freestream.model
@@ -330,7 +295,7 @@ def compute_aerothermo(titan, options):
         mix_properties.compute_stagnation(assembly.freestream, options.freestream)
 
     if options.fidelity.lower() == 'low':
-        titan.groups = compute_low_fidelity_aerothermo(titan.assembly, options, titan.iter)
+        titan.groups = compute_low_fidelity_aerothermo(titan.assembly, options)
     elif options.fidelity.lower() == 'high':
 
         if  (assembly.freestream.knudsen <= options.aerothermo.knc_pressure):
@@ -344,22 +309,15 @@ def compute_aerothermo(titan, options):
     else:
         raise Exception("Select the correct fidelity options : (Low, High, Multi)")
 
-def compute_aerodynamics(assembly, obj, index, flow_direction, options):
+def compute_aerodynamics(assembly, index : list, flow_direction : np.ndarray, options):
     """
     Low-fidelity computation of the aerodynamics (pressure, friction)
 
-    Parameters
-    ----------
-    assembly: Assembly_list
-        Object of class Assembly_list
-    obj: Component
-        Object of class Component
-    index: np.array(int)
-        Indexing list indicating nodes facing the flow (backface culling)
-    flow_direction: np.array(float)
-        Array indicating direction of the flow in the body frame
-    options: Options
-        Object of class Options
+    Args:
+        assembly (assembly.Assembly): Target assembly
+        index (list): Indexing list indicating nodes facing the flow
+        flow_direction (np.ndarray): Array indicating direction of the flow in the body frame
+        options (configuration.Options): TITAN options
     """
 
     Kn_cont_pressure = options.aerothermo.knc_pressure
@@ -386,23 +344,15 @@ def compute_aerodynamics(assembly, obj, index, flow_direction, options):
             assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
             assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
 
-def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
+def compute_aerothermodynamics(assembly, index : list, flow_direction : np.ndarray, options):
     """
     Low-fidelity computation of the aerothermodynamics (heat-flux)
 
-    Parameters
-    ----------
-    assembly: Assembly_list
-        Object of class Assembly_list
-    obj: Component
-        Object of class Component
-    index: np.array(int)
-        Indexing list indicating nodes facing the flow (backface culling)
-    flow_direction: np.array(float)
-        Array indicating direction of the flow in the body frame
-    options: Options
-        Object of class Options
-
+    Args:
+        assembly (assembly.Assembly): Target assembly
+        index (list): Indexing list indicating nodes facing the flow
+        flow_direction (np.ndarray): Array indicating direction of the flow in the body frame
+        options (configuration.Options): TITAN options
     """
 
     Kn_cont_heatflux = options.aerothermo.knc_heatflux       
@@ -434,27 +384,27 @@ def compute_aerothermodynamics(assembly, obj, index, flow_direction, options):
         assembly.aerothermo.heatflux[index] = aerothermodynamics_module_ice_giants(assembly, index, flow_direction, options)
 
 
-def compute_low_fidelity_aerothermo(assembly, options, iteration):
+def compute_low_fidelity_aerothermo(assemblies, options) -> list:
     """
     Low-fidelity aerothermo computation
 
     Function to compute the aerodynamic and aerothermodynamic using low-fidelity methods.
     It can compute from free-molecular to continuum regime. For the transitional regime, it uses a bridging methodology.
 
-    Parameters
-    ----------
-    assembly: Assembly_list
-        Object of class Assembly_list
-    options: Options
-        Object of class Options
+    Args:
+        assemblies (assembly.Assembly_list): List of assemblies to compute upon
+        options (configuration.Options): TITAN options
+
+    Returns:
+        groups (list): List of grouped assemblies that were computed in a shared frame
     """
-    for _assembly in assembly: del _assembly.aero_index
+    for _assembly in assemblies: del _assembly.aero_index
 
     #Number of subdivisions
     n = options.aerothermo.subdivision_triangle
-    flow_directions, groups, group_map = SoI_assembly_groups(assembly, options.aerothermo.SoI_rad)
+    flow_directions, groups, group_map = SoI_assembly_groups(assemblies, options.aerothermo.SoI_rad)
     
-    for it, _assembly in enumerate(assembly):
+    for it, _assembly in enumerate(assemblies):
         _assembly.aerothermo.heatflux *= 0
         _assembly.aerothermo.pressure *= 0
         _assembly.aerothermo.pressure += _assembly.freestream.pressure
@@ -469,23 +419,31 @@ def compute_low_fidelity_aerothermo(assembly, options, iteration):
         _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
         flow_direction = flow_directions[group_map[it]]
         if not hasattr(_assembly, 'aero_index'):
-            #print('Doing flow solve on assem {}'.format(it))
             ray_trace(groups[group_map[it]],flow_direction,n, options)
-
         else: 
             pass
-            #print('Skipping flow solve on assem {}'.format(it))
+
         index = _assembly.aero_index
-        compute_aerothermodynamics(_assembly, [], index, flow_direction, options)
-        compute_aerodynamics(_assembly, [], index, flow_direction, options)
+        compute_aerothermodynamics(_assembly, index, flow_direction, options)
+        compute_aerodynamics(_assembly, index, flow_direction, options)
         #if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture, index)
         #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
     return groups
 
 
-def edge_subdivision(v0,v1,v2, n):
-# Each subdivision level divides the triangle into 4 parts with equal areas
-# Function returns the number of triangles and the geometrical center of each generated triangle
+def edge_subdivision(v0 : np.ndarray,v1 : np.ndarray,v2 : np.ndarray, n : int) -> np.ndarray:
+    """ Each subdivision level divides the triangle into 4 parts with equal areas
+        Function returns the number of triangles and the geometrical center of each generated triangle
+
+        Args:
+            v0 (np.ndarray [N×3]): Array of positions of vert 0 of each tri
+            v1 (np.ndarray [N×3]): Array of positions of vert 1 of each tri
+            v2 (np.ndarray [N×3]): Array of positions of vert 2 of each tri
+            n (int): _description_
+
+        Returns:
+            np.ndarray [N×3]: Array of output centroids of subdivided tris
+    """
 
     def COG_subdivision(v0,v1,v2, COG, start, n, i = 1):
     
@@ -547,14 +505,10 @@ def ray_trace(assembly_group, flow_directions, n, options, output_rays=None):
     flow_dirs = flow_dirs[1:,:]
     filtered_facet_indices = np.where(theta>0)[0]
     
-    #flow_dirs, pfm = compute_per_facet_flow_dir(assembly_group[0],flow_direction, options.dynamics.per_facet_flow)
-    #flow_dirs = np.full_like(v0, flow_direction)
-    
     flow_dirs = flow_dirs[filtered_facet_indices,:]
 
     base_assembly = assembly_group[0]
     meshlist = []
-    base_facets = len(base_assembly.mesh.facet_area)
 
     main_Translate_ECEF = trimesh.transformations.translation_matrix(-_assembly.position)
     main_Translate_CoG  = trimesh.transformations.translation_matrix(Rot.from_quat(base_assembly.quaternion).apply(_assembly.COG))
@@ -594,14 +548,10 @@ def ray_trace(assembly_group, flow_directions, n, options, output_rays=None):
     for _ in range(n):
         flow_dirs = np.repeat(flow_dirs,4, axis=0)
 
-    # ray_origins = facet_centroids - 1e-4*flow_dirs
-    # ray_directions = -flow_dirs
-
     ray_origins = facet_centroids - 1e-4*flow_dirs
     ray_directions = -flow_dirs
 
     ray_directions.shape = (-1,3)
-    #ray_origins+20*options.aerothermo.SoI_rad*flow_dirs
     facet_sees_flow =  np.zeros_like(theta, dtype=np.int16)
 
     match output_rays:
@@ -619,7 +569,6 @@ def ray_trace(assembly_group, flow_directions, n, options, output_rays=None):
         mesh.export(options.output_folder+'/Rays/debug_{}.stl'.format(options.n_debug))
         write_rays_to_vtk(options.output_folder+'/Rays/debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
 
-    #hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
     hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
     hits.shape = (-1, 4**n)
     hits = np.sum(hits, axis = 1)
@@ -1150,6 +1099,7 @@ def aerothermodynamics_module_continuum(assembly, p, flow_direction, options):
             assembly.byproducts.c_i_mix = flow_ble.c_i_free#flow_ble.ce_i
             assembly.byproducts.T_mix = flow_ble.Twall#flow_ble.Te
             assembly.byproducts.P_mix = flow_ble.Pfree#flow_ble.Pe
+            assembly.byproducts.oxy_content = flow_ble.oxygen_mf
         else:
             assembly.byproducts.column_height_mix[p] = np.zeros_like(assembly.aerothermo.theta)
     return Stc
