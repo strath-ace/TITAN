@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "TITAN"
+version = "0.2"
+description = "TransatmospherIc flighT simulAtioN - A multifidelity open-source re-entry simulator"
+readme = "README.md"
+license = {text = "LGPL-3.0-only"}
+authors = [
+    {name = "Fábio Morgado"},
+    {name = "Abhishek Peddakotla"},
+    {name = "Julie Graham"},
+    {name = "Catarina Garbacz"},
+    {name = "Marco Fossati"},
+    {name = "Simão Marto"},
+    {name = "Dilaksan Thillaithevan"},
+    {name = "Tommy Williamson"},
+]
+maintainers = [
+    {name = "TITAN Contributors"},
+]
+keywords = ["simulation", "aerospace", "re-entry", "atmospheric"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+titan = "TITAN:main"
+
+[tool.setuptools]
+packages = [
+    "titan",
+    "titan.Aerothermo",
+    "titan.Configuration",
+    "titan.Dynamics",
+    "titan.Explosion",
+    "titan.Forces",
+    "titan.Fragmentation",
+    "titan.Freestream",
+    "titan.Geometry",
+    "titan.Material",
+    "titan.Model",
+    "titan.Output",
+    "titan.Postprocess",
+    "titan.Structural",
+    "titan.Thermal",
+    "titan.Uncertainty",
+]

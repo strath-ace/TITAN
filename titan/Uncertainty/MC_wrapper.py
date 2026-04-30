@@ -1,0 +1,133 @@
+#
+# Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
+#
+# This file is part of TITAN 
+# (see https://github.com/strath-ace/TITAN).
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+
+import os
+import configparser
+import concurrent.futures
+import numpy as np
+import pathlib
+import copy
+import yaml
+try: from yaml import CLoader as Loader
+except: from yaml import Loader
+
+from ..run_TITAN import loop
+from ..Configuration.configuration import read_config_file
+from ..Uncertainty.utils import UQMapper, report_outputs_from_csv, collate_QoI
+from ..Dynamics.propagation import construct_state_vector
+
+def run(filename,n_samples):
+    n_samples = int(n_samples)
+    configParser = configparser.RawConfigParser()   
+    configFilePath = filename.lstrip()
+    configParser.read(configFilePath)
+    base_options, base_titan = read_config_file(configParser,'')
+    base_folder = base_options.output_folder
+    prime_seed = base_options.uncertainty.prime_seed
+
+    seedlist = np.random.RandomState(prime_seed).random_integers(0,2**32-1,n_samples)
+    base_titan.uq_mapper = UQMapper(base_titan, base_options)
+    
+    if base_options.collision.flag: # Can't serialise collision data
+        for _assembly in base_titan.assembly: _assembly.collision = None
+
+    if base_options.uncertainty.n_procs>1:
+        print('Beginning Parallel Campaign...') 
+
+        with concurrent.futures.ProcessPoolExecutor(base_options.uncertainty.n_procs) as executor:
+            output_futures = [executor.submit(wrapper,base_titan,base_options,i_sample,seed) for i_sample, seed in enumerate(seedlist)]
+
+            # for i_sim, f in enumerate(concurrent.futures.as_completed(output_futures)):
+            #     if f._exception:
+            #         print('Error on result number {}: {}'.format(i_sim,f.exception()))
+            #     else:
+            #         print('Finished sim: '+str(i_sim+1)+' ('+str(round(100*(i_sim+1)/n_samples,4))+'%)')
+            concurrent.futures.wait(output_futures)
+    else:
+
+        for i_sample, seed in enumerate(seedlist):
+            print('Beginning Serial Campaign...') 
+            new_titan = copy.deepcopy(base_titan)
+            new_options = copy.deepcopy(base_options)
+            wrapper(new_titan, new_options, i_sample, seed)
+            del new_titan, new_options
+    collate_QoI(seedlist, base_folder, prime_seed)
+    
+def wrapper(titan, options, i_sample, seed):
+    pid = os.getpid()
+    print('Starting run {} seed [{}] PID:{}'.format(i_sample, str(seed).rjust(10,'0'), pid), flush=True)
+    options.output_folder += '/Campaign_'+str(options.uncertainty.prime_seed)+'/MC_' + str(i_sample)
+    options.clean_up_folders()
+    options.create_output_folders()
+    component_list = []
+    for _assembly in titan.assembly: 
+        construct_state_vector(_assembly)
+        [component_list.append(comp.name) for comp in _assembly.objects]
+    state_info = titan.uq_mapper.map_from_seed(seed, titan, options)
+    write_datafile(options.output_folder, i_sample, state_info)
+    options.plot = False# if i_sample % round(2*options.uncertainty.n_procs) == 0 else False
+    options.filepath = ''
+    try:
+        loop(options,titan)
+
+        with open(str(pathlib.Path(options.uncertainty.yaml).resolve()),'r') as f: 
+            output_dict = yaml.load(f,Loader)['outputs']
+        output_names, output_values = report_outputs_from_csv(options.output_folder, output_dict, component_list)
+
+    except Exception as e: 
+        log_error(options.output_folder, seed, e)
+        raise e
+    
+    update_datafile(options.output_folder, seed, output_names, output_values)
+
+    return output_names, output_values
+
+def write_datafile(directory, i_sample, state_info):
+    with open(directory + '/MCdata_'+str(state_info['seed']).rjust(10,'0'), 'w') as f:
+        f.write('''__________________________________________________________________________________
+__________________________________________________________________________________
+          _        $$$$####| $$##| $$$###| //$#\\\\  $#|   $#|      $#| $#| //$#\\\\ 
+        _-#-_         $#|     $#|    $#|   $#| $#| $#\\\\  $#|      $#| $#| $#| $#|  
+       /#####\\        $#|     $#|    $#|   $$$###| $#| \\\\$#| $#|  $#| $#| $#| $#|
+     /### ? ###\\      $#|     $#|    $#|   $#| $#| $#|   $#|      $#| $#| $#| $#|
+__--#############--___$#|____$$##|___$#|___$#|_$#|_$#|___$#|______\\\\$#//__\\\\$#//
+_____________________________(Still_in_development!)________________________\\\\$#|_
+
+''')
+        f.write('RUN | {} | SEED | {} |\n'.format(i_sample, str(state_info['seed']).rjust(10,'0')))
+        i_param = 0
+        for param, value in state_info.items():
+            if param=='seed': continue
+            f.write('PARAMETER #{} - {}:{}\n'.format(i_param, param, value))
+            i_param+=1
+        f.write('\n----------------------------------------------------------------------------------\n\n')
+
+def update_datafile(directory, seed, output_names, output_values):
+     with open(directory + '/MCdata_'+str(seed).rjust(10,'0'), 'a') as f:
+         if len(output_names)<1: f.write('NO OUTPUT')
+         i_out = 0
+         for name, value in zip(output_names, output_values):
+             f.write('OUTPUT #{} - {}:{}\n'.format(i_out, name, value))
+             i_out+=1
+
+def log_error(directory, seed, error):
+    with open(directory + '/MCdata_'+str(seed).rjust(10,'0'), 'a') as f:
+        f.write('ERROR - NO OUTPUT GENERATED\n')
+        f.write('Exception: {}'.format(error))

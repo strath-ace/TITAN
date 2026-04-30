@@ -13,9 +13,13 @@ cd TITAN
 echo "
 [INSTALL] Creating TITAN conda environment...
 "
-conda env create --name titan --file titan_compatibility_env.yml
+conda env create --name titan --file titan_env.yml
 eval "$(conda shell.bash hook)"
 conda activate titan
+echo "
+[INSTALL] Pip installing...
+"
+pip install .
 swig -version
 echo "
 [INSTALL] Cloning submodules...
@@ -32,8 +36,12 @@ echo "
 [INSTALL] Intalling mutation++...
 "
 cd ./mutationpp
-python setup.py build
-python setup.py install
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make install
+cd ..
+pip install .
 conda deactivate
 echo "
 [INSTALL] Making PATO environment...

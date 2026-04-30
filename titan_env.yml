@@ -1,0 +1,34 @@
+name: titan
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - numpy
+  - pandas
+  - scipy
+  - scikit-build
+  - pyyaml
+  - swig
+  - trimesh
+  - meshio
+  - vtk
+  - sympy
+  - pymap3d
+  - pyquaternion
+  - bs4
+  - requests
+  - pip
+  - lxml
+  - open3d
+  - astropy
+  - scikit-build
+  - rtree
+  - psutil
+  - networkx
+  - pip:
+      - stl
+      - vg
+      - gmsh
+      - python-fcl
+      - manifold3d
+      - embreex
