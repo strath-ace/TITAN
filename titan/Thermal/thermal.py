@@ -71,7 +71,10 @@ def compute_thermal_0D(titan, options, dt=None):
             Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
 
             # Computing temperature change
-            dT = (Qin-Qrad)*dt/(obj.mass*cp)
+            if obj.mass>0:
+                dT = (Qin-Qrad)*dt/(obj.mass*cp)
+            else: dT = 0.0
+
 
             if obj.temperature+dT > obj.material.meltingTemperature:
                 dT_melt = obj.material.meltingTemperature - obj.temperature
@@ -88,10 +91,10 @@ def compute_thermal_0D(titan, options, dt=None):
             else:
                 new_mass = obj.mass + dm
                 new_T = obj.temperature + dT
-
-                obj.material.density *= new_mass/obj.mass
-                obj.mass = new_mass
-                obj.temperature = new_T
+                if obj.mass>0:
+                    obj.material.density *= new_mass/obj.mass
+                    obj.mass = new_mass
+                    obj.temperature = new_T
                 #obj.pato.temperature[:] = obj.temperature
 
                 if obj.material.density < 0:

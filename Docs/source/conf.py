@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'TITAN'
-copyright = '2026, Fabio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossati & Contributors'
-author = 'Fabio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossati & Contributors'
+copyright = '2026, TITAN Contributors'
+author = 'Fabio Morgado, Julie Graham, Tommy Williamson,\n Catarina Garbacz, Marco Fossati & Contributors'
 release = 'v0.2 "Atlas"'
 
 import sys
