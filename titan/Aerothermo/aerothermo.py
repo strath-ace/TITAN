@@ -327,22 +327,22 @@ def compute_aerodynamics(assembly, index : list, flow_direction : np.ndarray, op
     if (not options.vehicle) or (options.vehicle and not options.vehicle.Cd):
         if  (assembly.freestream.knudsen <= Kn_cont_pressure):
             assembly.aerothermo.pressure[index] += aerodynamics_module_continuum(assembly, index, flow_direction)
-            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
+            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index] * options.aerothermo.CP_mult
 
         elif (assembly.freestream.knudsen >= Kn_free): 
             pressure, shear = aerodynamics_module_freemolecular(assembly, index, flow_direction)
-            assembly.aerothermo.pressure[index] = pressure
-            assembly.aerothermo.shear[index] = shear
-            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
-            assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
+            assembly.aerothermo.pressure[index] += pressure
+            assembly.aerothermo.shear[index] += shear
+            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]  * options.aerothermo.CP_mult
+            assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None] * options.aerothermo.CTau_mult
 
         else: 
             aerobridge = bridging(assembly.freestream, Kn_cont_pressure, Kn_free )
             pressures, shears = aerodynamics_module_bridging(assembly, index, aerobridge, flow_direction)
             assembly.aerothermo.pressure[index] += pressures
             assembly.aerothermo.shear[index] += shears
-            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index]
-            assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None]
+            assembly.aerothermo.pressure[index] *= assembly.aerothermo.partial_factor[index] * options.aerothermo.CP_mult
+            assembly.aerothermo.shear[index] *= assembly.aerothermo.partial_factor[index,None] * options.aerothermo.CTau_mult
 
 def compute_aerothermodynamics(assembly, index : list, flow_direction : np.ndarray, options):
     """
@@ -364,24 +364,24 @@ def compute_aerothermodynamics(assembly, index : list, flow_direction : np.ndarr
     # Heatflux calculation for Earth
     if options.planet.name == "earth":
         if  (assembly.freestream.knudsen <= Kn_cont_heatflux):
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly, index, flow_direction, options)*StConst
-            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_continuum(assembly, index, options)*StConst
+            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] * options.aerothermo.CH_mult 
 
         elif (assembly.freestream.knudsen >= Kn_free): 
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly, index, flow_direction)*StConst
-            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index]
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_freemolecular(assembly, index)*StConst
+            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] * options.aerothermo.CH_mult 
 
         else: 
             #atmospheric model for the aerothermodynamics bridging needs to be the NRLSMSISE00
             atmo_model = "NRLMSISE00"
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
             assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)*StConst
-            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] 
+            assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] * options.aerothermo.CH_mult 
 
 
     elif options.planet.name == "neptune" or options.planet.name == "uranus":
         #https://sci.esa.int/documents/34923/36148/1567260384517-Ice_Giants_CDF_study_report.pdf        
-        assembly.aerothermo.heatflux[index] = aerothermodynamics_module_ice_giants(assembly, index, flow_direction, options)
+        assembly.aerothermo.heatflux[index] = aerothermodynamics_module_ice_giants(assembly, index, options)
 
 
 def compute_low_fidelity_aerothermo(assemblies, options) -> list:
@@ -419,7 +419,7 @@ def compute_low_fidelity_aerothermo(assemblies, options) -> list:
         _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
         flow_direction = flow_directions[group_map[it]]
         if not hasattr(_assembly, 'aero_index'):
-            ray_trace(groups[group_map[it]],flow_direction,n, options)
+            ray_trace(groups[group_map[it]],n, options)
         else: 
             pass
 
@@ -1149,8 +1149,8 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     mix_properties.compute_stagnation(free_free, options.freestream)
 
     #Compute the Stanton number for both regimes, in the transition altitudes
-    Stc = aerothermodynamics_module_continuum(assembly, p, flow_direction, options)
-    Stfm = aerothermodynamics_module_freemolecular(assembly, p, flow_direction)
+    Stc = aerothermodynamics_module_continuum(assembly, p, options)
+    Stfm = aerothermodynamics_module_freemolecular(assembly, p)
 
     St = Stc + (Stfm - Stc) * BridgeReq[p]
 

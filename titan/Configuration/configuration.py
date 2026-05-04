@@ -479,7 +479,7 @@ class Freestream():
         #: Necessary for addition of relative velocity to mach number, calculated in aerothermo.py
         self.per_facet_mach = []
 
-        #: [float] Multiplier of density, used for seasonal variation, assigned by UQ mapping
+        #: [float] Multiplier of density, used for atmospheric variation, assigned by UQ mapping
         self.density_mult = 1.0
 
 class GRAM():
@@ -1244,6 +1244,9 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.aerothermo.mixture = get_config_value(configParser, options.aerothermo.mixture, 'Aerothermo', 'Mixture', 'str')
     options.aerothermo.SoI_rad = get_config_value(configParser, options.aerothermo.SoI_rad, 'Aerothermo', 'SoI_rad', 'float')
     options.aerothermo.knc_heatflux = get_config_value(configParser, options.aerothermo.knc_heatflux, 'Aerothermo', 'Continuum_limit', 'float')
+    options.aerothermo.CP_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CP_mult', 'float')
+    options.aerothermo.CTau_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CTau_mult', 'float')
+    options.aerothermo.CH_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CH_mult', 'float')
 
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')

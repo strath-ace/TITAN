@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
+# Copyright (c) 2026 TITAN Contributors (cf. AUTHORS.md).
 #
 # This file is part of TITAN 
 # (see https://github.com/strath-ace/TITAN).
@@ -534,6 +534,8 @@ class Assembly():
 
         self.angle_blackbody = np.zeros(len(self.mesh.facets))
         self.angle_atomic    = np.zeros(len(self.mesh.facets))
+
+        self.RIC = np.zeros(6)
 
 
 

@@ -50,6 +50,7 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	assembly_ID = data[index]['Assembly_ID'].to_numpy()
 
 	if filter_name:
+		#TODO get this working with dense
 		if is_dense: raise NotImplementedError
 		assembly_obj = data_obj[(data_obj['Iter'] == iter_value)*(data_obj['Parent_part'].str.contains(filter_name))]['Assembly_ID'].to_numpy()
 		index = (data['Iter']==iter_value)*(data['Assembly_ID']==assembly_obj[0])

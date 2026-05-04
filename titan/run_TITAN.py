@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
+# Copyright (c) 2026 TITAN Contributors (cf. AUTHORS.md).
 #
 # This file is part of TITAN 
 # (see https://github.com/strath-ace/TITAN).
@@ -16,7 +16,6 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
-#
 import configparser
 from argparse import ArgumentParser, RawTextHelpFormatter
 from .Configuration import configuration
@@ -39,12 +38,10 @@ def loop(options = [], titan = []):
     The loop finishes when the iteration number is higher than
     the one the user specified.
 
-    Parameters
-    ----------
-    options : Options
-        object of class :class:`configuration.Options`
-    titan : Assembly_list
-        object of class Assembly_list
+    :param options: Base TITAN options
+    :type options: Options,
+    :param titan: Base TITAN object 
+    :type titan: Assembly_list
     """
 
     #For collision testing purposes
@@ -144,13 +141,17 @@ def loop(options = [], titan = []):
 def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     """TITAN main function
 
-    Parameters
-    ----------
-    filename : str
-        Name of the configuration file
-    postprocess : str
-        Postprocess method. If specified, TITAN will only perform the postprocess of the already obtained solution in the specified output folder.
-        The config fille still needs to be specified.
+    :param filename: Name of the configuration file, defaults to ""
+    :type filename: str
+    :param postprocess: Postprocess method. If specified, TITAN will only perform the postprocess of the already obtained solution in the specified output folder.
+    The config file still needs to be specified. Defaults to ""
+    :type postprocess: str, optional
+    :param filter_name: Assembly filter for postprocessing, defaults to None
+    :type filter_name: str, optional
+    :param emissions: Option to run emmisions postprocessing, defaults to ""
+    :type emissions: str, optional
+    :return: options, titan
+    :rtype: Options, Assembly_list
     """
 
     configParser = configparser.RawConfigParser()   
@@ -183,7 +184,7 @@ if __name__ == "__main__":
 
     # To run TITAN, it requires the user to specify a configuration 
     parser = ArgumentParser(formatter_class=RawTextHelpFormatter)
-
+    
     parser.add_argument("-c", "--config",
                         dest="configfilename",
                         type=str,

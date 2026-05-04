@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
+# Copyright (c) 2026 TITAN Contributors (cf. AUTHORS.md).
 #
 # This file is part of TITAN 
 # (see https://github.com/strath-ace/TITAN).
@@ -23,37 +23,105 @@ import numpy as np
 ## Lot of messy mapping information here to enable uq parameters to be easily exposed
 
 ## Addresses are of form 'access;pointer,access;pointer,etc'
-def assembly_address(index): return 'TITAN,attr;assembly,index;'+str(index)
+def assembly_address(assembly_index : int) -> str: 
+    """Maps from an assembly index to an ""address" string targeting it as an object
 
-def trajectory_address(index): return assembly_address(index) + ',attr;trajectory'
+    :param assembly_index: Index of target assembly
+    :type index: int
+    :return: Resultant address
+    :rtype: str
+    """
+    return 'TITAN,attr;assembly,index;'+str(assembly_index)
 
-def component_address(assembly_index, component_index): 
+def trajectory_address(assembly_index : int) -> str: 
+    """Maps from an assembly index to an ""address" string targeting its
+    trajectory attribute
+
+    :param index: Index of target assembly
+    :type index: int
+    :return: Resultant address
+    :rtype: str
+    """
+    return assembly_address(assembly_index) + ',attr;trajectory'
+
+def component_address(assembly_index : int, component_index : int) -> str: 
+    """Maps from assembly and component indices to an ""address" string 
+    targeting the component as an object
+
+    :param assembly_index: Index of target assembly
+    :type assembly_index: int
+    :param component_index: Index of target component
+    :type component_index: int
+    :return: Resultant address
+    :rtype: str
+    """
     return assembly_address(assembly_index) + ',attr;objects,index;'+str(component_index)
 
-def option_aero_address(assembly_index): return 'OPTIONS,attr;aerothermo'
+def option_aero_address(assembly_index :int) -> str: 
+    """Maps from an assembly index to an ""address" string targeting its
+    aerothermo attribute
 
-def option_traj_address(assembly_index): return 'OPTIONS,attr;dynamics'
+    :param index: Index of target assembly
+    :type index: int
+    :return: Resultant address
+    :rtype: str
+    """
+    return 'OPTIONS,attr;aerothermo'
 
-def option_free_address(assembly_index): return 'OPTIONS,attr;freestream'
+def option_traj_address(index : int) -> str: 
+    """Maps to an ""address" string targeting the trajectory attribute of the options 
+    object
 
-def get_component_index_from_name(name, titan, assembly_index=0):
+    :param index: Index, dummy variable to preserve signature
+    :type index: int
+    :return: Resultant address
+    :rtype: str
+    """
+    return 'OPTIONS,attr;dynamics'
+
+def option_free_address(index : int) -> str: 
+    """Maps to an ""address" string targeting the freestream attribute of the options 
+    object
+
+    :param index: Index, dummy variable to preserve signature
+    :type index: int
+    :return: Resultant address
+    :rtype: str
+    """
+    
+    return 'OPTIONS,attr;freestream'
+
+def get_component_index_from_name(name : str, titan, assembly_index=0) -> int:
+    """Retrieves the index of a target component using its name
+
+    :param name: Component name
+    :type name: str
+    :param titan: Base TITAN object
+    :type titan: Assembly_list
+    :param assembly_index: Index of assembly to retreive component from, defaults to 0
+    :type assembly_index: int, optional
+    :return: Component index 
+    :rtype: int
+    """
     print('Retrieving {} from assembly {}'.format(name, assembly_index))
     for i_component, component in enumerate(titan.assembly[assembly_index].objects):
         if name in component.name: return i_component
     raise Exception('Could not find component {} in assembly {}'.format(name, assembly_index))
 
-# Here parameters are mapped to relevant objects
+#: Parameter mappings to relevant objects
 library_addresses = {assembly_address    : ['ECEF_x','ECEF_y','ECEF_z','ECEF_u','ECEF_v','ECEF_w', 'quat_w', 
                                             'quat_x', 'quat_y','quat_z','omega_roll', 'omega_pitch', 'omega_yaw', 
-                                            'roll', 'aoa','slip','Ixx', 'Iyy', 'Izz', 'Ixy', 'Iyz', 'Ixz'],
+                                            'roll', 'aoa','slip','Ixx', 'Iyy', 'Izz', 'Ixy', 'Iyz', 'Ixz', 
+                                            'RIC_x','RIC_y','RIC_z','RIC_u','RIC_v','RIC_w',
+                                            'TVN_x','TVN_y','TVN_z','TVN_u','TVN_v','TVN_w'],
                      trajectory_address  : ['altitude','gamma','chi','velocity','latitude','longitude'],
                      component_address   : ['trigger__','temperature__'],
-                     option_aero_address : ['catalycity'],
+                     option_aero_address : ['catalycity','CP_mult','CTau_mult','CH_mult'],
                      option_traj_address : ['ECI_x','ECI_y','ECI_z','ECI_u','ECI_v','ECI_w','ECI_epoch_UNIX'],
                      option_free_address : ['density_mult']}
 
 
-# Here parameters are mapped to relevant attributes (of mapped objects)
+#: Parameter mappings to relevant attributes (of mapped objects)
 library_assignments = {'ECEF_x'         : ['state_vector', 0],
                        'ECEF_y'         : ['state_vector', 1],
                        'ECEF_z'         : ['state_vector', 2],
@@ -92,19 +160,63 @@ library_assignments = {'ECEF_x'         : ['state_vector', 0],
                        'Ixz'            : ['inertia', [0,2]],
                        'ECI_epoch_UNIX' : ['trajectory_epoch'],
                        'catalycity'     : ['cat_rate'],
-                       'density_mult'   : ['density_mult']
+                       'density_mult'   : ['density_mult'],
+                       'CP_mult'        : ['CP_mult'],
+                       'CTau_mult'      : ['CTau_mult'],
+                       'CH_mult'        : ['CH_mult'],
+                       'RIC_x'          : ['RIC', 0],
+                       'RIC_y'          : ['RIC', 1],
+                       'RIC_z'          : ['RIC', 2],
+                       'RIC_u'          : ['RIC', 3],
+                       'RIC_v'          : ['RIC', 4],
+                       'RIC_w'          : ['RIC', 5],
+                       'TVN_x'          : ['RIC', 0],
+                       'TVN_y'          : ['RIC', 1],
+                       'TVN_z'          : ['RIC', 2],
+                       'TVN_u'          : ['RIC', 3],
+                       'TVN_v'          : ['RIC', 4],
+                       'TVN_w'          : ['RIC', 5],
                        }
 
-def library_check(name):
+def library_check(name : str):
+    """Searches the UQ library for the specified parameter, throws an exception if it doesn't exist
+
+    :param name: Name of target parameter
+    :type name: str
+    :raises Exception: Parameter not found in UQ library
+    """
     try: assert name in list(library_assignments.keys())
     except: 
         raise Exception('Could not find parameter {} in list, please check the UQ handbook'.format(name))
 
-def state_vector_callback(titan, options, assem_ids):
-    from Dynamics.propagation import construct_state_vector
-    for i_assem in assem_ids: construct_state_vector(titan.assembly[i_assem])
+def state_vector_callback(titan, options, assem_ids:list):
+    """
+    Constructs the ECEF states based upon dynamic attributes for a set of assemblies defined by assem_ids
 
-def dynamic_attributes_callback(titan, options, assem_ids):
+    :param titan: Base TITAN object
+    :type titan: Assembly_list
+    :param options: Base TITAN options
+    :type options: Options
+    :param assem_ids: List of target assemblies
+    :type assem_ids: list
+    """
+    from Dynamics.propagation import construct_state_vector
+    for i_assem in assem_ids: construct_state_vector(titan.assembly[i_assem], options.dynamics.augmented_state)
+
+def dynamic_attributes_callback(titan, options, assem_ids : list):
+    """
+    Recalculates the dynamic attributes based upon ECEF states
+    of a set of assemblies defined by assem_ids
+
+    This function is a "callback" in that it is called after UQ mapping
+
+    :param titan: Base TITAN object
+    :type titan: Assembly_list
+    :param options: Base TITAN options
+    :type options: Options
+    :param assem_ids: List of target assemblies
+    :type assem_ids: list
+    """
     from Dynamics.propagation import update_dynamic_attributes
     for i_assem in assem_ids: 
         update_dynamic_attributes(titan.assembly[i_assem],
@@ -112,7 +224,20 @@ def dynamic_attributes_callback(titan, options, assem_ids):
                                   options,
                                   force=True)
 
-def ECI_position_callback(titan, options, assem_ids):
+def ECI_position_callback(titan, options, assem_ids : list):
+    """
+    Recalculates the (ECEF) state vectors based upon ECI states
+    and epochs of a set of assemblies defined by assem_ids
+
+    This function is a "callback" in that it is called after UQ mapping
+
+    :param titan: Base TITAN object
+    :type titan: Assembly_list
+    :param options: Base TITAN options
+    :type options: Options
+    :param assem_ids: List of target assemblies
+    :type assem_ids: list
+    """
     import pymap3d
     import datetime as dt
     epoch = options.dynamics.trajectory_epoch
@@ -129,31 +254,138 @@ def ECI_position_callback(titan, options, assem_ids):
         titan.assembly[i_assem].state_vector[:6] = state
     dynamic_attributes_callback(titan, options, assem_ids)
 
-def orientation_callback(titan, options, assem_ids):
+def orientation_callback(titan, options, assem_ids : list):
+    """
+    Recomputes the quaternion of a of a set of assemblies defined by assem_ids
+
+    This function is a "callback" in that it is called after UQ mapping
+
+    :param titan: Base TITAN object
+    :type titan: Assembly_list
+    :param options: Base TITAN options
+    :type options: Options
+    :param assem_ids: List of target assemblies
+    :type assem_ids: list
+    """
     from Dynamics.dynamics import compute_quaternion
     for i_assem in assem_ids: 
         compute_quaternion(titan.assembly[i_assem])
         titan.assembly[i_assem].state_vector[6:10] = titan.assembly[i_assem].quaternion
     state_vector_callback(titan, options, assem_ids)
 
+def RIC_callback(titan, options, assem_ids : list):
+    """
+    Adds pre-specified deltas in Radial, In-Track, Cross-Track (RIC/RTN) frame to
+    the states of a set of assemblies defined by assem_ids
 
-def symmetrize_inertia_callback(titan, options, assem_ids):
+    This function is a "callback" in that it is called after UQ mapping
+
+    The frame is defined as detailed in https://sanaregistry.org/r/orbit_relative_reference_frames/records/9
+
+    Note that for circular orbits RIC and TVN are identical
+
+
+    :param titan: Base TITAN object
+    :type titan: Assembly_list
+    :param options: Base TITAN options
+    :type options: Options
+    :param assem_ids: List of target assemblies
+    :type assem_ids: list
+    """
+
+    for i_assem in assem_ids:
+        state = np.array(titan.assembly[i_assem].state_vector)
+        delta_RIC = titan.assembly[i_assem].RIC
+        r_hat = state[0:3] / np.linalg.norm(state[0:3])
+        v_hat = state[3:6] / np.linalg.norm(state[3:6])
+        
+        # For RTN/RIC our T/I vector is not velocity aligned 
+        x_track = np.cross(r_hat, v_hat)
+        in_track = np.cross(x_track, r_hat) # i.e. this is not (necessarily) v_hat
+        radial = r_hat
+
+        delta_ECEF = np.zeros(6)
+        # Position changes
+        delta_ECEF[0:3] += delta_RIC[0] * radial + delta_RIC[1] * in_track + delta_RIC[2] * x_track
+        # Velocity Changes
+        delta_ECEF[3:6] += delta_RIC[3] * radial + delta_RIC[4] * in_track + delta_RIC[5] * x_track
+        state[0:6] += delta_ECEF
+        titan.assembly[i_assem].state = state
+
+    dynamic_attributes_callback(titan, options, assem_ids)
+
+def TVN_callback(titan, options, assem_ids : list):
+    """
+    Adds pre-specified deltas in Transverse, Velocity, Normal (TVN/NTW/PTW) frame to
+    the states of a set of assemblies defined by assem_ids
+
+    This function is a "callback" in that it is called after UQ mapping
+
+    The frame is defined as detailed in https://sanaregistry.org/r/orbit_relative_reference_frames/records/6
+
+    Note that for circular orbits RIC and TVN are identical
+
+    :param titan: Base TITAN object
+    :type titan: Assembly_list
+    :param options: Base TITAN options
+    :type options: Options
+    :param assem_ids: List of target assemblies
+    :type assem_ids: list
+    """
+
+    for i_assem in assem_ids:
+        state = np.array(titan.assembly[i_assem].state_vector)
+        delta_RIC = titan.assembly[i_assem].RIC
+        r_hat = state[0:3] / np.linalg.norm(state[0:3])
+        v_hat = state[3:6] / np.linalg.norm(state[3:6])
+        
+        # For TVN/NTW our T/N vector is not position aligned 
+        x_track = np.cross(r_hat, v_hat)
+        in_track = v_hat
+        radial = np.cross(in_track, x_track) # i.e. this is not (necessarily) r_hat
+
+        delta_ECEF = np.zeros(6)
+        # Position changes
+        delta_ECEF[0:3] += delta_RIC[0] * radial + delta_RIC[1] * in_track + delta_RIC[2] * x_track
+        # Velocity Changes
+        delta_ECEF[3:6] += delta_RIC[3] * radial + delta_RIC[4] * in_track + delta_RIC[5] * x_track
+        state[0:6] += delta_ECEF
+        titan.assembly[i_assem].state = state
+
+def symmetrize_inertia_callback(titan, options, assem_ids : list):
+    """
+    Copies the lower in inertia tensor triangle assigned by UQ mapping to
+    the upper inertia tensor to "symmetrize" the tensor of a set of assemblies 
+    defined by assem_ids
+
+    This function is a "callback" in that it is called after UQ mapping
+
+    :param titan: Base TITAN object
+    :type titan: Assembly_list
+    :param options: Base TITAN options
+    :type options: Options
+    :param assem_ids: List of target assemblies
+    :type assem_ids: list
+    """
     for i_assem in assem_ids:
         titan.assembly[i_assem].inertia[1,0] = titan.assembly[i_assem].inertia[0,1]
         titan.assembly[i_assem].inertia[2,0] = titan.assembly[i_assem].inertia[0,2]
         titan.assembly[i_assem].inertia[2,1] = titan.assembly[i_assem].inertia[1,2]
 
+#: Parameter mappings to functions that need to be called after UQ mapping has been completed
 callbacks = {state_vector_callback       : ['altitude','latitude','longitude','gamma','chi','velocity'],
              ECI_position_callback       : ['ECI_x','ECI_y','ECI_z','ECI_u','ECI_v','ECI_w','ECI_epoch_UNIX'],
+             RIC_callback                : ['RIC_x','RIC_y','RIC_z','RIC_u','RIC_v','RIC_w'],
+             TVN_callback                : ['TVN_x','TVN_y','TVN_z','TVN_u','TVN_v','TVN_w'],
              dynamic_attributes_callback : ['ECEF_x','ECEF_y','ECEF_z','ECEF_u','ECEF_v','ECEF_w', 'quat_w',
                                             'quat_x','quat_y','quat_z','omega_roll','omega_pitch','omega_yaw'],
              orientation_callback        : ['chi','gamma','roll','aoa','slip','latitude','longitude'],
              symmetrize_inertia_callback : ['Ixy','Iyz','Ixz']}
 
-## Valid classes for the distribution have to...
-#  ...accept (even a dummy) input
-#  ...have the attribute random_state
-#  ...have the method rvs()
+#: Valid classes for the distribution have to...
+#:  ...accept (even a dummy) input
+#:  ...have the attribute random_state
+#:  ...have the method rvs()
 class quat_rotation():
     def __init__(self, d=3):
         self.d = 3
@@ -162,7 +394,8 @@ class quat_rotation():
         quat = Rotation.random(num=n, random_state=self.random_state).as_quat()
         return quat[0]
 
-# Sometimes extensibility ain't pretty
+#Sometimes extensibility ain't pretty
+#: Available distributions for representing uncertain parameters
 available_distris = {'alpha':alpha,'anglit':anglit,'arcsine':arcsine,'argus':argus,'beta':beta,'betaprime':betaprime,
                'bradford':bradford,'burr':burr,'burr12':burr12,'cauchy':cauchy,'chi':chi,'chi2':chi2,'cosine':cosine,
                'crystalball':crystalball,'dgamma':dgamma,'dweibull':dweibull,'erlang':erlang,'expon':expon,

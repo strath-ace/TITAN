@@ -1,1045 +1,401 @@
+
 <!DOCTYPE html>
 
-<html lang="en" data-content_root="./">
+
+<html lang="en" data-content_root="./" >
+
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TITAN documentation &#8212; TITAN 0.2 documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
-    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
-    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
-    <script src="_static/documentation_options.js?v=10f1778b"></script>
+    <title>TITAN documentation &#8212; TITAN v0.2 &#34;Atlas&#34; documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=4fb0fd73"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-   
-  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+    <link rel="next" title="titan package" href="titan.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
   
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
 
   
   
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
-  </head><body>
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
   
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
 
-          <div class="body" role="main">
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="#">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">TITAN v0.2 "Atlas" documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="titan.html">titan package</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="titan.Aerothermo.html">titan.Aerothermo package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Configuration.html">titan.Configuration package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Dynamics.html">titan.Dynamics package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Explosion.html">titan.Explosion package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Forces.html">titan.Forces package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Fragmentation.html">titan.Fragmentation package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Freestream.html">titan.Freestream package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Geometry.html">titan.Geometry package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Material.html">titan.Material package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Model.html">titan.Model package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Output.html">titan.Output package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Postprocess.html">titan.Postprocess package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Structural.html">titan.Structural package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Thermal.html">titan.Thermal package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Uncertainty.html">titan.Uncertainty package</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/index.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>TITAN documentation</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
             
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
   <section id="titan-documentation">
-<h1>TITAN documentation<a class="headerlink" href="#titan-documentation" title="Link to this heading">¶</a></h1>
-<p>Welcome to TITAN!</p>
+<h1>TITAN documentation<a class="headerlink" href="#titan-documentation" title="Link to this heading">#</a></h1>
+<p>Welcome to <a class="reference external" href="https://github.com/strath-ACE/TITAN">TITAN!</a></p>
+<p>These docs are still a work in progress, we hope you find them useful.</p>
 <div class="toctree-wrapper compound">
-</div>
-<dl class="py class" id="module-Thermal.byproducts">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">Thermal.byproducts.</span></span><span class="sig-name descname"><span class="pre">Byproducts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_faces</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_emitting</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mf</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mass</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">{}</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">species</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_free_species</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cutoff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Thermal.byproducts.Byproducts" title="Link to this definition">¶</a></dt>
-<dd><p>Class to handle byproducts generation of assembly using Mutation++</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.P_mix">
-<span class="sig-name descname"><span class="pre">P_mix</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.P_mix" title="Link to this definition">¶</a></dt>
-<dd><p>[array] Per-facet pressure for mixtures</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.T_mix">
-<span class="sig-name descname"><span class="pre">T_mix</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.T_mix" title="Link to this definition">¶</a></dt>
-<dd><p>[array] Per-facet temperature for mixtures</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.air_in_excess">
-<span class="sig-name descname"><span class="pre">air_in_excess</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">component</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">free_mix_species_names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">excess_mult</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.5</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Thermal.byproducts.Byproducts.air_in_excess" title="Link to this definition">¶</a></dt>
-<dd><p>Equilibriates the component mixture with the specified excess ratio</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>component (component.Component): Target component
-free_mix_species_names (list): List of species names in the freestream mixture 
-excess_mult (float, optional): Multiplier of the stoichiometric ratio. Defaults to 2.5.</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.c_i_mix">
-<span class="sig-name descname"><span class="pre">c_i_mix</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.c_i_mix" title="Link to this definition">¶</a></dt>
-<dd><p>[array] Per-facet mass fractions for mixtures</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.column_height_mix">
-<span class="sig-name descname"><span class="pre">column_height_mix</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.column_height_mix" title="Link to this definition">¶</a></dt>
-<dd><p>[array] Per-facet column height for mixtures</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.cutoff">
-<span class="sig-name descname"><span class="pre">cutoff</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.cutoff" title="Link to this definition">¶</a></dt>
-<dd><p>[float] Mass fraction cutoff</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.emission">
-<span class="sig-name descname"><span class="pre">emission</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.emission" title="Link to this definition">¶</a></dt>
-<dd><p>[Dict] Per-facet ablated species emissions (kg/km)</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.get_composition">
-<span class="sig-name descname"><span class="pre">get_composition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ablated_mix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">free_mix_species_names</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">component_mass_fraction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">species_map</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freestream_ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.get_composition" title="Link to this definition">¶</a></dt>
-<dd><p>Generates a comma-separated string of elements and mole fractions to assign as a compostion to a Mutation++ mixture</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>ablated_mix (mutationpp.Mixture): Target mixture
-free_mix_species_names (list): List of species names in the freestream mixture 
-component_mass_fraction (list): Mass fraction of component species released into the flow
-species_map (list): Indices of component species in full mixture 
-freestream_ratio (float): Ratio of freestream mixture to ablated species. Defaults to 1.0.</p>
-</dd>
-<dt>Returns:</dt><dd><p>str: Elemental composition string</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.get_species_list">
-<span class="sig-name descname"><span class="pre">get_species_list</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Thermal.byproducts.Byproducts.get_species_list" title="Link to this definition">¶</a></dt>
-<dd><p>Retrieves the list all species from assembly components</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>assembly (assembly.Assembly): The parent assembly</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.is_emitting">
-<span class="sig-name descname"><span class="pre">is_emitting</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.is_emitting" title="Link to this definition">¶</a></dt>
-<dd><p>[bool] Whether the assembly is currently generating emissions</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.mass">
-<span class="sig-name descname"><span class="pre">mass</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.mass" title="Link to this definition">¶</a></dt>
-<dd><p>[Dict] Per-facet ablated species masses</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.mf">
-<span class="sig-name descname"><span class="pre">mf</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.mf" title="Link to this definition">¶</a></dt>
-<dd><p>[Dict] Per-facet ablated species mass fractions</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.mix">
-<span class="sig-name descname"><span class="pre">mix</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.mix" title="Link to this definition">¶</a></dt>
-<dd><p>[Mutationpp Mixture] Ablation mix</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.mix_excess">
-<span class="sig-name descname"><span class="pre">mix_excess</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">delta_t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Thermal.byproducts.Byproducts.mix_excess" title="Link to this definition">¶</a></dt>
-<dd><p>Performs an air-in-excess equilibriation of each ablating facet of the assembly to compute emitted byproducts</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>assembly (assembly.Assembly): The parent assembly
-options (configuration.Options): TITAN options 
-delta_t (int, optional): TITAN time step. Defaults to 1.</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.oxy_content">
-<span class="sig-name descname"><span class="pre">oxy_content</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.oxy_content" title="Link to this definition">¶</a></dt>
-<dd><p>[float] Oxygen content of surrounding air</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.rho">
-<span class="sig-name descname"><span class="pre">rho</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.rho" title="Link to this definition">¶</a></dt>
-<dd><p>[Dict] Per-facet ablated species densities</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.rho_mix">
-<span class="sig-name descname"><span class="pre">rho_mix</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.rho_mix" title="Link to this definition">¶</a></dt>
-<dd><p>[array] Per-facet density for mixtures</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="Thermal.byproducts.Byproducts.species">
-<span class="sig-name descname"><span class="pre">species</span></span><a class="headerlink" href="#Thermal.byproducts.Byproducts.species" title="Link to this definition">¶</a></dt>
-<dd><p>[list] List of species names across all component mixtures</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Thermal.byproducts.get_stoichiometric_ratio">
-<span class="sig-prename descclassname"><span class="pre">Thermal.byproducts.</span></span><span class="sig-name descname"><span class="pre">get_stoichiometric_ratio</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mixture</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">oxy_content</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#Thermal.byproducts.get_stoichiometric_ratio" title="Link to this definition">¶</a></dt>
-<dd><p>Returns the maximal stoichiometric ratio of any oxide compound in a Mutation++ mixture</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>mix (mpp.Mixture): Target mixture
-oxy_content (float, optional): Oxygen content of the mixture. Defaults to 1.0.</p>
-</dd>
-<dt>Returns:</dt><dd><p>float: Maximal stoichiometric ratio of the mixture</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function" id="module-Aerothermo.aerothermo">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.SoI_assembly_groups">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">SoI_assembly_groups</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly_list</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sphere_radius</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.SoI_assembly_groups" title="Link to this definition">¶</a></dt>
-<dd><p>Takes a list of assemblies and returns list of assembly groups by sphere of influence as well as mean flow direction and mapping dict</p>
-<section id="parameters">
-<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading">¶</a></h2>
-<dl class="field-list simple">
-<dt class="field-odd">assembly_list<span class="colon">:</span></dt>
-<dd class="field-odd"><p>List of assemblies</p>
-</dd>
-<dt class="field-even">sphere_radius<span class="colon">:</span></dt>
-<dd class="field-even"><p>Sphere of Influence (SoI) radius to consider</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.aerodynamics_module_bridging">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">aerodynamics_module_bridging</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">aerobridge</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.aerodynamics_module_bridging" title="Link to this definition">¶</a></dt>
-<dd><p>Pressure computation for Transitional regime</p>
-<section id="id1">
-<h2>Parameters<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>nodes_normal: np.array</dt><dd><p>List of the normals of each vertex on the surface</p>
-</dd>
-<dt>free: Assembly.Freestream</dt><dd><p>Freestream object</p>
-</dd>
-<dt>p: np.array</dt><dd><p>List of vertex IDs that are visible to the flow</p>
-</dd>
-<dt>aerobridge: float</dt><dd><p>Bridging value between 0 and 1</p>
-</dd>
-<dt>flow_direction: np.array</dt><dd><p>Vector containing the flow_direction in the Body frame</p>
-</dd>
-<dt>body_temperature: float</dt><dd><p>Temperature of the body</p>
-</dd>
-</dl>
-</section>
-<section id="returns">
-<h2>Returns<a class="headerlink" href="#returns" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>Pressure: np.array</dt><dd><p>Vector with pressure values</p>
-</dd>
-<dt>Shear: np.array</dt><dd><p>Vector with skin friction values</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.aerodynamics_module_continuum">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">aerodynamics_module_continuum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.aerodynamics_module_continuum" title="Link to this definition">¶</a></dt>
-<dd><p>Pressure computation for continuum regime</p>
-<p>Function uses the Modified Newtonian Theory</p>
-<section id="id2">
-<h2>Parameters<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>nodes_normal: np.array</dt><dd><p>List of the normals of each vertex on the surface</p>
-</dd>
-<dt>free: Assembly.Freestream</dt><dd><p>Freestream object</p>
-</dd>
-<dt>p: np.array</dt><dd><p>List of vertex IDs that are visible to the flow</p>
-</dd>
-<dt>flow_direction: np.array</dt><dd><p>Vector containing the flow_direction in the Body frame</p>
-</dd>
-</dl>
-</section>
-<section id="id3">
-<h2>Returns<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>Pressure: np.array</dt><dd><p>Vector with pressure values</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.aerodynamics_module_freemolecular">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">aerodynamics_module_freemolecular</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.aerodynamics_module_freemolecular" title="Link to this definition">¶</a></dt>
-<dd><p>Pressure computation for Free-molecular regime</p>
-<p>Function uses the Schaaf and Chambre theory</p>
-<section id="id4">
-<h2>Parameters<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>nodes_normal: np.array</dt><dd><p>List of the normals of each vertex on the surface</p>
-</dd>
-<dt>free: Assembly.Freestream</dt><dd><p>Freestream object</p>
-</dd>
-<dt>p: np.array</dt><dd><p>List of vertex IDs that are visible to the flow</p>
-</dd>
-<dt>flow_direction: np.array</dt><dd><p>Vector containing the flow_direction in the Body frame</p>
-</dd>
-<dt>body_temperature: float</dt><dd><p>Temperature of the body</p>
-</dd>
-</dl>
-</section>
-<section id="id5">
-<h2>Returns<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>Pressure: np.array</dt><dd><p>Vector with pressure values</p>
-</dd>
-<dt>Shear: np.array</dt><dd><p>Vector with skin friction values</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.aerothermodynamics_module_bridging">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">aerothermodynamics_module_bridging</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atm_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Kn_cont</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Kn_free</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.aerothermodynamics_module_bridging" title="Link to this definition">¶</a></dt>
-<dd><p>Heatflux computation for the heat-flux regime</p>
-<section id="id6">
-<h2>Parameters<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>nodes_normal: np.array</dt><dd><p>List of the normals of each vertex on the surface</p>
-</dd>
-<dt>nodes_radius: np.array</dt><dd><p>Local radius of each vertex</p>
-</dd>
-<dt>free: Assembly.Freestream</dt><dd><p>Freestream object</p>
-</dd>
-<dt>p: np.array</dt><dd><p>List of vertex IDs that are visible to the flow</p>
-</dd>
-<dt>wall_temperature: float</dt><dd><p>Temperature of the body</p>
-</dd>
-<dt>flow_direction: np.array</dt><dd><p>Vector containing the flow_direction in the Body frame</p>
-</dd>
-<dt>atm_data: str</dt><dd><p>Atmospheric model</p>
-</dd>
-<dt>hf_model: str</dt><dd><p>Heatflux model to be used (default = ??, sc = Scarab, vd = Van Driest)</p>
-</dd>
-<dt>Kn_cont: float</dt><dd><p>Knudsen limit for the continuum regime</p>
-</dd>
-<dt>Kn_free: float</dt><dd><p>Knudsen limit for the free-molecular regime</p>
-</dd>
-<dt>lref: float</dt><dd><p>Reference length</p>
-</dd>
-<dt>options: Options</dt><dd><p>Object of class Options</p>
-</dd>
-</dl>
-</section>
-<section id="id7">
-<h2>Returns<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>St: np.array</dt><dd><p>Vector with Stanton number</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.aerothermodynamics_module_continuum">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">aerothermodynamics_module_continuum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.aerothermodynamics_module_continuum" title="Link to this definition">¶</a></dt>
-<dd><p>Heatflux computation for continuum regime</p>
-<p>Function uses the Scarab equation (sc) or the Van Driest equation (vd)</p>
-<section id="id8">
-<h2>Parameters<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>nodes_normal: np.array</dt><dd><p>List of the normals of each vertex on the surface</p>
-</dd>
-<dt>nodes_radius: np.array</dt><dd><p>Local radius of each vertex</p>
-</dd>
-<dt>free: Assembly.Freestream</dt><dd><p>Freestream object</p>
-</dd>
-<dt>p: np.array</dt><dd><p>List of vertex IDs that are visible to the flow</p>
-</dd>
-<dt>body_temperature: float</dt><dd><p>Temperature of the body</p>
-</dd>
-<dt>flow_direction: np.array</dt><dd><p>Vector containing the flow_direction in the Body frame</p>
-</dd>
-<dt>hf_model: str</dt><dd><p>Heatflux model to be used (default = ??, sc = Scarab, vd = Van Driest, fr = Fay-Riddell, sg = Sutton-Graves)</p>
-</dd>
-</dl>
-</section>
-<section id="id9">
-<h2>Returns<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>Stc: np.array</dt><dd><p>Vector with Stanton number</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.aerothermodynamics_module_freemolecular">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">aerothermodynamics_module_freemolecular</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.aerothermodynamics_module_freemolecular" title="Link to this definition">¶</a></dt>
-<dd><p>Heatflux computation for free-molecular regime</p>
-<p>Function uses the Schaaf and Chambre Theory
-Based on book of Wallace Hayes - Hypersonic Flow Theory</p>
-<section id="id10">
-<h2>Parameters<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>nodes_normal: np.array</dt><dd><p>List of the normals of each vertex on the surface</p>
-</dd>
-<dt>free: Assembly.Freestream</dt><dd><p>Freestream object</p>
-</dd>
-<dt>p: np.array</dt><dd><p>List of vertex IDs that are visible to the flow</p>
-</dd>
-<dt>Wall_temperature: float</dt><dd><p>Temperature of the body</p>
-</dd>
-<dt>flow_direction: np.array</dt><dd><p>Vector containing the flow_direction in the Body frame</p>
-</dd>
-</dl>
-</section>
-<section id="id11">
-<h2>Returns<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>Stfm: np.array</dt><dd><p>Vector with Stanton number</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.aerothermodynamics_module_ice_giants">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">aerothermodynamics_module_ice_giants</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.aerothermodynamics_module_ice_giants" title="Link to this definition">¶</a></dt>
-<dd><p>Low-fidelity computation of the aerothermodynamics in the Ice giants planet</p>
-<section id="id12">
-<h2>Parameters<a class="headerlink" href="#id12" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>assembly: Assembly_list</dt><dd><p>Object of class Assembly_list</p>
-</dd>
-<dt>index: np.array(int)</dt><dd><p>Indexing list indicating nodes facing the flow (backface culling)</p>
-</dd>
-<dt>flow_direction: np.array(float)</dt><dd><p>Array indicating direction of the flow in the body frame</p>
-</dd>
-<dt>options: Options</dt><dd><p>Object of class Options</p>
-</dd>
-</dl>
-</section>
-<section id="id13">
-<h2>Returns<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>Q: np.array()</dt><dd><p>Array of Heatflux values</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.bridging">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">bridging</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">free</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Kn_cont</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Kn_free</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.bridging" title="Link to this definition">¶</a></dt>
-<dd><p>Computation of the bridging factor for the aeordynamic computation</p>
-<section id="id14">
-<h2>Parameters<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>free: Assembly.Freestream</dt><dd><p>Freestream object</p>
-</dd>
-<dt>Kn_cont: float</dt><dd><p>Knudsen limit for the continuum regime</p>
-</dd>
-<dt>Kn_free: float</dt><dd><p>Knudsen limit for the free-molecular regime</p>
-</dd>
-</dl>
-</section>
-<section id="id15">
-<h2>Returns<a class="headerlink" href="#id15" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>AeroBridge: float</dt><dd><p>Bridging factor</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.compute_aerodynamics">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">compute_aerodynamics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.compute_aerodynamics" title="Link to this definition">¶</a></dt>
-<dd><p>Low-fidelity computation of the aerodynamics (pressure, friction)</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>assembly (assembly.Assembly): Target assembly
-index (list): Indexing list indicating nodes facing the flow
-flow_direction (np.ndarray): Array indicating direction of the flow in the body frame
-options (configuration.Options): TITAN options</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.compute_aerothermo">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">compute_aerothermo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.compute_aerothermo" title="Link to this definition">¶</a></dt>
-<dd><p>Fidelity selection for aerothermo computation</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>titan (assembly.Assembly_list): TITAN assembly list
-options (configuration.Options): TITAN options</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.compute_aerothermodynamics">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">compute_aerothermodynamics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.compute_aerothermodynamics" title="Link to this definition">¶</a></dt>
-<dd><p>Low-fidelity computation of the aerothermodynamics (heat-flux)</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>assembly (assembly.Assembly): Target assembly
-index (list): Indexing list indicating nodes facing the flow
-flow_direction (np.ndarray): Array indicating direction of the flow in the body frame
-options (configuration.Options): TITAN options</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.compute_low_fidelity_aerothermo">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">compute_low_fidelity_aerothermo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assemblies</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.compute_low_fidelity_aerothermo" title="Link to this definition">¶</a></dt>
-<dd><p>Low-fidelity aerothermo computation</p>
-<p>Function to compute the aerodynamic and aerothermodynamic using low-fidelity methods.
-It can compute from free-molecular to continuum regime. For the transitional regime, it uses a bridging methodology.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>assemblies (assembly.Assembly_list): List of assemblies to compute upon
-options (configuration.Options): TITAN options</p>
-</dd>
-<dt>Returns:</dt><dd><p>groups (list): List of grouped assemblies that were computed in a shared frame</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.compute_per_facet_flow_dir">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">compute_per_facet_flow_dir</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_direction</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">do_pfm</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.compute_per_facet_flow_dir" title="Link to this definition">¶</a></dt>
-<dd><p>Recalculates flow direction on a per-facet basis, returns array of flow directions and array of local Machs</p>
-<p>Optionally can enable facets rotating into the flow experiencing faster relative velocity, 
-this models a dissipative effect to rotation to prevent unbounded spinning.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Assembly<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Assembly to calculate per facet flows for</p>
-</dd>
-<dt class="field-even">Flow_direction<span class="colon">:</span></dt>
-<dd class="field-even"><p>The unit vector of the assembly’s velocity</p>
-</dd>
-<dt class="field-odd">Do_pfm<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Whether to perform local rotational damping</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.edge_subdivision">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">edge_subdivision</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v0</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.edge_subdivision" title="Link to this definition">¶</a></dt>
-<dd><p>Each subdivision level divides the triangle into 4 parts with equal areas
-Function returns the number of triangles and the geometrical center of each generated triangle</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>v0 (np.ndarray [N×3]): Array of positions of vert 0 of each tri
-v1 (np.ndarray [N×3]): Array of positions of vert 1 of each tri
-v2 (np.ndarray [N×3]): Array of positions of vert 2 of each tri
-n (int): _description_</p>
-</dd>
-<dt>Returns:</dt><dd><p>np.ndarray [N×3]: Array of output centroids of subdivided tris</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.energy_loop">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">energy_loop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Mixture</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T_eq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">P_eq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">h_ref</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mixture</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.energy_loop" title="Link to this definition">¶</a></dt>
-<dd><p>Stagnation energy loop to ensure conservation of total enthalpy at target equilibrium conditions</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>mix (mpp.Mixture): Target mixture
-T_eq (float): Initial temperature guess (K)
-P_eq (float): Target pressure (Pa)
-h_ref (float): Reference enthalpy (J/kg)</p>
-</dd>
-<dt>Returns:</dt><dd><p>mpp.Mixture: Resultant mix</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.mixture_mpp">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">mixture_mpp</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mixture</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'air5'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Mixture</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.mixture_mpp" title="Link to this definition">¶</a></dt>
-<dd><p>Retrieve the mixture object of the Mutation++ library
-With the chemical reactions for air5</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>mixture (str, optional): Target mixture name. Defaults to “air5”.</p>
-</dd>
-<dt>Returns:</dt><dd><p>mpp.Mixture: Resultant Mutation++ Mixture object</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.normal_shock_M">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">normal_shock_M</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.normal_shock_M" title="Link to this definition">¶</a></dt>
-<dd><p>Compute isentropic normal shock Mach</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>gamma (float): Input ratio of specific heats
-M (float): Input Mach number</p>
-</dd>
-<dt>Returns:</dt><dd><p>float: Post-shock Mach number</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.normal_shock_P">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">normal_shock_P</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">P</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.normal_shock_P" title="Link to this definition">¶</a></dt>
-<dd><p>Compute isentropic normal shock pressure</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>P (float): Input pressure (Pa)
-gamma (float): Input ratio of specific heats
-M (float): Input Mach number</p>
-</dd>
-<dt>Returns:</dt><dd><p>float: Post-shock pressure (Pa)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.normal_shock_T">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">normal_shock_T</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.normal_shock_T" title="Link to this definition">¶</a></dt>
-<dd><p>Compute isentropic normal shock temperature</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>T (float): Input temperature (K)
-gamma (float): Input ratio of specific heats
-M (float): Input Mach number</p>
-</dd>
-<dt>Returns:</dt><dd><p>float: Post-shock temperature (K)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.normal_shock_rho">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">normal_shock_rho</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rho</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.normal_shock_rho" title="Link to this definition">¶</a></dt>
-<dd><p>Compute isentropic normal shock density</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>rho (float): Input denisty (kg/m^3)
-gamma (float): Input ratio of specific heats
-M (float): Input Mach number</p>
-</dd>
-<dt>Returns:</dt><dd><p>float: Post-shock denisty (kg/m^3)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.shock_angle">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">shock_angle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">M</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">theta_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.shock_angle" title="Link to this definition">¶</a></dt>
-<dd><p>Calculates the shock wave angle beta for an oblique shock for an array of flow turn angles.</p>
-<p>Parameters:
-M : float</p>
-<blockquote>
-<div><p>Freestream Mach number.</p>
-</div></blockquote>
-<dl class="simple">
-<dt>gamma<span class="classifier">float</span></dt><dd><p>Specific heat ratio.</p>
-</dd>
-<dt>theta_deg_array<span class="classifier">array-like</span></dt><dd><p>Array of flow turn angles (theta) in degrees.</p>
-</dd>
-</dl>
-<p>Returns:
-beta_deg_array : array-like</p>
-<blockquote>
-<div><p>Array of shock wave angles (beta) in degrees.</p>
-</div></blockquote>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.stagnation_P">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">stagnation_P</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">P</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.stagnation_P" title="Link to this definition">¶</a></dt>
-<dd><p>Compute stagnation pressure</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>P (float): Input pressure (Pa)
-gamma (float): Input ratio of specific heats
-M (float): Input Mach number</p>
-</dd>
-<dt>Returns:</dt><dd><p>float: Stagnation pressure (Pa)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.stagnation_T">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">stagnation_T</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">M</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="headerlink" href="#Aerothermo.aerothermo.stagnation_T" title="Link to this definition">¶</a></dt>
-<dd><p>Compute stagnation temperature</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>T (float): Input temperature (K)
-gamma (float): Input ratio of specific heats
-M (float): Input Mach number</p>
-</dd>
-<dt>Returns:</dt><dd><p>float: Stagnation temperature (K)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.stagnation_line">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">stagnation_line</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">Tfree</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Pfree</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Mfree</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Twall</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mix</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.stagnation_line" title="Link to this definition">¶</a></dt>
-<dd><p>Class to store the flow conditions at freestream, stagnation, BLE and wall</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Aerothermo.aerothermo.write_rays_to_vtk">
-<span class="sig-prename descclassname"><span class="pre">Aerothermo.aerothermo.</span></span><span class="sig-name descname"><span class="pre">write_rays_to_vtk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">origins</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ends</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Aerothermo.aerothermo.write_rays_to_vtk" title="Link to this definition">¶</a></dt>
-<dd><p>Write ray segments to a legacy VTK PolyData file.</p>
-<section id="id16">
-<h2>Parameters<a class="headerlink" href="#id16" title="Link to this heading">¶</a></h2>
-<dl class="simple">
-<dt>filename<span class="classifier">str</span></dt><dd><p>Output .vtk file path.</p>
-</dd>
-<dt>origins<span class="classifier">(N, 3) array</span></dt><dd><p>Ray start points.</p>
-</dd>
-<dt>ends<span class="classifier">(N, 3) array</span></dt><dd><p>Ray end points.</p>
-</dd>
-</dl>
-</section>
-</dd></dl>
-
-<dl class="py function" id="module-Dynamics.global_collisions">
-<dt class="sig sig-object py" id="Dynamics.global_collisions.PGS_solve">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.global_collisions.</span></span><span class="sig-name descname"><span class="pre">PGS_solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warm_start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0,</span> <span class="pre">inf]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.global_collisions.PGS_solve" title="Link to this definition">¶</a></dt>
-<dd><p>Projected (clamped) Gauss-Siedel solver</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>A</strong> – Matrix</p></li>
-<li><p><strong>b</strong> – Vector</p></li>
-<li><p><strong>n_iters</strong> – Number of outer loop iterations to finish after</p></li>
-<li><p><strong>warm_start</strong> – Best guess of solution vector, optional</p></li>
-<li><p><strong>bounds</strong> – Range to project values to</p></li>
-<li><p><strong>epsilon</strong> – Criterion for early stopping if ‖X_[i] - X_[i-1]‖ &lt; epsilon</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.global_collisions.construct_global_velocities">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.global_collisions.</span></span><span class="sig-name descname"><span class="pre">construct_global_velocities</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">local_velocity_ECEF</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.global_collisions.construct_global_velocities" title="Link to this definition">¶</a></dt>
-<dd><p>Builds the array of velocities for collision participants in the local ECEF frame</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>ids</strong> – List of participating assembly indices</p></li>
-<li><p><strong>local_velocity_ECEF</strong> – Local frame datum velocity in ECEF frame</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.global_collisions.construct_inv_mass_matrix">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.global_collisions.</span></span><span class="sig-name descname"><span class="pre">construct_inv_mass_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ids</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.global_collisions.construct_inv_mass_matrix" title="Link to this definition">¶</a></dt>
-<dd><p>Builds and inverts the block diagonal mass matrix of collision participants</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>ids</strong> – List of participating assembly indices</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.global_collisions.construct_jacobian">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.global_collisions.</span></span><span class="sig-name descname"><span class="pre">construct_jacobian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">local_position_ECEF</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">e</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">corrections</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0.0,</span> <span class="pre">1e-06]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">titan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collision_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.global_collisions.construct_jacobian" title="Link to this definition">¶</a></dt>
-<dd><p>Builds the Jacobian and b vectors for restitution and stabilisation</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>local_position_ECEF</strong> – Local frame datum position in ECEF frame</p></li>
-<li><p><strong>v</strong> – Global velocity vector</p></li>
-<li><p><strong>ids</strong> – List of participating assembly indices</p></li>
-<li><p><strong>e</strong> – Coefficient of Restitution</p></li>
-<li><p><strong>corrections</strong> – Correction parameters, [0] is the scale factor and [1] is the slop (allowable intersection)</p></li>
-<li><p><strong>collision_data</strong> – Dict of collision data provided by collisions.update_and_check()</p></li>
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.global_collisions.global_collision_physics">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.global_collisions.</span></span><span class="sig-name descname"><span class="pre">global_collision_physics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collision_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">correction_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recurse</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">correction_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'split'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.global_collisions.global_collision_physics" title="Link to this definition">¶</a></dt>
-<dd><p>Simultaneous collision resolutiuon using Projected Gauss Siedel to solve the LCP problem</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-<li><p><strong>collision_data</strong> – Dict of collision data provided by collisions.update_and_check()</p></li>
-<li><p><strong>correction_only</strong> – Flag to only apply corrections instead of doing a full velocity update</p></li>
-<li><p><strong>recurse</strong> – Number of recursive corrections to apply</p></li>
-<li><p><strong>correction_method</strong> – ‘split’/’baumgarte’/’none’ apply corrections via Split impulse or Baumgarte Stabilisation</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.global_collisions.sequential_collision_resolution">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.global_collisions.</span></span><span class="sig-name descname"><span class="pre">sequential_collision_resolution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imp_update_func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">MInv</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">J_func</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">b_shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_iters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[0,</span> <span class="pre">inf]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">epsilon</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warm_start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.global_collisions.sequential_collision_resolution" title="Link to this definition">¶</a></dt>
-<dd><p>PGS with contact recomputation in-loop</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>A</strong> – Matrix</p></li>
-<li><p><strong>b</strong> – Vector</p></li>
-<li><p><strong>n_iters</strong> – Number of outer loop iterations to finish after</p></li>
-<li><p><strong>warm_start</strong> – Best guess of solution vector, optional</p></li>
-<li><p><strong>bounds</strong> – Range to project values to</p></li>
-<li><p><strong>epsilon</strong> – Criterion for early stopping if ‖X_[i] - X_[i-1]‖ &lt; epsilon</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function" id="module-Dynamics.collision">
-<dt class="sig sig-object py" id="Dynamics.collision.binary_search_TOI">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">binary_search_TOI</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_dt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_sanity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lref_time_resolution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.binary_search_TOI" title="Link to this definition">¶</a></dt>
-<dd><p>Find Time-Of-Impact through binary search of next time step</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-<li><p><strong>input_dt</strong> – Maximal step distance</p></li>
-<li><p><strong>n_sanity</strong> – Number of sanity checks to make along the time step</p></li>
-<li><p><strong>lref_time_resolution</strong> – The duration it takes for the fastest v_rel to cross the smallest l_ref</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.collision_physics">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">collision_physics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.collision_physics" title="Link to this definition">¶</a></dt>
-<dd><p>Impulsive single-collision resolution</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.compute_time_resolution">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">compute_time_resolution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distance_resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.compute_time_resolution" title="Link to this definition">¶</a></dt>
-<dd><p>Maximal allowable distance error converted to a maximal time step</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-<li><p><strong>distance_resolution</strong> – Maximal allowable distance error</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.delete_collision_handler">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">delete_collision_handler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.delete_collision_handler" title="Link to this definition">¶</a></dt>
-<dd><p>Deletes trimesh collision handlers (managers) from assemblies in the list</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.find_ToI_timestep">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">find_ToI_timestep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">input_time_step</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.find_ToI_timestep" title="Link to this definition">¶</a></dt>
-<dd><p>Select a time step such that no “Time-Of-Impact” points are skipped</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-<li><p><strong>input_time_step</strong> – Maximal considered time step</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.generate_collision_handler">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">generate_collision_handler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.generate_collision_handler" title="Link to this definition">¶</a></dt>
-<dd><p>Creates trimesh collision handlers (managers) for assemblies in the list</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.generate_collision_mesh">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">generate_collision_mesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">assembly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.generate_collision_mesh" title="Link to this definition">¶</a></dt>
-<dd><p>Construct a collision mesh for each assembly</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.generate_inflated_mesh">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">generate_inflated_mesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nodes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">facets</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">factor</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.generate_inflated_mesh" title="Link to this definition">¶</a></dt>
-<dd><p>“Inflates” a mesh by a factor for use in collision modelling</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>nodes</strong> – Array of mesh node positions</p></li>
-<li><p><strong>facets</strong> – Array of facet connectivity</p></li>
-<li><p><strong>factor</strong> – Inflation factor</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.generate_surface">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">generate_surface</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.generate_surface" title="Link to this definition">¶</a></dt>
-<dd><p>Generates a debug .stl of the collision</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.select_contacts">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">select_contacts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">contact_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">depths</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collision_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assem_indices</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.select_contacts" title="Link to this definition">¶</a></dt>
-<dd><p>Optimises to find the best contacts</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.update_and_check">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">update_and_check</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.update_and_check" title="Link to this definition">¶</a></dt>
-<dd><p>Update collision mesh and check for collisions</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-<li><p><strong>dt</strong> – Time step to project forward to</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.update_collision_mesh">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">update_collision_mesh</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.update_collision_mesh" title="Link to this definition">¶</a></dt>
-<dd><p>Transforms assembly collision meshes into local ECEF frame of largest mass assembly</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="Dynamics.collision.update_collision_mesh_time">
-<span class="sig-prename descclassname"><span class="pre">Dynamics.collision.</span></span><span class="sig-name descname"><span class="pre">update_collision_mesh_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">titan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dt</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#Dynamics.collision.update_collision_mesh_time" title="Link to this definition">¶</a></dt>
-<dd><p>Projects assembly collision meshes forward in time (in local ECEF frame)</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>titan</strong> – Object of class AssemblyList</p></li>
-<li><p><strong>options</strong> – Object of class Options</p></li>
-<li><p><strong>dt</strong> – Distance in time to project forward</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-</section>
-
-
-          </div>
-          
-        </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="Main">
-        <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="#">TITAN</a></h1>
-
-
-
-
-
-
-
-
-
-<search id="searchbox" style="display: none" role="search">
-    <div class="searchformwrapper">
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
-      <input type="submit" value="Go" />
-    </form>
-    </div>
-</search>
-<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
-
-<div class="relations">
-<h3>Related Topics</h3>
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
 <ul>
-  <li><a href="#">Documentation overview</a><ul>
-  </ul></li>
+<li class="toctree-l1"><a class="reference internal" href="titan.html">titan package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="titan.html#modelling-disciplines-and-methods">Modelling Disciplines and Methods</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.html#module-titan.run_TITAN">Running TITAN</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.html#module-titan">Info</a></li>
+</ul>
+</li>
 </ul>
 </div>
+</section>
 
 
+                </article>
+              
 
-
-
-
-
-
-        </div>
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="right-next"
+       href="titan.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">titan package</p>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="footer">
-      &#169;2026, Fábio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossati and contributors.
-      
-      |
-      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 9.1.0</a>
-      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 1.0.0</a>
-      
-      |
-      <a href="_sources/index.rst.txt"
-          rel="nofollow">Page source</a>
-    </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Fabio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossati & Contributors
+</p>
 
+  </div>
+  
+  <div class="footer-item">
     
 
+  <p class="copyright">
     
+      © Copyright 2026, Fabio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossati &amp; Contributors.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
   </body>
 </html>
