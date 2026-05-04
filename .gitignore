@@ -7,3 +7,5 @@ TITAN_sol
 settings.json
 debug*
 *.geo_unrolled
+doctrees/
+.buildinfo
