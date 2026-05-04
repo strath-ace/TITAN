@@ -1,0 +1,838 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>titan.Material package &#8212; TITAN v0.2 &#34;Atlas&#34; documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=4fb0fd73"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'titan.Material';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="titan.Model package" href="titan.Model.html" />
+    <link rel="prev" title="titan.Geometry package" href="titan.Geometry.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">TITAN v0.2 "Atlas" documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
+        <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="titan.html">API Reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="titan.Aerothermo.html">titan.Aerothermo package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Configuration.html">titan.Configuration package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Dynamics.html">titan.Dynamics package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Explosion.html">titan.Explosion package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Forces.html">titan.Forces package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Fragmentation.html">titan.Fragmentation package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Freestream.html">titan.Freestream package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Geometry.html">titan.Geometry package</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">titan.Material package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Model.html">titan.Model package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Output.html">titan.Output package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Postprocess.html">titan.Postprocess package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Structural.html">titan.Structural package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Thermal.html">titan.Thermal package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="titan.Uncertainty.html">titan.Uncertainty package</a></li>
+</ul>
+</details></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><button class="sidebar-toggle primary-toggle btn btn-sm" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</button></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="_sources/titan.Material.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+
+
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="fa-solid fa-list"></span>
+</button>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>titan.Material package</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+            <div>
+                <h2> Contents </h2>
+            </div>
+            <nav aria-label="Page">
+                <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-titan.Material.material">titan.Material.material module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material"><code class="docutils literal notranslate"><span class="pre">Material</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.catalycity"><code class="docutils literal notranslate"><span class="pre">Material.catalycity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.density"><code class="docutils literal notranslate"><span class="pre">Material.density</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.emissivity"><code class="docutils literal notranslate"><span class="pre">Material.emissivity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.heatConductivity"><code class="docutils literal notranslate"><span class="pre">Material.heatConductivity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_catalycity"><code class="docutils literal notranslate"><span class="pre">Material.material_catalycity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_density"><code class="docutils literal notranslate"><span class="pre">Material.material_density()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_emissivity"><code class="docutils literal notranslate"><span class="pre">Material.material_emissivity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_heatConductivity"><code class="docutils literal notranslate"><span class="pre">Material.material_heatConductivity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_meltingHeat"><code class="docutils literal notranslate"><span class="pre">Material.material_meltingHeat()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_meltingTemperature"><code class="docutils literal notranslate"><span class="pre">Material.material_meltingTemperature()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_name"><code class="docutils literal notranslate"><span class="pre">Material.material_name()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_oxideActivationTemperature"><code class="docutils literal notranslate"><span class="pre">Material.material_oxideActivationTemperature()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_oxideEmissivity"><code class="docutils literal notranslate"><span class="pre">Material.material_oxideEmissivity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_oxideHeatOfFormation"><code class="docutils literal notranslate"><span class="pre">Material.material_oxideHeatOfFormation()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_oxideReactionProbability"><code class="docutils literal notranslate"><span class="pre">Material.material_oxideReactionProbability()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_specificHeatCapacity"><code class="docutils literal notranslate"><span class="pre">Material.material_specificHeatCapacity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_vaporizationHeat"><code class="docutils literal notranslate"><span class="pre">Material.material_vaporizationHeat()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_vaporizationTemperature"><code class="docutils literal notranslate"><span class="pre">Material.material_vaporizationTemperature()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_yieldStress"><code class="docutils literal notranslate"><span class="pre">Material.material_yieldStress()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_youngModulus"><code class="docutils literal notranslate"><span class="pre">Material.material_youngModulus()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.meltingHeat"><code class="docutils literal notranslate"><span class="pre">Material.meltingHeat</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.meltingTemperature"><code class="docutils literal notranslate"><span class="pre">Material.meltingTemperature</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.name"><code class="docutils literal notranslate"><span class="pre">Material.name</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.oxideActivationTemperature"><code class="docutils literal notranslate"><span class="pre">Material.oxideActivationTemperature</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.oxideEmissivity"><code class="docutils literal notranslate"><span class="pre">Material.oxideEmissivity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.oxideHeatOfFormation"><code class="docutils literal notranslate"><span class="pre">Material.oxideHeatOfFormation</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.oxideReactionProbability"><code class="docutils literal notranslate"><span class="pre">Material.oxideReactionProbability</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.specificHeatCapacity"><code class="docutils literal notranslate"><span class="pre">Material.specificHeatCapacity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.vaporizationHeat"><code class="docutils literal notranslate"><span class="pre">Material.vaporizationHeat</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.vaporizationTemperature"><code class="docutils literal notranslate"><span class="pre">Material.vaporizationTemperature</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.yieldStress"><code class="docutils literal notranslate"><span class="pre">Material.yieldStress</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.youngModulus"><code class="docutils literal notranslate"><span class="pre">Material.youngModulus</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.polynomial_fit"><code class="docutils literal notranslate"><span class="pre">polynomial_fit()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-titan.Material">Module contents</a></li>
+</ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="titan-material-package">
+<h1>titan.Material package<a class="headerlink" href="#titan-material-package" title="Link to this heading">#</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">#</a></h2>
+</section>
+<section id="module-titan.Material.material">
+<span id="titan-material-material-module"></span><h2>titan.Material.material module<a class="headerlink" href="#module-titan.Material.material" title="Link to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="titan.Material.material.Material">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">titan.Material.material.</span></span><span class="sig-name descname"><span class="pre">Material</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">options</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class Material</p>
+<p>A class to store the material properties for each user-defined component</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.catalycity">
+<span class="sig-name descname"><span class="pre">catalycity</span></span><a class="headerlink" href="#titan.Material.material.Material.catalycity" title="Link to this definition">#</a></dt>
+<dd><p>[float] Catalycity rate</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.density">
+<span class="sig-name descname"><span class="pre">density</span></span><a class="headerlink" href="#titan.Material.material.Material.density" title="Link to this definition">#</a></dt>
+<dd><p>[float] Density of the material</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.emissivity">
+<span class="sig-name descname"><span class="pre">emissivity</span></span><a class="headerlink" href="#titan.Material.material.Material.emissivity" title="Link to this definition">#</a></dt>
+<dd><p>[float] Emissivity value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.heatConductivity">
+<span class="sig-name descname"><span class="pre">heatConductivity</span></span><a class="headerlink" href="#titan.Material.material.Material.heatConductivity" title="Link to this definition">#</a></dt>
+<dd><p>[float] Heat conductivity value</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_catalycity">
+<span class="sig-name descname"><span class="pre">material_catalycity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_catalycity" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the material catalycity</p>
+<section id="returns">
+<h3>Returns<a class="headerlink" href="#returns" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>density: float</dt><dd><p>Return material catalycity</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_density">
+<span class="sig-name descname"><span class="pre">material_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_density" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the material density</p>
+<section id="id1">
+<h3>Returns<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>density: float</dt><dd><p>Return material density</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_emissivity">
+<span class="sig-name descname"><span class="pre">material_emissivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_emissivity" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the emissivity value</p>
+<section id="id2">
+<h3>Returns<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>emissivity: float</dt><dd><p>Return emissivity value</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_heatConductivity">
+<span class="sig-name descname"><span class="pre">material_heatConductivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_heatConductivity" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the material heat conductivity</p>
+<section id="id3">
+<h3>Returns<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>heatConductivity<span class="classifier">scipy.interpolate.interp1d</span></dt><dd><p>Return interpolation function for the heat conductivity</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_meltingHeat">
+<span class="sig-name descname"><span class="pre">material_meltingHeat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_meltingHeat" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the melting Heat value</p>
+<section id="id4">
+<h3>Returns<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>meltingHeat: float</dt><dd><p>Return melting heat value</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_meltingTemperature">
+<span class="sig-name descname"><span class="pre">material_meltingTemperature</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_meltingTemperature" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the melting temperature value</p>
+<section id="id5">
+<h3>Returns<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>meltingTemperature: float</dt><dd><p>Return melting temperature value</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_name">
+<span class="sig-name descname"><span class="pre">material_name</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_name" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the material name</p>
+<section id="id6">
+<h3>Returns<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>name: str</dt><dd><p>Return material name</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_oxideActivationTemperature">
+<span class="sig-name descname"><span class="pre">material_oxideActivationTemperature</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_oxideActivationTemperature" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the oxide activation Temperatire</p>
+<section id="id7">
+<h3>Returns<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>oxideActivationTemperature: float</dt><dd><p>Return oxide activation temperature value</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_oxideEmissivity">
+<span class="sig-name descname"><span class="pre">material_oxideEmissivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_oxideEmissivity" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the material oxide emissivity</p>
+<section id="id8">
+<h3>Returns<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>oxideEmissivity: scipy.interpolate.interp1d</dt><dd><p>Return interpolation function for the oxide emissivity</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_oxideHeatOfFormation">
+<span class="sig-name descname"><span class="pre">material_oxideHeatOfFormation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_oxideHeatOfFormation" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the oxide heat of formation</p>
+<section id="id9">
+<h3>Returns<a class="headerlink" href="#id9" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>oxideHeatofFormation: float</dt><dd><p>Return oxide heat of formation value</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_oxideReactionProbability">
+<span class="sig-name descname"><span class="pre">material_oxideReactionProbability</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_oxideReactionProbability" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the oxide reaction probability</p>
+<section id="id10">
+<h3>Returns<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>oxideReactionProbability: float</dt><dd><p>Return oxide reaction probability</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_specificHeatCapacity">
+<span class="sig-name descname"><span class="pre">material_specificHeatCapacity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_specificHeatCapacity" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the material specific heat capacity</p>
+<section id="id11">
+<h3>Returns<a class="headerlink" href="#id11" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>specificHeatCapacity<span class="classifier">scipy.interpolate.interp1d</span></dt><dd><p>Return interpolation function for the specific heat capacity</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_vaporizationHeat">
+<span class="sig-name descname"><span class="pre">material_vaporizationHeat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_vaporizationHeat" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the vaporization Heat value</p>
+<section id="id12">
+<h3>Returns<a class="headerlink" href="#id12" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>vaporizationHeat: float</dt><dd><p>Return vaporization heat value</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_vaporizationTemperature">
+<span class="sig-name descname"><span class="pre">material_vaporizationTemperature</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_vaporizationTemperature" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the vaporization temperature value</p>
+<section id="id13">
+<h3>Returns<a class="headerlink" href="#id13" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>vaporizationTemperature: float</dt><dd><p>Return vaporization temperature value</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_yieldStress">
+<span class="sig-name descname"><span class="pre">material_yieldStress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_yieldStress" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the material yield stress</p>
+<section id="id14">
+<h3>Returns<a class="headerlink" href="#id14" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>yieldStress: scipy.interpolate.interp1d</dt><dd><p>Return interpolation function for the yield Stress</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="titan.Material.material.Material.material_youngModulus">
+<span class="sig-name descname"><span class="pre">material_youngModulus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.Material.material_youngModulus" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve the young Modulus</p>
+<section id="id15">
+<h3>Returns<a class="headerlink" href="#id15" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>youngModulus: scipy.interpolate.interp1d</dt><dd><p>Return interpolation function for the young Modulus</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.meltingHeat">
+<span class="sig-name descname"><span class="pre">meltingHeat</span></span><a class="headerlink" href="#titan.Material.material.Material.meltingHeat" title="Link to this definition">#</a></dt>
+<dd><p>[float] Melting Heat value of the material</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.meltingTemperature">
+<span class="sig-name descname"><span class="pre">meltingTemperature</span></span><a class="headerlink" href="#titan.Material.material.Material.meltingTemperature" title="Link to this definition">#</a></dt>
+<dd><p>[float] Melting Temperature value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.name">
+<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#titan.Material.material.Material.name" title="Link to this definition">#</a></dt>
+<dd><p>[str] Name of the material</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.oxideActivationTemperature">
+<span class="sig-name descname"><span class="pre">oxideActivationTemperature</span></span><a class="headerlink" href="#titan.Material.material.Material.oxideActivationTemperature" title="Link to this definition">#</a></dt>
+<dd><p>[float] Oxidation activation temperature value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.oxideEmissivity">
+<span class="sig-name descname"><span class="pre">oxideEmissivity</span></span><a class="headerlink" href="#titan.Material.material.Material.oxideEmissivity" title="Link to this definition">#</a></dt>
+<dd><p>[float] Oxidation emissivity value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.oxideHeatOfFormation">
+<span class="sig-name descname"><span class="pre">oxideHeatOfFormation</span></span><a class="headerlink" href="#titan.Material.material.Material.oxideHeatOfFormation" title="Link to this definition">#</a></dt>
+<dd><p>[float] Oxidation Formation Heat value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.oxideReactionProbability">
+<span class="sig-name descname"><span class="pre">oxideReactionProbability</span></span><a class="headerlink" href="#titan.Material.material.Material.oxideReactionProbability" title="Link to this definition">#</a></dt>
+<dd><p>[float] Oxidation reaction probability value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.specificHeatCapacity">
+<span class="sig-name descname"><span class="pre">specificHeatCapacity</span></span><a class="headerlink" href="#titan.Material.material.Material.specificHeatCapacity" title="Link to this definition">#</a></dt>
+<dd><p>[float] Specific Heat Capacity value of the material</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.vaporizationHeat">
+<span class="sig-name descname"><span class="pre">vaporizationHeat</span></span><a class="headerlink" href="#titan.Material.material.Material.vaporizationHeat" title="Link to this definition">#</a></dt>
+<dd><p>[float] vaporizationHeat value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.vaporizationTemperature">
+<span class="sig-name descname"><span class="pre">vaporizationTemperature</span></span><a class="headerlink" href="#titan.Material.material.Material.vaporizationTemperature" title="Link to this definition">#</a></dt>
+<dd><p>[float] vaporizationTemperature value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.yieldStress">
+<span class="sig-name descname"><span class="pre">yieldStress</span></span><a class="headerlink" href="#titan.Material.material.Material.yieldStress" title="Link to this definition">#</a></dt>
+<dd><p>[float] Yield Stress value</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="titan.Material.material.Material.youngModulus">
+<span class="sig-name descname"><span class="pre">youngModulus</span></span><a class="headerlink" href="#titan.Material.material.Material.youngModulus" title="Link to this definition">#</a></dt>
+<dd><p>[float] Young Modulus value</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="titan.Material.material.polynomial_fit">
+<span class="sig-prename descclassname"><span class="pre">titan.Material.material.</span></span><span class="sig-name descname"><span class="pre">polynomial_fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">material</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">properties</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#titan.Material.material.polynomial_fit" title="Link to this definition">#</a></dt>
+<dd><p>Function to retrieve polynomial fit coefficient for a given material property</p>
+<section id="id16">
+<h3>Returns<a class="headerlink" href="#id16" title="Link to this heading">#</a></h3>
+<dl class="simple">
+<dt>coefficients: float array</dt><dd><p>Return coefficients value</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+</section>
+<section id="module-titan.Material">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-titan.Material" title="Link to this heading">#</a></h2>
+<p>Material module - material properties and database</p>
+</section>
+</section>
+
+
+                </article>
+              
+
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="titan.Geometry.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">titan.Geometry package</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="titan.Model.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">titan.Model package</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> Contents
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-titan.Material.material">titan.Material.material module</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material"><code class="docutils literal notranslate"><span class="pre">Material</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.catalycity"><code class="docutils literal notranslate"><span class="pre">Material.catalycity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.density"><code class="docutils literal notranslate"><span class="pre">Material.density</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.emissivity"><code class="docutils literal notranslate"><span class="pre">Material.emissivity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.heatConductivity"><code class="docutils literal notranslate"><span class="pre">Material.heatConductivity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_catalycity"><code class="docutils literal notranslate"><span class="pre">Material.material_catalycity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_density"><code class="docutils literal notranslate"><span class="pre">Material.material_density()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_emissivity"><code class="docutils literal notranslate"><span class="pre">Material.material_emissivity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_heatConductivity"><code class="docutils literal notranslate"><span class="pre">Material.material_heatConductivity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_meltingHeat"><code class="docutils literal notranslate"><span class="pre">Material.material_meltingHeat()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_meltingTemperature"><code class="docutils literal notranslate"><span class="pre">Material.material_meltingTemperature()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_name"><code class="docutils literal notranslate"><span class="pre">Material.material_name()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_oxideActivationTemperature"><code class="docutils literal notranslate"><span class="pre">Material.material_oxideActivationTemperature()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_oxideEmissivity"><code class="docutils literal notranslate"><span class="pre">Material.material_oxideEmissivity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_oxideHeatOfFormation"><code class="docutils literal notranslate"><span class="pre">Material.material_oxideHeatOfFormation()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_oxideReactionProbability"><code class="docutils literal notranslate"><span class="pre">Material.material_oxideReactionProbability()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_specificHeatCapacity"><code class="docutils literal notranslate"><span class="pre">Material.material_specificHeatCapacity()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_vaporizationHeat"><code class="docutils literal notranslate"><span class="pre">Material.material_vaporizationHeat()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_vaporizationTemperature"><code class="docutils literal notranslate"><span class="pre">Material.material_vaporizationTemperature()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_yieldStress"><code class="docutils literal notranslate"><span class="pre">Material.material_yieldStress()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.material_youngModulus"><code class="docutils literal notranslate"><span class="pre">Material.material_youngModulus()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.meltingHeat"><code class="docutils literal notranslate"><span class="pre">Material.meltingHeat</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.meltingTemperature"><code class="docutils literal notranslate"><span class="pre">Material.meltingTemperature</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.name"><code class="docutils literal notranslate"><span class="pre">Material.name</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.oxideActivationTemperature"><code class="docutils literal notranslate"><span class="pre">Material.oxideActivationTemperature</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.oxideEmissivity"><code class="docutils literal notranslate"><span class="pre">Material.oxideEmissivity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.oxideHeatOfFormation"><code class="docutils literal notranslate"><span class="pre">Material.oxideHeatOfFormation</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.oxideReactionProbability"><code class="docutils literal notranslate"><span class="pre">Material.oxideReactionProbability</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.specificHeatCapacity"><code class="docutils literal notranslate"><span class="pre">Material.specificHeatCapacity</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.vaporizationHeat"><code class="docutils literal notranslate"><span class="pre">Material.vaporizationHeat</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.vaporizationTemperature"><code class="docutils literal notranslate"><span class="pre">Material.vaporizationTemperature</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.yieldStress"><code class="docutils literal notranslate"><span class="pre">Material.yieldStress</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.Material.youngModulus"><code class="docutils literal notranslate"><span class="pre">Material.youngModulus</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#titan.Material.material.polynomial_fit"><code class="docutils literal notranslate"><span class="pre">polynomial_fit()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-titan.Material">Module contents</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By Fabio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossati & Contributors
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+
+  <p class="copyright">
+    
+      © Copyright 2026, Fabio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossati &amp; Contributors.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
