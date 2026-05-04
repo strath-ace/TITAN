@@ -212,7 +212,7 @@ def demise_components(titan, i, joints_id, options):
         titan.assembly[-1].aoa = titan.assembly[i].aoa
         titan.assembly[-1].slip = titan.assembly[i].slip
 
-        from Dynamics.propagation import construct_state_vector
+        from ..Dynamics.propagation import construct_state_vector
         construct_state_vector(titan.assembly[-1], augmented=options.dynamics.augmented_state)
         titan.assembly[-1].unmodded_angles = titan.assembly[i].unmodded_angles
         if options.thermal.ablation_mode=='byproducts':

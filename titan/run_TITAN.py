@@ -143,8 +143,7 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
 
     :param filename: Name of the configuration file, defaults to ""
     :type filename: str
-    :param postprocess: Postprocess method. If specified, TITAN will only perform the postprocess of the already obtained solution in the specified output folder.
-    The config file still needs to be specified. Defaults to ""
+    :param postprocess: Postprocess method. If specified, TITAN will only perform the postprocess of the already obtained solution in the specified output folder. The config file still needs to be specified. Defaults to ""
     :type postprocess: str, optional
     :param filter_name: Assembly filter for postprocessing, defaults to None
     :type filter_name: str, optional

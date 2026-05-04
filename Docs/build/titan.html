@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>titan package &#8212; TITAN v0.2 &#34;Atlas&#34; documentation</title>
+    <title>API Reference &#8212; TITAN v0.2 &#34;Atlas&#34; documentation</title>
   
   
   
@@ -137,9 +137,9 @@
 </button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
-        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
 <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">titan package</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">API Reference</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="titan.Aerothermo.html">titan.Aerothermo package</a></li>
 <li class="toctree-l2"><a class="reference internal" href="titan.Configuration.html">titan.Configuration package</a></li>
 <li class="toctree-l2"><a class="reference internal" href="titan.Dynamics.html">titan.Dynamics package</a></li>
@@ -292,7 +292,7 @@
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>titan package</h1>
+    <h1>API Reference</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -320,8 +320,8 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="titan-package">
-<h1>titan package<a class="headerlink" href="#titan-package" title="Link to this heading">#</a></h1>
+  <section id="api-reference">
+<h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">#</a></h1>
 <section id="modelling-disciplines-and-methods">
 <h2>Modelling Disciplines and Methods<a class="headerlink" href="#modelling-disciplines-and-methods" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
@@ -1465,18 +1465,18 @@ the one the user specified.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>filename</strong> (<em>str</em>) – Name of the configuration file, defaults to “”</p></li>
-<li><p><strong>postprocess</strong> – Postprocess method. If specified, TITAN will only perform the postprocess of the already obtained solution in the specified output folder.</p></li>
+<li><p><strong>postprocess</strong> (<em>str</em><em>, </em><em>optional</em>) – Postprocess method. If specified, TITAN will only perform the postprocess of the already obtained solution in the specified output folder. The config file still needs to be specified. Defaults to “”</p></li>
+<li><p><strong>filter_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Assembly filter for postprocessing, defaults to None</p></li>
+<li><p><strong>emissions</strong> (<em>str</em><em>, </em><em>optional</em>) – Option to run emmisions postprocessing, defaults to “”</p></li>
 </ul>
 </dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>options, titan</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="titan.Configuration.html#titan.Configuration.configuration.Options" title="titan.Configuration.configuration.Options">Options</a>, <a class="reference internal" href="titan.Geometry.html#titan.Geometry.assembly.Assembly_list" title="titan.Geometry.assembly.Assembly_list">Assembly_list</a></p>
+</dd>
 </dl>
-<p>The config file still needs to be specified. Defaults to “”
-:type postprocess: str, optional
-:param filter_name: Assembly filter for postprocessing, defaults to None
-:type filter_name: str, optional
-:param emissions: Option to run emmisions postprocessing, defaults to “”
-:type emissions: str, optional
-:return: options, titan
-:rtype: Options, Assembly_list</p>
 </dd></dl>
 
 </section>
@@ -1555,7 +1555,8 @@ and multi-physics simulations of access-to-space and re-entry.</p>
   <div class="footer-item">
     
 <p class="component-author">
-By Fabio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossati & Contributors
+By Fabio Morgado, Julie Graham, Tommy Williamson,
+ Catarina Garbacz, Marco Fossati & Contributors
 </p>
 
   </div>
@@ -1565,7 +1566,7 @@ By Fabio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossat
 
   <p class="copyright">
     
-      © Copyright 2026, Fabio Morgado, Julie Graham, Tommy Williamson, Catarina Garbacz, Marco Fossati &amp; Contributors.
+      © Copyright 2026, TITAN Contributors.
       <br/>
     
   </p>
