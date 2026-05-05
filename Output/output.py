@@ -137,12 +137,12 @@ def write_output_data(titan, options, smooth=False):
                 [columns.append('mean_mf_'+species) for species in list(assembly.byproducts.species)]
             data = [titan.time, titan.iter, assembly.id, assembly.mass, max(assembly.aerothermo.temperature), 
                     assembly.trajectory.altitude, np.sum(assembly.mDotMelt)*titan.delta_t]
-            [data.append(np.sum(assembly.byproducts.emission[species])) for species in list(assembly.byproducts.species)]
+            [data.append(np.sum(assembly.byproducts.emission[species])+1e-60) for species in list(assembly.byproducts.species)]
 
             if not just_emissions:
-                [data.append(np.sum(assembly.byproducts.mass[species])) for species in list(assembly.byproducts.species)]
-                [data.append(np.mean(assembly.byproducts.rho[species])) for species in list(assembly.byproducts.species)]
-                [data.append(np.mean(assembly.byproducts.mf[species]))  for species in list(assembly.byproducts.species)]
+                [data.append(np.sum(assembly.byproducts.mass[species])+1e-60) for species in list(assembly.byproducts.species)]
+                [data.append(np.mean(assembly.byproducts.rho[species])+1e-60) for species in list(assembly.byproducts.species)]
+                [data.append(np.mean(assembly.byproducts.mf[species])+1e-60)  for species in list(assembly.byproducts.species)]
             
             df_by = pd.DataFrame(data=[data],columns=[columns])
 
@@ -280,9 +280,9 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
                 cell_data["mDotMelt"]  = [mDotMelt]
             elif options.thermal.ablation_mode.lower() == 'byproducts':
                 for byproduct in assembly.byproducts.species:
-                    cell_data['rho_'+byproduct] = np.array([assembly.byproducts.rho[byproduct]])
-                    cell_data['mf_'+byproduct] = np.array([assembly.byproducts.mf[byproduct]])
-                    cell_data['mass_'+byproduct] = np.array([assembly.byproducts.mass[byproduct]])
+                    # cell_data['rho_'+byproduct] = np.array([assembly.byproducts.rho[byproduct]])
+                    # cell_data['mf_'+byproduct] = np.array([assembly.byproducts.mf[byproduct]])
+                    # cell_data['mass_'+byproduct] = np.array([assembly.byproducts.mass[byproduct]])
                     cell_data['emission_'+byproduct] = np.array([assembly.byproducts.emission[byproduct]])
                 cell_data["mDotMelt"]  = [mDotMelt]
         point_data = { "displacement": displacement}
@@ -350,9 +350,9 @@ def create_surface_solution(titan, options):
             mDotMelt = assembly.mDotMelt
         elif options.thermal.ablation_mode.lower() == 'byproducts':
             for byproduct in assembly.byproducts.species:
-                cell_data['rho_'+byproduct] = np.array([assembly.byproducts.rho[byproduct]])
-                cell_data['mf_'+byproduct] = np.array([assembly.byproducts.mf[byproduct]])
-                cell_data['mass_'+byproduct] = np.array([assembly.byproducts.mass[byproduct]])
+                # cell_data['rho_'+byproduct] = np.array([assembly.byproducts.rho[byproduct]])
+                # cell_data['mf_'+byproduct] = np.array([assembly.byproducts.mf[byproduct]])
+                # cell_data['mass_'+byproduct] = np.array([assembly.byproducts.mass[byproduct]])
                 cell_data['emission_'+byproduct] = np.array([assembly.byproducts.emission[byproduct]])
             mDotMelt = np.zeros(len(assembly.mesh.facets))
             mDotMelt = assembly.mDotMelt

@@ -97,10 +97,13 @@ def propagate(titan, options):
     if options.thermal.ablation_mode=='byproducts' and options.dynamics.augmented_state: 
         for _assembly in titan.assembly: 
             if np.any(_assembly.mDotMelt<0):
-                if hasattr(titan,'rk_params'): options.dynamics.dt_max= 0.01
-                print('Beginning mix')
+                if hasattr(titan,'rk_params'): 
+                    if not hasattr(options.dynamics,'old_dt_max'): options.dynamics.old_dt_max= options.dynamics.dt_max
+                    options.dynamics.dt_max= 0.25
+                print('Calling mix')
                 _assembly.byproducts.mix_excess(_assembly, options, delta_t=titan.delta_t)
             else:
+                if hasattr(options.dynamics,'old_dt_max'): options.dynamics.dt_max = options.dynamics.old_dt_max
                 for speci in _assembly.byproducts.species:
                     _assembly.byproducts.rho[speci] = np.zeros_like(_assembly.byproducts.column_height_mix)
                     _assembly.byproducts.mf[speci] = np.zeros_like(_assembly.byproducts.column_height_mix)
@@ -149,6 +152,7 @@ def state_equation(titan,options,time,state_vectors):
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
     if options.dynamics.augmented_state:
+        print('Calling thermal')
         thermal.compute_thermal(titan,options)
 
     # Then determine the necessary derivatives to return the state vector(s)
@@ -628,6 +632,7 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
         titan.end_trigger = True
     elif titan.rk_adapt.status == 'running':
         titan.rk_adapt.max_step = dt
+        print('Calling state vector')
         titan.rk_adapt.step()
     else: 
         print('Propagator concluded with status {} ({} function evaluations)'.format(titan.rk_adapt.status,titan.rk_adapt.nfev))

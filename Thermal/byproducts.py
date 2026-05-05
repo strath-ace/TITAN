@@ -1,6 +1,8 @@
 import numpy as np
 import mutationpp as mpp
-
+import pathlib
+from itertools import combinations
+import multiprocessing
 class Byproducts():
     """Class to handle byproducts generation of assembly using Mutation++
     """
@@ -94,16 +96,41 @@ class Byproducts():
             self.mf[speci] = np.zeros_like(self.column_height_mix)
             self.mass[speci] = np.zeros_like(self.column_height_mix)
             self.emission[speci] = np.zeros_like(self.column_height_mix)
-
+        
+        q = multiprocessing.Queue()
         for component in assembly.objects:
             if component.mixture is None: continue
-            self.air_in_excess(component, free_species_names, options.thermal.excess_mult)
+            stoich_mult = None
+            if hasattr(component,'stoichiometric_mult'): stoich_mult = component.stoichiometric_mult
+            # For memory safety it's nicer to run mpp as a separate process
+            p = multiprocessing.Process(target=air_in_excess,args=(self.P_mix,
+                                                                   self.T_mix,
+                                                                   self.c_i_mix,
+                                                                   component.mixture,
+                                                                   component.species,
+                                                                   component.mass_fraction,
+                                                                   free_species_names,
+                                                                   q,
+                                                                   options.thermal.excess_mult,
+                                                                   options.verbose,
+                                                                   stoich_mult,
+                                                                   self.oxy_content
+                                                                   ))
+            p.start()
+            p.join(5.0)
+            try:
+                mf, rhos, stoich_mult = q.get(timeout=5.0)
+            except: 
+                print('Error solving mixture for {} at P={} T={}!'.format(component.name, self.P_mix, self.T_mix))
+                if p.is_alive(): 
+                    p.terminate()
+                    p.kill()
+                continue
             
-            mf = self.mix.Y()
-            rhos = self.mix.densities()
-            
-            if options.verbose: 
-                for spec, mfr in zip(self.species, mf): print(spec, mfr)
+                
+            if not hasattr(component,'stoichiometric_mult'): component.stoichiometric_mult = stoich_mult
+            # if options.verbose: 
+            #     for spec, mfr in zip(self.species, mf): print(spec, mfr)
             notable_species = np.argwhere(mf>self.cutoff).flatten()
 
             rhos = np.tile(np.array(rhos), (len(component.facet_dm), 1))
@@ -120,65 +147,78 @@ class Byproducts():
                 self.emission[name][component.facet_index] = 1000*np.abs(mass/(delta_t*assembly.trajectory.velocity*np.sin(assembly.trajectory.gamma)))
     
 
-    def air_in_excess(self, component, free_mix_species_names : list, excess_mult=2.5):
-        """Equilibriates the component mixture with the specified excess ratio
+def air_in_excess(P :float, T :float, c_i_mix : np.ndarray, component_mixture : str, component_species : list, component_mass_fraction : np.ndarray, 
+                    free_mix_species_names : list, queue, excess_mult=2.5, verbose=False, stoichiometric_mult=None, oxy_content=1):
+    """Equilibriates the component mixture with the specified excess ratio
 
-        Args:
-            component (component.Component): Target component
-            free_mix_species_names (list): List of species names in the freestream mixture 
-            excess_mult (float, optional): Multiplier of the stoichiometric ratio. Defaults to 2.5.
-        """
+    Args:
+        component (component.Component): Target component
+        free_mix_species_names (list): List of species names in the freestream mixture 
+        excess_mult (float, optional): Multiplier of the stoichiometric ratio. Defaults to 2.5.
+    """
 
-        ablated_mix_opts = mpp.MixtureOptions(component.mixture)
-        ablated_mix_opts.setStateModel("Equil")
-        self.mix = mpp.Mixture(ablated_mix_opts)
-        species_map = [self.mix.speciesIndex(name) for name in component.species]
+    ablated_mix_opts = mpp.MixtureOptions(component_mixture)
+    ablated_mix_opts.setStateModel("Equil")
+    if verbose: print('Creating mix {}...'.format(component_mixture))
+    mix = mpp.Mixture(ablated_mix_opts)
+    species_map = [mix.speciesIndex(name) for name in component_species]
 
-        if np.any(np.array(species_map)<0): raise Exception('Could not find all species!')
+    if np.any(np.array(species_map)<0): 
+        raise Exception('Could not find all of {} in mixture {} on component!'.format(component_species,component_mixture))
 
-        if not hasattr(component, 'stoichiometric_mult'): component.stoichiometric_mult = get_stoichiometric_ratio(self.mix)
-        elem_list = self.get_composition(self.mix, free_mix_species_names, component.mass_fraction, 
-                                         species_map, excess_mult*component.stoichiometric_mult/self.oxy_content)
+    if stoichiometric_mult is None: stoichiometric_mult = get_stoichiometric_ratio(mix)
+    component_mass_fraction /= np.sum(component_mass_fraction) # No harm in renormalising this
+    elem_list = get_composition(mix, free_mix_species_names, component_mass_fraction, 
+                                        species_map, c_i_mix, excess_mult*stoichiometric_mult/oxy_content)
 
-        self.mix.addComposition(elem_list, True)
-        self.mix.setState(self.P_mix, self.T_mix[0], 1)
+    mix.addComposition(elem_list, True)
+    if verbose:
+        print('Composition,P,T')
+        
+        print(elem_list)
+        print(P)
+        print(T)
+
+        print('Setting state...')
+    mix.setState(P, T, 1)
+    queue.put([mix.Y(), mix.densities(), stoichiometric_mult])
 
 
-    def get_composition(self, ablated_mix, free_mix_species_names : list, component_mass_fraction : list, 
-                        species_map : list, freestream_ratio = 1.0) -> str:
-        """Generates a comma-separated string of elements and mole fractions to assign as a compostion to a Mutation++ mixture
+def get_composition(ablated_mix, free_mix_species_names : list, component_mass_fraction : list, 
+                    species_map : list, c_i_mix : np.ndarray, freestream_ratio = 1.0) -> str:
+    """Generates a comma-separated string of elements and mole fractions to assign as a compostion to a Mutation++ mixture
 
-        Args:
-            ablated_mix (mutationpp.Mixture): Target mixture
-            free_mix_species_names (list): List of species names in the freestream mixture 
-            component_mass_fraction (list): Mass fraction of component species released into the flow
-            species_map (list): Indices of component species in full mixture 
-            freestream_ratio (float): Ratio of freestream mixture to ablated species. Defaults to 1.0.
+    Args:
+        ablated_mix (mutationpp.Mixture): Target mixture
+        free_mix_species_names (list): List of species names in the freestream mixture 
+        component_mass_fraction (list): Mass fraction of component species released into the flow
+        species_map (list): Indices of component species in full mixture 
+        freestream_ratio (float): Ratio of freestream mixture to ablated species. Defaults to 1.0.
 
-        Returns:
-            str: Elemental composition string
-        """
+    Returns:
+        str: Elemental composition string
+    """
 
-        n_species = ablated_mix.nSpecies()
-        mass_fractions = np.zeros(n_species)
+    n_species = ablated_mix.nSpecies()
+    mass_fractions = np.zeros(n_species)
 
-        for i_mf, mf in enumerate(component_mass_fraction): mass_fractions[species_map[i_mf]] = mf
+    for i_mf, mf in enumerate(component_mass_fraction): mass_fractions[species_map[i_mf]] = mf
 
-        for mf_a, name in zip(self.c_i_mix, free_mix_species_names):
-            i_species = ablated_mix.speciesIndex(name)
-            if i_species<0: raise Exception('Could not find {} in mixture!'.format(name))
-            mass_fractions[i_species] = freestream_ratio*mf_a
+    for mf_a, name in zip(c_i_mix, free_mix_species_names):
+        i_species = ablated_mix.speciesIndex(name)
+        if i_species<0: raise Exception('Could not find {} in mixture!'.format(name))
+        mass_fractions[i_species] = freestream_ratio*mf_a
 
-        mass_fractions/=np.sum(mass_fractions)
-        species_x = ablated_mix.convert_y_to_x(mass_fractions)
-        elements_x = ablated_mix.convert_x_to_xe(species_x)
-        elements_x = np.array(elements_x)/np.sum(elements_x)
+    mass_fractions/=np.sum(mass_fractions)
+    species_x = ablated_mix.convert_y_to_x(mass_fractions)
+    elements_x = ablated_mix.convert_x_to_xe(species_x)
+    elements_x = np.array(elements_x)/np.sum(elements_x)
 
-        elem_list = ''
-        for i_elem, x_elem in enumerate(elements_x):
-            elem_list+=ablated_mix.elementName(i_elem)+':'+str(x_elem)+','
+    elem_list = ''
+    for i_elem, x_elem in enumerate(elements_x):
+        elem_list+=ablated_mix.elementName(i_elem)+':'+str(x_elem)+','
 
-        return elem_list
+    return elem_list
     
 def get_stoichiometric_ratio(mix : mpp.Mixture, oxy_content : float = 1.0) -> float:
     """Returns the maximal stoichiometric ratio of any oxide compound in a Mutation++ mixture
@@ -208,3 +248,36 @@ def get_stoichiometric_ratio(mix : mpp.Mixture, oxy_content : float = 1.0) -> fl
         list_of_stoichs.append(stoich)
 
     return np.max(list_of_stoichs)/oxy_content
+
+def make_mixfile_if_needed(name,mix_elems:list) ->str:
+    if not 'N' in mix_elems: mix_elems = ['N'].append(mix_elems)
+    if not 'O' in mix_elems: mix_elems = ['O'].append(mix_elems)
+
+    mpp_data_dir = mpp.GlobalOptions.dataDirectory()
+    with open(mpp_data_dir+'/mix_'+name+'.xml', 'w') as f:
+        f.write('<mixture thermo_db="NASA-9">\n')
+        f.write('    <species>\n')
+        f.write('        \{all with'+','.join(mix_elems)+'\}\n')
+        f.write('    <\\species>\n')
+        f.write('<\\mixture>')
+    mix = mpp.Mixture(mpp.MixtureOptions('mix_'+name))
+
+    all_species = [mix.speciesName(i) for i in range(mix.nSpecies())]
+
+    species_combos = [all_species]
+    for i in range(len(species_combos)):
+        if i==0: continue
+        [species_combos.append(list(combo)) for combo in combinations(all_species,i)]
+
+def test_mix_wrapper(combo,i_mix):
+    mpp_data_dir = mpp.GlobalOptions.dataDirectory()
+    name = 'candidate_'.join(i_mix)
+    with open(mpp_data_dir+'/'+name+'.xml', 'w') as f:
+        f.write('<mixture thermo_db="NASA-9">\n')
+        f.write('    <species>\n')
+        f.write('        '+' '.join(combo)+'\n')
+        f.write('    <\\species>\n')
+        f.write('<\\mixture>')
+    mixO = mpp.MixtureOptions(name)
+    mixO.setStateModel('Equil')
+    mix = mpp.Mixture(mixO)
