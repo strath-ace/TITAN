@@ -56,8 +56,13 @@ def propagate(titan, options):
     for _assembly, sol in zip(titan.assembly, surface_solutions): 
         _assembly.prev_surf_data = deepcopy(sol.cell_data)
 
+    if getattr(titan, "controlsystem", None) is not None:
+        titan.controlsystem.step(titan, options)
+
     # Propagate according to propagator function...
     new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,state_vectors_prior,derivatives_prior,time_step,titan,options)
+
+
     # Update prior derivatives
     if new_derivs is not None: append_derivatives(titan,options,new_derivs)
     # Total angular distance (unmodded) is useful for 6DoF propagation stability analysis
@@ -102,19 +107,31 @@ def state_equation(titan,options,time,state_vectors):
         unaltered_states.append(_assembly.state_vector)
         update_dynamic_attributes(_assembly,state_vector,options)
     
+    # Update the CoM and MoI for each assembly with moving flaps or propellant tanks
+    for _assembly in titan.assembly:
+        _assembly.compute_mass_properties()
+
     # Then business as usual for computing forces...
     
     aerothermo.compute_aerothermo(titan, options)
     aero_states = [copy(_assembly.aerothermo) for _assembly in titan.assembly]
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
+    forces.compute_jet_forces(titan, options)
 
     # Then determine the necessary derivatives to return the state vector(s)
     d_dt_state_vectors = []
     for _assembly in titan.assembly:
+    
+        #angularDerivatives.ddyaw = 10*_assembly.slip
+        #angularDerivatives.ddpitch = -10*_assembly.aoa
         angularDerivatives = dynamics.compute_angular_derivatives(_assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(_assembly, options)
-
+        if options.vehicle: # Some junk numerics to keep the aoa=0 condition
+            angularDerivatives.droll = 0
+            angularDerivatives.dpitch = -6.4*_assembly.aoa
+            angularDerivatives.dyaw = 0
+            angularDerivatives.ddroll = 0
         # Use quaternion derivative equation 
         omega_q = [angularDerivatives.droll,angularDerivatives.dpitch,angularDerivatives.dyaw,0.0]
         d_q  = 0.5 *  quaternion_mult(_assembly.quaternion,omega_q)
@@ -651,7 +668,7 @@ def adaptive_integrator_selector(N_AB, N_RK,state_vectors,state_vectors_prior,de
     new_state_vectors  = bridging[0]*np.array(AB_new_state_vectors)  + bridging[1] * np.array(RK_new_state_vectors)
     d_dt_state_vectors = bridging[0]*np.array(AB_d_dt_state_vectors) + bridging[1] * np.array(RK_d_dt_state_vectors)
     return new_state_vectors, d_dt_state_vectors
-    
+
 
 
 #############################################################################################################################################

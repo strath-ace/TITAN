@@ -24,10 +24,14 @@ import meshio
 from pathlib import Path
 
 def write_output_data(titan, options, smooth=False):
-
-    df = pd.DataFrame()
+    # Fixed schema: same number of columns every row so pandas can read the CSV.
+    n_objs_max = max((len(a.objects) for a in titan.assembly), default=0)
+    species_columns = []
+    if titan.assembly and hasattr(titan.assembly[0].freestream, 'species_index') and getattr(titan.assembly[0].freestream, 'species_index', None) is not None:
+        species_columns = list(titan.assembly[0].freestream.species_index)
 
     for assembly in titan.assembly:
+        df = pd.DataFrame()
 
         df['Time'] = [titan.time]
         df['Iter'] = [titan.iter]
@@ -52,6 +56,16 @@ def write_output_data(titan, options, smooth=False):
         df['ECEF_vU'] = [assembly.velocity[0]]
         df['ECEF_vV'] = [assembly.velocity[1]]
         df['ECEF_vW'] = [assembly.velocity[2]]
+
+        #Propellant Tank information
+        if hasattr(assembly, "propellant_tanks") and assembly.propellant_tanks:
+            for tank_name, tank in assembly.propellant_tanks.items():
+                safe = str(tank_name).strip().replace(" ", "_")
+                df[f"Tank_{safe}_prop_kg"] = [float(tank.prop_mass)]
+                df[f"Tank_{safe}_cap_kg"] = [float(tank.capacity)]
+                df[f"Tank_{safe}_fill_frac"] = [float(tank.fill_fraction())]
+                df[f"Tank_{safe}_consumed_total_kg"] = [float(getattr(tank, "total_consumed", 0.0))]
+                df[f"Tank_{safe}_is_empty"] = [1 if tank.is_empty() else 0]
 
         #Center of mass position in the Body Frame
         df['BODY_COM_X']  = [assembly.COG[0]]
@@ -125,33 +139,50 @@ def write_output_data(titan, options, smooth=False):
         df['Tmax'] = [max(assembly.aerothermo.temperature)]
         df['knudsen'] = [assembly.freestream.knudsen]
 
-        for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.percent_mass[0]) :
-            df[specie+"_mass_pct"] = [pct]
+        for specie in species_columns:
+            pct = np.nan
+            if getattr(assembly.freestream, 'species_index', None) is not None and getattr(assembly.freestream, 'percent_mass', None) is not None:
+                try:
+                    idx = list(assembly.freestream.species_index).index(specie)
+                    pct = assembly.freestream.percent_mass[0][idx]
+                except (ValueError, IndexError, TypeError):
+                    pass
+            df[specie + "_mass_pct"] = [pct]
 
-        #Stagnation properties
+        # Stagnation properties (always same columns so row length is fixed)
         try:
             df['Qstag'] = [assembly.aerothermo.qconvstag]
             df['Qradstag'] = [assembly.aerothermo.qradstag]
-        except:
-            pass
+        except (AttributeError, KeyError):
+            df['Qstag'] = [np.nan]
+            df['Qradstag'] = [np.nan]
 
         try:
             df['Pstag'] = [assembly.freestream.P1_s]
             df['Tstag'] = [assembly.freestream.T1_s]
             df['Rhostag'] = [assembly.freestream.rho_s]
-        except:
-            pass
+        except (AttributeError, KeyError):
+            df['Pstag'] = [np.nan]
+            df['Tstag'] = [np.nan]
+            df['Rhostag'] = [np.nan]
 
         #Reference Dimensionsal constants
         df["Aref"] = [assembly.Aref]
         df["Lref"] = [assembly.Lref]
 
+        # Fixed number of object columns (pad with NaN so every row has same columns)
         df_temp = pd.DataFrame()
         df_mass = pd.DataFrame()
-        if options.write_object_properties:
-            for i, obj in enumerate(assembly.objects):
-                df_temp["Temperature_obj_"+str(i)] = [obj.temperature]
-                df_mass["Mass_obj_"+str(i)] = [obj.mass]
+
+
+        for i in range(n_objs_max):
+            if i < len(assembly.objects):
+                df_temp["Temperature_obj_"+str(i)] = [float(np.mean([assembly.objects[i].temperature]))]
+                df_mass["Mass_obj_"+str(i)] = [assembly.objects[i].mass]
+            else:
+                df_temp["Temperature_obj_"+str(i)] = [np.nan]
+                df_mass["Mass_obj_"+str(i)] = [np.nan]
+
 
         df = pd.concat([df, df_temp], axis = 1)
         df = pd.concat([df, df_mass], axis = 1)
@@ -211,6 +242,7 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
     debug_alpha = np.array([])
 
 
+
     for assembly in titan.assembly:
         points = assembly.mesh.nodes - assembly.mesh.surface_displacement
         facets = assembly.mesh.facets
@@ -229,6 +261,19 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
         mDotVapor = np.zeros(len(assembly.mesh.facets))
         mDotMelt  = np.zeros(len(assembly.mesh.facets))
         debug_alpha = assembly.aerothermo.debug_alpha
+        n_facets = len(assembly.mesh.facets)
+        q_conv = np.zeros(n_facets)
+        mdot   = np.zeros(n_facets)
+        v_n    = np.zeros(n_facets)
+        Tw     = np.zeros(n_facets)
+        for obj in assembly.objects:
+            if hasattr(obj, 'pato') and obj.pato.flag:
+                q_conv[obj.facet_index] = np.asarray(obj.pato.q_conv_field, dtype=np.float64)
+                mdot[obj.facet_index]   = np.asarray(obj.pato.mdot_field, dtype=np.float64)
+                v_n[obj.facet_index]    = np.asarray(obj.pato.v_n_field, dtype=np.float64)
+                Tw[obj.facet_index]     = np.asarray(obj.pato.temperature, dtype=np.float64)
+
+
         if options.thermal.ablation_mode.lower() == 'pato' and options.pato.Ta_bc == 'ablation':
             mDotVapor = assembly.mDotVapor
             mDotMelt = assembly.mDotMelt
@@ -241,15 +286,26 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
         
         cells = {"triangle": facets}
 
+        #print("facet_count =", len(facets))
+        #print("q_conv_len =", len(q_conv))
+        # print(mdot)
+        # print("mdot_len   =", len(mdot))
+        # print("v_n_len    =", len(v_n))
+        
         cell_data = { "pressure": [pressure],
                       "heatflux": [heatflux],
                       "temperature": [temperature],
                       "shear": [shear],
                       "theta": [theta],
-                      "debug_alpha" : [debug_alpha]
+                      "debug_alpha" : [debug_alpha],
                       #"Enthalpy BLE": [he],
                       #"Enthalpy Wall": [hw],
                       #"Temperatue BLE": [Te],
+                      "q_conv": [q_conv],
+                      "mdot": [mdot],
+                      "v_n": [v_n],
+                      "Tw": [Tw]
+
                     }
         # I don't believe He, Hw and Te are functional at present
         if options.thermal.ablation:
@@ -266,8 +322,8 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
         folder_path = options.output_folder+'/' + folder + '/ID_'+str(assembly.id)
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
-        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(iter_value).zfill(3)}.xdmf"
-        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+        vol_mesh_filepath = f"{folder_path}/solution_iter_{str(iter_value).zfill(3)}.vtk"
+        meshio.write(vol_mesh_filepath, trimesh, file_format="vtk")
 
 ## The following funcs split generate_surface_solution() into separate create, update and
 # write functions. At the moment this is something of a messy repeat but in future having

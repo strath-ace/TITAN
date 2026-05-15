@@ -1,0 +1,59 @@
+from pathlib import Path
+
+template = """[Options]
+Num_iters = 200
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+Output_folder = ControlTests/Results/Roll/{deg}deg
+FENICS = False
+Output_freq = 1
+Postprocess_in_loop = WIND
+
+[Mesh]
+Recursion_limit = 5000
+
+[Model]
+Planet = Earth
+
+[Trajectory]
+Altitude = 40000
+Velocity = 3000
+Flight_path_angle = 0
+Heading_angle = 45.0
+Latitude = 20
+Longitude = -32
+
+[Freestream]
+Model = NRLMSISE00
+Method = Standard
+
+[Time]
+Time_step = 0.3
+Propagator = euler
+
+[Assembly]
+Path = ControlTests/Geometry/
+Connectivity = [[1, 6, 2],
+                [1, 7, 3],
+                [1, 8, 4],
+                [1, 9, 5]]
+
+[Objects]
+Cube = [NAME = cube.stl, MATERIAL = Unittest, TYPE = Primitive, FENICS_ID = -1]
+Hinge_L = [NAME = hinge_l.stl, MATERIAL = Unittest, TYPE = Joint, FENICS_ID = -1]
+Hinge_R = [NAME = hinge_r.stl, MATERIAL = Unittest, TYPE = Joint, FENICS_ID = -1]
+Hinge_T = [NAME = hinge_t.stl, MATERIAL = Unittest, TYPE = Joint, FENICS_ID = -1]
+Hinge_B = [NAME = hinge_b.stl, MATERIAL = Unittest, TYPE = Joint, FENICS_ID = -1]
+Flap_L = [NAME = flap_l.stl, MATERIAL = Unittest, TYPE = ControlSurface, FENICS_ID = -1, DEFLECTION = {deg}, AXIS = (0,1,0), ORIGIN = (-12.05, 10.275,2)]
+Flap_R = [NAME = flap_r.stl, MATERIAL = Unittest, TYPE = ControlSurface, FENICS_ID = -1, DEFLECTION = {deg}, AXIS = (0,-1,0), ORIGIN = (-12.05,8.275,2)]
+Flap_T = [NAME = flap_t.stl, MATERIAL = Unittest, TYPE = ControlSurface, FENICS_ID = -1, DEFLECTION = {deg}, AXIS = (0,0,1), ORIGIN = (-12.05,9.275,3)]
+Flap_B = [NAME = flap_b.stl, MATERIAL = Unittest, TYPE = ControlSurface, FENICS_ID = -1, DEFLECTION = {deg}, AXIS = (0,0,-1), ORIGIN = (-12.05, 9.275, 1)]
+"""
+
+out_dir = Path(".")
+for deg in range(0, 91, 10):
+    fname = out_dir / f"{deg}deg.txt"
+    fname.write_text(template.format(deg=deg))
+
+print("done!")

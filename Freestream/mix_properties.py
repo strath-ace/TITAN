@@ -35,6 +35,10 @@ def compute_percent_mole(species_index, percent_mass):
     mAr = 39.9480;                #molar mass of Argon molecule, grams/mole
     mHe = 4.0026020;              #molar mass of helium molecule, grams/mole
     mH= 1.007940;                 #molar mass of Hydrogen molecule, grams/mole
+    mCO2 = 44.0095
+    mCH4 = 16.043
+    mCO = 28.010
+    mH2 = 2.016
 
     for index,specie in enumerate(species_index):
         if specie == "N2":    percent_mole[:,index] /= mN2
@@ -44,6 +48,10 @@ def compute_percent_mole(species_index, percent_mass):
         if specie == "Ar":    percent_mole[:,index] /= mAr
         if specie == "He":    percent_mole[:,index] /= mHe
         if specie == "H" :    percent_mole[:,index] /= mH    
+        if specie == "CO2":   percent_mole[:,index] /= mCO2
+        if specie == "CH4":   percent_mole[:,index] /= mCH4
+        if specie == "CO":    percent_mole[:,index] /= mCO
+        if specie == "H2":    percent_mole[:,index] /= mH2
 
     percent_mole = percent_mole/np.sum(percent_mole, axis = -1)[:,None]
 
@@ -60,6 +68,10 @@ def compute_gas_contant_mean(species_index, percent_gas):
     mAr = 39.9480;                #molar mass of Argon molecule, grams/mole
     mHe = 4.0026020;              #molar mass of helium molecule, grams/mole
     mH= 1.007940;                 #molar mass of Hydrogen molecule, grams/mole
+    mCO2 = 44.0095
+    mCH4 = 16.043
+    mCO  = 28.010
+    mH2  = 2.016
 
     for index,specie in enumerate(species_index):
         if specie == "N2":    molar_mass_mean += mN2*percent_gas[:,index]/1E3
@@ -69,7 +81,10 @@ def compute_gas_contant_mean(species_index, percent_gas):
         if specie == "Ar":    molar_mass_mean += mAr*percent_gas[:,index]/1E3
         if specie == "He":    molar_mass_mean += mHe*percent_gas[:,index]/1E3
         if specie == "H" :    molar_mass_mean += mH *percent_gas[:,index]/1E3   
-
+        if specie == "CO2":   molar_mass_mean += mCO2*percent_gas[:,index]/1E3
+        if specie == "CH4":   molar_mass_mean += mCH4*percent_gas[:,index]/1E3
+        if specie == "CO":    molar_mass_mean += mCO*percent_gas[:,index]/1E3
+        if specie == "H2":    molar_mass_mean += mH2*percent_gas[:,index]/1E3
     R_mean = 8.314472/molar_mass_mean
 
     return R_mean
@@ -85,6 +100,10 @@ def compute_gamma_mean(species_index, percent_gas):
         if specie == "Ar":    gamma_mean += 5.0/3.0*percent_gas[:,index]
         if specie == "He":    gamma_mean += 5.0/3.0*percent_gas[:,index]
         if specie == "H" :    gamma_mean += 5.0/3.0*percent_gas[:,index]   
+        if specie == "CO2": gamma_mean += 1.29*percent_gas[:,index]
+        if specie == "CH4": gamma_mean += 1.31*percent_gas[:,index]
+        if specie == "CO":  gamma_mean += 1.40*percent_gas[:,index]
+        if specie == "H2":  gamma_mean += 1.40*percent_gas[:,index]
 
     return gamma_mean
 
@@ -146,6 +165,10 @@ def compute_mass_mean(species_index, percent_gas):
     mAr = 39.9480;                #molar mass of Argon molecule, grams/mole
     mHe = 4.0026020;              #molar mass of helium molecule, grams/mole
     mH= 1.007940;                 #molar mass of Hydrogen molecule, grams/mole
+    mCO2 = 44.0095
+    mCH4 = 16.043
+    mCO = 28.010
+    mH2 = 2.016
 
     mass_mean = 0
 
@@ -157,6 +180,10 @@ def compute_mass_mean(species_index, percent_gas):
         if specie == "Ar":    mass_mean += mAr*percent_gas[:,index]/1E3
         if specie == "He":    mass_mean += mHe*percent_gas[:,index]/1E3
         if specie == "H" :    mass_mean += mH* percent_gas[:,index]/1E3   
+        if specie == "CO2":   mass_mean += mCO2*percent_gas[:,index]/1E3
+        if specie == "CH4":   mass_mean += mCH4*percent_gas[:,index]/1E3
+        if specie == "CO":    mass_mean += mCO*percent_gas[:,index]/1E3
+        if specie == "H2":    mass_mean += mH2*percent_gas[:,index]/1E3
 
     return mass_mean
 
@@ -172,6 +199,10 @@ def compute_omega_mean(species_index, percent_gas):
         if specie == "Ar":  omega_mean += 0.81*percent_gas[:,index]
         if specie == "He":  omega_mean += 0.66*percent_gas[:,index]
         if specie == "H" :  omega_mean += 0.8* percent_gas[:,index]
+        if specie == "CO2": omega_mean += 0.93*percent_gas[:,index]
+        if specie == "CH4": omega_mean += 0.85*percent_gas[:,index]
+        if specie == "CO":  omega_mean += 0.78*percent_gas[:,index]
+        if specie == "H2":  omega_mean += 0.70*percent_gas[:,index]
 
     return omega_mean
 
@@ -187,6 +218,10 @@ def compute_diameter_mean(species_index, percent_gas):
         if specie == "Ar":  diameter_mean += 3.659E-10*percent_gas[:,index]
         if specie == "He":  diameter_mean += 2.330E-10*percent_gas[:,index]
         if specie == "H" :  diameter_mean += 3.000E-10*percent_gas[:,index]
+        if specie == "CO2": diameter_mean += 3.996E-10*percent_gas[:,index]
+        if specie == "CH4": diameter_mean += 3.758E-10*percent_gas[:,index]
+        if specie == "CO":  diameter_mean += 3.690E-10*percent_gas[:,index]
+        if specie == "H2":  diameter_mean += 2.827E-10*percent_gas[:,index]
 
     return diameter_mean
 
@@ -203,6 +238,10 @@ def compute_sutherland(species_index, percent_gas, temperature):
         if specie == "Ar":  S1[index] = 144;  S2[index] = 21.250E-6
         if specie == "He":  S1[index] = 79.4; S2[index] = 1.48438E-6
         if specie == "H":   S1[index] = 72;   S2[index] = 0.63624E-6
+        if specie == "CO2":  S1[index] = 240; S2[index] = 1.48E-5
+        if specie == "CH4":  S1[index] = 170; S2[index] = 1.10E-5
+        if specie == "CO":   S1[index] = 118; S2[index] = 1.65E-5
+        if specie == "H2":   S1[index] = 72;  S2[index] = 8.76E-6
 
     S1mix = np.dot(percent_gas,S1)  
     S2mix = np.dot(percent_gas,S2)
@@ -287,39 +326,61 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
         freestream.prandtl = freestream.mu*freestream.cp/k
 
     elif options.freestream.method.upper() == "GRAM":
-        if options.freestream.model.upper() != "GRAM": raise Exception("The freestream properties can only be retrieved through the use of the GRAM model")
-        if options.planet.name == "earth": raise Exception ("The aerothermodynamic models used for Earth need to be computed using the Standard or Mutationpp method")
+
+        if options.freestream.model.upper() != "GRAM":
+            raise Exception("The freestream properties can only be retrieved through the use of the GRAM model")
+
+        if options.planet.name == "earth":
+            raise Exception("Earth must use Standard or Mutationpp method")
 
         data = gram.read_gram(assembly, options)
 
+        # Basic thermodynamic properties
         freestream.temperature = data['Temperature_K'].to_numpy()[0]
-        freestream.density = data['Density_kgm3'].to_numpy()[0]
-        freestream.pressure = data['Pressure_Pa'].to_numpy()[0]
-        freestream.sound = data['SpeedOfSound_ms'].to_numpy()[0]
-        freestream.mach = assembly.freestream.velocity/assembly.freestream.sound
-        freestream.gamma = data['SpecificHeatRatio'].to_numpy()[0]
-        freestream.R = data['SpecificGasConstant_JkgK'].to_numpy()[0]
+        freestream.density     = data['Density_kgm3'].to_numpy()[0]
+        freestream.pressure    = data['Pressure_Pa'].to_numpy()[0]
+        freestream.sound       = data['SpeedOfSound_ms'].to_numpy()[0]
+        freestream.gamma       = data['SpecificHeatRatio'].to_numpy()[0]
+        freestream.R           = data['SpecificGasConstant_JkgK'].to_numpy()[0]
 
-        k = 2.64638e-3*freestream.temperature**1.5/(freestream.temperature+245*10**(-12/freestream.temperature))
-        freestream.prandtl = freestream.mu*freestream.cp/k
+        freestream.mach = freestream.velocity / freestream.sound
+
+        # ---- Mixture reconstruction from GRAM species ----
+
+        percent_mass = data[[specie + "mass_pct" for specie in species_index]].to_numpy()[0] / 100
+        percent_mass /= np.sum(percent_mass)
+
+        freestream.percent_mass = percent_mass.reshape(1, -1)
+
+        freestream.percent_mole = compute_percent_mole(
+            species_index=species_index,
+            percent_mass=freestream.percent_mass
+        )
+
+        m_mean = (
+            compute_mass_mean(
+                species_index=species_index,
+                percent_gas=freestream.percent_mole
+            ) / avo
+        )[0]
 
     else:
         raise Exception("Freestream method not found")
 
     #The species data at the moment is only available for Earth
     #Missing CH4 -> afterwards it can be computed for Neptune and Uranus
-    if options.planet.name == "earth":
-        
-        d_mean = compute_diameter_mean(species_index, freestream.percent_mole)[0]
-        freestream.diameter = d_mean
-        omega_mean = compute_omega_mean(species_index, freestream.percent_mole)[0]
-        freestream.omega = omega_mean
-    
-        C0 = (5.0*m_mean/16)*np.sqrt(np.pi*freestream.R)/(np.pi*d_mean**2)
-        C1 = 2*C0/(15*np.sqrt(2*np.pi*freestream.R))*(5-2*omega_mean)*(7-2*omega_mean)
-    
-        freestream.mfp = C1/freestream.density
-        freestream.knudsen = freestream.mfp/lref
+    d_mean = compute_diameter_mean(species_index, freestream.percent_mole)[0]
+    freestream.diameter = d_mean
+
+    omega_mean = compute_omega_mean(species_index, freestream.percent_mole)[0]
+    freestream.omega = omega_mean
+
+    C0 = (5.0*m_mean/16)*np.sqrt(np.pi*freestream.R)/(np.pi*d_mean**2)
+    C1 = 2*C0/(15*np.sqrt(2*np.pi*freestream.R))*(5-2*omega_mean)*(7-2*omega_mean)
+
+    freestream.mfp = C1/freestream.density
+    freestream.knudsen = freestream.mfp/lref
+
     
 def compute_stagnation(free, options):
     """
@@ -350,12 +411,12 @@ def compute_stagnation(free, options):
     elif options.method == "Standard":
         free.mu_s = compute_sutherland(species_index = free.species_index, percent_gas = free.percent_mole, temperature = free.T1_s)
 
-def interpolate_atmosphere_knudsen(name, lref, altitude):
+def interpolate_atmosphere_knudsen(name, lref, altitude, options=None):
 
     avo = 6.0221408E+23 
 
     #This is only possible for the NRLSMISE00 at the moment
-    f_values, species_index = load_atmosphere(name = name)
+    f_values, species_index = load_atmosphere(name = name, options = options)
 
     data = f_values(altitude)
     
@@ -376,5 +437,9 @@ def interpolate_atmosphere_knudsen(name, lref, altitude):
     knudsen = mfp/lref
 
     f=interp1d(knudsen, altitude, kind = 'cubic')
+
+
+    total_rho = np.sum(density, axis=1)
+    print("[DEBUG GRAM] lref={:.6e} | rho min={:.6e} max={:.6e} kg/m3 | Kn min={:.6e} max={:.6e}".format(lref, total_rho.min(), total_rho.max(), knudsen.min(), knudsen.max()))
 
     return f

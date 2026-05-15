@@ -1,0 +1,75 @@
+# CubeSat Earth Re-Entry Configuration
+# Coupled Aerothermodynamic and FEniCSx Structural Analysis
+
+[Options]
+Num_iters = 100
+Load_mesh = False
+Load_state = False
+Fidelity = Low
+Output_folder = CubeSat_Earth_Results
+FENICS = True
+Output_freq = 25
+
+[Mesh]
+Recursion_limit = 5000
+
+[Model]
+Planet = mars
+Vehicle = True
+Drag_model = False
+
+[Vehicle]
+Mass = 4.0
+Nose_radius = 0.1
+Area_reference = 0.01
+
+[Thermal]
+Ablation = False
+Ablation_mode = 0d
+Time_fidelity = 0.1
+
+[Aerothermo]
+Heat_model = vd
+Vel_grad = fr
+Standoff  = Billig
+Catalicity_method = Constant
+Catalicity_rate   = 1.0
+Level_division = 0
+
+Mixture = air5
+
+[Trajectory]
+Altitude = 130000
+Velocity = 5900
+Flight_path_angle = -16.0
+Heading_angle = 45.0
+Latitude = 20
+Longitude = -32
+
+[Freestream]
+# Using the standard Mars atmospheric model
+Model = GRAM
+Method = Mutationpp
+
+[GRAM]
+GRAM_Path = /home/ME525/GRAM_BUILD/GRAM/Build/bin/
+SPICE_Path = /home/ME525/GRAM_BUILD/GRAM/SPICE/
+Year = 2021
+Month = 2
+Day = 18
+Hour = 12
+Minute = 0
+Seconds = 0.0
+MinMaxFactor = 0.0
+ComputeMinMaxFactor = 0
+
+[Time]
+Time_step = 0.1
+Propagator = euler
+
+[Assembly]
+Path = ./
+
+[Objects]
+# Using your new watertight surface mesh
+Primary = [NAME = cubesat_deployed_60deg_up.stl, MATERIAL = Aluminum, TYPE = Primitive, FENICS_ID = 1]

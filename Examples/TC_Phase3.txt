@@ -1,0 +1,489 @@
+
+
+#Configuration template
+#05/08/2025
+#Author: Tommy Williamson & Julie Graham
+
+#######################
+#General Options block
+######################
+
+[Options]
+
+# Maximum number of iterations
+Num_iters = 5000
+
+# Select the level of the aerothermodynamics in the simulation (Low/High/Multi)
+Fidelity = Low
+
+# Folder where the simulation solution is stored
+Output_folder = simulation
+
+# Load the mesh information if pre-processed beforehand in a previous run (The Output folder needs to be the same)
+Load_mesh = False
+
+# Load the state of the simulation from a previous run (The Output folder needs to be the same)
+Load_state = False
+
+# How frequently should TITAN generate restart files?
+Save_freq = 500
+
+# How frequently should TITAN generate solution files?
+Output_freq = 1
+
+# Enables the [Collision] section and allows bodies to collide elastically
+# (note implementation with new dynamics is unverified)
+Collision = False
+
+# Material file to use
+Material_file = database_material.xml
+
+# Show a live plot of geodetic position and angle of attack, minor performance overhead
+Plot = True
+
+# If using adaptive time stepping, the time frequency at which to generate data (0.0 to disable)
+Time_fidelity = 0.0
+
+# If time_fidelity > 0.0 and Dense_solutions = True TITAN will generate a
+# linearly interpolated surface solution for each data point.
+Dense_solutions = True
+
+# Specify a postprocess method here in order to postprocess each data point as they are generated
+# Comment out to disable
+Postprocess_in_loop = WIND
+
+#######################
+#Trajectory block
+######################
+
+[Trajectory]
+#Choosing Frame for dynamics (Geodetic/ECEF/ECI)
+Frame = Geodetic
+
+#Initial altitude [meters]
+Altitude = 80000
+#Initial Velocity [meters/second]
+Velocity = 4004
+
+#Initial FLight Path Angle [degree]
+Flight_path_angle = -5
+
+#Initial Heading Angle [degree]
+Heading_angle = 45
+
+#Initial Latitude [degree]
+Latitude = 20
+
+#Initial Longitude [degree]
+Longitude = -32
+
+## If not using Geodetic frame the user can instead specify the state [metres, metres/second]
+# State = X, Y, Z, U, V, W
+## If using ECI the user must also specify the epoch
+# Epoch = yyyy/mm/dd HH:MM:SS
+
+#######################
+#Thermal block
+######################
+
+[Thermal]
+
+# Enables mass loss through ablation
+Ablation = True
+
+# Method of ablation modelling, PATO details in PATO block, 0d considers only lumped mass models (0d/pato)
+### NB: PATO requires installation of NASA-PATO software and openfoam (github.com/nasa/pato)
+Ablation_mode = pato
+
+# Resolve the thermal state at least once in this many seconds
+Time_fidelity = 0.1
+
+
+#######################
+#Collision block
+######################
+
+[Collision]
+
+# If collision is enabled, after fragmentation Time_step will slow to Post_fragmentation_timestep
+# for a duration of Post_fragmentation_iters in order to accurately capture collisions
+Post_fragmentation_iters = 200
+
+# This value needs to be small to prevent fast objects from phasing through others [s]
+Post_fragmentation_timestep = 1e-3
+
+# This represents a factor to "grow" the meshes of objects by to ensure collisions aren't complicated by thin surfaces
+Mesh_factor = 1e-4
+
+# The coefficient of restitution for collisions. 1 for fully elastic, 0 for fully inelastic.
+Elastic_factor = 0.99
+
+
+#######################
+#Model block
+######################
+
+[Model]
+
+#Name of the planet to run the simulation (Earth, Neptune, Jupiter)
+Planet = mars
+
+#Flag if the user wants to use a pre-defined vehicle
+Vehicle = False
+
+#Flag if the user wants to run a drag model instead of Modidied Newtonian
+Drag_model = False
+
+
+#######################
+#Aerothermo block
+######################
+
+[Aerothermo]
+
+# Heat flux computation model, Van-Driest, SCARAB, Fay-Riddell for fully, partially and non-catalytic and Sutton-Graves (vd/sc/fr/fr_noncat/fr_parcat/sg)
+Heat_model = vd
+
+# Calculate velocity gradient according to the following method, default is fr (fr/linnel/newton/stokes/olivier)
+Vel_grad = fr
+
+# Calculate shock standoff according to the following method, default is Billig (Freeman/Billig/Lobb/Serbin/Probstein)
+Standoff  = Billig
+
+# Can define per-material Catalicity_rate in the material file, otherwise a constant value, default is constant (constant/material)
+Catalicity_method = Constant
+
+# Recombinative efficiency wall if Catalicity_method is constant (0-1)
+Catalicity_rate   = 1.0
+
+# If >0 recursively subdivide mesh tris n times before calculating aero properties for increased accuracy
+Level_division = 0
+
+# mutation++ mixture to use default is air5
+Mixture = air5
+
+#################################################
+#Vehicle block (If Vehicle flag is set to true)
+#################################################
+
+[Vehicle]
+
+# Mass of the vehicle (kg)
+Mass = 11
+
+# Nose radius of the vehicle for stagnation heatflux computation(m)
+Nose_radius = 0.05
+
+# Area of reference for drag model (if Drag_model = True)
+Area_reference = 0.01
+
+# Name of the Drag model containing the Mach vs drag coefficient information in TITAN/Model/Drag
+Drag_file = Galileo_CD.csv
+
+
+#######################
+#Freestream block
+######################
+
+[Freestream]
+
+# Method used for the computation of the freesteam Properties (Standard, Mutationpp, GRAM)
+method = Mutationpp
+
+# Model used to retrieve the atmospheric data (Earth - NRLMSISE00,GRAM ; Neptune - GRAM; Uranus - GRAM)
+model = GRAM
+
+
+#####################
+# GRAM block - Optional
+#####################
+# Block to define the GRAM model parameters
+
+[GRAM]
+
+# MinMaxFactor for the NeptuneGRAM (see NeptuneGRAM manual)
+MinMaxFactor= 0.0
+
+# Automatic computation of the MinMaxFactor for the NeptuneGRAM (see NeptuneGRAM manual. 0 = False, 1 = True)
+ComputeMinMaxFactor = 0
+
+# Path for the SPICE database
+SPICE_Path = /home/ME525/GRAM_BUILD/GRAM/SPICE/
+
+# Path for GRAM software (required for Earth GRAM)
+GRAM_Path = /home/ME525/GRAM_BUILD/GRAM/Build/bin/
+
+# Year (e.g., 2025)
+Year = 2021
+
+# Month (1–12)
+Month = 2
+
+# Day of the month (1–31)
+Day = 18
+
+# Hour in UTC (0–23)
+Hour = 12
+
+# Minute (0–59)
+Minute = 0 
+
+# Seconds (can be fractional, e.g., 30.5)
+Seconds = 0.0
+
+
+#####################
+#Time block
+#####################
+
+[Time]
+
+# Value of Time-step [s]
+Time_step = 0.25
+
+# Name of propagator used for dynamics integration (euler, bwd, RK[2,3,4],AB[2,3,4,5],RK23,RK45,DOP853)
+# Set as 'help' to see more information
+Propagator = euler
+
+# Rotational damping method adds rotational velocity into Mach number calculation to damp oscillations
+# Note this breaks the quasi-steady-state assumption
+Rotation_damping = False
+
+### Adaptive Time-step options (only valid if using RK23/RK45/DOP853)
+
+# Initial time-step [s], better to be smaller
+Adaptive_dt_init = 0.1
+
+# Maximum allowed time-step [s]
+Adaptive_dt_max = 1.5
+
+# Alternate end condition [s], can set arbitrarily high to 'disable'
+Adaptive_end_time = 300
+
+### Compute-saving options | Delete/set to zero to disable
+
+# Remove objects from the simulation if their freestream Mach number is below a certain threshold
+Debug_mach_cull = 0.0
+
+# Remove objects from the simulation if their mass is below a certain threshold [kg]
+Debug_mass_cull = 0.0
+
+# Remove named objects from the simulation after a fragmentation event
+Debug_obj_cull = 'list,of,stls'
+
+
+##########################################
+#SU2 block - For high-fidelity simulations
+##########################################
+
+[SU2]
+
+# Solver to run (EULER/NAVIER_STOKES or NEMO_EULER/NEMO_NAVIER_STOKES)
+Solver = NAVIER_STOKES
+
+# Maximum number of iterations
+Num_iters = 100
+
+# Convective scheme
+Conv_method = AUSM
+
+# Maximum number of iterations 
+Adapt_iter = 2
+
+# Number of cores to run CFD simulation
+Num_cores = 16
+
+# Flag for MUSCL reconstruction (Yes/No)
+Muscl = YES
+
+# CFL number
+Cfl = 0.5
+
+
+#########################
+#Bloom block - Optional
+#########################
+#Tool to generate a boundary layer in the CFD mesh
+
+[Bloom]
+
+#Flag to activate Bloom
+Flag = True
+
+#Number of layers in the boundary layer
+Layers = 11
+
+#Spacing of the initial layer
+Spacing = 1E-4
+
+#Growth rate between the layers
+Growth_Rate = 1.1
+
+
+
+#########################
+#AMG block - Optional
+#########################
+#Tool to perform anisotropic mesh adaptation for CFD
+
+[AMG]
+
+#Flag to activate AMG
+Flag = True
+
+#Norm of the error estimate for the Hessian computation
+P = 4
+
+#Correction for metric complexity
+C = 10000
+
+#Field used for the mesh adaptation
+Sensor = Mach
+
+#######################
+#Mesh block - For SU2
+######################
+
+[Mesh]
+
+# Element sizing for farfield [m]
+Far_size = 0.2
+
+# Element sizing for surface [m]
+Surf_size = 0.1
+
+# Mesh saving recursion limit, increase if saving/loading meshes causes errors
+Recursion_limit = 5000
+
+##########################################
+#SPARTA block - For high-fidelity simulations
+##########################################
+
+[SPARTA]
+
+# Operational mode of SPARTA (either manual or automatic, default = automatic) 
+# Setting to manual allows the user to perform the SPARTA simulation offline and provide the solution file
+# back to TITAN to proceed with the re-entry simulation, automatic allows TITAN to perform the SPARTA simulation 
+Mode = automatic
+
+# Number of cores to run DSMC simulation
+Num_cores = 16
+
+# Number of simulated particles per cell (PPC) in DSMC simulation
+PPC = 15
+
+# Accommodation coefficient used in gas-surface interactions. (uniform value across all assembly objects currently)
+# Value of 1 means full energy/momentum accommodation
+ACC = 1
+
+# Total number of timesteps used for grid adaptation
+# This phase runs before the main simulation and refines the grid based on flow properties
+Adapt_iters = 100
+
+# Number of timesteps to run the simulation after grid adaptation to allow the flow to settle
+Unsteady_iters = 100
+
+# Number of timesteps to run the simulation during the sampling phase
+# During this phase, surface and flow field quantities are averaged and saved
+Sample_iters = 100
+
+# Frequency of logging statistics to the output log
+Stats_freq = 10
+
+# DSMC time-averaged data sampling settings:
+# Number of timesteps between each sampling of simulation data
+# (e.g., Nevery = 1 take a sample every timestep; Nevery = 5 sample every 5 timesteps)
+Nevery = 1
+
+# Total Number of samples to collect during the averaging period
+# (e.g. Nrepeat = 10 collects 10 samples total, each spaced Nevery timesteps apart)
+Nrepeat = 10
+
+# Total number of timesteps used for averaging (Ntotal = Nevery × Nrepeat defines the full averaging window duration)
+# If Ntotal is larger, the averaging will continue using a rolling window of size Nrepeat × Nevery
+Ntotal = 10
+
+# Number of timesteps to run during each adaptive refinement step. Used only for grid adaptation
+Nadapt = 10
+
+# Boolean flag to write restart files during the SPARTA simulation 
+# (writes at three intervals: before sampling, mid-sampling, and after sampling)
+Write_Restart = False
+
+# Boolean flag to enable writing and post-processing of grid/volume results from SPARTA
+Grid_Results = False
+
+# Full path to the Anaconda environment containing Paraview (used for SPARTA post-processing)
+Conda_Env_Path = /xxx/xxxx/anaconda3/envs/xxxx
+
+##########################################
+#PATO block - For high-fidelity thermal
+##########################################
+
+[PATO]
+
+# PATO timestep, can agree with TITAN timestep [s]
+Time_step = 0.001
+
+# Number of cores, must be greater than or equal to 2
+N_cores = 16
+
+# Max recession per mesh substep [m]; larger steps are split into substeps (0 = disabled) - this applies to moveDynamicMesh only
+Max_recession_per_step = 0.0001
+
+
+# Nodal smoothing controls when ablation is enabled
+# Each node only smoothed based on the 'ring' around it - the 1st set of nodes it contacts
+# Sigma factor controls the spatial radius of smoothing (based on local edge length). Increase for stronger smoothing
+# Blend_alpha blends the smoothed displacement with original. 
+# e.g. a blend_alpha of 0.2 means the node displacement cannot change more than 20% from the unsmoothed one
+
+Recession_sigma_factor = 1.5
+
+Recession_smooth_alpha = 0.4
+
+# Extract only surface information or temperature distribution across whole volume? (surface/volume)
+Solution_type = Volume
+#ablation or q_conv
+PATO_mode = qconv
+
+#######################
+#Assembly block
+#######################
+
+[Assembly]
+
+Path = /home/ME525/HussainTitan/Examples/Geometry/Cubesat/
+
+#Linkage information for the specified components in the Objects section
+
+Connectivity = [[1,2,0],[2,3,0],[3,4,0],[4,5,0]]
+
+#Angle of attack of the assembly
+Angle_of_attack = 0
+
+#Angle of sideslip of the assembly
+Sideslip = 0
+
+
+#######################
+#Objects block
+######################
+
+[Objects]
+# Cubesat geometry
+CubesatCube = [NAME = cubesatCube.stl,         TYPE = Primitive,   MATERIAL = drama-AA7075, Bloom = [True; 8; 5e-4; 1.15], TEMPERATURE = 300, ABLATION = True]
+panel1 = [NAME = panel1.stl,         TYPE = Primitive,   MATERIAL = drama-AA7075, Bloom = [True; 5; 2e-5; 1.2], TEMPERATURE = 300, ABLATION = False]
+panel2 = [NAME = panel2.stl,         TYPE = Primitive,   MATERIAL = drama-AA7075, Bloom = [True; 5; 2e-5; 1.2], TEMPERATURE = 300, ABLATION = False]
+panel3 = [NAME = panel3.stl,         TYPE = Primitive,   MATERIAL = drama-AA7075, Bloom = [True; 5; 2e-5; 1.2], TEMPERATURE = 300, ABLATION = False]
+panel4 = [NAME = panel4.stl,         TYPE = Primitive,   MATERIAL = drama-AA7075, Bloom = [True; 5; 2e-5; 1.2], TEMPERATURE = 300, ABLATION = False]
+
+
+#######################
+#Initial Condtions block
+######################
+
+[Initial Conditions]
+
+# Defines rotation about body axes in rad/s with reference to an assembly id
+Angular Velocity = (1:[0,2,0])

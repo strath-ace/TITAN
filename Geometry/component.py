@@ -31,14 +31,53 @@ class Component_list():
         
     def insert_component(self,filename, file_type, inner_stl = '', id = 0, binary = True, trigger_type = 'Indestructible', 
                          trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, 
-                         global_ID = 0, bloom_config = [False, 0, 0, 0], enclosure=0, alpha = 1.0):
+                         global_ID = 0, bloom_config = [False, 0, 0, 0], enclosure=0, alpha = 1.0, ablation = False):
 
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
                            trigger_value = trigger_value, fenics_bc_id = fenics_bc_id, material = material, 
                            options = options, global_ID = global_ID, bloom_config = bloom_config, 
-                           enclosure=enclosure, alpha=alpha))
+                           enclosure=enclosure, alpha=alpha, ablation=ablation))
         self.id += 1
+        
+    def insert_control_surface(
+        self,
+        filename,
+        file_type,
+        inner_stl,
+        hinge_axis,
+        hinge_origin,
+        deflection,
+        deflection_limits,
+        material,
+        temperature,
+        options,
+        global_ID,
+        bloom_config,
+        enclosure=0,
+        alpha=1.0,
+    ):
+        
+        from Control.actuator import ControlSurface
+        obj = ControlSurface(
+            filename=filename,
+            file_type=file_type,
+            inner_stl=inner_stl,
+            hinge_axis=hinge_axis,
+            hinge_origin=hinge_origin,
+            deflection=deflection,
+            deflection_limits=deflection_limits,
+            material=material,
+            temperature=temperature,
+            options=options,
+            global_ID=global_ID,
+            bloom_config=bloom_config,
+            enclosure=enclosure,
+            alpha=alpha,
+        )
+
+        self.object.append(obj)
+
 
 class Component():
     """ Component class
@@ -49,7 +88,7 @@ class Component():
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
                  trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest',
                  v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0, 
-                 bloom_config = [False, 0, 0, 0], enclosure = 0, alpha = 1.0):
+                 bloom_config = [False, 0, 0, 0], enclosure = 0, alpha = 1.0, ablation = False):
 
         print("Generating Body: ", filename)
         
@@ -137,6 +176,8 @@ class Component():
 
         self.density_ratio = 1
 
+        self.ablation = ablation
+
         self.enclosure = enclosure
         self.debug_alpha = alpha
 
@@ -194,13 +235,14 @@ class PATO():
 
         self.molten = np.zeros(len_facets)
 
+
         # NB: Tommy has not very much idea about Bprime at all so its possible this is nonsense
+
         # Enthalpy of recovery
         self.h_r = 2e5 * np.ones(len_facets)
 
         # Conductivity BC
         self.rhoeUeCH = 0.3 * np.ones(len_facets)
-
         Path(options.output_folder+'/PATO_'+str(object_id)+'/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/').mkdir(parents=True, exist_ok=True)
         Path(options.output_folder+'/PATO_'+str(object_id)+'/verification/unstructured_gmsh/').mkdir(parents=True, exist_ok=True)

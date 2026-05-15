@@ -8,7 +8,11 @@ Load_state = False
 Fidelity = Low
 #High, Low or Multi (now adding razor as option)
 Output_folder = ATV
+Output_freq = 1
 FENICS = False
+
+[Mesh]
+Recursion_limit = 5000
 
 [Model]
 Planet = Earth

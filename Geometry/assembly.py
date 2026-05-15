@@ -362,22 +362,21 @@ class Aerothermo():
 class Assembly():
     """ Class Assembly
     
-        A class to store the information respective to each assemly at every time iteration
+        A class to store the information respective to each assembly at every time iteration
     """
-
-    def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):
-
+    #def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):
+    def __init__(self, objects, id, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):
         #: [int] ID of the assembly
         self.id = id
 
-        #: [array] List of the components that are part of the assembly 
+        #: [array] List of the components that are part of the assembly
         self.objects = []
 
         #: [Mesh] Object of class Mesh containing the grid information
         self.mesh = Mesh.Mesh([])
         self.cfd_mesh = Mesh.Mesh([])
-        self.trajectory = None 
-        self.loads = None 
+        self.trajectory = None
+        self.loads = None
         self.fenics = None
 
         #: [float] Mass of the assembly [kg]
@@ -416,60 +415,155 @@ class Assembly():
         #: [Aerothermo] Object of class Aerothermo to store the surface quantities
         self.aerothermo = None
 
-        # TODO
-        # Need to check if these are used. They are repeated in the Dynamics function
+        # TODO (legacy duplicates of dynamics)
         self.roll = roll
-        self.pitch = 0  #Change this
-        self.yaw = 0    #Change this
+        self.pitch = 0
+        self.yaw = 0
         self.roll_vel = 0
         self.pitch_vel = 0
         self.yaw_vel = 0
+        self.unmodded_angles = np.array([0.0, 0.0, 0.0])
 
+        # -------------------------------
+        # Build assembly surface mesh
+        # -------------------------------
         if len(objects) != 0:
-            self.objects=objects
+            self.objects = objects
 
-            #Loop the components that belong to the assembly, and append the surface mesh
+            # 1) append component meshes into one assembly mesh
             for obj in objects:
                 self.mesh = Mesh.append(self.mesh, obj.mesh)
                 obj.parent_id = self.id
 
-            #Create the mapping between the facets and the vertex coordinates
-            ___, self.mesh.facets = Mesh.map_facets_connectivity(self.mesh.v0, self.mesh.v1, self.mesh.v2) 
+            # 2) facets + CFD mesh bookkeeping
+            ___, self.mesh.facets = Mesh.map_facets_connectivity(self.mesh.v0, self.mesh.v1, self.mesh.v2)
             self.cfd_mesh.facets = np.copy(self.mesh.facets)
+            self.cfd_mesh.idx    = Mesh.remove_repeated_facets(self.mesh)
 
-            #Remove the repeated facets
-            self.cfd_mesh.idx = Mesh.remove_repeated_facets(self.mesh) 
-
-            #Volumetric meshing
+            # 3) primary node array + connectivity caches
             self.mesh.COG = Mesh.compute_geometrical_COG(self.mesh.facet_COG, self.mesh.facet_area)
             self.mesh.nodes, self.mesh.facets = Mesh.map_facets_connectivity(self.mesh.v0, self.mesh.v1, self.mesh.v2)
-            self.mesh.min, self.mesh.max = Mesh.compute_min_max(self.mesh.nodes)
+            self.mesh.min, self.mesh.max      = Mesh.compute_min_max(self.mesh.nodes)
             self.mesh.edges, self.mesh.facet_edges = Mesh.map_edges_connectivity(self.mesh.facets)
             self.mesh.nodes_normal = Mesh.compute_nodes_normals(len(self.mesh.nodes), self.mesh.facets ,self.mesh.facet_COG, self.mesh.v0,self.mesh.v1,self.mesh.v2)
+
+            # keep these consistent with nodes+facets (do NOT rely on old v0/v1/v2 after edits)
+            self.mesh.v0 = self.mesh.nodes[self.mesh.facets[:, 0]]
+            self.mesh.v1 = self.mesh.nodes[self.mesh.facets[:, 1]]
+            self.mesh.v2 = self.mesh.nodes[self.mesh.facets[:, 2]]
+
+            self.mesh.nodes_normal = Mesh.compute_nodes_normals(
+                len(self.mesh.nodes),
+                self.mesh.facets,
+                self.mesh.facet_COG,
+                self.mesh.v0,
+                self.mesh.v1,
+                self.mesh.v2,
+            )
             self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
-            self.mesh.nodes_radius, self.mesh.facet_radius, self.mesh.Avertex, self.mesh.Acorner = Mesh.compute_curvature(self.mesh.nodes, self.mesh.facets, self.mesh.nodes_normal, self.mesh.facet_normal, self.mesh.facet_area, self.mesh.v0, self.mesh.v1, self.mesh.v2)
+            
             #self.mesh.facet_radius = np.ones((len(self.mesh.facets)))
+
+            (
+                self.mesh.nodes_radius,
+                self.mesh.facet_radius,
+                self.mesh.Avertex,
+                self.mesh.Acorner,
+            ) = Mesh.compute_curvature(
+                self.mesh.nodes,
+                self.mesh.facets,
+                self.mesh.nodes_normal,
+                self.mesh.facet_normal,
+                self.mesh.facet_area,
+                self.mesh.v0,
+                self.mesh.v1,
+                self.mesh.v2,
+            )
 
             self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes),3))
 
-            #Create mapping between the nodes and facets of the singular component and the assembly
+            # 4) mapping: component local nodes/facets → assembly nodes/facets
             for obj in objects:
-                #obj.node_index, obj.node_mask = Mesh.create_index(self.mesh.nodes, obj.mesh.nodes)
-                #obj.facet_index, obj.facet_mask = Mesh.create_index_facet(self.mesh.facet_COG, obj.mesh.facet_COG)
-                obj.node_index  = Mesh.create_index_mapping(self.mesh.nodes, obj.mesh.nodes)
+                obj.node_index  = Mesh.create_index_mapping(self.mesh.nodes,      obj.mesh.nodes)
                 obj.facet_index = Mesh.create_index_mapping(self.mesh.facet_COG, obj.mesh.facet_COG)
 
-            #self.mesh.original_nodes = np.copy(self.mesh.nodes)
-            self.inside_shock = np.zeros(len(self.mesh.nodes))
+            # ---------------------------------------------------------
+            # ControlSurface node decoupling (robust):
+            # - duplicate any nodes shared with other objects
+            # - remap ONLY that control-surface's facets to use duplicated ids
+            #
+            # IMPORTANT:
+            #   The rotation code rotates nodes referenced by obj.node_index.
+            #   If the surface facets still point at the *old* node ids,
+            #   you will still see coupling/shear.
+            # ---------------------------------------------------------
+            n_nodes0 = len(self.mesh.nodes)
+            node_use_count = np.zeros(n_nodes0, dtype=int)
 
-        # self.Lref = np.max(self.mesh.xmax-self.mesh.xmin)
+            for obj in self.objects:
+                if hasattr(obj, "node_index"):
+                    node_use_count[obj.node_index] += 1
+
+            # facets are global; we only edit rows belonging to the control surface
+            for obj in self.objects:
+                if obj.__class__.__name__ != "ControlSurface":
+                    continue
+
+                if (not hasattr(obj, "node_index")) or (not hasattr(obj, "facet_index")):
+                    continue
+
+                shared = obj.node_index[node_use_count[obj.node_index] > 1]
+                if shared.size == 0:
+                    continue
+
+                shared = np.unique(shared)
+
+                # duplicate nodes
+                start = len(self.mesh.nodes)
+                self.mesh.nodes = np.vstack([self.mesh.nodes, self.mesh.nodes[shared].copy()])
+                new_ids = np.arange(start, start + shared.size, dtype=int)
+
+                # remap dict old->new
+                remap = dict(zip(shared.tolist(), new_ids.tolist()))
+
+                # remap control-surface node_index
+                obj.node_index = np.array([remap.get(int(i), int(i)) for i in obj.node_index], dtype=int)
+
+                # remap the control-surface facets (ONLY its rows)
+                fidx = obj.facet_index
+                f = self.mesh.facets[fidx].copy()
+                for c in range(3):
+                    f[:, c] = np.array([remap.get(int(i), int(i)) for i in f[:, c]], dtype=int)
+                self.mesh.facets[fidx] = f
+
+                # update use counts
+                node_use_count[shared] -= 1
+                node_use_count = np.hstack([node_use_count, np.ones(shared.size, dtype=int)])
+
+            # after any duplication/remap, rebuild v0/v1/v2 and dependent basics
+            self.mesh.v0 = self.mesh.nodes[self.mesh.facets[:, 0]]
+            self.mesh.v1 = self.mesh.nodes[self.mesh.facets[:, 1]]
+            self.mesh.v2 = self.mesh.nodes[self.mesh.facets[:, 2]]
+
+            # keep displacement consistent with NEW node count
+            self.mesh.surface_displacement = np.zeros((len(self.mesh.nodes), 3))
+
+            # baseline nodes must match the *current* node array
+            self.original_nodes = self.mesh.nodes.copy()
+
         self.Lref = (self.mesh.xmax-self.mesh.xmin)[0]
 
+        self.inside_shock = np.zeros(len(self.mesh.nodes))
 
-        self.aerothermo = Aerothermo(len(self.mesh.facets))
-        self.aerothermo_cfd = Aerothermo(len(self.mesh.nodes))
+        # reference length (recompute after any duplication)
+        self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
+        self.Lref = (self.mesh.xmax - self.mesh.xmin)[0]
 
-        #Initialize surface temperature of the assembly
+        # aerothermo fields (cfd one depends on node count!)
+        self.aerothermo      = Aerothermo(len(self.mesh.facets))
+        self.aerothermo_cfd  = Aerothermo(len(self.mesh.nodes))
+
+        # init surface temperature / alpha
         for obj in self.objects:
             self.aerothermo.temperature[obj.facet_index] = obj.temperature
             self.aerothermo.debug_alpha[obj.facet_index] = obj.debug_alpha
@@ -495,7 +589,7 @@ class Assembly():
             self.ablation_mode = 'tetra'
 
         elif options.thermal.ablation_mode.lower() == 'pato':
-            self.ablation_mode = 'PATO'  
+            self.ablation_mode = 'PATO'
             if options.pato.Ta_bc == 'ablation':
                 self.mDotVapor = np.zeros(len(self.mesh.facets))
                 self.mVapor = np.zeros(len(self.mesh.facets))
@@ -504,12 +598,11 @@ class Assembly():
                 self.updated_gas_density = np.zeros(len(self.mesh.facets))
                 self.LOS = np.zeros(len(self.mesh.facets))
 
-        else: raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
+        else:
+            raise ValueError("Ablation mode has to be Tetra, 0D or PATO")
 
         self.distance_travelled = 0
-
         self.quaternion_prev = np.array([])
-
         self.aero_index = np.array([])
 
         self.blackbody_emissions_OI_surf  = np.zeros(len(self.mesh.facets))
@@ -523,8 +616,6 @@ class Assembly():
         self.angle_blackbody = np.zeros(len(self.mesh.facets))
         self.angle_atomic    = np.zeros(len(self.mesh.facets))
 
-        # self.enclosure_AABB = build_enclosure_AABB(self)
-        # self.enclosure_component_num = build_enclosure_num(self)
 
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = []):
@@ -602,13 +693,58 @@ class Assembly():
         else:
             self.COG = np.sum(0.25*(coords[elements[:,0]] + coords[elements[:,1]] + coords[elements[:,2]] + coords[elements[:,3]])*self.mesh.vol_mass[:,None], axis = 0)/self.mass
 
+        #Account for propellant tanks
+        if hasattr(self, "propellant_tanks") and self.propellant_tanks:
+            m0 = float(self.mass)
+            cog0 = np.asarray(self.COG, dtype=float)
+
+            mtanks = 0.0
+            moment = np.zeros(3)
+
+            for tank in self.propellant_tanks.values():
+                m = float(tank.total_mass)
+                if m <= 0.0:
+                    continue
+                mtanks += m
+                moment += m * np.asarray(tank.position_B)
+
+            m_total = m0 + mtanks
+            if m_total > 0.0:
+                self.COG = (m0 * cog0 + moment) / m_total
+                self.mass = m_total
+
         #Computes the inertia matrix
         self.inertia = inertia_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]], vol, self.COG, density)
+        
+        # Add tank inertia (sphere + parallel axis)
+        if hasattr(self, "propellant_tanks") and self.propellant_tanks:
+            I3 = np.eye(3)
+            cog = np.asarray(self.COG, dtype=float).reshape(3)
+
+            for tank in self.propellant_tanks.values():
+                m = float(tank.total_mass)
+                if m <= 0.0:
+                    continue
+
+                r_tank = np.asarray(tank.position_B, dtype=float).reshape(3)
+                r = r_tank - cog
+                r2 = np.dot(r, r)
+
+                # Intrinsic inertia (solid sphere)
+                R = getattr(tank, "radius", 0.0)
+                J_sphere = (2.0 / 5.0) * m * (R**2) * I3
+
+                # Parallel axis term
+                J_parallel = m * (r2 * I3 - np.outer(r, r))
+
+                self.inertia += J_sphere + J_parallel
 
         #Loop over the components to compute each individual inertial properties
         for obj in self.objects:
             index = (tag == obj.id)
             obj.compute_mass_properties(coords, elements[index], density[index])
+
+
 
     def rearrange_ids(self):
         """
@@ -638,6 +774,95 @@ class Assembly():
             #    self.connectivity[copy_connectivity == id] = d[id]
             self.mesh.vol_tag[copy_vol_tag == id] = d[id]
 
+    def update_geometry(self):
+        if (not hasattr(self, "original_nodes")) or (self.original_nodes is None) or (self.original_nodes.shape != self.mesh.nodes.shape):
+            self.original_nodes = self.mesh.nodes.copy()
+
+        # apply rigid rotations from baseline -> current mesh nodes
+
+        for obj in self.objects:
+            # ensure it's the ControlSurface style signature
+            if obj.__class__.__name__ == "ControlSurface" and hasattr(obj, "update_geometry") and hasattr(obj, "node_index"):
+                obj.update_geometry(self.mesh, self.original_nodes)
+
+        # rebuild surface caches from (nodes, facets) safely
+        self.mesh.v0 = self.mesh.nodes[self.mesh.facets[:, 0]]
+        self.mesh.v1 = self.mesh.nodes[self.mesh.facets[:, 1]]
+        self.mesh.v2 = self.mesh.nodes[self.mesh.facets[:, 2]]
+
+        # facet normals + areas
+        self.mesh.facet_area = Mesh.compute_facet_area(self.mesh.v0, self.mesh.v1, self.mesh.v2)
+        self.mesh.facet_COG = Mesh.compute_facet_COG(self.mesh.v0, self.mesh.v1, self.mesh.v2)
+        self.mesh.COG = Mesh.compute_geometrical_COG(self.mesh.facet_COG, self.mesh.facet_area)
+        self.mesh.facet_normal = Mesh.compute_facet_normal(
+            self.mesh.COG,
+            self.mesh.facet_COG,
+            self.mesh.v0,
+            self.mesh.v1,
+            self.mesh.v2,
+            self.mesh.facet_area,
+        )
+
+        # nodes array is already current; keep these up to date
+        self.mesh.min, self.mesh.max = Mesh.compute_min_max(self.mesh.nodes)
+        self.mesh.edges, self.mesh.facet_edges = Mesh.map_edges_connectivity(self.mesh.facets)
+        self.mesh.xmin, self.mesh.xmax = Mesh.compute_min_max(self.mesh.nodes)
+
+        # curvature etc (uses facet_normal/area we just refreshed)
+        (
+            self.mesh.nodes_radius,
+            self.mesh.facet_radius,
+            self.mesh.Avertex,
+            self.mesh.Acorner,
+        ) = Mesh.compute_curvature(
+            self.mesh.nodes,
+            self.mesh.facets,
+            self.mesh.nodes_normal,
+            self.mesh.facet_normal,
+            self.mesh.facet_area,
+            self.mesh.v0,
+            self.mesh.v1,
+            self.mesh.v2,
+        )
+        if (not hasattr(self.mesh, "surface_displacement")) or (self.mesh.surface_displacement.shape != self.mesh.nodes.shape):
+            self.mesh.surface_displacement = np.zeros_like(self.mesh.nodes)
+
+    def init_propellant_baseline(self):
+        """Call once after the assembly is fully constructed."""
+        self.dry_mass = float(self.mass)
+        self.dry_COG_B = np.asarray(self.COG, dtype=float).copy()
+
+    def update_mass_properties_from_tanks(self):
+        """
+        Update assembly mass and COG including propellant tanks.
+        Assumes tank positions are in BODY frame.
+        """
+        if not hasattr(self, "propellant_tanks") or not self.propellant_tanks:
+            return
+
+        # Ensure baseline exists
+        if not hasattr(self, "dry_mass") or not hasattr(self, "dry_COG_B"):
+            self.init_propellant_baseline()
+
+        m_base = self.dry_mass
+        cog_base = self.dry_COG_B
+
+        m_prop = 0.0
+        weighted = np.zeros(3)
+
+        for tank in self.propellant_tanks.values():
+            m = float(tank.prop_mass)
+            if m <= 0.0:
+                continue
+            m_prop += m
+            weighted += m * np.asarray(tank.position_B, dtype=float)
+
+        m_total = m_base + m_prop
+        if m_total <= 0.0:
+            return
+
+        self.mass = m_total
+        self.COG = (m_base * cog_base + weighted) / m_total
 
 def copy_assembly(list_assemblies, options):
     from copy import deepcopy
