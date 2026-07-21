@@ -27,6 +27,9 @@ from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RigidTransform as Trans
 from scipy.spatial import KDTree
+from scipy.optimize import brentq
+from functools import partial
+
 import trimesh, pathlib
 try:
     from trimesh.ray.ray_pyembree import RayMeshIntersector
@@ -148,6 +151,17 @@ def normal_shock_rho(rho:float, gamma:float, M:float)->float:
     rho_post = rho*(((gamma + 1.0) * (M**2.0)) / (((gamma - 1.0) * (M**2.0)) + 2.0))
     return rho_post
 
+def energy_loop_obj_func(mix, P_eq, h_ref, T_eq):
+    mix.equilibrate(T_eq, P_eq)
+    h_eq = mix.mixtureHMass()
+    return h_eq-h_ref
+
+def energy_loop_brent(mix : mpp.Mixture, T_eq : float, P_eq : float, h_ref : float, T_max = 1e5) -> mpp.Mixture:
+    f = partial(energy_loop_obj_func, mix, P_eq, h_ref)
+
+    T_eq = brentq(f, 10.0, T_max)
+    mix.equilibrate(T_eq, P_eq)
+    return mix
 ### Loop to match total enthalpy (conserved)
 def energy_loop(mix : mpp.Mixture, T_eq : float, P_eq : float, h_ref : float) -> mpp.Mixture:
     """Stagnation energy loop to ensure conservation of total enthalpy at target equilibrium conditions
@@ -180,6 +194,144 @@ def energy_loop(mix : mpp.Mixture, T_eq : float, P_eq : float, h_ref : float) ->
             break
     return mix
 
+class stagnation_line_pfm():
+    """
+    Class to store the flow conditions at freestream, stagnation, BLE and wall
+    """
+
+    def __init__(self, Tfree : float, Pfree : float, Mfree : float, Twall : float, mixname = None):
+        """Solve stations of the stagnation line (Free, Post-Shock, BLE, Wall) from freestream and wall conditions 
+
+        Args:
+            Tfree (float): Freestream temperature (K)
+            Pfree (float): Freestream pressure (Pa)
+            Mfree (float): Freestream Mach
+            Twall (float): Wall temperature (K)
+            mix (mpp.Mixture, optional): Input mixture. Leave as none for air5.
+        """
+        if mixname == None: 
+            print('No mix given to stagnation_line()! Defaulting to air5...')
+            self.mix = mixture_mpp("air5")
+        else: self.mix = mixture_mpp(mixname)
+
+        self.Tfree = Tfree
+        self.Pfree = Pfree
+        self.Mfree = Mfree
+        self.Twall = Twall
+        self.n_facets = len(self.Mfree)
+        #Equilibrate the mix with the freesteam conditions:
+        self.mix.equilibrate(self.Tfree, self.Pfree)        
+        self.gammafree = self.mix.mixtureFrozenGamma()
+        self.ufree = self.Mfree*self.mix.frozenSoundSpeed()
+        self.mufree = self.mix.viscosity()
+        self.rhofree = self.mix.density()
+        self.c_i_free = self.mix.Y()
+        self.oxygen_mf = self.mix.convert_y_to_ye(self.c_i_free)[self.mix.elementIndex('O')]
+        #molecular weight
+        self.MW_free = self.mix.mixtureMw()
+        
+        self.T0_free = stagnation_T(self.Tfree, self.gammafree, self.Mfree)
+        self.P0_free = stagnation_P(self.Pfree, self.gammafree, self.Mfree)
+        #Total enthalpy at freestream
+        self.H0_free = self.mix.mixtureHMass() + (self.Mfree*self.mix.frozenSoundSpeed())**2/2.0
+
+        #Post-shock conditions:
+        self.T_post = normal_shock_T(self.Tfree, self.gammafree, self.Mfree)
+        self.P_post = normal_shock_P(self.Pfree, self.gammafree, self.Mfree)
+        self.rho_post = normal_shock_rho(self.rhofree, self.gammafree, self.Mfree)
+        self.M_post = normal_shock_M(self.gammafree, self.Mfree)
+        self.u_post = self.M_post*np.sqrt((self.gammafree*self.P_post)/self.rho_post)
+
+        self.T0_post = stagnation_T(self.T_post, self.gammafree, self.M_post)
+        self.P0_post = stagnation_P(self.P_post, self.gammafree, self.M_post)
+        self.rho0_post = self.rho_post*(1+(self.gammafree - 1) / 2.0 * self.M_post**2)**(1/(self.gammafree - 1))
+
+        #Boundary layer edge conditions
+        #Assuming mixture at equilibrium
+        self.Te = self.T0_post
+        self.Pe = self.P0_post
+
+
+        self.rhoe = np.zeros(self.n_facets)
+        self.mue = np.zeros(self.n_facets)
+        self.He = np.zeros(self.n_facets)
+        self.ce_i = np.zeros([self.n_facets,self.mix.nSpecies()])
+        self.xe_i = np.zeros([self.n_facets,self.mix.nSpecies()])
+        self.MWe = np.zeros(self.n_facets)
+        self.mu_orig_e = np.zeros(self.n_facets)            
+        self.Hd = np.zeros(self.n_facets)
+        self.Pwall = np.zeros(self.n_facets)
+        self.rhow = np.zeros(len(Twall))
+        self.muw = np.zeros(len(Twall))
+        self.Hw = np.zeros(len(Twall))
+
+        # Assume facets adjacent in the list have similar temperature
+
+        best_guess_T = self.Te[0]
+        for i_facet in range(self.n_facets):
+            conditions_dict = ble_conditions(self.mix, best_guess_T, self.Pe[i_facet], self.H0_free[i_facet], self.Twall[i_facet])
+            best_guess_T = conditions_dict['Te']
+            self.assign_facet_conditions(i_facet, conditions_dict)
+
+        #Adimensional numbers
+        #At the moment these values are hardcoded according to several literature sources
+        self.Pr = 0.71
+        self.Le = 1.0
+
+    def assign_facet_conditions(self, i_facet, conditions_dict):
+        self.Te[i_facet] = conditions_dict['Te']
+        self.Pe[i_facet] = conditions_dict['Pe']
+        self.rhoe[i_facet] = conditions_dict['rhoe']
+        self.mue[i_facet] = conditions_dict['mue']
+        self.He[i_facet] = conditions_dict['He']
+        self.ce_i[i_facet, :] = conditions_dict['ce_i']
+        self.xe_i[i_facet, :] = conditions_dict['xe_i']
+        self.MWe[i_facet] = conditions_dict['MWe']
+        self.mu_orig_e[i_facet] = conditions_dict['mu_orig_e']
+        self.Hd[i_facet] = conditions_dict['Hd']
+        self.Pwall[i_facet] = conditions_dict['Pwall']
+        self.rhow[i_facet] = conditions_dict['rhow']
+        self.muw[i_facet] = conditions_dict['muw']
+        self.Hw[i_facet] = conditions_dict['Hw']
+
+def ble_conditions(mix, best_guess_T, Pe, H0_free, Twall):
+    #mix = mixture_mpp(mixname)
+    mix = energy_loop_brent(mix, best_guess_T, Pe, H0_free)
+
+    best_guess_T = mix.T()
+
+    Te = mix.T()
+    Pe = mix.P()
+    rhoe = mix.density()
+    mue = mix.viscosity()
+    He = mix.mixtureHMass()
+
+    #N O NO N2 O2 according to air_5 from Mutationpp
+    ce_i = np.zeros(mix.nSpecies())
+    xe_i = np.zeros(mix.nSpecies())
+    ce_i[:] = mix.Y()
+    xe_i[:] = mix.X()
+    MWe = mix.mixtureMw()
+
+    mix.setState(mix.densities(), Te, 1)
+    mu_orig_e = mix.viscosity()
+
+        #N - 33867025.2 J/Kg heat of formation
+        #O - 15432544.8 J/Kg Heat of formation
+
+        #Heat of dissociation                 
+    Hd = 33867025.2*ce_i[0] + 15432544.8 *ce_i[1]
+
+        #Wall conditions
+        #Assuming mixture at equilibrium
+    Pwall = Pe
+    mix.equilibrate(Twall, Pwall)
+    rhow =mix.density()
+    muw = mix.viscosity()
+    Hw = mix.mixtureHMass()
+
+    return {'Te' : Te, 'Pe': Pe, 'rhoe' : rhoe, 'mue' : mue, 'He' : He, 'ce_i' : ce_i, 'xe_i' : xe_i, 'MWe' : MWe, 'mu_orig_e' : mu_orig_e, 'Hd' : Hd, 'Pwall' : Pe, 'rhow' : rhow, 'muw' : muw, 'Hw' : Hw}
+
 class stagnation_line():
     """
     Class to store the flow conditions at freestream, stagnation, BLE and wall
@@ -204,8 +356,8 @@ class stagnation_line():
         self.Pfree = Pfree
         self.Mfree = Mfree
         self.Twall = Twall
-
         #Equilibrate the mix with the freesteam conditions:
+
         self.mix.equilibrate(self.Tfree, self.Pfree)        
         self.gammafree = self.mix.mixtureFrozenGamma()
         self.ufree = self.Mfree*self.mix.frozenSoundSpeed()
@@ -815,8 +967,14 @@ def aerothermodynamics_module_continuum(assembly, p : np.ndarray, options) -> np
         Stc = q/StConst
 
     if hf_model == 'fr_parcat': #Fay Riddell
-        mix = mixture_mpp(options.aerothermo.mixture)
-        flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+        do_pfm = False
+        if do_pfm:
+            Mfree = free.mach * np.sin(Theta)
+            Mfree[Mfree<1] = 1
+            flow_ble = stagnation_line_pfm(Tfree = free.temperature, Pfree = free.pressure, Mfree = Mfree, Twall = body_temperature[p], mixname = options.aerothermo.mixture)
+        else: 
+            mix = mixture_mpp(options.aerothermo.mixture)
+            flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
         vel_grad = velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
         q = general_eq(flow_ble, vel_grad, 'fr_parcat', cat_rate)       
         Stc = q/StConst
@@ -843,6 +1001,22 @@ def aerothermodynamics_module_continuum(assembly, p : np.ndarray, options) -> np
             assembly.byproducts.oxy_content = flow_ble.oxygen_mf
         else:
             assembly.byproducts.column_height_mix[p] = np.zeros_like(assembly.aerothermo.theta)
+    # if not pathlib.Path('./stagline_stations.csv').resolve().exists():
+    #     header = True
+    # else: header = False
+    # ble_data_columns = ['Altitude']
+    # for station in ['free', 'post', 'BLE']:
+    #     for data_type in ['Ma_','P_','T_','rho_','%N_','%O_','%NO_','%N2_','%O2_']
+    #         ble_data_columns.append(data_type+station)
+    #ble_data = None
+    # ble_data = [assembly.trajectory.altitude, flow_ble.Mfree, flow_ble.Pfree, flow_ble.Tfree, flow_ble.rhofree]
+    # [ble_data.append(c_i) for c_i in flow_ble.c_i_free]
+    # [ble_data.append(dat) for dat in [flow_ble.M_post, flow_ble.P_post, flow_ble.T_post, flow_ble.rho_post]]
+    # [ble_data.append(c_i) for c_i in energy_loop(.c_pos).Y()]
+    # for i_facet, f_id in enumerate(p):
+    #     if ble_data is None: ble_data = [[assembly.trajectory.altitude,f_id, flow_ble.Mfree, flow_ble.Pfree, flow_ble.Tfree, rho_free]]
+    #with open(str(pathlib.Path('./stagline_stations.csv').resolve()),'w') as f:
+
     return Stc
 
 def aerothermodynamics_module_freemolecular(assembly, p : np.ndarray) -> np.ndarray:

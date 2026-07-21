@@ -232,7 +232,8 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
                 assembly.aerothermo.temperature[component.facet_index] = component.temperature
                 if not component.mass == state_vector[14+2*i_component]:
                     recompute_mass = True
-                    component.material.density *= state_vector[14+2*i_component]/component.mass
+                    if component.mass >0:
+                        component.material.density *= state_vector[14+2*i_component]/component.mass
                     component.mass = state_vector[14+2*i_component]
                     if component.material.density < 0:
                         component.material.density = 0
