@@ -80,7 +80,11 @@ class UQMapper(MutableSequence):
                         address = section(code[0])
                         assignment = ma.library_assignments[param]
                         break
-            callback_flags = [param in cb for cb in list(ma.callbacks.values())]
+            callback_flags = {}
+            for cb, params in ma.callbacks.items():
+                if param in params: callback_flags[cb] = True
+                else: False
+            
             self.append([param, address, assignment, code, callback_flags])
 
         for i_distri, distri in distributions_dict.items():
@@ -91,33 +95,42 @@ class UQMapper(MutableSequence):
 
 
     def map_from_seed(self, seed, titan, options):
-        self.state_info = {}
-        self.state_info['seed'] = seed
-        titan.rng = np.random.RandomState(seed)
-        sample_out = []
-        assem_ids = [[] for _ in range(len(self.callback_flags))]
+        try:
+            self.state_info = {}
+            self.state_info['seed'] = seed
+            titan.rng = np.random.RandomState(seed)
+            sample_out = []
+            assem_ids = {} 
+            for cb in self.callback_flags.keys(): assem_ids[cb] = []
 
-        for sam in self.samplers:
-            sam.random_state = titan.rng
-            sample_out.append(np.atleast_1d(sam.rvs()))
+            for sam in self.samplers:
+                sam.random_state = titan.rng
+                sample_out.append(np.atleast_1d(sam.rvs()))
 
-        for param in self.parameters:
 
-            param.assign(sample_out[param.code[1]][param.code[2]], titan, options)
-            self.state_info[param.name] = sample_out[param.code[1]][param.code[2]]
+            for param in self.parameters:
+                
+                print(param.name)
+                param.assign(sample_out[param.code[1]][param.code[2]], titan, options)
+                self.state_info[param.name] = sample_out[param.code[1]][param.code[2]]
 
+                i_cb = 0
+                for cb, do_cb, in param.callback.items(): 
+                    if do_cb: 
+                        self.callback_flags[cb] = True
+                        assem_ids[cb].append(param.code[0])
+                    i_cb += 1
             i_cb = 0
-            for do_cb, cb in zip(param.callback, list(self.callback_flags.keys())): 
-                if do_cb: 
-                    self.callback_flags[cb] = True
-                    assem_ids[i_cb].append(param.code[0])
+            
+            for cb in ma.callbacks_order:
+                print(cb)
+                if self.callback_flags[cb]: cb(titan, options, np.unique(assem_ids[cb]))
                 i_cb += 1
-        i_cb = 0
-        for func, flag in self.callback_flags.items():
-            if flag: func(titan, options, np.unique(assem_ids[i_cb]))
-            i_cb += 1
 
-        return self.state_info
+            return self.state_info
+        except Exception as e:
+            print(e)
+            raise(e)
             
 class UQMapObject():
     def __init__(self, param_name, param_object, param_assign_loc, code, callback = None):
@@ -141,13 +154,18 @@ class UQMapObject():
             self.assign_obj =  return_obj
     
     def assign(self, value, titan, options):
+        sv_flag = False
+        if isinstance(self.assign_obj, str): 
+            if 'trajectory' in self.assign_obj: sv_flag = True
         self.resolve_object(titan,options)
         if len(self.assign_location)>1: 
             new_value = getattr(self.assign_obj,self.assign_location[0])
             new_value[self.assign_location[1]] = value
         else: new_value = value
         setattr(self.assign_obj,self.assign_location[0], new_value)
-
+        if sv_flag:
+            from Dynamics.propagation import construct_state_vector
+            construct_state_vector(titan.assembly[self.code[0]],options.dynamics.augmented_state)
 def report_outputs_from_csv(output_folder, output_dict, all_components, write=True):
     data = pd.read_csv(output_folder+'/Data/data.csv')
     assembly_data = pd.read_csv(output_folder+'/Data/data_assembly.csv')

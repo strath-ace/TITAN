@@ -218,7 +218,7 @@ def demise_components(titan, i, joints_id, options):
         if options.thermal.ablation_mode=='byproducts':
             from Thermal.byproducts import Byproducts
             titan.assembly[-1].byproducts = Byproducts(len(titan.assembly[-1].mesh.facet_area),cutoff=options.thermal.mf_cutoff)
-            titan.assembly[-1].byproducts.get_species_list(titan.assembly[-1])
+            titan.assembly[-1].byproducts.get_species_list(titan.assembly[-1], options.thermal.byproducts_method.lower())
 
 
 def check_breakup_v2(titan, options):

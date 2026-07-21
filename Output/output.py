@@ -296,7 +296,9 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
         vol_mesh_filepath = f"{folder_path}/solution_iter_{str(iter_value).zfill(3)}.xdmf"
-        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+        do_solution = True
+        if do_solution:
+            meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 ## The following funcs split generate_surface_solution() into separate create, update and
 # write functions. At the moment this is something of a messy repeat but in future having
@@ -349,11 +351,11 @@ def create_surface_solution(titan, options):
             mDotVapor = assembly.mDotVapor
             mDotMelt = assembly.mDotMelt
         elif options.thermal.ablation_mode.lower() == 'byproducts':
-            for byproduct in assembly.byproducts.species:
+            for byproduct in assembly.byproducts.species: pass
                 # cell_data['rho_'+byproduct] = np.array([assembly.byproducts.rho[byproduct]])
                 # cell_data['mf_'+byproduct] = np.array([assembly.byproducts.mf[byproduct]])
                 # cell_data['mass_'+byproduct] = np.array([assembly.byproducts.mass[byproduct]])
-                cell_data['emission_'+byproduct] = np.array([assembly.byproducts.emission[byproduct]])
+                #cell_data['emission_'+byproduct] = np.array([assembly.byproducts.emission[byproduct]])
             mDotMelt = np.zeros(len(assembly.mesh.facets))
             mDotMelt = assembly.mDotMelt
         #hf_cond = assembly.hf_cond
@@ -462,7 +464,9 @@ def write_surface_solution(options,solutions,IDS,iter_value,folder='Surface_solu
         Path(folder_path).mkdir(parents=True, exist_ok=True)
 
         vol_mesh_filepath = f"{folder_path}/solution_iter_{str(iter_value).zfill(3)}.xdmf"
-        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
+        do_solution = True
+        if do_solution:
+            meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 def generate_surface_solution_emissions(titan, options, iter_value, folder = 'Surface_solution'):
 

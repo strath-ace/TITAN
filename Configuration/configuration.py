@@ -256,7 +256,7 @@ class Thermal():
 
         self.prev_thermal_time = 0.0
 
-        self.volume_method = 'BLE'
+        self.byproducts_method = 'cea'
 
         self.mf_cutoff = 1e-10
 
@@ -393,7 +393,7 @@ class Aerothermo():
         A class to store the user-defined aerothemo model options
     """
 
-    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100, mixture = "air5", SoI_rad = 10.0):
+    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100, mixture = "air_5", SoI_rad = 10.0):
 
         #: [str] Name of the heatflux model to be used
         self.heat_model = heat_model
@@ -1219,7 +1219,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
                 print("If modelling conduction between objects, time-step in TITAN and PATO must be the same."); exit()  
 
         elif options.thermal.ablation_mode == "byproducts":
-            options.thermal.volume_method = get_config_value(configParser, options.thermal.volume_method,'Thermal', 'Ablation_volume','str')
+            options.thermal.byproducts_method = get_config_value(configParser, options.thermal.byproducts_method,'Thermal', 'Byproducts_method','str')
             options.thermal.mf_cutoff = get_config_value(configParser, options.thermal.mf_cutoff, 'Thermal','Mass_fraction_cutoff', 'float')
             options.thermal.excess_mult = get_config_value(configParser, options.thermal.excess_mult, 'Thermal','Excess_multiplier', 'float')
         options.radiation.spectral               = get_config_value(configParser, options.radiation.spectral, 'Radiation', 'Spectral_emissions', 'boolean')
@@ -1254,7 +1254,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     #Read Freestream options
     options.freestream.model =  get_config_value(configParser, options.freestream.model, 'Freestream', 'Model', 'str')
     options.freestream.method =  get_config_value(configParser, options.freestream.method, 'Freestream', 'Method', 'str')
-
+    options.freestream.density_mult = get_config_value(configParser, options.freestream.density_mult, 'Freestream','Density_mult','float')
     if options.freestream.model.lower() == "gram":
         options.gram = GRAM()
         options.gram.gramPath = get_config_value(configParser, options.gram.gramPath, 'GRAM', 'GRAM_Path', 'str')

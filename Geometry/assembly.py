@@ -477,7 +477,7 @@ class Assembly():
 
         if options.thermal.ablation_mode=='byproducts': 
             self.byproducts = Byproducts(len(self.mesh.facets), cutoff=options.thermal.mf_cutoff)
-            self.byproducts.get_species_list(self)
+            self.byproducts.get_species_list(self, options.thermal.byproducts_method.lower())
         #Initialize surface temperature of the assembly
         for obj in self.objects:
             self.aerothermo.temperature[obj.facet_index] = obj.temperature

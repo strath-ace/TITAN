@@ -70,8 +70,10 @@ def compute_thermal_0D(titan, options, dt=None):
             # Estimating the radiation heat-flux
             Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
 
-            # Computing temperature change
-            dT = (Qin-Qrad)*dt/(obj.mass*cp)
+            if obj.mass>0:
+                # Computing temperature change
+                dT = (Qin-Qrad)*dt/(obj.mass*cp)
+            else: dT = 0
 
             if obj.temperature+dT > obj.material.meltingTemperature:
                 dT_melt = obj.material.meltingTemperature - obj.temperature
@@ -333,12 +335,15 @@ def compute_thermal_byproducts(titan, options, dt):
             # Estimating the radiation heat-flux
             Qrad = 5.670373e-8*emissivity*(obj.temperature**4 - Tref**4)*Atot
 
-            # Computing temperature change
-            dT = (Qin-Qrad)*dt/(obj.mass*cp)
+            if obj.mass>0:
+                # Computing temperature change
+                dT = (Qin-Qrad)*dt/(obj.mass*cp)
+            else: dT = 0
+            
             obj.facet_dm = np.zeros_like(facet_area)
             net_flux = heatflux
             index_heat = np.where(net_flux>0)[0]
-            normalized_flux = net_flux[index_heat] / np.sum(net_flux[index_heat])
+            normalized_flux = (net_flux[index_heat]*facet_area[index_heat]) / (np.sum(net_flux[index_heat])*np.sum(facet_area[index_heat]))
 
             if obj.temperature+dT > obj.material.meltingTemperature:
                 dT_melt = obj.material.meltingTemperature - obj.temperature

@@ -99,7 +99,7 @@ def propagate(titan, options):
             if np.any(_assembly.mDotMelt<0):
                 if hasattr(titan,'rk_params'): 
                     if not hasattr(options.dynamics,'old_dt_max'): options.dynamics.old_dt_max= options.dynamics.dt_max
-                    options.dynamics.dt_max= 0.25
+                    options.dynamics.dt_max= options.dynamics.dt_max
                 print('Calling mix')
                 _assembly.byproducts.mix_excess(_assembly, options, delta_t=titan.delta_t)
             else:
@@ -151,13 +151,13 @@ def state_equation(titan,options,time,state_vectors):
     aero_states = [copy(_assembly.aerothermo) for _assembly in titan.assembly]
     forces.compute_aerodynamic_forces(titan, options)
     forces.compute_aerodynamic_moments(titan, options)
-    if options.dynamics.augmented_state:
-        print('Calling thermal')
-        thermal.compute_thermal(titan,options)
 
     # Then determine the necessary derivatives to return the state vector(s)
     d_dt_state_vectors = []
     for _assembly in titan.assembly:
+        if _assembly.mass == 0: 
+            d_dt_state_vectors.append([0.0 for _ in range(13)])
+            continue
         angularDerivatives = dynamics.compute_angular_derivatives(_assembly)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(_assembly, options)
 
@@ -190,11 +190,14 @@ def state_equation(titan,options,time,state_vectors):
                                    angularDerivatives.ddroll,
                                    angularDerivatives.ddpitch,
                                    angularDerivatives.ddyaw,]
-        if options.dynamics.augmented_state: 
+        d_dt_state_vectors.append(d_dt_state_vector)
+    if options.dynamics.augmented_state:
+        thermal.compute_thermal(titan,options)
+        for _assembly, d_dt_state_vector in zip(titan.assembly, d_dt_state_vectors): 
             for component in _assembly.objects:
                 d_dt_state_vector.append(component.Tdot)
                 d_dt_state_vector.append(component.mdot)
-        d_dt_state_vectors.append(d_dt_state_vector)
+        
     
     # Finally reset the Dynamic state to be controlled by the chosen propagator
     for _assembly, return_state in zip(titan.assembly, unaltered_states):
@@ -236,7 +239,8 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
                 assembly.aerothermo.temperature[component.facet_index] = component.temperature
                 if not component.mass == state_vector[14+2*i_component]:
                     recompute_mass = True
-                    component.material.density *= state_vector[14+2*i_component]/component.mass
+                    if component.mass>0:
+                        component.material.density *= state_vector[14+2*i_component]/component.mass
                     component.mass = state_vector[14+2*i_component]
                     if component.material.density < 0:
                         component.material.density = 0

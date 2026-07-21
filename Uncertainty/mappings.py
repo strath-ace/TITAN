@@ -46,10 +46,10 @@ def get_component_index_from_name(name, titan, assembly_index=0):
 library_addresses = {assembly_address    : ['ECEF_x','ECEF_y','ECEF_z','ECEF_u','ECEF_v','ECEF_w', 'quat_w', 
                                             'quat_x', 'quat_y','quat_z','omega_roll', 'omega_pitch', 'omega_yaw', 
                                             'roll', 'aoa','slip','Ixx', 'Iyy', 'Izz', 'Ixy', 'Iyz', 'Ixz'],
-                     trajectory_address  : ['altitude','gamma','chi','velocity','latitude','longitude'],
+                     trajectory_address  : ['gamma','chi','velocity','latitude','longitude'],
                      component_address   : ['trigger__','temperature__'],
                      option_aero_address : ['catalycity'],
-                     option_traj_address : ['ECI_x','ECI_y','ECI_z','ECI_u','ECI_v','ECI_w','ECI_epoch_UNIX'],
+                     option_traj_address : ['ECI_x','ECI_y','ECI_z','ECI_u','ECI_v','ECI_w','ECI_epoch_UNIX','Altitude'],
                      option_free_address : ['density_mult']}
 
 
@@ -67,7 +67,7 @@ library_assignments = {'ECEF_x'         : ['state_vector', 0],
                        'omega_roll'     : ['state_vector', 10],
                        'omega_pitch'    : ['state_vector', 11],
                        'omega_yaw'      : ['state_vector', 12],
-                       'altitude'       : ['altitude'],
+                       'altitude'       : ['Altitude'],
                        'gamma'          : ['gamma'],
                        'chi'            : ['chi'],
                        'velocity'       : ['velocity'],
@@ -100,9 +100,12 @@ def library_check(name):
     except: 
         raise Exception('Could not find parameter {} in list, please check the UQ handbook'.format(name))
 
-def state_vector_callback(titan, options, assem_ids):
+def geodetic_callback(titan, options, assem_ids):
+    from Dynamics.dynamics import compute_cartesian
     from Dynamics.propagation import construct_state_vector
-    for i_assem in assem_ids: construct_state_vector(titan.assembly[i_assem])
+    for i_assem in assem_ids: 
+        compute_cartesian(titan.assembly[i_assem], options)
+        construct_state_vector(titan.assembly[i_assem], options.dynamics.augmented_state)
 
 def dynamic_attributes_callback(titan, options, assem_ids):
     from Dynamics.propagation import update_dynamic_attributes
@@ -134,7 +137,6 @@ def orientation_callback(titan, options, assem_ids):
     for i_assem in assem_ids: 
         compute_quaternion(titan.assembly[i_assem])
         titan.assembly[i_assem].state_vector[6:10] = titan.assembly[i_assem].quaternion
-    state_vector_callback(titan, options, assem_ids)
 
 
 def symmetrize_inertia_callback(titan, options, assem_ids):
@@ -143,13 +145,14 @@ def symmetrize_inertia_callback(titan, options, assem_ids):
         titan.assembly[i_assem].inertia[2,0] = titan.assembly[i_assem].inertia[0,2]
         titan.assembly[i_assem].inertia[2,1] = titan.assembly[i_assem].inertia[1,2]
 
-callbacks = {state_vector_callback       : ['altitude','latitude','longitude','gamma','chi','velocity'],
+callbacks = {geodetic_callback       : ['altitude','latitude','longitude','gamma','chi','velocity'],
              ECI_position_callback       : ['ECI_x','ECI_y','ECI_z','ECI_u','ECI_v','ECI_w','ECI_epoch_UNIX'],
              dynamic_attributes_callback : ['ECEF_x','ECEF_y','ECEF_z','ECEF_u','ECEF_v','ECEF_w', 'quat_w',
                                             'quat_x','quat_y','quat_z','omega_roll','omega_pitch','omega_yaw'],
              orientation_callback        : ['chi','gamma','roll','aoa','slip','latitude','longitude'],
              symmetrize_inertia_callback : ['Ixy','Iyz','Ixz']}
 
+callbacks_order = [geodetic_callback, orientation_callback, dynamic_attributes_callback, ECI_position_callback, symmetrize_inertia_callback]
 ## Valid classes for the distribution have to...
 #  ...accept (even a dummy) input
 #  ...have the attribute random_state

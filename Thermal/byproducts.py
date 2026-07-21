@@ -1,6 +1,6 @@
 import numpy as np
 import mutationpp as mpp
-import pathlib
+import pathlib, cea
 from itertools import combinations
 import multiprocessing
 class Byproducts():
@@ -35,9 +35,6 @@ class Byproducts():
         #: [Dict] Per-facet ablated species emissions (kg/km)
         self.emission = {}
 
-        #: [array] Per-facet column height for mixtures
-        self.column_height_mix = np.zeros(n_faces)
-
         #: [array] Per-facet density for mixtures
         self.rho_mix = np.zeros(n_faces)
 
@@ -62,23 +59,32 @@ class Byproducts():
         #: [float] Oxygen content of surrounding air
         self.oxy_content = 1.0
 
-    def get_species_list(self,assembly):
+    def get_species_list(self,assembly, thermo_method = 'cea'):
         """Retrieves the list all species from assembly components 
 
         Args:
             assembly (assembly.Assembly): The parent assembly
         """
+        
         for component in assembly.objects:
             if component.mixture is not None:
-                mix = mpp.Mixture(mpp.MixtureOptions(component.mixture))
-                for i_spec in range(mix.nSpecies()):
-                    name = mix.speciesName(i_spec)
+                match thermo_method:
+                    case 'cea':
+                        mix_species = component.species
+                        mix_species.append('N')
+                        mix_species.append('O')
+                        ablated_mix = cea.Mixture(mix_species,products_from_reactants=True)
+                        species_names = ablated_mix.species_names
+                    case 'mpp':
+                        mix = mpp.Mixture(mpp.MixtureOptions(component.mixture))
+                        species_names = [mix.speciesName(i) for i in range(mix.nSpecies())]
+                for name in species_names:    
                     if name not in self.species: self.species.append(name)
         for speci in self.species:
-            self.rho[speci] = np.zeros_like(self.column_height_mix)
-            self.mf[speci] = np.zeros_like(self.column_height_mix)
-            self.mass[speci] = np.zeros_like(self.column_height_mix)
-            self.emission[speci] = np.zeros_like(self.column_height_mix)
+            self.rho[speci] = np.zeros_like(self.rho_mix)
+            self.mf[speci] = np.zeros_like(self.rho_mix)
+            self.mass[speci] = np.zeros_like(self.rho_mix)
+            self.emission[speci] = np.zeros_like(self.rho_mix)
 
     def mix_excess(self, assembly, options, delta_t=1):
         """Performs an air-in-excess equilibriation of each ablating facet of the assembly to compute emitted byproducts
@@ -92,71 +98,137 @@ class Byproducts():
         free_species_names = [mx.speciesName(i_spec) for i_spec in range(mx.nSpecies())]
 
         for speci in self.species:
-            self.rho[speci] = np.zeros_like(self.column_height_mix)
-            self.mf[speci] = np.zeros_like(self.column_height_mix)
-            self.mass[speci] = np.zeros_like(self.column_height_mix)
-            self.emission[speci] = np.zeros_like(self.column_height_mix)
-        
-        q = multiprocessing.Queue()
+            self.rho[speci] = np.zeros_like(self.rho_mix)
+            self.mf[speci] = np.zeros_like(self.rho_mix)
+            self.mass[speci] = np.zeros_like(self.rho_mix)
+            self.emission[speci] = np.zeros_like(self.rho_mix)
+
+        if options.thermal.byproducts_method.lower()=='mpp': q = multiprocessing.Queue()
         for component in assembly.objects:
             if component.mixture is None: continue
             stoich_mult = None
-            if hasattr(component,'stoichiometric_mult'): stoich_mult = component.stoichiometric_mult
-            # For memory safety it's nicer to run mpp as a separate process
-            p = multiprocessing.Process(target=air_in_excess,args=(self.P_mix,
-                                                                   self.T_mix,
-                                                                   self.c_i_mix,
-                                                                   component.mixture,
-                                                                   component.species,
-                                                                   component.mass_fraction,
-                                                                   free_species_names,
-                                                                   q,
-                                                                   options.thermal.excess_mult,
-                                                                   options.verbose,
-                                                                   stoich_mult,
-                                                                   self.oxy_content
-                                                                   ))
-            p.start()
-            p.join(5.0)
-            try:
-                mf, rhos, stoich_mult = q.get(timeout=5.0)
-            except: 
-                print('Error solving mixture for {} at P={} T={}!'.format(component.name, self.P_mix, self.T_mix))
-                if p.is_alive(): 
-                    p.terminate()
-                    p.kill()
-                continue
+            if not hasattr(component,'stoichiometric_mult'): 
+                try:
+                    component.stoichiometric_mult = get_stoichiometric_ratio(mpp.Mixture(component.mixture))
+                except: 
+                    make_mixfile_if_needed(component.mixture, component.species)
+                    component.stoichiometric_mult = get_stoichiometric_ratio(mpp.Mixture(component.mixture))
+            stoich_mult = component.stoichiometric_mult 
+
             
-                
-            if not hasattr(component,'stoichiometric_mult'): component.stoichiometric_mult = stoich_mult
-            # if options.verbose: 
-            #     for spec, mfr in zip(self.species, mf): print(spec, mfr)
-            notable_species = np.argwhere(mf>self.cutoff).flatten()
+            if options.thermal.byproducts_method.lower()=='cea':
+                mf, rho = cea_excess_air(self.P_mix, self.T_mix, self.c_i_mix, free_species_names, component.mass_fraction, component.species, self.oxy_content*stoich_mult)
+                for name, value in mf.items():
+                    if name not in self.species:
+                            self.species.append(name)
+                            self.rho[name] = np.zeros_like(self.rho_mix)
+                            self.mf[name] = np.zeros_like(self.rho_mix)
+                            self.mass[name] = np.zeros_like(self.rho_mix)
+                            self.emission[name] = np.zeros_like(self.rho_mix)
+                    if value>self.cutoff:
+                        try:
+                            self.rho[name][component.facet_index] = rho * value
+                            self.mf[name][component.facet_index] = value
+                            mass = component.facet_dm * value
+                            self.mass[name][component.facet_index] = mass
 
-            rhos = np.tile(np.array(rhos), (len(component.facet_dm), 1))
-            mf = np.tile(np.array(mf), (len(component.facet_dm), 1))
+                            self.emission[name][component.facet_index] = 1000*np.abs(mass/(delta_t*assembly.trajectory.velocity*np.sin(assembly.trajectory.gamma)))
+                        except: pass
+            elif options.thermal.byproducts_method.lower()=='mpp':
+                # For memory safety it's nicer to run mpp as a separate process
+                p = multiprocessing.Process(target=air_in_excess_mpp,args=(self.P_mix,
+                                                                    self.T_mix,
+                                                                    self.c_i_mix,
+                                                                    component.mixture,
+                                                                    component.species,
+                                                                    component.mass_fraction,
+                                                                    free_species_names,
+                                                                    q,
+                                                                    options.thermal.excess_mult,
+                                                                    options.verbose,
+                                                                    stoich_mult,
+                                                                    self.oxy_content
+                                                                    ))
+                p.start()
+                p.join(5.0)
+                try:
+                    mf, rhos, stoich_mult = q.get(timeout=5.0)
+                except Exception as e: 
+                    print('Error solving mixture for {} at P={} T={}!'.format(component.name, self.P_mix, self.T_mix))
+                    if p.is_alive(): 
+                        p.terminate()
+                        p.kill()
+                    print(e)
+                    continue
+                try:
+                    
+                    if not hasattr(component,'stoichiometric_mult'): component.stoichiometric_mult = stoich_mult
+                    # if options.verbose: 
+                    #     for spec, mfr in zip(self.species, mf): print(spec, mfr)
+                    notable_species = np.argwhere(mf>self.cutoff).flatten()
 
-            per_species_mass = mf * component.facet_dm[:,np.newaxis]
-            for i_nz in notable_species:
-                name = self.species[i_nz]
-                self.rho[name][component.facet_index]  = rhos[:,i_nz]
-                self.mf[name][component.facet_index]   = mf[:,i_nz]
-                mass = per_species_mass[:,i_nz]
-                self.mass[name][component.facet_index] = mass
-                ## Emission as kg of byproduct/kilometre of altitude = m/dt / [ v sin(gamma)]
-                self.emission[name][component.facet_index] = 1000*np.abs(mass/(delta_t*assembly.trajectory.velocity*np.sin(assembly.trajectory.gamma)))
+                    rhos = np.tile(np.array(rhos), (len(component.facet_dm), 1))
+                    mf = np.tile(np.array(mf), (len(component.facet_dm), 1))
+
+                    per_species_mass = mf * component.facet_dm[:,np.newaxis]
+                    for i_nz in notable_species:
+                        name = self.species[i_nz]
+                        self.rho[name][component.facet_index]  = rhos[:,i_nz]
+                        self.mf[name][component.facet_index]   = mf[:,i_nz]
+                        mass = per_species_mass[:,i_nz]
+                        self.mass[name][component.facet_index] = mass
+                        ## Emission as kg of byproduct/kilometre of altitude = m/dt / [ v sin(gamma)]
+                        self.emission[name][component.facet_index] = 1000*np.abs(mass/(delta_t*assembly.trajectory.velocity*np.sin(assembly.trajectory.gamma)))
+                except Exception as e:
+                    print(e)
+            else: raise Exception('Byproducts method must be either mpp or cea!')
+
+def cea_excess_air(P : float, T : float, c_i_mix : np.ndarray, free_mix_species_names : list, mass_fractions : np.ndarray, elements : list, free_ratio : float = None):
+    """_summary_
+
+    Args:
+        P (float): _description_
+        T (float): _description_
+        c_i_mix (np.ndarray): _description_
+        free_mix_species_names (list): _description_
+        mass_fractions (np.ndarray): _description_
+        elements (list): _description_
+        free_ratio (float, optional): _description_. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
+    mix_species = elements
+    mix_species.append('N')
+    mix_species.append('O')
+    ablated_mix = cea.Mixture(mix_species,products_from_reactants=True)
+    solver = cea.EqSolver(ablated_mix)
+    solution = cea.EqSolution(solver)
+
+    n_species = ablated_mix.num_species
+    cea_mass_fractions = np.zeros(n_species)
+
+    for i_mf, mf in enumerate(mass_fractions): 
+        cea_mass_fractions[ablated_mix.species_names.index(elements[i_mf])] = mf
+
+    for mf_a, name in zip(c_i_mix, free_mix_species_names):
+        i_species = ablated_mix.species_names.index(name)
+        cea_mass_fractions[i_species] = free_ratio*mf_a
     
+    solver.solve(solution, cea.TP, T, P, cea_mass_fractions / np.sum(cea_mass_fractions))
+    print(solution.density)
+    return solution.mass_fractions, solution.density, 
 
-def air_in_excess(P :float, T :float, c_i_mix : np.ndarray, component_mixture : str, component_species : list, component_mass_fraction : np.ndarray, 
+def air_in_excess_mpp(P :float, T :float, c_i_mix : np.ndarray, component_mixture : str, component_species : list, component_mass_fraction : np.ndarray, 
                     free_mix_species_names : list, queue, excess_mult=2.5, verbose=False, stoichiometric_mult=None, oxy_content=1):
-    """Equilibriates the component mixture with the specified excess ratio
+    """Equilibriates the component mixture with the specified excess ratio using Mutation++
 
     Args:
         component (component.Component): Target component
         free_mix_species_names (list): List of species names in the freestream mixture 
         excess_mult (float, optional): Multiplier of the stoichiometric ratio. Defaults to 2.5.
     """
-
+    
     ablated_mix_opts = mpp.MixtureOptions(component_mixture)
     ablated_mix_opts.setStateModel("Equil")
     if verbose: print('Creating mix {}...'.format(component_mixture))
@@ -250,24 +322,20 @@ def get_stoichiometric_ratio(mix : mpp.Mixture, oxy_content : float = 1.0) -> fl
     return np.max(list_of_stoichs)/oxy_content
 
 def make_mixfile_if_needed(name,mix_elems:list) ->str:
-    if not 'N' in mix_elems: mix_elems = ['N'].append(mix_elems)
-    if not 'O' in mix_elems: mix_elems = ['O'].append(mix_elems)
+    if not 'N' in mix_elems: mix_elems.append('N')
+    if not 'O' in mix_elems: mix_elems.append('O')
 
     mpp_data_dir = mpp.GlobalOptions.dataDirectory()
-    with open(mpp_data_dir+'/mix_'+name+'.xml', 'w') as f:
+    with open(mpp_data_dir+'/mixtures/'+name+'.xml', 'w') as f:
         f.write('<mixture thermo_db="NASA-9">\n')
         f.write('    <species>\n')
-        f.write('        \{all with'+','.join(mix_elems)+'\}\n')
-        f.write('    <\\species>\n')
-        f.write('<\\mixture>')
-    mix = mpp.Mixture(mpp.MixtureOptions('mix_'+name))
+        f.write('        {all with '+','.join(mix_elems)+'}\n')
+        f.write('    </species>\n')
+        f.write('</mixture>')
+    
+    mix = mpp.Mixture(mpp.MixtureOptions(name))
 
-    all_species = [mix.speciesName(i) for i in range(mix.nSpecies())]
-
-    species_combos = [all_species]
-    for i in range(len(species_combos)):
-        if i==0: continue
-        [species_combos.append(list(combo)) for combo in combinations(all_species,i)]
+    return mix
 
 def test_mix_wrapper(combo,i_mix):
     mpp_data_dir = mpp.GlobalOptions.dataDirectory()

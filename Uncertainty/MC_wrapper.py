@@ -24,6 +24,7 @@ import concurrent.futures
 import numpy as np
 import pathlib
 import copy
+import traceback
 import yaml
 try: from yaml import CLoader as Loader
 except: from yaml import Loader
@@ -66,7 +67,9 @@ def run(filename,n_samples):
             print('Beginning Serial Campaign...') 
             new_titan = copy.deepcopy(base_titan)
             new_options = copy.deepcopy(base_options)
-            wrapper(new_titan, new_options, i_sample, seed)
+            try:
+                wrapper(new_titan, new_options, i_sample, seed)
+            except: pass
             del new_titan, new_options
     collate_QoI(seedlist, base_folder, prime_seed)
     
@@ -78,13 +81,15 @@ def wrapper(titan, options, i_sample, seed):
     options.create_output_folders()
     component_list = []
     for _assembly in titan.assembly: 
-        construct_state_vector(_assembly)
+        construct_state_vector(_assembly, options.dynamics.augmented_state)
         [component_list.append(comp.name) for comp in _assembly.objects]
     state_info = titan.uq_mapper.map_from_seed(seed, titan, options)
+    print('Writing datafile')
     write_datafile(options.output_folder, i_sample, state_info)
     options.plot = False# if i_sample % round(2*options.uncertainty.n_procs) == 0 else False
     options.filepath = ''
     try:
+        print('Calling loop')
         loop(options,titan)
 
         with open(str(pathlib.Path(options.uncertainty.yaml).resolve()),'r') as f: 
@@ -130,4 +135,4 @@ def update_datafile(directory, seed, output_names, output_values):
 def log_error(directory, seed, error):
     with open(directory + '/MCdata_'+str(seed).rjust(10,'0'), 'a') as f:
         f.write('ERROR - NO OUTPUT GENERATED\n')
-        f.write('Exception: {}'.format(error))
+        f.write('Exception: '+' '.join(traceback.format_exception(error)))

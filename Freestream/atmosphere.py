@@ -109,4 +109,4 @@ def retrieve_atmosphere_data(name, altitude, assembly, options):
         gram.run_single_gram(assembly, options)
         data, species_index = gram.read_gram_species(altitude, options)
 
-    return data*options.freestream.density_mult, species_index
+    return data, species_index

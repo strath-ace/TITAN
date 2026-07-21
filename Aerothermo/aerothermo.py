@@ -293,7 +293,7 @@ def compute_aerothermo(titan, options):
         #Compute the freestream properties and stagnation quantities
         mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
         mix_properties.compute_stagnation(assembly.freestream, options.freestream)
-
+        assembly.freestream.density = assembly.freestream.density * options.freestream.density_mult
     if options.fidelity.lower() == 'low':
         titan.groups = compute_low_fidelity_aerothermo(titan.assembly, options)
     elif options.fidelity.lower() == 'high':
@@ -1095,13 +1095,13 @@ def aerothermodynamics_module_continuum(assembly, p, flow_direction, options):
     if options.thermal.ablation_mode=='byproducts':
         if flow_ble is not None:
             assembly.byproducts.column_height_mix[p] = 0.99*flow_ble.u_post/vel_grad
-            assembly.byproducts.rho_mix = flow_ble.rhoe
-            assembly.byproducts.c_i_mix = flow_ble.ce_i
-            assembly.byproducts.T_mix = flow_ble.Te
-            assembly.byproducts.P_mix = flow_ble.Pe
+            assembly.byproducts.rho_mix = flow_ble.rhoe #flow_ble.rhofree #
+            assembly.byproducts.c_i_mix =  flow_ble.ce_i #flow_ble.rhofree #
+            assembly.byproducts.T_mix = flow_ble.Te #np.max(flow_ble.Tfree)#
+            assembly.byproducts.P_mix = flow_ble.Pe #flow_ble.Pfree#
             assembly.byproducts.oxy_content = flow_ble.oxygen_mf
-        else:
-            assembly.byproducts.column_height_mix[p] = np.zeros_like(assembly.aerothermo.theta)
+        #else:
+            #assembly.byproducts.column_height_mix[p] = np.zeros_like(assembly.aerothermo.theta)
     return Stc
 
 def aerothermodynamics_module_freemolecular(assembly, p, flow_direction):

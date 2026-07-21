@@ -257,8 +257,10 @@ def compute_angular_derivatives(assembly):
     moment_body = assembly.body_force.moment
 
 #christie: check d(euler) is correct from dM
-    rotational_accel = np.linalg.solve(assembly.inertia, moment_body + moment_euler)
-
+    try:
+        rotational_accel = np.linalg.solve(assembly.inertia, moment_body + moment_euler)
+    except:
+        rotational_accel = np.linalg.lstsq(assembly.inertia, moment_body + moment_euler)[0]
     droll  =  assembly.roll_vel
     dpitch =  assembly.pitch_vel
     dyaw   =  assembly.yaw_vel
