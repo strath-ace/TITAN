@@ -25,7 +25,7 @@ from statsmodels.stats.correlation_tools import cov_nearest
 from filterpy.kalman import MerweScaledSigmaPoints, unscented_transform
 from datetime import datetime as dt
 
-class recursive_gaussan_mixture():
+class recursive_gaussian_mixture():
     """A recursive Gaussian Mixture Model (GMM) defined based upon splitting libraries of Gaussians recursively. 
     """
     def __init__(self, mean : np.ndarray, cov : np.ndarray, weight = 1.0, is_leaf = True, library_size = 3, tree_size = 1, rng = np.random.RandomState(dt.now().microsecond), sigma_parameters = [1e-3,2,0]):
@@ -306,7 +306,7 @@ class recursive_gaussan_mixture():
     #     return nums
 
 if __name__=='__main__':
-    gmm = recursive_gaussan_mixture(np.zeros(13),np.diag(np.ones(13)+np.random.random(13)),is_leaf=True)
+    gmm = recursive_gaussian_mixture(np.zeros(13),np.diag(np.ones(13)+np.random.random(13)),is_leaf=True)
 
     print(gmm.generate_points().shape)
 
