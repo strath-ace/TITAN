@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""material module."""
 from bs4 import BeautifulSoup
 import numpy as np
 from scipy import interpolate
@@ -52,9 +53,14 @@ class Material():
     """
     
     def __init__ (self, name, options):
+        """Documentation for the function.
+:param name: Name of the item.
+:type name: str
+:param options: Options or configuration object.
+:type options: object"""
         #database_material.xml
 
-        with open(os.path.dirname(os.path.abspath(__file__))+'/'+options.material_file, 'r') as f:
+        with open(os.path.expandvars('$TITAN_PATH/titan/Material/'+options.material_file), 'r') as f:
             data = f.read()
          
         # Passing the stored data inside
@@ -144,38 +150,29 @@ class Material():
 
 
     def material_name(self,index):
-        """
-        Function to retrieve the material name
-
-        Returns
-        -------
-        name: str
-            Return material name
-        """
+        """Function to retrieve the material name
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         return self.metalMaterial.find('name').get_text()
 
     def material_density(self,index):
-        """
-        Function to retrieve the material density
-
-        Returns
-        -------
-        density: float
-            Return material density
-        """
+        """Function to retrieve the material density
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         return float(self.metalMaterial.find('density').get_text())
 
     def material_catalycity(self,index):
-        """
-        Function to retrieve the material catalycity
-
-        Returns
-        -------
-        density: float
-            Return material catalycity
-        """
+        """Function to retrieve the material catalycity
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
         try:
             return float(self.metalMaterial.find('catalycity').get_text())
 
@@ -183,14 +180,11 @@ class Material():
             return None
 
     def material_specificHeatCapacity(self,index):
-        """
-        Function to retrieve the material specific heat capacity
-
-        Returns
-        -------
-        specificHeatCapacity : scipy.interpolate.interp1d
-            Return interpolation function for the specific heat capacity
-        """
+        """Function to retrieve the material specific heat capacity
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         values = np.array(self.metalMaterial.find('specificHeatCapacity').find('values').get_text().replace(',',';').split(';'))[:-1].astype(float)
         values.shape = (-1,2)
@@ -201,62 +195,47 @@ class Material():
         return interpolate.interp1d(values_T, values_Y, fill_value='extrapolate')
 
     def material_meltingHeat(self,index):
-        """
-        Function to retrieve the melting Heat value
-        
-        Returns
-        -------
-        meltingHeat: float
-            Return melting heat value
-        """
+        """Function to retrieve the melting Heat value
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         return float(self.metalMaterial.find('meltingHeat').get_text())
 
     def material_meltingTemperature(self,index):
-        """
-        Function to retrieve the melting temperature value
-        
-        Returns
-        -------
-        meltingTemperature: float
-            Return melting temperature value
-        """
+        """Function to retrieve the melting temperature value
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         return float(self.metalMaterial.find('meltingTemperature').get_text())
 
     def material_vaporizationHeat(self,index):
-        """
-        Function to retrieve the vaporization Heat value
-        
-        Returns
-        -------
-        vaporizationHeat: float
-            Return vaporization heat value
-        """
+        """Function to retrieve the vaporization Heat value
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         return float(self.metalMaterial.find('vaporizationHeat').get_text())
 
     def material_vaporizationTemperature(self,index):
-        """
-        Function to retrieve the vaporization temperature value
-        
-        Returns
-        -------
-        vaporizationTemperature: float
-            Return vaporization temperature value
-        """
+        """Function to retrieve the vaporization temperature value
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         return float(self.metalMaterial.find('vaporizationTemperature').get_text())
 
     def material_emissivity(self,index):
-        """
-        Function to retrieve the emissivity value
-        
-        Returns
-        -------
-        emissivity: float
-            Return emissivity value
-        """
+        """Function to retrieve the emissivity value
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         values = np.array(self.metalMaterial.find('emissivity').find('values').get_text().replace(',',';').split(';'))[:-1].astype(float)
         values.shape = (-1,2)
@@ -270,14 +249,11 @@ class Material():
         return interpolate.interp1d(values_T, values_Y, fill_value='extrapolate')
 
     def material_heatConductivity(self,index):
-        """
-        Function to retrieve the material heat conductivity
-
-        Returns
-        -------
-        heatConductivity : scipy.interpolate.interp1d
-            Return interpolation function for the heat conductivity
-        """
+        """Function to retrieve the material heat conductivity
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         values = np.array(self.metalMaterial.find('heatConductivity').find('values').get_text().replace(',',';').split(';'))[:-1].astype(float)
         values.shape = (-1,2)
@@ -288,26 +264,20 @@ class Material():
         return interpolate.interp1d(values_T, values_Y, fill_value='extrapolate')	
 
     def material_oxideActivationTemperature(self,index):
-        """
-        Function to retrieve the oxide activation Temperatire
-        
-        Returns
-        -------
-        oxideActivationTemperature: float
-            Return oxide activation temperature value
-        """
+        """Function to retrieve the oxide activation Temperatire
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         return float(self.metalMaterial.find('oxideActivationTemperature').get_text())
 
     def material_oxideEmissivity(self,index):
-        """
-        Function to retrieve the material oxide emissivity
-
-        Returns
-        -------
-        oxideEmissivity: scipy.interpolate.interp1d
-            Return interpolation function for the oxide emissivity
-        """
+        """Function to retrieve the material oxide emissivity
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         try:
             values = np.array(self.metalMaterial.find('oxideEmissivity').find('values').get_text().replace(',',';').split(';'))[:-1].astype(float)
@@ -326,38 +296,29 @@ class Material():
 
 
     def material_oxideHeatOfFormation(self,index):
-        """
-        Function to retrieve the oxide heat of formation
-        
-        Returns
-        -------
-        oxideHeatofFormation: float
-            Return oxide heat of formation value
-        """
+        """Function to retrieve the oxide heat of formation
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         return float(self.metalMaterial.find('oxideHeatOfFormation').get_text())
 
     def material_oxideReactionProbability(self,index):
-        """
-        Function to retrieve the oxide reaction probability
-        
-        Returns
-        -------
-        oxideReactionProbability: float
-            Return oxide reaction probability
-        """
+        """Function to retrieve the oxide reaction probability
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
         
         return float(self.metalMaterial.find('oxideReactionProbability').get_text())
 
     def material_youngModulus(self,index):
-        """
-        Function to retrieve the young Modulus
-
-        Returns
-        -------
-        youngModulus: scipy.interpolate.interp1d
-            Return interpolation function for the young Modulus
-        """
+        """Function to retrieve the young Modulus
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         values = np.array(self.metalMaterial.find('youngModulus').find('values').get_text().replace(',',';').split(';'))[:-1].astype(float)
         values.shape = (-1,2)
@@ -368,14 +329,11 @@ class Material():
         return interpolate.interp1d(values_T, values_Y, fill_value='extrapolate')
 
     def material_yieldStress(self,index):
-        """
-        Function to retrieve the material yield stress
-
-        Returns
-        -------
-        yieldStress: scipy.interpolate.interp1d
-            Return interpolation function for the yield Stress
-        """
+        """Function to retrieve the material yield stress
+:param index: Integer value for index.
+:type index: int
+:return: Return value.
+:rtype: Any"""
 
         values = np.array(self.metalMaterial.find('yieldStress').find('values').get_text().replace(',',';').split(';'))[:-1].astype(float)
         values.shape = (-1,2)
@@ -386,14 +344,17 @@ class Material():
         return interpolate.interp1d(values_T, values_Y, fill_value='extrapolate')	
 
 def polynomial_fit(material, name, properties, order):
-    """
-    Function to retrieve polynomial fit coefficient for a given material property
-    
-    Returns
-    -------
-    coefficients: float array
-        Return coefficients value
-    """
+    """Function to retrieve polynomial fit coefficient for a given material property
+:param material: Value for material.
+:type material: Any
+:param name: Name of the item.
+:type name: str
+:param properties: Value for properties.
+:type properties: Any
+:param order: Value for order.
+:type order: Any
+:return: Return value.
+:rtype: Any"""
 
     values = np.array(material.metalMaterial.find(properties).find('values').get_text().replace(',',';').split(';'))[:-1].astype(float)
     values.shape = (-1,2)

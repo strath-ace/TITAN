@@ -1,3 +1,4 @@
+"""collision module."""
 import trimesh
 import numpy as np
 from copy import deepcopy
@@ -5,7 +6,9 @@ from scipy.spatial.transform import Rotation as Rot
 import pyquaternion
 
 class Collision():
+	"""Collision."""
 	def __init__(self):
+		"""__init__."""
 		self.collision_mesh = None
 		self.original_mesh = None
 		self.collision_handler = None
@@ -13,11 +16,12 @@ class Collision():
 
 def generate_collision_handler(titan, options):
 	'''
-	Creates trimesh collision handlers (managers) for assemblies in the list
-	
+Creates trimesh collision handlers (managers) for assemblies in the list
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
-	'''
+	:type options: object
+'''
 	for assembly in titan.assembly:
 		assembly.collision.collision_handler = trimesh.collision.CollisionManager()
 		assembly.collision.original_handler = trimesh.collision.CollisionManager()
@@ -26,22 +30,24 @@ def generate_collision_handler(titan, options):
 
 def delete_collision_handler(titan, options):
 	'''
-	Deletes trimesh collision handlers (managers) from assemblies in the list
-	
+Deletes trimesh collision handlers (managers) from assemblies in the list
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
-	'''
+	:type options: object
+'''
 	for assembly in titan.assembly:
 		assembly.collision.collision_handler = None
 		assembly.collision.original_handler = None
 
 def update_collision_mesh(titan, options):
 	'''
-	Transforms assembly collision meshes into local ECEF frame of largest mass assembly
-	
+Transforms assembly collision meshes into local ECEF frame of largest mass assembly
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
-	'''
+	:type options: object
+'''
 	mass = []
 
 	for assembly in titan.assembly:
@@ -65,12 +71,14 @@ def update_collision_mesh(titan, options):
 
 def update_collision_mesh_time(titan, options, dt):
 	'''
-	Projects assembly collision meshes forward in time (in local ECEF frame)
-	
+Projects assembly collision meshes forward in time (in local ECEF frame)
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
+	:type options: object
 	:param dt: Distance in time to project forward
-	'''
+	:type dt: float
+'''
 	mass = []
 	mesh_collision = []
 
@@ -101,11 +109,12 @@ def update_collision_mesh_time(titan, options, dt):
 
 def generate_surface(titan, options):
 	'''
-	Generates a debug .stl of the collision
-	
+Generates a debug .stl of the collision
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
-	'''
+	:type options: object
+'''
 	mesh = []
 	mass = []
 
@@ -134,11 +143,12 @@ def generate_surface(titan, options):
 
 def generate_collision_mesh(assembly, options):
 	'''
-	Construct a collision mesh for each assembly
-	
+Construct a collision mesh for each assembly
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
-	'''
+	:type options: object
+'''
 	assembly.collision = Collision()
 
 	collision_mesh = []
@@ -158,13 +168,15 @@ def generate_collision_mesh(assembly, options):
 
 def generate_inflated_mesh(nodes, facets, factor):
 	'''
-	"Inflates" a mesh by a factor for use in collision modelling
-	
+"Inflates" a mesh by a factor for use in collision modelling
 	:param nodes: Array of mesh node positions
+	:type nodes: Any
 	:param facets: Array of facet connectivity
-	:param factor: Inflation factor 
+	:type facets: Any
+	:param factor: Inflation factor
+	:type factor: Any
 
-	'''
+'''
 	#Create a Trimesh object from the stl mesh
 	collision_mesh = trimesh.Trimesh(vertices=nodes, faces=facets, process=False)
 
@@ -182,12 +194,14 @@ def generate_inflated_mesh(nodes, facets, factor):
 
 def find_ToI_timestep(titan, options, input_time_step):
 	'''
-	Select a time step such that no "Time-Of-Impact" points are skipped
-	
+Select a time step such that no "Time-Of-Impact" points are skipped
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
+	:type options: object
 	:param input_time_step: Maximal considered time step
-	'''
+	:type input_time_step: Any
+'''
 	#If more points of contact between assemblies exist, just the one with more depth is considered
 	if len(titan.assembly) <= 1: return input_time_step
 	minLref = np.min([_assembly.Lref for _assembly in titan.assembly])
@@ -202,11 +216,12 @@ def find_ToI_timestep(titan, options, input_time_step):
 
 def collision_physics(titan, options):
 	'''
-	Impulsive single-collision resolution
-	
+Impulsive single-collision resolution
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
-	'''
+	:type options: object
+'''
 	#Restituition coeff and friction
 	#u = 0.072
 	#e = 0.53
@@ -313,9 +328,25 @@ def collision_physics(titan, options):
 
 
 def collision_physics_simultaneous(titan, options):
+	"""Documentation for the function.
+	:param titan: TITAN simulation object.
+	:type titan: object
+	:param options: Options or configuration object.
+	:type options: object
+	:return: Return value.
+	:rtype: Any"""
 	#Can be improved for speed
 	
 	def sign(a=-1,b=-1,i = 0):
+		"""Documentation for the function.
+		:param a: Value for a.
+		:type a: Any
+		:param b: Value for b.
+		:type b: Any
+		:param i: Integer value for i.
+		:type i: int
+		:return: Return value.
+		:rtype: Any"""
 		if i==a: return -1
 		elif i==b: return 1
 		else: return 0
@@ -435,14 +466,18 @@ def collision_physics_simultaneous(titan, options):
 
 def binary_search_TOI(titan, options, input_dt : float, n_sanity : int | None = None, lref_time_resolution : float | None = None):
 	'''
-	Find Time-Of-Impact through binary search of next time step
-	
+Find Time-Of-Impact through binary search of next time step
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
+	:type options: object
 	:param input_dt: Maximal step distance
+	:type input_dt: Any
 	:param n_sanity: Number of sanity checks to make along the time step
+	:type n_sanity: int
 	:param lref_time_resolution: The duration it takes for the fastest v_rel to cross the smallest l_ref
-	'''
+	:type lref_time_resolution: Any
+'''
 
 	value_depth = 1
 	min_time_step = 0
@@ -511,12 +546,14 @@ def binary_search_TOI(titan, options, input_dt : float, n_sanity : int | None = 
 
 def update_and_check(titan, options, dt):
 	'''
-	Update collision mesh and check for collisions
-	
+Update collision mesh and check for collisions
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
+	:type options: object
 	:param dt: Time step to project forward to
-	'''
+	:type dt: float
+'''
 
 	#Initialize collison data dictionary
 	depth = []
@@ -568,6 +605,17 @@ def update_and_check(titan, options, dt):
 	return collided, depth, collision_data
 
 def updated_fixed_contacts(titan, options, dt, collision_data):
+	"""Documentation for the function.
+	:param titan: TITAN simulation object.
+	:type titan: object
+	:param options: Options or configuration object.
+	:type options: object
+	:param dt: Numeric value for dt.
+	:type dt: float
+	:param collision_data: Value for collision data.
+	:type collision_data: Any
+	:return: Return value.
+	:rtype: Any"""
 	update_collision_mesh_time(titan, options, dt)
 	for i_col in range(len(collision_data['contact_point'])):
 		iA, iB = collision_data["assembly"][i_col]
@@ -587,12 +635,14 @@ def updated_fixed_contacts(titan, options, dt, collision_data):
 
 def compute_time_resolution(titan, options, distance_resolution = 1e-6):
 	'''
-	Maximal allowable distance error converted to a maximal time step
-	
+Maximal allowable distance error converted to a maximal time step
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
+	:type options: object
 	:param distance_resolution: Maximal allowable distance error
-	'''
+	:type distance_resolution: Any
+'''
 	max_V = 1e-6
 	for i_assembly, _assembly_A in enumerate(titan.assembly):
 		for j_assembly, _assembly_B in enumerate(titan.assembly):
@@ -606,10 +656,21 @@ def compute_time_resolution(titan, options, distance_resolution = 1e-6):
 	return distance_resolution/max_V
 
 def select_contacts(contact_data, depths, collision_data, assem_indices):
-	'''
-	Optimises to find the best contacts
-	'''
+	"""Optimises to find the best contacts
+:param contact_data: Value for contact data.
+:type contact_data: Any
+:param depths: Value for depths.
+:type depths: Any
+:param collision_data: Value for collision data.
+:type collision_data: Any
+:param assem_indices: Value for assem indices.
+:type assem_indices: Any
+:return: Return value.
+:rtype: Any"""
 	def col_append(index):
+		"""Documentation for the function.
+		:param index: Integer value for index.
+		:type index: int"""
 		collision_data["assembly"].append([assem_indices[0],assem_indices[1]])
 		collision_data["names"].append(list(contact_data[index].names))
 		collision_data["index"].append([contact_data[index]._inds[collision_data["names"][-1][0]], contact_data[index]._inds[collision_data["names"][-1][1]]])

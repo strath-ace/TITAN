@@ -1,9 +1,15 @@
+"""split_stl module."""
 import sys
 import stl
 import os
 
 
 def stl_split(directory,filename):
+    """Documentation for the function.
+:param directory: Filesystem directory path.
+:type directory: str
+:param filename: Path to the relevant file.
+:type filename: str"""
     fp = open(filename, "r")
     reading_file = True
     while reading_file:

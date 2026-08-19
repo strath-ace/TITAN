@@ -17,10 +17,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""gmsh_api module."""
 import gmsh
 import numpy as np
 
 def mesh_Settings(gmsh):
+    """Documentation for the function.
+:param gmsh: Value for gmsh.
+:type gmsh: Any"""
     gmsh.option.setNumber("General.Terminal", 0)
     gmsh.option.setNumber("Mesh.Algorithm3D", 10) # for parallel 3D meshing
     #gmsh.option.setNumber("General.NumThreads", 1);
@@ -31,6 +35,25 @@ def mesh_Settings(gmsh):
     #self.gmsh.option.setNumber("Mesh.QualityType",2);
 
 def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '', bc_ids = [], ref_obj_override=None, min_size=None):
+    """Documentation for the function.
+:param mesh: Value for mesh.
+:type mesh: Any
+:param assembly: Assembly object to process.
+:type assembly: object
+:param write: Value for write.
+:type write: Any
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param output_filename: Value for output filename.
+:type output_filename: str
+:param bc_ids: Value for bc ids.
+:type bc_ids: Any
+:param ref_obj_override: Value for ref obj override.
+:type ref_obj_override: Any
+:param min_size: Value for min size.
+:type min_size: Any
+:return: Return value.
+:rtype: Any"""
     gmsh.initialize()
     mesh_Settings(gmsh)
 
@@ -167,6 +190,11 @@ def generate_inner_domain(mesh, assembly = [], write = False, output_folder = ''
     return coords, elements.astype(int), density_elem, tag_elem.astype(int)
 
 def generate_PATO_domain(obj, output_folder = ''):
+    """Documentation for the function.
+:param obj: Value for obj.
+:type obj: Any
+:param output_folder: Value for output folder.
+:type output_folder: Any"""
     
     print('Generating PATO domain, assembly:', obj.parent_id, ' object:', obj.id)
     print('     ', obj.name)
@@ -226,6 +254,21 @@ def generate_PATO_domain(obj, output_folder = ''):
     gmsh.finalize()
 
 def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name, factory = None):
+    """Documentation for the function.
+:param gmsh: Value for gmsh.
+:type gmsh: Any
+:param init_ref_surf: Value for init ref surf.
+:type init_ref_surf: Any
+:param end_ref_surf: Value for end ref surf.
+:type end_ref_surf: Any
+:param ref_phys_surface: Value for ref phys surface.
+:type ref_phys_surface: Any
+:param name: Name of the item.
+:type name: str
+:param factory: Value for factory.
+:type factory: Any
+:return: Return value.
+:rtype: Any"""
     if factory is None: factory = gmsh.model.geo
     #Change here for every object in assembly give a different tag
 
@@ -236,10 +279,40 @@ def object_physical(gmsh, init_ref_surf, end_ref_surf, ref_phys_surface, name, f
     return end_ref_surf, ref_phys_surface  
 
 def physical_surf_from_list(gmsh, surf_list, ref_phys_surface, name):
+    """Documentation for the function.
+:param gmsh: Value for gmsh.
+:type gmsh: Any
+:param surf_list: List of surf.
+:type surf_list: list
+:param ref_phys_surface: Value for ref phys surface.
+:type ref_phys_surface: Any
+:param name: Name of the item.
+:type name: str"""
     gmsh.model.addPhysicalGroup(2, surf_list, ref_phys_surface)
     gmsh.model.setPhysicalName(2, ref_phys_surface, name)
 
 def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1, surf_ref = 1, factory=None):
+    """Documentation for the function.
+:param gmsh: Value for gmsh.
+:type gmsh: Any
+:param nodes: Value for nodes.
+:type nodes: Any
+:param edges: Value for edges.
+:type edges: Any
+:param facet_edges: Value for facet edges.
+:type facet_edges: Any
+:param ref: Value for ref.
+:type ref: Any
+:param node_ref: Value for node ref.
+:type node_ref: Any
+:param edge_ref: Value for edge ref.
+:type edge_ref: Any
+:param surf_ref: Value for surf ref.
+:type surf_ref: Any
+:param factory: Value for factory.
+:type factory: Any
+:return: Return value.
+:rtype: Any"""
     is_cascade = False
     if factory is None: factory = gmsh.model.geo
     elif factory==gmsh.model.occ:
@@ -276,6 +349,21 @@ def object_grid(gmsh, nodes, edges, facet_edges, ref, node_ref = 1, edge_ref = 1
     return node_ref, edge_ref, surf_ref
 
 def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, output_folder = '', output_grid = 'Grid.su2', options = None):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param dim: Value for dim.
+:type dim: Any
+:param ref_size_surf: Value for ref size surf.
+:type ref_size_surf: Any
+:param ref_size_far: Value for ref size far.
+:type ref_size_far: Any
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param output_grid: Value for output grid.
+:type output_grid: Any
+:param options: Options or configuration object.
+:type options: object"""
 
     print("Generating CFD Mesh")
 
@@ -328,6 +416,21 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
     gmsh.finalize()
 
 def outer_surface(gmsh,ref,surf_ref, xmin,xmax, ref_phys_surface, options = None):
+    """Documentation for the function.
+:param gmsh: Value for gmsh.
+:type gmsh: Any
+:param ref: Value for ref.
+:type ref: Any
+:param surf_ref: Value for surf ref.
+:type surf_ref: Any
+:param xmin: Value for xmin.
+:type xmin: Any
+:param xmax: Value for xmax.
+:type xmax: Any
+:param ref_phys_surface: Value for ref phys surface.
+:type ref_phys_surface: Any
+:param options: Options or configuration object.
+:type options: object"""
     
     front = 1.5
     back = -1

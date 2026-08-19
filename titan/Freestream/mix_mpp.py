@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""mix_mpp module."""
 try:
     import mutationpp as mpp
 except:
@@ -24,23 +25,15 @@ except:
 
 
 def mixture_mpp(species, density, temperature):
-    """
-    Retrieve the mixture object of the Mutation++ library
-
-    Parameters
-    ----------
-    species: array
-        Species used for the mixture
-    density: array
-        Density of each species
-    temperature: float
-        Temperature of the mixture
-
-    Returns
-    -------
-    mix: mpp.Mixture()
-        Object of the mpp Mixture
-    """
+    """Retrieve the mixture object of the Mutation++ library
+:param species: Value for species.
+:type species: Any
+:param density: Numeric value for density.
+:type density: float
+:param temperature: Numeric value for temperature.
+:type temperature: float
+:return: Return value.
+:rtype: Any"""
 
     opts = mpp.MixtureOptions()
     

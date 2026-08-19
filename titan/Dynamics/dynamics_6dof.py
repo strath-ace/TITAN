@@ -17,36 +17,29 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""dynamics_6dof module."""
 import numpy as np
 import pymap3d
 from scipy.spatial.transform import Rotation
 
 def dynamics_6DOF_quaternions_cartesian_ECI(t, states, controls, phase, const):
     '''
-    Python transcription of  MODHOC/Problems/OCD/Cartesian_6dof_OCD_eq2/Cartesian_6dof_OCD_state_equations_ph1.m file
-    :param t:
-    :param states:
-    :param controls:
-    :param phases:
-    :param params:
-    :param const:
-    :return:
-    states: states(1) = x       inertial position x
-            states(2) = y       inertial position y
-            states(3) = z       inertial position z
-            states(4) = vx      inertial velocity x
-            states(5) = vy      inertial velocity y
-            states(6) = vz      inertial velocity z
-            states(7) = q0      inertial attitude quaternion component 0
-            states(8) = q1      inertial attitude quaternion component 1
-            states(9) = q2      inertial attitude quaternion component 2
-            states(10) = q3     inertial attitude quaternion component 3
-            states(11) = wx     angular rate x in body frame
-            states(12) = wy     angular rate y in body frame
-            states(13) = wz     angular rate z in body frame
-            states(14) = m      vehicle mass change rate
-    controls:
-    '''
+Python transcription of  MODHOC/Problems/OCD/Cartesian_6dof_OCD_eq2/Cartesian_6dof_OCD_state_equations_ph1.m file
+    :param t: Numeric value for t.
+    :type t: float
+    :param states: Value for states.
+    :type states: Any
+    :param controls: Value for controls.
+    :type controls: Any
+    :param phases: Value for phases.
+    :type phases: Any
+    :param params: Value for params.
+    :type params: Any
+    :param const: Value for const.
+    :type const: Any
+:return: Return value.
+:rtype: Any
+'''
 
 
     """

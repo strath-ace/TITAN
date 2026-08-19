@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""generate_seed_distribution module."""
 import numpy as np
 import psutil
 from scipy.spatial import KDTree
@@ -27,7 +28,19 @@ from matplotlib import pyplot as plt
 from functools import partial
 
 class SpiralSampler():
+    """SpiralSampler."""
     def __init__(self, a=1.0,b=1.0,k=1.0,m=1.0, rng=None):
+        """Documentation for the function.
+:param a: Value for a.
+:type a: Any
+:param b: Value for b.
+:type b: Any
+:param k: Value for k.
+:type k: Any
+:param m: Value for m.
+:type m: Any
+:param rng: Value for rng.
+:type rng: Any"""
         self.a=a
         self.b=b
         self.k=k
@@ -37,6 +50,13 @@ class SpiralSampler():
         self.parameter = uniform()
         self.parameter.random_state = self.rng
     def rvs(self, n_samples, kind='xyz'):
+        """Documentation for the function.
+:param n_samples: Integer value for n samples.
+:type n_samples: int
+:param kind: Value for kind.
+:type kind: Any
+:return: Return value.
+:rtype: Any"""
         theta = self.parameter.rvs(n_samples)
         r = self.a * np.exp( self.b * theta)
         phi = self.k * theta
@@ -49,6 +69,15 @@ class SpiralSampler():
             return np.array([x,y,z]).T
 
 def generate_seed_points(obj_half_len=2, parameters = [0, 0, 0], law = [6, -1.6]):
+    """Documentation for the function.
+:param obj_half_len: Value for obj half len.
+:type obj_half_len: Any
+:param parameters: Value for parameters.
+:type parameters: Any
+:param law: Value for law.
+:type law: Any
+:return: Return value.
+:rtype: Any"""
     n_points, n_shells, min_len = parameters
     shells = np.logspace(min_len,np.log(obj_half_len),int(n_shells))
     points = np.zeros([1,3])
@@ -84,6 +113,13 @@ def generate_seed_points(obj_half_len=2, parameters = [0, 0, 0], law = [6, -1.6]
 
     
 def get_seed_points(expl_dir, obj_len=2, law = [6, -1.6]):
+    """Documentation for the function.
+:param expl_dir: Value for expl dir.
+:type expl_dir: str
+:param obj_len: Value for obj len.
+:type obj_len: Any
+:param law: Value for law.
+:type law: Any"""
     seed_func = partial(generate_seed_points, obj_len, law[1], False)
     opt = minimize(seed_func,[64,20,-3],bounds=[[32,128],[3,32],[-5,-1]],tol=1e-2)
     print(opt.message)
@@ -91,6 +127,13 @@ def get_seed_points(expl_dir, obj_len=2, law = [6, -1.6]):
     points = generate_seed_points(obj_len, law[1], give_points=True, parameters=opt.x)
     np.savetxt(expl_dir+'/points.csv',points,delimiter=',')
 def plot_result(points, desired_law, regress_law):
+    """Documentation for the function.
+:param points: Value for points.
+:type points: list[float]
+:param desired_law: Value for desired law.
+:type desired_law: Any
+:param regress_law: Value for regress law.
+:type regress_law: Any"""
     k = min(points.shape[0], 16) #int(np.min([100,np.floor(0.9*points.shape[0])]))
     dists = get_dists(points, k=max([k,2]))
 
@@ -118,6 +161,15 @@ def plot_result(points, desired_law, regress_law):
 
 
 def trigonometric_2sphere_sampling(rad, n_points, rng=None):
+    """Documentation for the function.
+:param rad: Value for rad.
+:type rad: Any
+:param n_points: Integer value for n points.
+:type n_points: int
+:param rng: Value for rng.
+:type rng: Any
+:return: Return value.
+:rtype: Any"""
     if rng is None: rng = np.random.RandomState(dt.now().microsecond)
     z = uniform(loc=-1,scale=2).rvs(size=n_points,random_state=rng)
     t = uniform(loc=0,scale=2*np.pi).rvs(size=n_points,random_state=rng)
@@ -130,6 +182,17 @@ def trigonometric_2sphere_sampling(rad, n_points, rng=None):
 
 
 def get_law_from_points(ref_law = [6,-1.6], return_law=False, weights=[0.1,1,0.1],X=None):
+    """Documentation for the function.
+:param ref_law: Value for ref law.
+:type ref_law: Any
+:param return_law: Value for return law.
+:type return_law: Any
+:param weights: Value for weights.
+:type weights: Any
+:param X: Numeric value for x.
+:type X: float
+:return: Return value.
+:rtype: Any"""
     X = X.reshape([-1,3])
     k = min(X.shape[0],16)#int(np.min([100,np.floor(0.9*X.shape[0])]))
     dists = get_dists(X,k=max([k,2]))
@@ -144,6 +207,11 @@ def get_law_from_points(ref_law = [6,-1.6], return_law=False, weights=[0.1,1,0.1
     return np.linalg.norm(delta)
 
 def law_linregress(dists):
+    """Documentation for the function.
+:param dists: Value for dists.
+:type dists: Any
+:return: Return value.
+:rtype: Any"""
     cum = []
     bins = np.logspace(np.log10(np.min(dists)),np.log10(np.max(dists)),250, endpoint=False)
     for q_dist in bins: cum.append(len(np.where(dists>q_dist)[0]))
@@ -151,12 +219,34 @@ def law_linregress(dists):
     return law
 
 def get_dists(X, k=2):
+    """Documentation for the function.
+:param X: Numeric value for x.
+:type X: float
+:param k: Value for k.
+:type k: Any
+:return: Return value.
+:rtype: Any"""
     tree = KDTree(X)
     dists, _ = tree.query(X,k=k)
     dists = np.mean(dists[:,1:],axis=1)
     return dists
 
 def distribution_generator(desired_law, return_law, weights = [0.1,1,0.1], n_frags=None, n_tests = 10, parameter_vector = None):
+    """Documentation for the function.
+:param desired_law: Value for desired law.
+:type desired_law: Any
+:param return_law: Value for return law.
+:type return_law: Any
+:param weights: Value for weights.
+:type weights: Any
+:param n_frags: Integer value for n frags.
+:type n_frags: int
+:param n_tests: Integer value for n tests.
+:type n_tests: int
+:param parameter_vector: Value for parameter vector.
+:type parameter_vector: Any
+:return: Return value.
+:rtype: Any"""
     if parameter_vector is None or n_frags is None: raise Exception('Must provide parameters!')
     mean = np.zeros(3)
     Lower = np.diag(parameter_vector[:3])
@@ -171,6 +261,23 @@ def distribution_generator(desired_law, return_law, weights = [0.1,1,0.1], n_fra
     return np.mean(deltas)
 
 def log_spiral_3d(desired_law, return_law, weights = [0.1,1,0.1], n_frags=None, n_tests = 10, rng = None, parameter_vector = None,):
+    """Documentation for the function.
+:param desired_law: Value for desired law.
+:type desired_law: Any
+:param return_law: Value for return law.
+:type return_law: Any
+:param weights: Value for weights.
+:type weights: Any
+:param n_frags: Integer value for n frags.
+:type n_frags: int
+:param n_tests: Integer value for n tests.
+:type n_tests: int
+:param rng: Value for rng.
+:type rng: Any
+:param parameter_vector: Value for parameter vector.
+:type parameter_vector: Any
+:return: Return value.
+:rtype: Any"""
     b, k, m = parameter_vector
     print(b,k,m)
     a = 1
@@ -182,6 +289,25 @@ def log_spiral_3d(desired_law, return_law, weights = [0.1,1,0.1], n_frags=None, 
     return np.mean(deltas)
 
 def optimal_seeds(n_fragments=24, method='anneal', desired_law = [6, -1.6], plot=True, obj_len=2, CoG=[0,0,0], compute_budget=2e5, rng=None):
+    """Documentation for the function.
+:param n_fragments: Integer value for n fragments.
+:type n_fragments: int
+:param method: Value for method.
+:type method: Any
+:param desired_law: Value for desired law.
+:type desired_law: Any
+:param plot: Value for plot.
+:type plot: Any
+:param obj_len: Value for obj len.
+:type obj_len: Any
+:param CoG: Value for cog.
+:type CoG: Any
+:param compute_budget: Value for compute budget.
+:type compute_budget: Any
+:param rng: Value for rng.
+:type rng: Any
+:return: Return value.
+:rtype: Any"""
     
     match method:
         case 'anneal':

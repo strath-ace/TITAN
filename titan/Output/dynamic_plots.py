@@ -1,7 +1,17 @@
+"""dynamic_plots module."""
 from matplotlib import pyplot as plt
 import numpy as np
 
 def initialise_figs(titan, options, geodetic_pos=True):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param geodetic_pos: Value for geodetic pos.
+:type geodetic_pos: Any
+:return: Return value.
+:rtype: Any"""
     plt.ion()
     # for some reason np.pi breaks unless np is re-imported here, frankly no clue
     import numpy as np
@@ -54,6 +64,17 @@ def initialise_figs(titan, options, geodetic_pos=True):
     return plot_parameters
 
 def update_plot(assembly,plot_parameters, time, geodetic_pos=True):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param plot_parameters: Value for plot parameters.
+:type plot_parameters: Any
+:param time: Numeric value for time.
+:type time: float
+:param geodetic_pos: Value for geodetic pos.
+:type geodetic_pos: Any
+:return: Return value.
+:rtype: Any"""
 
     fig = plot_parameters['fig1']
     fig2 = plot_parameters['fig2']
@@ -79,8 +100,11 @@ def update_plot(assembly,plot_parameters, time, geodetic_pos=True):
     position_plot.set_data_3d(positions[:,0],positions[:,1],positions[:,2])
     ax.relim()
     ax.autoscale_view()
-    ax2.relim()
+    ax2.set_xlim3d(np.min(positions[:,0]),np.max(positions[:,0]))
+    ax2.set_ylim3d(np.min(positions[:,1]),np.max(positions[:,1]))
+    ax2.set_zlim3d(np.min(positions[:,2]),np.max(positions[:,2]))
     ax2.autoscale_view()
+
     fig.canvas.draw()
     fig.canvas.flush_events()
     fig2.canvas.draw()

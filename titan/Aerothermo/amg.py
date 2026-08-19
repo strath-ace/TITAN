@@ -17,29 +17,67 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""amg module."""
 import os
 import subprocess
 
 class Amg():
+    """Amg."""
     def __init__(self, p=4,c = 100000, hgrad = 1.6, sensor = 'Mach'):
+        """Documentation for the function.
+:param p: Value for p.
+:type p: Any
+:param c: Value for c.
+:type c: Any
+:param hgrad: Value for hgrad.
+:type hgrad: Any
+:param sensor: Value for sensor.
+:type sensor: Any"""
         self.p = p
         self.c = c
         self.hgrad = hgrad
         self.sensor = sensor
 
     def set_p(self,value):
+        """Documentation for the function.
+:param value: Numeric value for value.
+:type value: float"""
         self.p = value
 
     def set_complex(self,value):
+        """Documentation for the function.
+:param value: Numeric value for value.
+:type value: float"""
         self.c = value
 
     def set_sensor(self,value):
+        """Documentation for the function.
+:param value: Numeric value for value.
+:type value: float"""
         self.sensor = value
 
     def set_hgrad(self,value):
+        """Documentation for the function.
+:param value: Numeric value for value.
+:type value: float"""
         self.hgrad = value
 
 def adapt_mesh(amg, iteration, options,j, num_obj,input_grid, output_grid):
+    """Documentation for the function.
+:param amg: Value for amg.
+:type amg: Any
+:param iteration: Value for iteration.
+:type iteration: Any
+:param options: Options or configuration object.
+:type options: object
+:param j: Value for j.
+:type j: Any
+:param num_obj: Integer value for num obj.
+:type num_obj: int
+:param input_grid: Value for input grid.
+:type input_grid: Any
+:param output_grid: Value for output grid.
+:type output_grid: Any"""
 
     p = amg.p
     c = amg.c

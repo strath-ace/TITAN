@@ -16,6 +16,7 @@
 #
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""__main__ module."""
 import configparser
 from argparse import ArgumentParser, RawTextHelpFormatter
 from .Configuration import configuration
@@ -31,18 +32,11 @@ from pathlib import Path
 
 def loop(options = [], titan = []):
     """Simulation loop for time propagation
-
-    The function calls the different modules to perform
-    dynamics propagation, thermal ablation, fragmentation
-    assessment and structural dynamics for each time iteration.
-    The loop finishes when the iteration number is higher than
-    the one the user specified.
-
     :param options: Base TITAN options
     :type options: Options,
-    :param titan: Base TITAN object 
+    :param titan: Base TITAN object
     :type titan: Assembly_list
-    """
+"""
 
     #For collision testing purposes
     if "sphere-sphere.txt" in options.filepath:
@@ -140,7 +134,6 @@ def loop(options = [], titan = []):
 
 def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     """TITAN main function
-
     :param filename: Name of the configuration file, defaults to ""
     :type filename: str
     :param postprocess: Postprocess method. If specified, TITAN will only perform the postprocess of the already obtained solution in the specified output folder. The config file still needs to be specified. Defaults to ""
@@ -149,9 +142,9 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
     :type filter_name: str, optional
     :param emissions: Option to run emmisions postprocessing, defaults to ""
     :type emissions: str, optional
-    :return: options, titan
-    :rtype: Options, Assembly_list
-    """
+:return: options, titan
+:rtype: Options, Assembly_list
+"""
 
     configParser = configparser.RawConfigParser()   
     configFilePath = filename.strip()

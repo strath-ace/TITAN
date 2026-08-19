@@ -45,6 +45,11 @@ except:
 
 
 def generate_xdmf_mesh(vtk_vol_mesh_filename, xdmf_mesh_filename):
+    """Documentation for the function.
+:param vtk_vol_mesh_filename: Value for vtk vol mesh filename.
+:type vtk_vol_mesh_filename: str
+:param xdmf_mesh_filename: Value for xdmf mesh filename.
+:type xdmf_mesh_filename: str"""
     mesh = meshio.read(vtk_vol_mesh_filename)
     elems = mesh.cells[-1].data
     coords = mesh.points
@@ -53,6 +58,15 @@ def generate_xdmf_mesh(vtk_vol_mesh_filename, xdmf_mesh_filename):
     meshio.write_points_cells(xdmf_mesh_filename,coords,cells)
     
 def save_force_xdmf(force_func, mesh, filename = 'force.xdmf', verbose = False):
+    """Documentation for the function.
+:param force_func: Value for force func.
+:type force_func: Any
+:param mesh: Value for mesh.
+:type mesh: Any
+:param filename: Path to the relevant file.
+:type filename: str
+:param verbose: Flag for verbose.
+:type verbose: bool"""
     if verbose: print('Saving force xdmf...', flush = True)
     f_out = XDMFFile(mesh.mpi_comm(), filename)
     f_out.write_checkpoint(force_func, "force", 0, XDMFFile.Encoding.HDF5, False)
@@ -60,6 +74,17 @@ def save_force_xdmf(force_func, mesh, filename = 'force.xdmf', verbose = False):
     if verbose: print('Saved force xdmf', flush = True)
     
 def create_bcs(subdomains, CG_VFS, assembly, verbose = False):
+    """Documentation for the function.
+:param subdomains: Value for subdomains.
+:type subdomains: Any
+:param CG_VFS: Value for cg vfs.
+:type CG_VFS: Any
+:param assembly: Assembly object to process.
+:type assembly: object
+:param verbose: Flag for verbose.
+:type verbose: bool
+:return: Return value.
+:rtype: Any"""
     bcs_1 = []
     bcs_2 = []
     if verbose: print ('Volume BC dict: ', vol_bc_dict, flush = True)
@@ -78,6 +103,21 @@ def create_bcs(subdomains, CG_VFS, assembly, verbose = False):
     return bcs_1, bcs_2
 
 def generate_subdomains(mesh,filename, save_subdomain = False, subdomains_filename = '', subdomains_3d_filename='', verbose = False):
+    """Documentation for the function.
+:param mesh: Value for mesh.
+:type mesh: Any
+:param filename: Path to the relevant file.
+:type filename: str
+:param save_subdomain: Value for save subdomain.
+:type save_subdomain: Any
+:param subdomains_filename: Value for subdomains filename.
+:type subdomains_filename: str
+:param subdomains_3d_filename: Value for subdomains 3d filename.
+:type subdomains_3d_filename: str
+:param verbose: Flag for verbose.
+:type verbose: bool
+:return: Return value.
+:rtype: Any"""
     if verbose: print ('Generating subdomains from cell data...', flush = True)
     mvc = MeshValueCollection("size_t", mesh, 3)
     with XDMFFile(filename) as infile:
@@ -97,6 +137,17 @@ def generate_subdomains(mesh,filename, save_subdomain = False, subdomains_filena
     return subdomains, subdomains_3d
 
 def load_subdomains(mesh, subdomains_filename, subdomains_3d_filename, verbose = False):
+    """Documentation for the function.
+:param mesh: Value for mesh.
+:type mesh: Any
+:param subdomains_filename: Value for subdomains filename.
+:type subdomains_filename: str
+:param subdomains_3d_filename: Value for subdomains 3d filename.
+:type subdomains_3d_filename: str
+:param verbose: Flag for verbose.
+:type verbose: bool
+:return: Return value.
+:rtype: Any"""
     if verbose: print ('Loading subdomain xdmf...', flush = True)
     mvc = MeshValueCollection("size_t", mesh, 2)
     mvc_3d = MeshValueCollection("size_t", mesh, 3)
@@ -112,6 +163,13 @@ def load_subdomains(mesh, subdomains_filename, subdomains_3d_filename, verbose =
 
 
 def save_subdomains(mesh, subdomains, subdomains_filename):
+    """Documentation for the function.
+:param mesh: Value for mesh.
+:type mesh: Any
+:param subdomains: Value for subdomains.
+:type subdomains: Any
+:param subdomains_filename: Value for subdomains filename.
+:type subdomains_filename: str"""
     xdmf = XDMFFile(mesh.mpi_comm(), subdomains_filename)
     xdmf.write(subdomains)
     xdmf.close()
@@ -134,6 +192,43 @@ def run_fenics(forces, num_surf_points, vol_bc_dict, iteration = 0, verbose = Fa
 
     if verbose: print ('Loading volume mesh', flush = True)
     with XDMFFile(vol_mesh_filename) as infile:
+        """Documentation for the function.
+        :param forces: Value for forces.
+        :type forces: list[float]
+        :param num_surf_points: Integer value for num surf points.
+        :type num_surf_points: int
+        :param vol_bc_dict: Dictionary of vol bc.
+        :type vol_bc_dict: dict
+        :param iteration: Value for iteration.
+        :type iteration: Any
+        :param verbose: Flag for verbose.
+        :type verbose: bool
+        :param regen_subdomains: Value for regen subdomains.
+        :type regen_subdomains: Any
+        :param MPI: Value for mpi.
+        :type MPI: Any
+        :param num_MPI_cores: Integer value for num mpi cores.
+        :type num_MPI_cores: int
+        :param rotation: Value for rotation.
+        :type rotation: Any
+        :param E: Value for e.
+        :type E: Any
+        :param yield_stress: Value for yield stress.
+        :type yield_stress: Any
+        :param output_folder: Value for output folder.
+        :type output_folder: Any
+        :param save_displacement: Value for save displacement.
+        :type save_displacement: Any
+        :param save_vonMises: Value for save vonmises.
+        :type save_vonMises: Any
+        :param inertial_forces: Value for inertial forces.
+        :type inertial_forces: Any
+        :param assembly: Assembly object to process.
+        :type assembly: object
+        :param options: Options or configuration object.
+        :type options: object
+        :return: Return value.
+        :rtype: Any"""
         infile.read(mesh_fenics)
     if verbose: print ('LOADED MESH', flush = True)
     # Create CG function space

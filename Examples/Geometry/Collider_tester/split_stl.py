@@ -1,3 +1,4 @@
+"""split_stl module."""
 import sys
 import stl
 import os

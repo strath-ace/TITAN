@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""vehicle module."""
 import numpy as np
 from ..Model import drag_model
 
@@ -27,7 +28,9 @@ vehicle_data = {"galileo":{'mass': 341, 'Rn': 1.25/(2)*0.352, 'D': 1.25,  'Aref'
 """
 
 class ModelVehicle():
+	"""ModelVehicle."""
 	def __init__(self):
+		"""__init__."""
 		self.mass = 0
 		self.noseRadius = 0
 		self.Aref = 0

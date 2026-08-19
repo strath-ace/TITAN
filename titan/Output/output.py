@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""output module."""
 import pandas as pd
 import numpy as np
 import os
@@ -24,6 +25,13 @@ import meshio
 from pathlib import Path
 
 def write_output_data(titan, options, smooth=False):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param smooth: Value for smooth.
+:type smooth: Any"""
 
     df = pd.DataFrame()
 
@@ -125,7 +133,7 @@ def write_output_data(titan, options, smooth=False):
         df['Tmax'] = [max(assembly.aerothermo.temperature)]
         df['knudsen'] = [assembly.freestream.knudsen]
 
-        for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.percent_mass[0]) :
+        for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.mass_fraction[0]) :
             df[specie+"_mass_pct"] = [pct]
         if options.thermal.ablation_mode=='byproducts':
             just_emissions = True #TODO turn this into a proper option
@@ -205,6 +213,13 @@ def write_output_data(titan, options, smooth=False):
             df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
 
 def write_to_series(data_array,columns,filename):
+    """Documentation for the function.
+:param data_array: Value for data array.
+:type data_array: Any
+:param columns: Value for columns.
+:type columns: Any
+:param filename: Path to the relevant file.
+:type filename: str"""
     import pandas as pd
     import os
     data=pd.DataFrame(data_array,columns=columns)
@@ -212,6 +227,15 @@ def write_to_series(data_array,columns,filename):
     data.to_csv(filename,mode='a',index=False,header=doHeader)
 
 def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solution'):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param iter_value: Value for iter value.
+:type iter_value: Any
+:param folder: Value for folder.
+:type folder: Any"""
     points = np.array([])
     facets = np.array([])
     pressure = np.array([])
@@ -304,6 +328,13 @@ def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solu
 #  example of this  
 
 def create_surface_solution(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     solutions = []
     points = np.array([])
     facets = np.array([])
@@ -392,6 +423,17 @@ def create_surface_solution(titan, options):
     return solutions
 
 def update_surface_solution(titan,options,solutions,overwrite=None):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param solutions: Value for solutions.
+:type solutions: Any
+:param overwrite: Value for overwrite.
+:type overwrite: Any
+:return: Return value.
+:rtype: Any"""
     points = np.array([])
     facets = np.array([])
     pressure = np.array([])
@@ -457,6 +499,17 @@ def update_surface_solution(titan,options,solutions,overwrite=None):
         return solutions
 
 def write_surface_solution(options,solutions,IDS,iter_value,folder='Surface_solution'):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param solutions: Value for solutions.
+:type solutions: Any
+:param IDS: Value for ids.
+:type IDS: Any
+:param iter_value: Value for iter value.
+:type iter_value: Any
+:param folder: Value for folder.
+:type folder: Any"""
     for trimesh, assembly_id in zip(solutions,IDS):
         folder_path = options.output_folder+'/' + folder + '/ID_'+str(assembly_id)
         Path(folder_path).mkdir(parents=True, exist_ok=True)
@@ -465,6 +518,15 @@ def write_surface_solution(options,solutions,IDS,iter_value,folder='Surface_solu
         meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 def generate_surface_solution_emissions(titan, options, iter_value, folder = 'Surface_solution'):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param iter_value: Value for iter value.
+:type iter_value: Any
+:param folder: Value for folder.
+:type folder: Any"""
 
     points = np.array([])
     facets = np.array([])
@@ -516,6 +578,17 @@ def generate_surface_solution_emissions(titan, options, iter_value, folder = 'Su
 
 
 def generate_surface_solution_object(obj, quantity, options, iter_value, folder = 'Surface_solution'):
+    """Documentation for the function.
+:param obj: Value for obj.
+:type obj: Any
+:param quantity: Value for quantity.
+:type quantity: Any
+:param options: Options or configuration object.
+:type options: object
+:param iter_value: Value for iter value.
+:type iter_value: Any
+:param folder: Value for folder.
+:type folder: Any"""
 
     points = np.array([])
     facets = np.array([])
@@ -540,6 +613,11 @@ def generate_surface_solution_object(obj, quantity, options, iter_value, folder 
 
 #Generate volume for FENICS
 def generate_volume(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
     for assembly in titan.assembly: 
 
         cells = [
@@ -559,6 +637,11 @@ def generate_volume(titan, options):
 
 # Show DIsplacement and Von Mises for 3D mesh (Not surface mesh)
 def generate_volume_solution(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
     points = np.array([])
     tetra = np.array([])
     displacement = np.array([])
@@ -592,6 +675,7 @@ def generate_volume_solution(titan, options):
         meshio.write(vol_mesh_filepath, trimesh, file_format="vtk")
 
 def TITAN_information():
+    """TITAN_information."""
     print(f"""                                                                                                                   
        ________  ______  ________   ______   __    __ 
       /        |/      |/        | /      \\ /  \\  /  |
@@ -617,6 +701,9 @@ def TITAN_information():
         """)
 
 def options_information(options):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object"""
     print(f"""
         ##########################
         # Simulation Information #
@@ -639,6 +726,13 @@ def options_information(options):
            """)
         
 def iteration(titan, options, show_flow_solves = False):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param show_flow_solves: Value for show flow solves.
+:type show_flow_solves: Any"""
     print(f"""  Iteration {titan.iter+1} of {options.iters} """, flush=True)
     if titan.iter>0 and hasattr(titan,'nfeval') and show_flow_solves: 
         print('Total of {} flow solves\n'.format(titan.nfeval))

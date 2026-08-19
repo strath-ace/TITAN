@@ -6,6 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+"""conf module."""
 project = 'TITAN'
 copyright = '2026, TITAN Contributors'
 author = 'Fabio Morgado, Julie Graham, Tommy Williamson,\n Catarina Garbacz, Marco Fossati & Contributors'

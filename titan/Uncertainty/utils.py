@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+"""utils module."""
 import numpy as np
 import yaml
 import pandas as pd
@@ -27,8 +28,14 @@ except: from yaml import Loader
 
 from ..Uncertainty import mappings as ma
 class UQMapper(MutableSequence):
+    """UQMapper."""
     ## Once approprUQ Mapper
     def __init__(self, titan, options):
+        """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
         self.parameters = []
         self.samplers = []
         self.parse_uq_yaml(titan, options.uncertainty.yaml)
@@ -36,23 +43,44 @@ class UQMapper(MutableSequence):
         self.output_dict     = None
         for key in ma.callbacks.keys(): self.callback_flags[key] = False
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx : int):
+        """Documentation for the function.
+:param idx: Value for idx.
+:type idx: Any
+:return: Return value.
+:rtype: Any"""
         return self.parameters[idx]
 
-    def __setitem__(self, idx, parameter_data):
+    def __setitem__(self, idx : int, parameter_data):
+        """Documentation for the function.
+:param idx: Value for idx.
+:type idx: Any
+:param parameter_data: Value for parameter data.
+:type parameter_data: Any"""
         try: 
             self.parameters[idx] = UQMapObject(*parameter_data)
             self.parameters[idx].id = idx
         except Exception as e: 
             raise Exception('Error setting UQ parameter {} with error: {}'.format(idx,e))
 
-    def __delitem__(self, idx):
+    def __delitem__(self, idx : int):
+        """Documentation for the function.
+:param idx: Value for idx.
+:type idx: Any"""
         del self.parameters[idx]
 
     def __len__(self):
+        """Documentation for the function.
+:return: Return value.
+:rtype: Any"""
         return len(self.parameters)
 
-    def insert(self, idx, parameter_data):
+    def insert(self, idx : int, parameter_data):
+        """Documentation for the function.
+:param idx: Value for idx.
+:type idx: Any
+:param parameter_data: Value for parameter data.
+:type parameter_data: Any"""
         try: 
             self.parameters.insert(idx,UQMapObject(*parameter_data))
             for i_param, param in enumerate(self.parameters): param.id = i_param
@@ -60,6 +88,11 @@ class UQMapper(MutableSequence):
             raise Exception('Error setting UQ parameter {} with error: {}'.format(idx,e))
         
     def parse_uq_yaml(self, titan, filepath):
+        """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param filepath: Path to the relevant file.
+:type filepath: str"""
         with open(str(pathlib.Path(filepath).resolve()),'r') as f: uq_yaml = yaml.load(f,Loader)
 
         parameters = uq_yaml['parameters']
@@ -91,20 +124,51 @@ class UQMapper(MutableSequence):
 
 
     def map_from_seed(self, seed, titan, options):
+        """Documentation for the function.
+:param seed: Value for seed.
+:type seed: Any
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
         self.state_info = {}
         self.state_info['seed'] = seed
         titan.rng = np.random.RandomState(seed)
+
+        sample_out = self.get_vector_from_seed(seed)
+        self.map_from_vector(sample_out, titan, options)
+        return self.state_info
+
+    def get_vector_from_seed(self, seed : int) -> list[np.ndarray]:
+        """Samples from the set of distributions to create a parameter vector,
+        :param seed: Input seed
+        :type seed: int
+:return: sample vector
+:rtype: list[np.ndarray]
+"""
         sample_out = []
+        
+        for sam in self.samplers:
+            sam.random_state = np.random.RandomState(seed)
+            sample_out.append(np.atleast_1d(sam.rvs()))
+        return sample_out
+
+    def map_from_vector(self, vector : np.ndarray, titan, options):
+        """Documentation for the function.
+        :param vector: _description_
+        :type vector: np.ndarray
+        :param titan: Object of class AssemblyList
+        :type titan: _type_
+        :param options: _description_
+        :type options: _type_
+"""
         assem_ids = [[] for _ in range(len(self.callback_flags))]
 
-        for sam in self.samplers:
-            sam.random_state = titan.rng
-            sample_out.append(np.atleast_1d(sam.rvs()))
-
         for param in self.parameters:
-
-            param.assign(sample_out[param.code[1]][param.code[2]], titan, options)
-            self.state_info[param.name] = sample_out[param.code[1]][param.code[2]]
+            param.assign(vector[param.code[1]][param.code[2]], titan, options)
+            self.state_info[param.name] = vector[param.code[1]][param.code[2]]
 
             i_cb = 0
             for do_cb, cb in zip(param.callback, list(self.callback_flags.keys())): 
@@ -116,11 +180,21 @@ class UQMapper(MutableSequence):
         for func, flag in self.callback_flags.items():
             if flag: func(titan, options, np.unique(assem_ids[i_cb]))
             i_cb += 1
-
-        return self.state_info
             
 class UQMapObject():
+    """UQMapObject."""
     def __init__(self, param_name, param_object, param_assign_loc, code, callback = None):
+        """Documentation for the function.
+:param param_name: Value for param name.
+:type param_name: Any
+:param param_object: Value for param object.
+:type param_object: Any
+:param param_assign_loc: Value for param assign loc.
+:type param_assign_loc: Any
+:param code: Value for code.
+:type code: Any
+:param callback: Value for callback.
+:type callback: Any"""
         self.name = param_name
         self.assign_obj = param_object
         self.assign_location = param_assign_loc
@@ -129,6 +203,11 @@ class UQMapObject():
         self.code = code
     
     def resolve_object(self, titan, options):
+        """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
         if isinstance(self.assign_obj, str):
             address_steps = self.assign_obj.split(',')
             return_obj = titan if 'titan' in address_steps[0].lower() else options
@@ -141,6 +220,13 @@ class UQMapObject():
             self.assign_obj =  return_obj
     
     def assign(self, value, titan, options):
+        """Documentation for the function.
+:param value: Numeric value for value.
+:type value: float
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
         self.resolve_object(titan,options)
         if len(self.assign_location)>1: 
             new_value = getattr(self.assign_obj,self.assign_location[0])
@@ -149,6 +235,17 @@ class UQMapObject():
         setattr(self.assign_obj,self.assign_location[0], new_value)
 
 def report_outputs_from_csv(output_folder, output_dict, all_components, write=True):
+    """Documentation for the function.
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param output_dict: Dictionary of output.
+:type output_dict: dict
+:param all_components: Value for all components.
+:type all_components: Any
+:param write: Value for write.
+:type write: Any
+:return: Return value.
+:rtype: Any"""
     data = pd.read_csv(output_folder+'/Data/data.csv')
     assembly_data = pd.read_csv(output_folder+'/Data/data_assembly.csv')
     geo_path = all_components[0].rsplit('/', maxsplit=1)[0]+'/'
@@ -206,6 +303,15 @@ def report_outputs_from_csv(output_folder, output_dict, all_components, write=Tr
     return header, values
 
 def get_survivors_map(data, assembly_data, filter_alt=1000):
+    """Documentation for the function.
+:param data: Value for data.
+:type data: Any
+:param assembly_data: Value for assembly data.
+:type assembly_data: Any
+:param filter_alt: Value for filter alt.
+:type filter_alt: Any
+:return: Return value.
+:rtype: Any"""
     last_obj_data = assembly_data.sort_values('Iter',ascending=False).drop_duplicates(subset='Obj_name')
     last_obj_data = last_obj_data[['Assembly_ID','Obj_name']]
     alt_data = data[['Iter', 'Assembly_ID', 'Altitude']]
@@ -221,12 +327,26 @@ def get_survivors_map(data, assembly_data, filter_alt=1000):
     return survivor_map
 
 def get_component_map(assembly_data, component_list):
+    """Documentation for the function.
+:param assembly_data: Value for assembly data.
+:type assembly_data: Any
+:param component_list: List of component.
+:type component_list: list
+:return: Return value.
+:rtype: Any"""
     last_obj_data = assembly_data.sort_values('Iter',ascending=False).drop_duplicates(subset='Obj_name')
     last_obj_data = last_obj_data[last_obj_data['Obj_name'].isin(component_list)]
 
     return last_obj_data.set_index('Obj_name')['Assembly_ID'].to_dict()
 
 def collate_QoI(seedlist, base_folder, campaign_seed = 0):
+    """Documentation for the function.
+:param seedlist: List of seedlist.
+:type seedlist: list
+:param base_folder: Value for base folder.
+:type base_folder: Any
+:param campaign_seed: Value for campaign seed.
+:type campaign_seed: Any"""
     root_df = pd.DataFrame()
     for i_sample, seed in enumerate(seedlist):
         try: 

@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""fragmentation module."""
 import numpy as np
 from ..Geometry.assembly import create_assembly_flag, Assembly
 from ..Geometry.mesh import compute_new_volume_v2, map_surf_to_tetra, check_tetra_in_surface, compute_surface_from_tetra, update_volume_displacement
@@ -33,22 +34,15 @@ from ..Explosion.explosion_fragments import fracture_object, build_new_assemblie
 from ..Thermal import pato
 
 def demise_components(titan, i, joints_id, options): 
-    """
-    Computes the inertial forces in the Body Frame
-
-    This functions computes the inertial forces that will be used for the Structurla dynamics
-
-    Parameters
-    ----------
-    titan: Assembly_list
-        Object of class Assembly_list
-    assembly_pos: array
-        Array containing the index position of the assemblies that will undergo fragmentation
-    joints_id: array
-        Array containing the index of the joints that demised (index in relation to each assembly that will undergo fragmentation), to be removed from the simulation
-    options: Options
-        Object of class Options
-    """
+    """Computes the inertial forces in the Body Frame
+:param titan: TITAN simulation object.
+:type titan: object
+:param i: Integer value for i.
+:type i: int
+:param joints_id: Integer value for joints id.
+:type joints_id: int
+:param options: Options or configuration object.
+:type options: object"""
 
     titan.assembly[i].temp_ids = np.arange(len(titan.assembly[i].objects)) + 1        
 
@@ -222,6 +216,11 @@ def demise_components(titan, i, joints_id, options):
 
 
 def check_breakup_v2(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
 
     #ROUTINE to check if the mesh has split.
 
@@ -439,6 +438,11 @@ def check_breakup_v2(titan, options):
 
 
 def check_breakup(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
 
     #ROUTINE to check if the mesh has split.
     # If True, change the density to 0 and recompute the mass of the singular component.
@@ -512,17 +516,11 @@ def check_breakup(titan, options):
 
 def fragmentation(titan, options):
 
-    """
-    Check if components meet the specified criteria to be removed from the simulation. 
-    At the moment, only altitude, iteration number, time and total ablation are specified.
-
-    Parameters
-    ----------
-    titan: Assembly_list
-        Object of class Assembly_list
-    options: Options
-        Object of class Options
-    """
+    """Check if components meet the specified criteria to be removed from the simulation.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
 
     #if options.ablation_mode.lower() == "tetra":
     

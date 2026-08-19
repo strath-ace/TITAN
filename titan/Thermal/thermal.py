@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""thermal module."""
 import numpy as np 
 from ..Geometry import mesh
 from scipy import integrate
@@ -33,6 +34,11 @@ import subprocess
 cutoff = 0.0
 
 def compute_thermal(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
     thermal_delta_t = titan.time - options.thermal.prev_thermal_time
     if thermal_delta_t>=options.thermal.time_fidelity or options.dynamics.augmented_state: 
         if options.thermal.ablation_mode == "tetra":
@@ -48,6 +54,13 @@ def compute_thermal(titan, options):
         options.thermal.prev_thermal_time = round(titan.time,5)
 
 def compute_thermal_0D(titan, options, dt=None):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param dt: Numeric value for dt.
+:type dt: float"""
 
     Tref = 273
     # Unity timestep gives us rates instead of integrated values
@@ -111,6 +124,13 @@ def compute_thermal_0D(titan, options, dt=None):
     return
 
 def compute_thermal_tetra(titan, options, dt):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param dt: Numeric value for dt.
+:type dt: float"""
   
 
     for assembly in titan.assembly:
@@ -254,6 +274,11 @@ def compute_thermal_tetra(titan, options, dt):
     return 
 
 def compute_thermal_PATO(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
 
     for assembly in titan.assembly: 
 
@@ -315,6 +340,13 @@ def compute_thermal_PATO(titan, options):
     return
 
 def compute_thermal_byproducts(titan, options, dt):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param dt: Numeric value for dt.
+:type dt: float"""
     Tref = 273
     # Unity timestep gives us rates instead of integrated values
     if options.dynamics.augmented_state: dt = 1.0 
@@ -382,6 +414,13 @@ def compute_thermal_byproducts(titan, options, dt):
 
 
 def compute_black_body_emissions(titan, options, q = []):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param q: Value for q.
+:type q: Any"""
 
     print('Computing polar emissions ...')
 
@@ -450,12 +489,28 @@ def compute_black_body_emissions(titan, options, q = []):
                 df.to_csv(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'_'+str(assembly.id)+'.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/'+ 'thermal_signature_'+str(titan.iter)+'_'+str(assembly.id)+'.csv'), index = False)
 
 def integrate_planck(lambd_min, lambd_max, T):
+    """Documentation for the function.
+:param lambd_min: Value for lambd min.
+:type lambd_min: Any
+:param lambd_max: Value for lambd max.
+:type lambd_max: Any
+:param T: Numeric value for t.
+:type T: float
+:return: Return value.
+:rtype: Any"""
 
     integral, error = integrate.quad(black_body, lambd_min, lambd_max,args=(T), epsabs=1.0e-4, epsrel=1.0e-4 )
 
     return integral
 
 def black_body(wavelength, T):
+    """Documentation for the function.
+:param wavelength: Numeric value for wavelength.
+:type wavelength: float
+:param T: Numeric value for t.
+:type T: float
+:return: Return value.
+:rtype: Any"""
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
@@ -470,6 +525,13 @@ def black_body(wavelength, T):
     return b
 
 def compute_black_body_spectral_emissions(assembly, wavelength):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param wavelength: Numeric value for wavelength.
+:type wavelength: float
+:return: Return value.
+:rtype: Any"""
 
     h = 6.62607015e-34 # m2.kg.s-1        planck constant
     c = 3e8            # m.s-1           light speed in vaccum
@@ -526,6 +588,15 @@ def compute_black_body_spectral_emissions(assembly, wavelength):
     return emissions, distribution
 
 def compute_particle_spectral_emissions_AlI(assembly, wavelength, wavelength_index):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param wavelength: Numeric value for wavelength.
+:type wavelength: float
+:param wavelength_index: Value for wavelength index.
+:type wavelength_index: Any
+:return: Return value.
+:rtype: Any"""
 
     #index = assembly.index_atomic
     #angle = assembly.angle_atomic[index]
@@ -646,6 +717,13 @@ def compute_particle_spectral_emissions_AlI(assembly, wavelength, wavelength_ind
     return emissions, distribution
 
 def compute_particle_spectral_emissions_OI(assembly, wavelength):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param wavelength: Numeric value for wavelength.
+:type wavelength: float
+:return: Return value.
+:rtype: Any"""
 
     #index = assembly.index_atomic
     #angle = assembly.angle_atomic[index]
@@ -733,6 +811,11 @@ def compute_particle_spectral_emissions_OI(assembly, wavelength):
     return emissions, distribution
 
 def get_energy_levels(element):
+    """Documentation for the function.
+:param element: Value for element.
+:type element: Any
+:return: Return value.
+:rtype: Any"""
     # Define the NIST Levels Tool URL
     url = "https://physics.nist.gov/cgi-bin/ASD/energy1.pl"
     
@@ -777,16 +860,13 @@ def get_energy_levels(element):
     return levels
 
 def calculate_partition_function(levels, T_e):
-    """
-    Calculate the partition function for O I at a given electron temperature T_e (in eV).
-    Args:
-        levels: List of tuples [(g, E), ...] where g is the statistical weight 
-                and E is the energy in cm^-1.
-        T_e: Electron temperature in eV.
-
-    Returns:
-        Partition function Z(T).
-    """
+    """Calculate the partition function for O I at a given electron temperature T_e (in eV).
+:param levels: Value for levels.
+:type levels: Any
+:param T_e: Value for t e.
+:type T_e: Any
+:return: Return value.
+:rtype: Any"""
     k_B_eV = 8.617333262145e-5  # Boltzmann constant in eV/K
     h = 6.62607015e-34          # Planck constant in J*s
     c = 2.99792458e10           # Speed of light in cm/s
@@ -810,6 +890,13 @@ def calculate_partition_function(levels, T_e):
 
 # Main execution
 def partition(element, temperature):
+    """Documentation for the function.
+:param element: Value for element.
+:type element: Any
+:param temperature: Numeric value for temperature.
+:type temperature: float
+:return: Return value.
+:rtype: Any"""
     # Retrieve energy levels for O I
     levels = get_energy_levels(element)
     

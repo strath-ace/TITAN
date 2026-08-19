@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""su2 module."""
 from ..Geometry import gmsh_api as GMSH
 from ..Geometry import assembly as Assembly
 from ..Geometry import mesh as Mesh
@@ -39,6 +40,13 @@ class Solver():
     """
 
     def __init__(self, restart, su2, freestream):
+        """Documentation for the function.
+:param restart: Value for restart.
+:type restart: Any
+:param su2: Value for su2.
+:type su2: Any
+:param freestream: Value for freestream.
+:type freestream: Any"""
 
         #: [str] Solver (EULER, NAVIER-STOKES, NEMO_EULER, NEMO_NAVIER_STOKES)
         self.solver = 'SOLVER = '+ su2.solver
@@ -62,12 +70,12 @@ class Solver():
 
 
             #Hardcoded for the NRLMSISE00 database
-            N  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N']])),5))
-            O  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O']])),5))
-            NO = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['NO']])),5))
+            N  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.mass_fraction[0], freestream.species_index) if index in ['N']])),5))
+            O  = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.mass_fraction[0], freestream.species_index) if index in ['O']])),5))
+            NO = str(np.round(abs(np.sum([mass for mass, index in zip(freestream.mass_fraction[0], freestream.species_index) if index in ['NO']])),5))
 
-            N2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['N2','He','Ar','H']])),5))
-            O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.percent_mass[0], freestream.species_index) if index in ['O2']])),5))
+            N2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.mass_fraction[0], freestream.species_index) if index in ['N2','He','Ar','H']])),5))
+            O2= str(np.round(abs(np.sum([mass for mass, index in zip(freestream.mass_fraction[0], freestream.species_index) if index in ['O2']])),5))
             #: [str] Gas Composition
             self.gas_composition = 'GAS_COMPOSITION= (' + N + ','  + O + ',' + NO + ',' + N2 + ',' + O2 + ')'
 
@@ -82,6 +90,9 @@ class Solver_Freestream_Conditions():
     """
 
     def __init__(self,freestream):
+        """Documentation for the function.
+:param freestream: Value for freestream.
+:type freestream: Any"""
         #: [str] Initialization option to be used to compute the freestream (Default = TD_CONDITIONS)
         self.init_option = "INIT_OPTION = TD_CONDITIONS"
 
@@ -105,6 +116,7 @@ class Solver_Reference_Value():
     """
 
     def __init__(self):
+        """__init__."""
         #: [str] x-coordinate to which the moment is computed
         self.origin_moment_x = "REF_ORIGIN_MOMENT_X = 0.0"
 
@@ -128,6 +140,11 @@ class Solver_BC():
     """
 
     def __init__(self, assembly, su2):
+        """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param su2: Value for su2.
+:type su2: Any"""
 
         #: [str] Farfield Marker
         self.farfield = "MARKER_FAR = (Farfield)"
@@ -173,6 +190,9 @@ class Solver_Numerical_Method():
     """
 
     def __init__ (self, su2):
+        """Documentation for the function.
+:param su2: Value for su2.
+:type su2: Any"""
         #[str] Method to compute the gradients (Default = WEIGHTED_LEAST_SQUARES)
         self.grad = "NUM_METHOD_GRAD = WEIGHTED_LEAST_SQUARES"
 
@@ -196,6 +216,9 @@ class Flow_Numerical_Method():
     """
 
     def __init__(self, su2):
+        """Documentation for the function.
+:param su2: Value for su2.
+:type su2: Any"""
         #: [str] Convective method (AUSM, AUSMPLUSUP2)
         self.conv_method = "CONV_NUM_METHOD_FLOW = "+ su2.conv_method
 
@@ -219,6 +242,7 @@ class Solver_Convergence():
     """
 
     def __init__(self):
+        """__init__."""
         #: [str] Fields to look for convergence
         self.field = "CONV_FIELD= (LIFT, DRAG)"
 
@@ -242,6 +266,17 @@ class Solver_Input_Output():
     """
 
     def __init__(self,it, iteration, output_folder, cluster_tag, input_grid):
+        """Documentation for the function.
+:param it: Value for it.
+:type it: Any
+:param iteration: Value for iteration.
+:type iteration: Any
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any
+:param input_grid: Value for input grid.
+:type input_grid: Any"""
         #: [str] Name of the mesh to be used in the simulation
         self.mesh_filename = "MESH_FILENAME= "+output_folder+"/CFD_Grid/"+input_grid
         
@@ -283,6 +318,25 @@ class SU2_Config():
     """
 
     def __init__(self,freestream, assembly, restart, it, iteration, su2, options, cluster_tag, input_grid):
+        """Documentation for the function.
+:param freestream: Value for freestream.
+:type freestream: Any
+:param assembly: Assembly object to process.
+:type assembly: object
+:param restart: Value for restart.
+:type restart: Any
+:param it: Value for it.
+:type it: Any
+:param iteration: Value for iteration.
+:type iteration: Any
+:param su2: Value for su2.
+:type su2: Any
+:param options: Options or configuration object.
+:type options: object
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any
+:param input_grid: Value for input grid.
+:type input_grid: Any"""
         #: [str] Name of the configuration file
         self.name = "Config.cfg"
 
@@ -311,34 +365,33 @@ class SU2_Config():
         self.inout = Solver_Input_Output(it, iteration, options.output_folder, cluster_tag, input_grid)
 
 def write_SU2_config(freestream, assembly, restart, it, iteration, su2, options, cluster_tag, input_grid, output_grid = "", interpolation = False, bloom = False, interp_to_BL = False):
-    """
-    Write the SU2 configuration file
-
-    Generates a configuration file to run a SU2 CFD simulation according to the position of the object and the user-defined parameters.
-
-    Parameters
-    ----------
-    freestream: Freestream
-        Object of class Freestream
-    assembly: Assembly_list
-        Object of class Assembly_list
-    restart: bool
-        Boolean value to indicate if CFD simulation is restarting from previous solution
-    it: int
-        Value of adaptive iteration
-    iteration: int
-        Value of time iteration
-    su2: CFD
-        Object of class CFD
-    options: Options
-        Object of class Options
-    cluster_tag: int
-        Value of the cluster tag number for simulation parallelization
-    input_grid: str
-        Name of the input mesh file
-    output_grid: str
-        Name of the output file
-    """
+    """Write the SU2 configuration file
+:param freestream: Value for freestream.
+:type freestream: Any
+:param assembly: Assembly object to process.
+:type assembly: object
+:param restart: Value for restart.
+:type restart: Any
+:param it: Value for it.
+:type it: Any
+:param iteration: Value for iteration.
+:type iteration: Any
+:param su2: Value for su2.
+:type su2: Any
+:param options: Options or configuration object.
+:type options: object
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any
+:param input_grid: Value for input grid.
+:type input_grid: Any
+:param output_grid: Value for output grid.
+:type output_grid: Any
+:param interpolation: Value for interpolation.
+:type interpolation: Any
+:param bloom: Value for bloom.
+:type bloom: Any
+:param interp_to_BL: Value for interp to bl.
+:type interp_to_BL: Any"""
 
     #Creates an object of class SU2_Config
     SU2_config = SU2_Config(freestream, assembly, restart, it, iteration,  su2, options, cluster_tag, input_grid)
@@ -385,21 +438,11 @@ def write_SU2_config(freestream, assembly, restart, it, iteration, su2, options,
     pass
 
 def retrieve_index(SU2_type):
-    """
-    Retrieve index to retrieve solution fields
-
-    Returns the index to read the correct fields in the solution file, according to the user-specified solver
-
-    Parameters
-    ----------
-    SU2_type: str
-        Solver used in the CFD simulation
-
-    Returns
-    -------
-    index: np.array()
-        Array of index with the position of solution fields of interest
-    """
+    """Retrieve index to retrieve solution fields
+:param SU2_type: Value for su2 type.
+:type SU2_type: Any
+:return: Return value.
+:rtype: Any"""
     #TODO: Instead of hardcoded with SU2 indexes, needs to read name of field and retrieve value
     if SU2_type == 'EULER':
         index = np.array([(0,1,3,4)], dtype = [('Density', 'i4'),('Momentum', 'i4'),('Pressure', 'i4'),('Temperature', 'i4')])
@@ -416,28 +459,19 @@ def retrieve_index(SU2_type):
     return index
 
 def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestream):
-    """
-    Read the VTK file solution
-
-    Reads and retrieves the solution stored in the VTK file format
-
-    Parameters
-    ----------
-    filename: str
-        Name and location of the VTK solution file
-    assembly_coords: np.array()
-        Coordinates of the mesh nodes
-    idx_inv: np.array
-        Sort indexing such that the VTK retrieved solution corresponds to the stored mesh nodes positioning
-    options: Options
-        Object of class Options
-
-
-    Returns
-    -------
-    aerothermo: Aerothermo
-        object of class Aerothermo
-    """
+    """Read the VTK file solution
+:param filename: Path to the relevant file.
+:type filename: str
+:param assembly_coords: Value for assembly coords.
+:type assembly_coords: Any
+:param idx_inv: Value for idx inv.
+:type idx_inv: Any
+:param options: Options or configuration object.
+:type options: object
+:param freestream: Value for freestream.
+:type freestream: Any
+:return: Return value.
+:rtype: Any"""
 
     #Initializes the Aerothermo Object
     aerothermo = Assembly.Aerothermo(len(assembly_coords))
@@ -485,17 +519,11 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
     return aerothermo
 
 def split_aerothermo(total_aerothermo, assembly_list):
-    """
-    Split the solution into the different assemblies used in the CFD simulation
-    Function reworked on 25/04/2023
-
-    Parameters
-    ----------
-    total_aerothermo: Aerothermo
-        Object of class Aerothermo
-    assembly:List_Assembly
-        Object of class List_Assembly
-    """
+    """Split the solution into the different assemblies used in the CFD simulation
+:param total_aerothermo: Value for total aerothermo.
+:type total_aerothermo: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list"""
     first_node = 0
     last_node = 0
 
@@ -532,16 +560,11 @@ def split_aerothermo(total_aerothermo, assembly_list):
     return
 
 def run_SU2(n, options):
-    """
-    Calls the SU2 executable and run the simulation
-
-    Parameters
-    ----------
-    n: int
-        Number of cores
-    options: Options
-        Object of class Options
-    """
+    """Calls the SU2 executable and run the simulation
+:param n: Integer value for n.
+:type n: int
+:param options: Options or configuration object.
+:type options: object"""
 
     options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -551,20 +574,17 @@ def run_SU2(n, options):
 
 
 def generate_BL(assembly, options, it, cluster_tag, iteration):
-    """
-    Generates a Boundary Layer
-
-    Parameters
-    ----------
-    assembly: List_Assembly
-        Object of class List_Assembly
-    options: Options
-        Object of class Options
-    it: int
-        Value of adaptive iteration
-    cluster_tag: int
-        Value of Cluster tag
-    """
+    """Generates a Boundary Layer
+:param assembly: Assembly object to process.
+:type assembly: object
+:param options: Options or configuration object.
+:type options: object
+:param it: Value for it.
+:type it: Any
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any
+:param iteration: Value for iteration.
+:type iteration: Any"""
 
     if options.bloom.flag:
         bloom.generate_BL_CFD(it, options, num_obj = len(assembly), bloom = options.bloom, 
@@ -572,37 +592,29 @@ def generate_BL(assembly, options, it, cluster_tag, iteration):
                               output_grid = 'Domain_iter_'+str(iteration)+'_adapt_'+str(it)+'_cluster_'+str(cluster_tag)) #grid name without .SU2
     
 def adapt_mesh(assembly, options, it, cluster_tag, iteration):
-    """
-    Anisotropically adapts the mesh
-
-    Parameters
-    ----------
-    assembly: List_Assembly
-        Object of class List_Assembly
-    options: Options
-        Object of class Options
-    it: int
-        Value of adaptive iteration
-    cluster_tag: int
-        Value of Cluster tag
-    """
+    """Anisotropically adapts the mesh
+:param assembly: Assembly object to process.
+:type assembly: object
+:param options: Options or configuration object.
+:type options: object
+:param it: Value for it.
+:type it: Any
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any
+:param iteration: Value for iteration.
+:type iteration: Any"""
 
     if options.amg.flag:
         amg.adapt_mesh(options.amg, iteration, options, j = it, num_obj = len(assembly),  input_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it)+'_cluster_'+str(cluster_tag), output_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
 
 def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
-    """
-    Compute the aerothermodynamic properties using the CFD software
-
-    Parameters
-    ----------
-    assembly_list: List_Assembly
-        Object of class List_Assembly
-    options: Options
-        Object of class Options
-    cluster_tag: int
-        Value of Cluster tag
-    """
+    """Compute the aerothermodynamic properties using the CFD software
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any"""
     
     #TODO:
     # ---> size ref should also be in the options config file
@@ -760,18 +772,13 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free)
 
 def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
-    """
-    Compute the aerothermodynamic properties using the CFD software
-
-    Parameters
-    ----------
-    assembly_list: List_Assembly
-        Object of class List_Assembly
-    options: Options
-        Object of class Options
-    cluster_tag: int
-        Value of Cluster tag
-    """
+    """Compute the aerothermodynamic properties using the CFD software
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any"""
     
     #TODO:
     # ---> size ref should also be in the options config file
@@ -821,6 +828,23 @@ def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
 
 
 def run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param it: Value for it.
+:type it: Any
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any
+:param iteration: Value for iteration.
+:type iteration: Any
+:param free: Value for free.
+:type free: Any
+:param su2: Value for su2.
+:type su2: Any
+:param n: Integer value for n.
+:type n: int"""
 
     for it in range(options.cfd.adapt_iter):
         restart = True
@@ -830,6 +854,19 @@ def run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n):
 
 
 def post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param iteration: Value for iteration.
+:type iteration: Any
+:param adapt_iter: Value for adapt iter.
+:type adapt_iter: Any
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any
+:param free: Value for free.
+:type free: Any"""
 
     assembly_nodes = np.array([])
     assembly_facets = np.array([], dtype = int)

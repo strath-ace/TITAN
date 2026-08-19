@@ -17,12 +17,18 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""gram module."""
 import pandas as pd
 import os
 import subprocess
 import numpy as np
 
 def generate_script(assembly, options):
+	"""Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param options: Options or configuration object.
+:type options: object"""
 	with open(options.output_folder+"/GRAM/gram_config_"+str(assembly.id), 'w') as f:
 
 		f.write(" $INPUT \n")
@@ -120,6 +126,13 @@ def generate_script(assembly, options):
 		f.write(" $END")                
 
 def read_gram_species(altitude, options):
+	"""Documentation for the function.
+:param altitude: Value for altitude.
+:type altitude: Any
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
 	data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
 
 	if options.planet.name == "earth":   species_index = ["N2","O2","O","He","N","H"]
@@ -143,10 +156,22 @@ def read_gram_species(altitude, options):
 	return species_data, species_index
 
 def read_gram(assembly, options):
+	"""Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
 	data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
 	return data
 
 def run_single_gram(assembly, options):
+	"""Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param options: Options or configuration object.
+:type options: object"""
 	generate_script(assembly, options)
 	path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

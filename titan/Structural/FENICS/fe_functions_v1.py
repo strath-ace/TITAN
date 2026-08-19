@@ -46,7 +46,13 @@ except:
 
 
 def build_nullspace(V, x):
-    """Function to build null space for 3D elasticity"""
+    """Function to build null space for 3D elasticity
+:param V: Value for v.
+:type V: Any
+:param x: Numeric value for x.
+:type x: float
+:return: Return value.
+:rtype: Any"""
 
     # Create list of vectors for null space
     nullspace_basis = [x.copy() for i in range(6)]
@@ -75,12 +81,26 @@ def build_nullspace(V, x):
 
 
 def sigma(v, E):
+    """Documentation for the function.
+:param v: Value for v.
+:type v: Any
+:param E: Value for e.
+:type E: Any
+:return: Return value.
+:rtype: Any"""
     nu = 0.3
     mu = E/(2.0*(1.0 + nu))
     lmbda = E*nu/((1.0 + nu)*(1.0 - 2.0*nu))
     return 2.0*mu*sym(grad(v)) + lmbda*tr(sym(grad(v)))*Identity(len(v))
 
 def lumpedProject(main_FS,f):
+    """Documentation for the function.
+:param main_FS: Value for main fs.
+:type main_FS: Any
+:param f: Value for f.
+:type f: Any
+:return: Return value.
+:rtype: Any"""
     vv = TestFunction(main_FS)
     lhs = assemble(inner(Constant(1.0),vv)*dx)
     rhs = assemble(inner(f,vv)*dx)
@@ -160,6 +180,25 @@ def  run_FE(bcs, disp_funcs, CG_VFS, force_func, ds, monitor_convergence = False
     L = inner(force_func, v)*dx
 
     if verbose:
+        """Documentation for the function.
+        :param bcs: Value for bcs.
+        :type bcs: Any
+        :param disp_funcs: Value for disp funcs.
+        :type disp_funcs: Any
+        :param CG_VFS: Value for cg vfs.
+        :type CG_VFS: Any
+        :param force_func: Value for force func.
+        :type force_func: Any
+        :param ds: Value for ds.
+        :type ds: Any
+        :param monitor_convergence: Value for monitor convergence.
+        :type monitor_convergence: Any
+        :param verbose: Flag for verbose.
+        :type verbose: bool
+        :param E: Value for e.
+        :type E: Any
+        :return: Return value.
+        :rtype: Any"""
         print ('Assembling FE system', flush = True)
     A, b = assemble_system(a, L, bcs[0])
     
@@ -229,6 +268,25 @@ def call_MPI(num_mpi_cores, mesh_filename, subdomain_filename, force_filename,
     rx, ry, rz = rotation
     # print ('Calling MPI with %i cores'%(num_mpi_cores), flush = True)
     if verbose:
+        """Documentation for the function.
+        :param num_mpi_cores: Integer value for num mpi cores.
+        :type num_mpi_cores: int
+        :param mesh_filename: Value for mesh filename.
+        :type mesh_filename: str
+        :param subdomain_filename: Value for subdomain filename.
+        :type subdomain_filename: str
+        :param force_filename: Value for force filename.
+        :type force_filename: str
+        :param E: Value for e.
+        :type E: Any
+        :param nu: Value for nu.
+        :type nu: Any
+        :param rotation: Value for rotation.
+        :type rotation: Any
+        :param verbose: Flag for verbose.
+        :type verbose: bool
+        :param output_folder: Value for output folder.
+        :type output_folder: Any"""
         print ('Calling MPI', flush = True)
     subprocess.run(["mpirun", "-np", "%i" % (num_mpi_cores), "python3", "FE_MPI.py",
                         "%s" % (mesh_filename), \
@@ -247,6 +305,29 @@ def run_FE_MPI(displacement_func_list, num_mpi_cores, mesh_filename,
              E, nu, rotation, verbose = verbose, output_folder = output_folder)
 
     with XDMFFile(output_folder + '/u1.xdmf') as f_in:
+        """Documentation for the function.
+        :param displacement_func_list: List of displacement func.
+        :type displacement_func_list: list
+        :param num_mpi_cores: Integer value for num mpi cores.
+        :type num_mpi_cores: int
+        :param mesh_filename: Value for mesh filename.
+        :type mesh_filename: str
+        :param subdomain_filename: Value for subdomain filename.
+        :type subdomain_filename: str
+        :param force_filename: Value for force filename.
+        :type force_filename: str
+        :param rotation: Value for rotation.
+        :type rotation: Any
+        :param verbose: Flag for verbose.
+        :type verbose: bool
+        :param E: Value for e.
+        :type E: Any
+        :param nu: Value for nu.
+        :type nu: Any
+        :param output_folder: Value for output folder.
+        :type output_folder: Any
+        :return: Return value.
+        :rtype: Any"""
         f_in.read_checkpoint(displacement_func_list[0],"displacement",0) 
     
     with XDMFFile(output_folder + '/u2.xdmf') as f_in:
@@ -258,6 +339,17 @@ def run_FE_MPI(displacement_func_list, num_mpi_cores, mesh_filename,
     
 
 def vonMises(displacement, DG_FS, E, project_type = 'normal'):
+    """Documentation for the function.
+:param displacement: Value for displacement.
+:type displacement: Any
+:param DG_FS: Value for dg fs.
+:type DG_FS: Any
+:param E: Value for e.
+:type E: Any
+:param project_type: Value for project type.
+:type project_type: Any
+:return: Return value.
+:rtype: Any"""
     
     s = sigma(displacement, E) - (1./3)*tr(sigma(displacement, E))*Identity(3)  # deviatoric stress
     von_Mises = sqrt(3./2*inner(s, s))
@@ -269,6 +361,17 @@ def vonMises(displacement, DG_FS, E, project_type = 'normal'):
     return von_Mises
 
 def maxvonMises(vonMises_func, subdom_arr, vol_ids, yield_stress):
+    """Documentation for the function.
+:param vonMises_func: Value for vonmises func.
+:type vonMises_func: Any
+:param subdom_arr: Value for subdom arr.
+:type subdom_arr: Any
+:param vol_ids: Value for vol ids.
+:type vol_ids: Any
+:param yield_stress: Value for yield stress.
+:type yield_stress: Any
+:return: Return value.
+:rtype: Any"""
     # use subdomain array to extract stress in specific part
     vm_arr = vonMises_func.vector()[:]
     # print(vm_arr)

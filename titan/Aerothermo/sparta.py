@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""sparta module."""
 import numpy as np
 import math
 import pandas as pd
@@ -49,6 +50,7 @@ class Initialization():
     """
 
     def __init__(self):
+        """__init__."""
         rng = np.random.default_rng()
         
         #: [int] Define random seed number 
@@ -73,6 +75,13 @@ class Problem_Definition():
     """
 
     def __init__(self, options, dsmc, freestream):
+        """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param freestream: Value for freestream.
+:type freestream: Any"""
 
         path = path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -123,6 +132,17 @@ class Geometry_Definition():
     """
 
     def __init__(self, options, dsmc, assembly_list, output_folder, surface_filename):
+        """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param surface_filename: Value for surface filename.
+:type surface_filename: str"""
 
         for i, assembly in enumerate(assembly_list):
 
@@ -149,6 +169,15 @@ class Settings():
     """
 
     def __init__(self, options, dsmc, assembly_list, surface_filename):
+        """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param surface_filename: Value for surface filename.
+:type surface_filename: str"""
 
         # SPARTA uses integer IDs to define surface collision models.
         # `obj_count` tracks a cumulative ID for each object in the simulation.
@@ -207,6 +236,17 @@ class Unsteady_Simulation():
     # Define unsteady simulation, including grid adaptation and initial simulation period to reach steady simulation:
 
     def __init__(self, options, dsmc, output_folder, surface_filename, grid_filename):
+        """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param surface_filename: Value for surface filename.
+:type surface_filename: str
+:param grid_filename: Value for grid filename.
+:type grid_filename: str"""
 
         #: [str] Write the initial, unadapted grid to file
         self.write_grid = 'write_grid\t\t ' + str(output_folder) + '/DSMC_Grid/' + f'initial_{grid_filename}'
@@ -257,6 +297,17 @@ class Sampling_Simulation():
     # Define sampling simulation, including computes, averaging (fixes) for results:
 
     def __init__(self, options, dsmc, assembly_list, output_folder, surface_filename):
+        """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param surface_filename: Value for surface filename.
+:type surface_filename: str"""
         
         self.compute_surf = []
         self.fix_surf = []
@@ -333,8 +384,26 @@ class Sampling_Simulation():
                     
 
 class SPARTA_Config():
+    """SPARTA_Config."""
 
     def __init__(self, options, dsmc, free, assembly_list, output_folder, sparta_config, surface_filename, grid_filename):
+        """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param free: Value for free.
+:type free: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param sparta_config: Value for sparta config.
+:type sparta_config: Any
+:param surface_filename: Value for surface filename.
+:type surface_filename: str
+:param grid_filename: Value for grid filename.
+:type grid_filename: str"""
         
         #: [str] Name of the configuration file
         self.name = sparta_config
@@ -358,8 +427,25 @@ class SPARTA_Config():
         self.sample_run =Sampling_Simulation(options, dsmc, assembly_list, output_folder, surface_filename)
 
 
-def write_sparta_config(options, dsmc, freestream, assembly_list, output_folder = '', sparta_config = 'in.config', 
-                        surface_filename = ['assembly_0_cluster_0'], grid_filename = 'grid_cluster_0.txt'):
+def write_sparta_config(options, dsmc, freestream, assembly_list, output_folder = '', sparta_config = 'in.config', surface_filename = ['assembly_0_cluster_0'], grid_filename = 'grid_cluster_0.txt'):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param freestream: Value for freestream.
+:type freestream: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param sparta_config: Value for sparta config.
+:type sparta_config: Any
+:param surface_filename: Value for surface filename.
+:type surface_filename: str
+:param grid_filename: Value for grid filename.
+:type grid_filename: str"""
+                        
 
     SPARTA_config = SPARTA_Config(options, dsmc, freestream, assembly_list, output_folder, sparta_config, surface_filename, grid_filename)
 
@@ -401,11 +487,17 @@ def write_sparta_config(options, dsmc, freestream, assembly_list, output_folder 
 
 def create_sparta_geo(options, dsmc, assembly_list, output_folder = '', surface_filename = ['assembly_0_cluster_0']):
 
-    """ Function create_sparta_geo
-
-        A function to generate sparta appropriate geometry file.
-        Geometries are computed for each time step and asssembly in the TITAN simulation. 
-    """
+    """Function create_sparta_geo
+:param options: Options or configuration object.
+:type options: object
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param surface_filename: Value for surface filename.
+:type surface_filename: str"""
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -454,19 +546,27 @@ def create_sparta_geo(options, dsmc, assembly_list, output_folder = '', surface_
 
 def compute_dsmc_properties(dsmc, free, assembly_list):
 
-    """ Function compute_dsmc_properties
+    """Function compute_dsmc_properties
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param free: Value for free.
+:type free: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:return: Return value.
+:rtype: Any"""
 
-        A function to compute related dsmc properties from the TITAN time step free-stream data.
-        Sets domain size, grid size, number density, particle scaling (fnum), species list, and time step.
-    """
+    def convert_density2numberDensity(mole_fraction,species,density):
 
-    def convert_density2numberDensity(percent_mole,species,density):
-
-        """ Function convert_density2numberDensity
-
-            A function to convert mass density to number density using Avogadro's law.
-            Uses hardcoded molar masses for each species.
-        """
+        """Function convert_density2numberDensity
+:param mole_fraction: Value for mole fraction.
+:type mole_fraction: Any
+:param species: Value for species.
+:type species: Any
+:param density: Numeric value for density.
+:type density: float
+:return: Return value.
+:rtype: Any"""
 
         Avo = 6.022169e23               #Avogrados number 
         mN2 = 28.01340/1E3;             #molar mass of nitrogen molecule, kg/mole
@@ -479,13 +579,13 @@ def compute_dsmc_properties(dsmc, free, assembly_list):
         ninf = 0
 
         for specie in species:
-            if specie == "N2":    ninf += (mN2*percent_mole[0][0])
-            if specie == "O2":    ninf += (mO2*percent_mole[0][1])
-            if specie == "O" :    ninf += (mO*percent_mole[0][2])
-            if specie == "N" :    ninf += (mN*percent_mole[0][3])
-            if specie == "Ar":    ninf += (mAr*percent_mole[0][4])
-            if specie == "He":    ninf += (mHe*percent_mole[0][5])
-            if specie == "H" :    ninf += (mH*percent_mole[0][6])
+            if specie == "N2":    ninf += (mN2*mole_fraction[0][0])
+            if specie == "O2":    ninf += (mO2*mole_fraction[0][1])
+            if specie == "O" :    ninf += (mO*mole_fraction[0][2])
+            if specie == "N" :    ninf += (mN*mole_fraction[0][3])
+            if specie == "Ar":    ninf += (mAr*mole_fraction[0][4])
+            if specie == "He":    ninf += (mHe*mole_fraction[0][5])
+            if specie == "H" :    ninf += (mH*mole_fraction[0][6])
                 
         return (Avo/ninf)*density
 
@@ -517,6 +617,15 @@ def compute_dsmc_properties(dsmc, free, assembly_list):
     # Minimum grid cell size = 1/3 of mean free path for numerical stability
     # Gives very refined grids - we won't use for now and instead will focus on grid refinement strategy
     def safe_grid_size(lo, hi, mfp): return max(1, math.ceil(abs(lo - hi) / (mfp / 3)))
+    """Documentation for the function.
+:param lo: Value for lo.
+:type lo: Any
+:param hi: Value for hi.
+:type hi: Any
+:param mfp: Value for mfp.
+:type mfp: Any
+:return: Return value.
+:rtype: Any"""
     dsmc.grid = [safe_grid_size(xlo, xhi, free.mfp),
                  safe_grid_size(ylo, yhi, free.mfp),
                  safe_grid_size(zlo, zhi, free.mfp),]
@@ -567,7 +676,7 @@ def compute_dsmc_properties(dsmc, free, assembly_list):
 
 
     # === NUMBER DENSITY ===
-    dsmc.nrho = convert_density2numberDensity(free.percent_mole, free.species_index, free.density)
+    dsmc.nrho = convert_density2numberDensity(free.mole_fraction, free.species_index, free.density)
 
     # === PARTICLE CALCULATIONS ===
     volume = abs(xhi - xlo) * abs(yhi - ylo) * abs(zhi - zlo)
@@ -579,10 +688,10 @@ def compute_dsmc_properties(dsmc, free, assembly_list):
 
     # === SPECIES DEFINITION ===
     # Species fractions hardcoded for NRLMSISE00
-    N2 = abs(np.around(1 - (np.around(free.percent_mass[0][1], 5) + np.around(free.percent_mass[0][5], 5) + np.around(free.percent_mass[0][2], 5)), 5))
-    O2 = abs(np.around(free.percent_mass[0][1], 5))
-    N  = abs(np.around(free.percent_mass[0][5], 5))
-    O  = abs(np.around(free.percent_mass[0][2], 5))
+    N2 = abs(np.around(1 - (np.around(free.mass_fraction[0][1], 5) + np.around(free.mass_fraction[0][5], 5) + np.around(free.mass_fraction[0][2], 5)), 5))
+    O2 = abs(np.around(free.mass_fraction[0][1], 5))
+    N  = abs(np.around(free.mass_fraction[0][5], 5))
+    O  = abs(np.around(free.mass_fraction[0][2], 5))
 
     dsmc.sp_frac = [N2, O2, N, O]
     species = ['N2', 'O2', 'N', 'O']
@@ -610,6 +719,19 @@ def compute_dsmc_properties(dsmc, free, assembly_list):
 
 
 def run_SPARTA(options, dsmc, assembly_list, output_folder = '', sparta_config = 'in.config', sparta_log = 'sparta_log.log'):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param sparta_config: Value for sparta config.
+:type sparta_config: Any
+:param sparta_log: Value for sparta log.
+:type sparta_log: Any"""
     
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -625,46 +747,45 @@ def run_SPARTA(options, dsmc, assembly_list, output_folder = '', sparta_config =
 
 
 def mapping_facet_COG(facet_COG, vtk_COG):
+    """Documentation for the function.
+:param facet_COG: Value for facet cog.
+:type facet_COG: Any
+:param vtk_COG: Value for vtk cog.
+:type vtk_COG: Any
+:return: Return value.
+:rtype: Any"""
 
-        A = facet_COG
-        B = vtk_COG
+    A = facet_COG
+    B = vtk_COG
 
-        tree = KDTree(B)
+    tree = KDTree(B)
+    
+    # Find the nearest point in B for each point in A
+    distances, indices = tree.query(A)
         
-        # Find the nearest point in B for each point in A
-        distances, indices = tree.query(A)
-            
-        # If you need the indices as a list
-        mapping = list(indices)
+    # If you need the indices as a list
+    mapping = list(indices)
 
-        mapping = np.array(mapping)
+    mapping = np.array(mapping)
 
-        return mapping
+    return mapping
 
 
 def read_vtu_from_sparta(filename, assembly_item, assembly_coords, idx_inv,  it):
 
-    """
-    Read the VTK file solution
-
-    Reads and retrieves the solution stored in the VTK file format
-
-    Parameters
-    ----------
-    filename: str
-        Name and location of the VTK solution file
-    assembly_coords: np.array()
-        Coordinates of the mesh nodes
-    idx_inv: np.array
-        Sort indexing such that the VTK retrieved solution corresponds to the stored mesh nodes positioning
-    options: Options
-        Object of class Options
-
-    Returns
-    -------
-    aerothermo: Aerothermo
-        object of class Aerothermo
-    """
+    """Read the VTK file solution
+:param filename: Path to the relevant file.
+:type filename: str
+:param assembly_item: Value for assembly item.
+:type assembly_item: Any
+:param assembly_coords: Value for assembly coords.
+:type assembly_coords: Any
+:param idx_inv: Value for idx inv.
+:type idx_inv: Any
+:param it: Value for it.
+:type it: Any
+:return: Return value.
+:rtype: Any"""
 
 
     # Initializes the Aerothermo object with empty arrays of the right size
@@ -722,6 +843,11 @@ def read_vtu_from_sparta(filename, assembly_item, assembly_coords, idx_inv,  it)
 
 
 def get_env_path(env_name):
+    """Documentation for the function.
+:param env_name: Value for env name.
+:type env_name: Any
+:return: Return value.
+:rtype: Any"""
     try:
         result = subprocess.run(
             ["conda", "run", "-n", env_name, "python", "-c", "import os; print(os.environ['CONDA_PREFIX'])"],
@@ -738,16 +864,17 @@ def get_env_path(env_name):
 
 def PostProcess_SPARTA(dsmc, assembly_list, output_folder = '', surface_filename = ['assembly_0_cluster_0'], grid_filename = 'grid_cluster_0.txt'):
 
-    """
-    Function to postprocess the SPARTA simulation surface output
-
-    Parameters
-    ----------
-    dsmc: dsmc data
-        Object of class dsmc
-    assembly:List_Assembly
-        Object of class List_Assembly
-    """
+    """Function to postprocess the SPARTA simulation surface output
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param assembly_list: List of assembly.
+:type assembly_list: list
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param surface_filename: Value for surface filename.
+:type surface_filename: str
+:param grid_filename: Value for grid filename.
+:type grid_filename: str"""
 
     # Gather all unique surface nodes across assemblies
     assembly_nodes = np.array([])
@@ -825,15 +952,13 @@ def PostProcess_SPARTA(dsmc, assembly_list, output_folder = '', surface_filename
 
 def write_postprocess_gridtxt(dsmc, output_folder, grid_filename):
 
-    """
-    Function to postprocess the SPARTA simulation output
-
-    Parameters
-    ----------
-    dsmc: dsmc data
-        Object of class dsmc
-    NOTE: We aren't postprocessing grid results because of computational cost so not actively used. 
-    """
+    """Function to postprocess the SPARTA simulation output
+:param dsmc: Value for dsmc.
+:type dsmc: Any
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param grid_filename: Value for grid filename.
+:type grid_filename: str"""
 
     # check working directory definition
     with open(f"{output_folder}/DSMC_Grid/grid.txt", 'w') as f:
@@ -852,16 +977,13 @@ def write_postprocess_gridtxt(dsmc, output_folder, grid_filename):
 
 def compute_dsmc_aerothermo(titan, options, cluster_tag = 0):
 
-    """
-    Function to set-up, execute and postprocess SPARTA DSMC simulation
-
-    Parameters
-    ----------
-    options: Options
-        Object of class Options
-    assembly:List_Assembly
-        Object of class List_Assembly
-    """
+    """Function to set-up, execute and postprocess SPARTA DSMC simulation
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param cluster_tag: Value for cluster tag.
+:type cluster_tag: Any"""
 
     assembly_list = titan.assembly
 

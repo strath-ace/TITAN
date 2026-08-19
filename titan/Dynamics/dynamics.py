@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""dynamics module."""
 import numpy as np
 from ..Dynamics import euler, frames
 from ..Dynamics.quaternion_operations import *
@@ -26,7 +27,22 @@ from scipy.spatial.transform import Rotation as Rot
 import pyquaternion
 
 class DerivativesPointMass():
+    """DerivativesPointMass."""
     def __init__(self, dh = 0, dv = 0, dchi = 0, dgamma = 0, dlat = 0, dlon = 0):
+        """__init__.
+
+:param dh:
+:type dh:
+:param dv:
+:type dv:
+:param dchi:
+:type dchi:
+:param dgamma:
+:type dgamma:
+:param dlat:
+:type dlat:
+:param dlon:
+:type dlon:"""
         self.dh = dh
         self.dv = dv
         self.dchi = dchi
@@ -40,6 +56,20 @@ class DerivativesCartesian():
         A class to store the derivatives information of position and velocity in the cartesian (ECEF) frame
     """
     def __init__(self, dx = 0, dy = 0, dz = 0, du = 0, dv = 0, dw = 0):
+        """__init__.
+
+:param dx:
+:type dx:
+:param dy:
+:type dy:
+:param dz:
+:type dz:
+:param du:
+:type du:
+:param dv:
+:type dv:
+:param dw:
+:type dw:"""
 
         #: [float] Derivative of the X-position
         self.dx = dx
@@ -66,6 +96,20 @@ class DerivativesAngle():
     """
 
     def __init__(self, droll = 0, dpitch = 0, dyaw = 0, ddroll = 0, ddpitch = 0, ddyaw = 0):
+        """__init__.
+
+:param droll:
+:type droll:
+:param dpitch:
+:type dpitch:
+:param dyaw:
+:type dyaw:
+:param ddroll:
+:type ddroll:
+:param ddpitch:
+:type ddpitch:
+:param ddyaw:
+:type ddyaw:"""
 
         #: [float] Derivative of the roll angle
         self.droll   = droll
@@ -117,17 +161,10 @@ def compute_gravity(h):
 """
 
 def compute_quaternion(assembly):
-    """
-    Computation of the quaternion
+    """Computation of the quaternion
 
-    This function computes the quaternion value of the body frame with respect to the ECEF frame
-    The quaternion will give the rotation matrix that will allow to pass from Body to ECEF
-
-    Parameters
-    ----------
-    assembly: Assembly
-        Object of Assembly class
-    """
+:param assembly:
+:type assembly:"""
 
     #Fix pitch and yaw values according to flight path angle, heading angle, slip and angle of attack
     assembly.pitch= assembly.trajectory.gamma+assembly.aoa
@@ -148,19 +185,12 @@ def compute_quaternion(assembly):
 
 
 def compute_cartesian(assembly, options):
-    '''
-    Computation of the cartesian dynamics
+    """Computation of the cartesian dynamics
 
-    This function computes the cartesian position and velocity of the assembly
-
-    Parameters
-    ----------
-    assembly: Assembly
-        Object of class Assembly
-    options: Options
-        Object of class Options
-
-    '''
+:param assembly:
+:type assembly:
+:param options:
+:type options:"""
 
     # The function assumes an ellipsoidal Earth
     #TODO 
@@ -183,20 +213,15 @@ def compute_cartesian(assembly, options):
     assembly.position += Rot.from_quat(assembly.quaternion).apply(assembly.COG)
 
 def compute_cartesian_derivatives(assembly, options):
-    """
-    Computation of the cartesian derivatives
+    """Computation of the cartesian derivatives
 
-    This function computes the cartesian derivatives of the position and velocity
-    It uses the gravity, aerodynamic, centrifugal and coriolis forces for the acceleration computation.
+:param assembly:
+:type assembly:
+:param options:
+:type options:
 
-    Parameters
-    ----------
-    assembly: Assembly
-        Object of class Assembly 
-    options: Options
-        Object of class Options
-
-    """
+:return:
+:rtype:"""
 
     wE = options.planet.omega()
     
@@ -240,17 +265,13 @@ def compute_cartesian_derivatives(assembly, options):
 
 
 def compute_angular_derivatives(assembly):
-    """
-    Computation of the angular derivatives in the Body frame
+    """Computation of the angular derivatives in the Body frame
 
-    This function computes the angular dericatives taking into consideration the euler and aerodynamic moments
+:param assembly:
+:type assembly:
 
-    Parameters
-    ----------
-    assembly: Assembly
-        Object of Assembly class
-
-    """
+:return:
+:rtype:"""
     angle_vel = np.array([assembly.roll_vel, assembly.pitch_vel, assembly.yaw_vel])
 
     moment_euler = - np.cross(angle_vel, assembly.inertia@angle_vel)
@@ -327,18 +348,11 @@ def compute_point_mass_derivatives(assembly):
     return DerivativesPointMass(dh = dh, dv = dv, dchi = dchi, dgamma = dgamma, dlat = dlat, dlon = dlon)
 """
 def integrate(titan, options):
-    """
-    Time integration
+    """Time integration
 
-    This function calls a time integration scheme
-
-    Parameters
-    ----------
-    titan: Assembly_list
-        Object of class Assembly_list
-    options: Options
-        Object of class Options
-
-    """
+:param titan:
+:type titan:
+:param options:
+:type options:"""
     #propagate(titan,options)
     euler.compute_Euler(titan, options)

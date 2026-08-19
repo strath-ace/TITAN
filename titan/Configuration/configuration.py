@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""configuration module."""
 import os
 import sys
 import numpy as np
@@ -36,6 +37,7 @@ from ..Thermal import pato
 from ..Geometry import gmsh_api as GMSH
 
 class Collision_options():
+    """Collision_options."""
 
     def __init__(self, post_fragmentation_iters = 0,
                  post_fragmentation_timestep = 0.0,
@@ -55,6 +57,17 @@ class Collision_options():
         self.slop = 1e-6
 
 class Trajectory():
+    """Documentation for the function.
+    :param post_fragmentation_iters: Value for post fragmentation iters.
+    :type post_fragmentation_iters: Any
+    :param post_fragmentation_timestep: Value for post fragmentation timestep.
+    :type post_fragmentation_timestep: Any
+    :param elastic_factor: Value for elastic factor.
+    :type elastic_factor: Any
+    :param max_depth: Value for max depth.
+    :type max_depth: Any
+    :param mesh_factor: Value for mesh factor.
+    :type mesh_factor: Any"""
     """ Class Trajectory
     
         A class to store the user-defined trajectory information
@@ -82,8 +95,23 @@ class Trajectory():
         self.longitude = longitude
 
 class Meshing():
+    """Documentation for the function.
+    :param altitude: Value for altitude.
+    :type altitude: Any
+    :param gamma: Numeric value for gamma.
+    :type gamma: float
+    :param chi: Value for chi.
+    :type chi: Any
+    :param velocity: Value for velocity.
+    :type velocity: Any
+    :param latitude: Value for latitude.
+    :type latitude: Any
+    :param longitude: Value for longitude.
+    :type longitude: Any"""
+    """Meshing."""
 
     def __init__(self):
+        """__init__."""
         self.far_size = 0.5
         self.surf_size = 0.5
 
@@ -96,6 +124,17 @@ class Fenics():
     """
 
     def __init__ (self, E = 68e9, FENICS = False, FE_MPI = False, FE_MPI_cores = 12, FE_verbose = False):
+        """Documentation for the function.
+:param E: Value for e.
+:type E: Any
+:param FENICS: Value for fenics.
+:type FENICS: Any
+:param FE_MPI: Value for fe mpi.
+:type FE_MPI: Any
+:param FE_MPI_cores: Value for fe mpi cores.
+:type FE_MPI_cores: Any
+:param FE_verbose: Value for fe verbose.
+:type FE_verbose: Any"""
 
         #: [Pa] Young Modulus
         self.E = E
@@ -118,6 +157,13 @@ class Dynamics():
     """
 
     def __init__(self, time_step = 0, time = 0, propagator = 'help'):
+        """Documentation for the function.
+:param time_step: Value for time step.
+:type time_step: Any
+:param time: Numeric value for time.
+:type time: float
+:param propagator: Value for propagator.
+:type propagator: Any"""
 
         #: [seconds] Physical time of the simulation.
         self.time = time
@@ -174,7 +220,29 @@ class Dynamics():
 
 
 class CFD():
+    """CFD."""
     def __init__(self, solver = 'NAVIER_STOKES', cfl = 0.5, iters= 1, muscl = 'NO', conv_method = 'AUSM', adapt_iter = 2, cores = 1, cfd_restart = False, restart_grid = 0, restart_iter = 0):
+        """Documentation for the function.
+:param solver: Value for solver.
+:type solver: Any
+:param cfl: Value for cfl.
+:type cfl: Any
+:param iters: Value for iters.
+:type iters: Any
+:param muscl: Value for muscl.
+:type muscl: Any
+:param conv_method: Value for conv method.
+:type conv_method: Any
+:param adapt_iter: Value for adapt iter.
+:type adapt_iter: Any
+:param cores: Value for cores.
+:type cores: Any
+:param cfd_restart: Value for cfd restart.
+:type cfd_restart: Any
+:param restart_grid: Value for restart grid.
+:type restart_grid: Any
+:param restart_iter: Value for restart iter.
+:type restart_iter: Any"""
         
         #: [str] Name of the CFD solver
         self.solver = solver
@@ -207,7 +275,17 @@ class CFD():
         self.restart_iter = restart_iter                
 
 class Bloom():
+    """Bloom."""
     def __init__(self, flag = False, layers = 20, spacing = 0.0006, growth_rate = 1.075):
+        """Documentation for the function.
+:param flag: Flag for flag.
+:type flag: bool
+:param layers: Value for layers.
+:type layers: Any
+:param spacing: Value for spacing.
+:type spacing: Any
+:param growth_rate: Value for growth rate.
+:type growth_rate: Any"""
 
         #: [bool] Flag value indicating the use of Bloom to generate the boundary layer mesh
         self.flag = flag
@@ -222,7 +300,19 @@ class Bloom():
         self.growth_rate = growth_rate
 
 class Amg():
+    """Amg."""
     def __init__(self, flag = False, p=4,c = 100000, hgrad = 1.6, sensor = 'Mach'):
+        """Documentation for the function.
+:param flag: Flag for flag.
+:type flag: bool
+:param p: Value for p.
+:type p: Any
+:param c: Value for c.
+:type c: Any
+:param hgrad: Value for hgrad.
+:type hgrad: Any
+:param sensor: Value for sensor.
+:type sensor: Any"""
 
         #: [bool] Flag value indicating the use of Bloom to adapt the mesh
         self.flag = flag
@@ -242,7 +332,15 @@ class Amg():
 
 
 class Thermal():
+    """Thermal."""
     def __init__(self, ablation = False, ablation_mode = "0D", post_fragment_tetra_ablation = False):
+        """Documentation for the function.
+:param ablation: Value for ablation.
+:type ablation: Any
+:param ablation_mode: Value for ablation mode.
+:type ablation_mode: Any
+:param post_fragment_tetra_ablation: Value for post fragment tetra ablation.
+:type post_fragment_tetra_ablation: Any"""
 
         #: [boolean] Flag to perform ablation
         self.ablation = False
@@ -263,7 +361,21 @@ class Thermal():
         self.excess_mult = 2.5
 
 class PATO():
+    """PATO."""
     def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = False):
+        """Documentation for the function.
+:param flag: Flag for flag.
+:type flag: bool
+:param time_step: Value for time step.
+:type time_step: Any
+:param n_cores: Integer value for n cores.
+:type n_cores: int
+:param pato_mode: Value for pato mode.
+:type pato_mode: Any
+:param fstrip: Value for fstrip.
+:type fstrip: Any
+:param conduction_flag: Value for conduction flag.
+:type conduction_flag: Any"""
 
 
         #: [boolean] Flag to perform PATO simulation
@@ -286,6 +398,7 @@ class PATO():
 
 
 class Radiation():
+    """Radiation."""
     def __init__(self, particle_emissions = False,
                  spectral = False, spectral_freq = 10000, phi = 0, theta = 0, wavelengths = [0]):
 
@@ -303,10 +416,6 @@ class Radiation():
         self.wavelengths = wavelengths             
 class DSMC():
 
-    """ DSMC configuration class.
-
-        Stores domain, species, timestep, and iteration controls for SPARTA simulations.
-    """
 
     def __init__(self, mode = 'automatic', cores = 4, acc = 1.0, ppc = 15,  run_adapt = 1, run_unsteady = 1, 
                     run_sample = 1, stats_freq = 1,  Nrepeat = 1, Nevery = 1, Nadapt = 1, Ntotal = 1):
@@ -317,6 +426,31 @@ class DSMC():
         self.mode = mode
 
         # [int] Number of cores used per simulation:
+        """Documentation for the function.
+:param mode: Value for mode.
+:type mode: str
+:param cores: Value for cores.
+:type cores: Any
+:param acc: Value for acc.
+:type acc: Any
+:param ppc: Value for ppc.
+:type ppc: Any
+:param run_adapt: Value for run adapt.
+:type run_adapt: Any
+:param run_unsteady: Value for run unsteady.
+:type run_unsteady: Any
+:param run_sample: Value for run sample.
+:type run_sample: Any
+:param stats_freq: Value for stats freq.
+:type stats_freq: Any
+:param Nrepeat: Value for nrepeat.
+:type Nrepeat: Any
+:param Nevery: Value for nevery.
+:type Nevery: Any
+:param Nadapt: Value for nadapt.
+:type Nadapt: Any
+:param Ntotal: Value for ntotal.
+:type Ntotal: Any"""
         self.cores = cores
 
         # [float] Accommodation coefficient
@@ -394,6 +528,19 @@ class Aerothermo():
     """
 
     def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100, mixture = "air5", SoI_rad = 10.0):
+        """Documentation for the function.
+:param heat_model: Value for heat model.
+:type heat_model: Any
+:param knc_pressure: Numeric value for knc pressure.
+:type knc_pressure: float
+:param knc_heatflux: Value for knc heatflux.
+:type knc_heatflux: Any
+:param knf: Value for knf.
+:type knf: Any
+:param mixture: Value for mixture.
+:type mixture: Any
+:param SoI_rad: Value for soi rad.
+:type SoI_rad: Any"""
 
         #: [str] Name of the heatflux model to be used
         self.heat_model = heat_model
@@ -420,6 +567,7 @@ class Freestream():
     """
 
     def __init__(self):
+        """__init__."""
 
         #: [Pa] Value of the freestream Pressure
         self.pressure = None
@@ -490,6 +638,7 @@ class GRAM():
     """
 
     def __init__(self):
+        """__init__."""
 
         # [str] Path to GRAM directory
         self.gramPath = ''
@@ -528,6 +677,7 @@ class Explosion():
     A class to store the user-defined explosion model options
     """
     def __init__(self):
+        """__init__."""
         
         # [float] Larger values pull explosion nucleus towards object centroid, helps with fragment robustness 
         self.nucleus_CoG_bias = 0.2
@@ -548,12 +698,23 @@ class Explosion():
         self.vel_method = 'nasa_conservation'
 
 class Uncertainty():
+    """Uncertainty."""
     def __init__(self, yaml_path='./Uncertainty/uq_example.yaml', master_seed = 0, n_procs=1):
+        """Documentation for the function.
+:param yaml_path: Value for yaml path.
+:type yaml_path: str
+:param master_seed: Value for master seed.
+:type master_seed: Any
+:param n_procs: Integer value for n procs.
+:type n_procs: int"""
         self.yaml = yaml_path
         self.prime_seed = master_seed
         self.n_procs = n_procs
     
     def build_quantities(self, path):
+        """Documentation for the function.
+:param path: Value for path.
+:type path: str"""
         self.outputs = [name.strip() for name in self.outputs.split(',')] if not self.outputs=='demise_points' else ['Latitude','Longitude','Altitude']
         self.objects = [name.strip() for name in self.objects.split(',')]
         for i_obj, obj in enumerate(self.objects):
@@ -641,17 +802,56 @@ class Options():
 
         
     def clean_up_folders(self):
-        """
-        Cleans the simulation output folder specified in the configuration file
-        """
+        """Documentation for the function.
+:param iters: Value for iters.
+:type iters: Any
+:param time_step: Value for time step.
+:type time_step: Any
+:param fidelity: Value for fidelity.
+:type fidelity: Any
+:param fenics: Value for fenics.
+:type fenics: Any
+:param FE_MPI: Value for fe mpi.
+:type FE_MPI: Any
+:param FE_MPI_cores: Value for fe mpi cores.
+:type FE_MPI_cores: Any
+:param FE_verbose: Value for fe verbose.
+:type FE_verbose: Any
+:param case: Value for case.
+:type case: Any
+:param E: Value for e.
+:type E: Any
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param propagator: Value for propagator.
+:type propagator: Any
+:param adapt_propagator: Value for adapt propagator.
+:type adapt_propagator: Any
+:param assembly_rotation: Value for assembly rotation.
+:type assembly_rotation: Any
+:param manifold_correction: Value for manifold correction.
+:type manifold_correction: Any
+:param adapt_time_step: Value for adapt time step.
+:type adapt_time_step: Any
+:param rerr_tol: Value for rerr tol.
+:type rerr_tol: Any
+:param num_joints: Integer value for num joints.
+:type num_joints: int
+:param frame_for_writing: Value for frame for writing.
+:type frame_for_writing: Any
+:param max_time_step: Value for max time step.
+:type max_time_step: Any
+:param save_displacement: Value for save displacement.
+:type save_displacement: Any
+:param save_vonMises: Value for save vonmises.
+:type save_vonMises: Any"""
+        """Cleans the simulation output folder specified in the configuration file"""
 
         if os.path.isdir(self.output_folder):
             shutil.rmtree(self.output_folder)
 
     def create_output_folders(self):
-        """
-        Creates the folder structure to save the soluions
-        """
+        """Creates the folder structure to save the soluions"""
 
         Path(self.output_folder).mkdir(parents=True, exist_ok=True)
         Path(self.output_folder+'/Data/').mkdir(parents=True, exist_ok=True)
@@ -675,6 +875,9 @@ class Options():
             Path(self.output_folder+'/DSMC_Grid').mkdir(parents=True, exist_ok=True)
 
     def save_mesh(self,titan):
+        """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object"""
         outfile = open(self.output_folder + '/Restart/'+'Mesh.p','wb')
         recursion_limit = sys.getrecursionlimit()
         try:
@@ -688,16 +891,13 @@ class Options():
         outfile.close() 
 
     def save_state(self, titan, i = 0, CFD = False):
-        """
-        Saves the TITAN object state
-
-        Parameters
-        ----------
-        titan : Assembly_list
-            Object of class Assebly_list
-        i: int
-            Iteration number.
-        """
+        """Saves the TITAN object state
+:param titan: TITAN simulation object.
+:type titan: object
+:param i: Integer value for i.
+:type i: int
+:param CFD: Value for cfd.
+:type CFD: Any"""
 
         #titan.high_fidelity_model = None 
         # titan.low_fidelity_model = None 
@@ -737,6 +937,9 @@ class Options():
             collision.generate_collision_handler(titan, self)
 
     def read_mesh(self):
+        """Documentation for the function.
+:return: Return value.
+:rtype: Any"""
         infile = open(self.output_folder + '/Restart/'+ 'Mesh.p','rb')
                 
         is_loaded = False
@@ -755,14 +958,11 @@ class Options():
         return titan
 
     def read_state(self, i = 0):
-        """
-        Load last state of the TITAN object
-
-        Returns
-        -------
-        titan: Assembly_list
-            Object of class Assembly_list
-        """
+        """Load last state of the TITAN object
+:param i: Integer value for i.
+:type i: int
+:return: Return value.
+:rtype: Any"""
 
         if self.fidelity.lower() == 'high' and self.cfd.cfd_restart:
             infile = open(self.output_folder + '/Restart/'+ 'Assembly_State_CFD_'+str(i)+'.p','rb')
@@ -781,6 +981,21 @@ class Options():
         return titan
 
 def get_config_value(configParser, variable, section, field, var_type, list_type = None):
+    """Documentation for the function.
+:param configParser: Value for configparser.
+:type configParser: Any
+:param variable: Value for variable.
+:type variable: Any
+:param section: Value for section.
+:type section: Any
+:param field: Value for field.
+:type field: Any
+:param var_type: Value for var type.
+:type var_type: Any
+:param list_type: Value for list type.
+:type list_type: Any
+:return: Return value.
+:rtype: Any"""
     
     if configParser.has_option(section, field):
 
@@ -828,6 +1043,11 @@ def get_config_value(configParser, variable, section, field, var_type, list_type
     return variable
 
 def check_angle(keywords):
+    """Documentation for the function.
+:param keywords: Value for keywords.
+:type keywords: Any
+:return: Return value.
+:rtype: Any"""
 
     angle = float(keywords)
     angle *=np.pi/180.0
@@ -835,10 +1055,20 @@ def check_angle(keywords):
     return angle
 
 def check_fidelity(fidelity):
+    """Documentation for the function.
+:param fidelity: Value for fidelity.
+:type fidelity: Any
+:return: Return value.
+:rtype: Any"""
     return fidelity
 
 
 def check_connectivity(connectivity):
+    """Documentation for the function.
+:param connectivity: Value for connectivity.
+:type connectivity: Any
+:return: Return value.
+:rtype: Any"""
 
     connectivity = connectivity.replace('[','').replace(']','').replace(' ','').split(',')
     connectivity = [int(i) for i in connectivity]
@@ -848,6 +1078,11 @@ def check_connectivity(connectivity):
     return connectivity
 
 def check_wavelengths(wavelengths):
+    """Documentation for the function.
+:param wavelengths: Value for wavelengths.
+:type wavelengths: Any
+:return: Return value.
+:rtype: Any"""
 
     wavelengths = wavelengths.replace('[','').replace(']','').replace(' ','').split(',')
     wavelengths = [float(i) for i in wavelengths]
@@ -856,6 +1091,11 @@ def check_wavelengths(wavelengths):
     return wavelengths
 
 def check_initial_condition_array(initial_condition):
+    """Documentation for the function.
+:param initial_condition: Value for initial condition.
+:type initial_condition: Any
+:return: Return value.
+:rtype: Any"""
     
     ids = []
     condition = []
@@ -871,19 +1111,15 @@ def check_initial_condition_array(initial_condition):
     return np.array(ids), np.array(condition)
 
 def read_trajectory(configParser, frame, planet=None):
-    """
-    Read the Trajectory specified in the config file
-
-    Parameters
-    ----------
-    configParser: configParser
-        Object of Config Parser
-
-    Returns
-    -------
-    trajectory: Trajectory
-        Object of class Trajectory
-    """
+    """Read the Trajectory specified in the config file
+:param configParser: Value for configparser.
+:type configParser: Any
+:param frame: Value for frame.
+:type frame: Any
+:param planet: Value for planet.
+:type planet: Any
+:return: Return value.
+:rtype: Any"""
 
     trajectory = Trajectory()
     if frame.lower()=='geodetic':
@@ -945,21 +1181,13 @@ def read_trajectory(configParser, frame, planet=None):
     return trajectory
 
 def read_geometry(configParser, options):
-    """
-    Geometry pre-processing
-
-    Reads the specified configuration file and creates a list with the information of the objects and assemblies
-
-    Parameters
-    ----------
-    configParser: configParser
-        Object of Config Parser
-
-    Returns
-    -------
-    titan: Assembly_list
-        Object of class Assembly_list
-    """
+    """Geometry pre-processing
+:param configParser: Value for configparser.
+:type configParser: Any
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
 
     #Reads the path to the geometrical files
     path = get_config_value(configParser, '', 'Assembly', 'Path', 'str')
@@ -1104,6 +1332,13 @@ def read_geometry(configParser, options):
     return titan
 
 def read_initial_conditions(titan, options, configParser):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param configParser: Value for configparser.
+:type configParser: Any"""
 
     ids, variable = get_config_value(configParser, (None,np.array([0,0,0])), 'Initial Conditions', 'Angular Velocity', 'custom', 'initial_condition')
     if ids != None:
@@ -1115,24 +1350,15 @@ def read_initial_conditions(titan, options, configParser):
 
 
 def read_config_file(configParser, postprocess = "", emissions = ""):
-    """
-    Read the config file
-
-    Parameters
-    ----------
-    configParser: configParser
-        Object of Config Parser
-    postprocess: str
-        Postprocess method of the solution. If not None, only returns output_folder
-
-    Returns
-    -------
-    options: Options
-        Object of class Options
-    titan: Assembly_list
-        List of objects of class Assembly_list
-
-    """
+    """Read the config file
+:param configParser: Value for configparser.
+:type configParser: Any
+:param postprocess: Value for postprocess.
+:type postprocess: Any
+:param emissions: Value for emissions.
+:type emissions: Any
+:return: Return value.
+:rtype: Any"""
 
     options = Options()
     

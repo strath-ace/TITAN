@@ -18,6 +18,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""stl_verify_blender module."""
 import sys
 import argparse
 import pathlib
@@ -31,6 +32,11 @@ except ImportError:
     #sys.exit(1)
 
 def output_stats(stats_dict,filepath):
+    """Documentation for the function.
+:param stats_dict: Dictionary of stats.
+:type stats_dict: dict
+:param filepath: Path to the relevant file.
+:type filepath: str"""
     stats_df = pd.DataFrame.from_dict(stats_dict)
     do_header = True
     if pathlib.Path(filepath).resolve().exists(): do_header = False
@@ -38,6 +44,13 @@ def output_stats(stats_dict,filepath):
                     mode='a',header=do_header, index=False)
 
 def mesh_verify_selected(fix=True, merge_dist=0.0):
+    """Documentation for the function.
+:param fix: Value for fix.
+:type fix: Any
+:param merge_dist: Value for merge dist.
+:type merge_dist: Any
+:return: Return value.
+:rtype: Any"""
     ## Delete loose, fill holes and check normals
     is_manifold = True
     bpy.ops.object.mode_set(mode='EDIT')

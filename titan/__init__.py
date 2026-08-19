@@ -86,19 +86,15 @@ __all__ = [
 
 def main(filename="", postprocess="", filter_name=None, emissions=""):
     """TITAN main function entry point
-    
-    Parameters
-    ----------
-    filename : str
-        Name of the configuration file
-    postprocess : str
-        Postprocess method. If specified, TITAN will only perform the postprocess 
-        of the already obtained solution in the specified output folder.
-        The config file still needs to be specified.
-    filter_name : str, optional
-        Filter name for postprocessing
-    emissions : str, optional
-        Emissions postprocessing flag
-    """
-    from .run_TITAN import main as run_main
+:param filename: Path to the relevant file.
+:type filename: str
+:param postprocess: Value for postprocess.
+:type postprocess: Any
+:param filter_name: Value for filter name.
+:type filter_name: Any
+:param emissions: Value for emissions.
+:type emissions: Any
+:return: Return value.
+:rtype: Any"""
+    from .__main__ import main as run_main
     return run_main(filename, postprocess, filter_name, emissions)

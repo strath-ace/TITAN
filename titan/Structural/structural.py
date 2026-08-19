@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""structural module."""
 import numpy as np
 try: 
     from ..Structural.FENICS import FEniCS_FE_v08 as fenics
@@ -30,6 +31,11 @@ from ..Forces.forces import compute_inertial_forces
 #save_vonMises = False
 
 def run_FENICS(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
 
     #Flag to regenerate subdomain
 #    regen_subdom = False

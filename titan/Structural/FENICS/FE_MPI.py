@@ -80,7 +80,13 @@ for obj, vol_bc_id in vol_bc_dict.items():
             
 
 def build_nullspace(V, x):
-    """Function to build null space for 3D elasticity"""
+    """Function to build null space for 3D elasticity
+:param V: Value for v.
+:type V: Any
+:param x: Numeric value for x.
+:type x: float
+:return: Return value.
+:rtype: Any"""
 
     # Create list of vectors for null space
     nullspace_basis = [x.copy() for i in range(6)]
@@ -120,6 +126,11 @@ lmbda = E*nu/((1.0 + nu)*(1.0 - 2.0*nu))
 
 # Stress computation
 def sigma(v):
+    """Documentation for the function.
+:param v: Value for v.
+:type v: Any
+:return: Return value.
+:rtype: Any"""
     return 2.0*mu*sym(grad(v)) + lmbda*tr(sym(grad(v)))*Identity(len(v))
 
 # Define variational problem

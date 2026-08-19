@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+"""measurement module."""
 import numpy as np
 import pymap3d
 import pandas as pd
@@ -26,6 +27,17 @@ from ..Dynamics.quaternion_operations import quaternion_normalize
 from scipy.interpolate import PchipInterpolator
 
 def measurement_func(measurements, options, augmented_state=False, x=None):
+    """Documentation for the function.
+:param measurements: Value for measurements.
+:type measurements: Any
+:param options: Options or configuration object.
+:type options: object
+:param augmented_state: Value for augmented state.
+:type augmented_state: Any
+:param x: Numeric value for x.
+:type x: float
+:return: Return value.
+:rtype: Any"""
     if x==None: raise Exception('Must provide state')
     output_measures = []
     if not np.all(['pass' in measurements]): data = measurement_from_state(options, augmented_state, x)
@@ -38,6 +50,15 @@ def measurement_func(measurements, options, augmented_state=False, x=None):
     return np.array(output_measures)
 
 def measurement_from_state(options, augmented=False, state_vector=None):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param augmented: Value for augmented.
+:type augmented: Any
+:param state_vector: Value for state vector.
+:type state_vector: Any
+:return: Return value.
+:rtype: Any"""
     if state_vector  is None: raise Exception('Need to provide state vector')
     if augmented: 
         n_components = (len(state_vector) -13)/2
@@ -87,8 +108,18 @@ def measurement_from_state(options, augmented=False, state_vector=None):
     return measurement_dict
 
 class StateObservation():
+    """StateObservation."""
     # This is a class that can provide a measurement from an available data source
     def __init__(self, kind='LUT', source=None, independent_variable='time', measurements = []):
+        """Documentation for the function.
+:param kind: Value for kind.
+:type kind: Any
+:param source: Value for source.
+:type source: Any
+:param independent_variable: Value for independent variable.
+:type independent_variable: Any
+:param measurements: Value for measurements.
+:type measurements: Any"""
         self.kind = kind
         self.source = None
         self.independent_variable = independent_variable
@@ -101,6 +132,11 @@ class StateObservation():
             self.interpolator = PchipInterpolator(x=x, y=ys)
 
     def observe(self, x):
+        """Documentation for the function.
+:param x: Numeric value for x.
+:type x: float
+:return: Return value.
+:rtype: Any"""
         match self.kind:
             case 'LUT': return self.interpolator(x)
             case 'callable': return self.source(x)

@@ -1,3 +1,4 @@
+"""propagation module."""
 import os
 from ..Dynamics import dynamics, frames, collision
 from ..Dynamics.global_collisions import global_collision_physics
@@ -34,6 +35,11 @@ from copy import copy, deepcopy
 ## NB: All current methods are explicit
 
 def propagate(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
     # Main propagator function, updates the state of all assemblies according to...
     #  a 13-D state vector of form [Position(x/y/z),Velocity(u/v/w),Quaternion(w/i/j/k),Angular velocity(roll_vel,pitch_vel,yaw_vel)]
     #  a propagator specified by options.dynamics.propagator
@@ -123,6 +129,17 @@ def propagate(titan, options):
     
 
 def state_equation(titan,options,time,state_vectors):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param time: Numeric value for time.
+:type time: float
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:return: Return value.
+:rtype: Any"""
     if not hasattr(titan,'nfeval'): titan.nfeval = 1
     else: titan.nfeval +=1
     # This state equation will for each assembly compute the rate of change of a state vector (at that state),
@@ -201,6 +218,19 @@ def state_equation(titan,options,time,state_vectors):
     return d_dt_state_vectors, aero_states
 
 def update_dynamic_attributes(assembly,state_vector,options, force=False, return_output_array=False):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param state_vector: Value for state vector.
+:type state_vector: Any
+:param options: Options or configuration object.
+:type options: object
+:param force: Numeric value for force.
+:type force: float
+:param return_output_array: Value for return output array.
+:type return_output_array: Any
+:return: Return value.
+:rtype: Any"""
     # This function takes an ECEF/BODY state vector and applies it to all the necessary attributes of a TITAN assembly
     # This ensures the new dynamics code plays nicely with other parts of TITAN.
 
@@ -220,7 +250,6 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
         assembly.quaternion[2] = state_vector[8]
         assembly.quaternion[3] = state_vector[9]
         assembly.quaternion = quaternion_normalize(assembly.quaternion)
-
         assembly.roll_vel = state_vector[10]
         assembly.pitch_vel = state_vector[11]
         assembly.yaw_vel = state_vector[12]
@@ -308,6 +337,11 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
     return assembly
 
 def construct_state_vector(assembly, augmented = False):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param augmented: Value for augmented.
+:type augmented: Any"""
     assembly.state_vector = [0 for _ in range(13)]
 
     assembly.state_vector[0]  = assembly.position[0]
@@ -336,6 +370,13 @@ def construct_state_vector(assembly, augmented = False):
     assembly.derivs_prior = []
 
 def collect_state_vectors(titan,options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     # Collect state vectors
 
     current_state_vectors = []
@@ -367,6 +408,13 @@ def collect_state_vectors(titan,options):
     return current_state_vectors, state_vectors_prior, derivatives_prior
 
 def append_derivatives(titan,options,new_derivs):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param new_derivs: Value for new derivs.
+:type new_derivs: Any"""
     n_derivs = titan.post_event_iter if titan.post_event_iter<options.dynamics.n_derivs_to_hold else options.dynamics.n_derivs_to_hold
     for i_assem, _assembly, in enumerate(titan.assembly):
         if n_derivs==options.dynamics.n_derivs_to_hold and len(_assembly.derivs_prior)>0:
@@ -374,6 +422,11 @@ def append_derivatives(titan,options,new_derivs):
         _assembly.derivs_prior.append(new_derivs[i_assem])
 
 def write_dense_output(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
     ## This function writes outputs of the previous iteration as a dense output as specified by the time fidelity option
     true_time = titan.time
     times = np.arange(titan.last_output_time+options.time_fidelity,true_time+titan.rk_adapt.step_size, options.time_fidelity)
@@ -423,6 +476,17 @@ def write_dense_output(titan, options):
         df.to_csv(options.output_folder + '/Data/'+ 'data_smooth.csv',header=header,mode='a',index=False)
 
 def generate_dense_timestep(titan, options, interpolant, time):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param interpolant: Value for interpolant.
+:type interpolant: Any
+:param time: Numeric value for time.
+:type time: float
+:return: Return value.
+:rtype: Any"""
     
     n_assem = len(titan.assembly)
     state_vectors = unflatten_state_vectors(titan, options, interpolant(time))
@@ -448,6 +512,13 @@ def generate_dense_timestep(titan, options, interpolant, time):
     
 
 def get_integrator_func(options, choice):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param choice: Value for choice.
+:type choice: Any
+:return: Return value.
+:rtype: Any"""
 
     print('Selected...')
     if 'area' in choice:
@@ -563,6 +634,21 @@ AB_coeffs = {'1' : [       1.0],
 #############################################################################################################################################
 #############################################################################################################################################
 def explicit_euler(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    """Documentation for the function.
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:param state_vectors_prior: Value for state vectors prior.
+:type state_vectors_prior: Any
+:param derivatives_prior: Value for derivatives prior.
+:type derivatives_prior: Any
+:param dt: Numeric value for dt.
+:type dt: float
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     new_state_vectors = []
     d_dt_state_vectors, aero_states = state_equation(titan,options,dt,state_vectors)
     for i_assem, _assembly in enumerate(titan.assembly):
@@ -573,6 +659,21 @@ def explicit_euler(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_bwd_diff(state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    """Documentation for the function.
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:param state_vectors_prior: Value for state vectors prior.
+:type state_vectors_prior: Any
+:param derivatives_prior: Value for derivatives prior.
+:type derivatives_prior: Any
+:param dt: Numeric value for dt.
+:type dt: float
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     new_state_vectors = []
     if titan.post_event_iter==0:
         new_state_vectors, d_dt_state_vectors = explicit_euler(state_vectors,state_vectors_prior,
@@ -586,6 +687,23 @@ def explicit_bwd_diff(state_vectors,state_vectors_prior,derivatives_prior,dt,tit
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_adams_bashforth_n(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    """Documentation for the function.
+:param N: Integer value for n.
+:type N: int
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:param state_vectors_prior: Value for state vectors prior.
+:type state_vectors_prior: Any
+:param derivatives_prior: Value for derivatives prior.
+:type derivatives_prior: Any
+:param dt: Numeric value for dt.
+:type dt: float
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     new_state_vectors = []
 
     d_dt_state_vectors, aero_states = state_equation(titan,options,dt,state_vectors)
@@ -601,6 +719,23 @@ def explicit_adams_bashforth_n(N,state_vectors,state_vectors_prior,derivatives_p
     return new_state_vectors, d_dt_state_vectors
 
 def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    """Documentation for the function.
+:param algorithm: Value for algorithm.
+:type algorithm: Any
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:param state_vectors_prior: Value for state vectors prior.
+:type state_vectors_prior: Any
+:param derivatives_prior: Value for derivatives prior.
+:type derivatives_prior: Any
+:param dt: Numeric value for dt.
+:type dt: float
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     if not hasattr(titan,'rk_params'): recompute_params = True
     elif not np.shape(titan.rk_params['state'])==np.shape(np.array(flatten_state_vectors(state_vectors))): 
         recompute_params = True
@@ -615,7 +750,19 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
                            'dense'   : options.time_fidelity>0}
 
     if not hasattr(titan, 'rk_fun')   or recompute_params: 
-        def rk_wrapper(titan,options,time,vector): return state_equation(titan,options,time,vector)[0]
+        def rk_wrapper(titan,options,time,vector): 
+            """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param time: Numeric value for time.
+:type time: float
+:param vector: Value for vector.
+:type vector: list[float]
+:return: Return value.
+:rtype: Any"""
+            return state_equation(titan,options,time,vector)[0]
         titan.rk_fun=partial(rk_wrapper,titan,options)
 
     if not hasattr(titan, 'rk_adapt') or recompute_params: titan.rk_adapt=algorithm(fun=titan.rk_fun,
@@ -639,6 +786,23 @@ def explicit_rk_adapt_wrapper(algorithm, state_vectors,state_vectors_prior,deriv
     return unflatten_state_vectors(titan, options, titan.rk_adapt.y), None
 
 def proj_area_adapt_wrapper(N, state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    """Documentation for the function.
+:param N: Integer value for n.
+:type N: int
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:param state_vectors_prior: Value for state vectors prior.
+:type state_vectors_prior: Any
+:param derivatives_prior: Value for derivatives prior.
+:type derivatives_prior: Any
+:param dt: Numeric value for dt.
+:type dt: float
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     if titan.post_event_iter==0:
         new_state_vectors, d_dt_state_vectors = explicit_euler(state_vectors,state_vectors_prior,
                                                                          derivatives_prior,dt,titan,options)
@@ -711,6 +875,23 @@ def proj_area_adapt_wrapper(N, state_vectors,state_vectors_prior,derivatives_pri
 
 
 def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    """Documentation for the function.
+:param N: Integer value for n.
+:type N: int
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:param state_vectors_prior: Value for state vectors prior.
+:type state_vectors_prior: Any
+:param derivatives_prior: Value for derivatives prior.
+:type derivatives_prior: Any
+:param dt: Numeric value for dt.
+:type dt: float
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     k_n = []
     for i_k in range(RK_N_actual[str(N)]):
         k_state_vectors = state_vectors
@@ -730,6 +911,25 @@ def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan
     return new_state_vectors, k_n[0]
 
 def adaptive_integrator_selector(N_AB, N_RK,state_vectors,state_vectors_prior,derivatives_prior,dt,titan,options):
+    """Documentation for the function.
+:param N_AB: Integer value for n ab.
+:type N_AB: int
+:param N_RK: Integer value for n rk.
+:type N_RK: int
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:param state_vectors_prior: Value for state vectors prior.
+:type state_vectors_prior: Any
+:param derivatives_prior: Value for derivatives prior.
+:type derivatives_prior: Any
+:param dt: Numeric value for dt.
+:type dt: float
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     ## This algorithm will use Adams Bashforth unless extreme angular accelerations are detected, in that case we use RK
     ## A somewhat experimental method that shouldn't be any less accurate than either of the methods supplied
     if titan.post_event_iter==0: return explicit_adams_bashforth_n(N_AB,state_vectors,state_vectors_prior,
@@ -772,6 +972,15 @@ def adaptive_integrator_selector(N_AB, N_RK,state_vectors,state_vectors_prior,de
     return new_state_vectors, d_dt_state_vectors
     
 def unflatten_state_vectors(titan, options, state_vectors):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:return: Return value.
+:rtype: Any"""
     new_state_vectors = []
     start_pointer = 0
     for _assembly in titan.assembly:
@@ -781,11 +990,29 @@ def unflatten_state_vectors(titan, options, state_vectors):
     return new_state_vectors
 
 def flatten_state_vectors(state_vectors):
+    """Documentation for the function.
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:return: Return value.
+:rtype: Any"""
     new_state_vectors = []
     for state_vector in state_vectors: [new_state_vectors.append(elem) for elem in state_vector]
     return new_state_vectors
 
 def states_op(titan, options, state_vectors, operand, operation='sv+'):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param state_vectors: Value for state vectors.
+:type state_vectors: Any
+:param operand: Value for operand.
+:type operand: Any
+:param operation: Value for operation.
+:type operation: Any
+:return: Return value.
+:rtype: Any"""
     out_sv = []
     if 'sv' in operation:
         for state_1, state_2 in zip(state_vectors, operand):

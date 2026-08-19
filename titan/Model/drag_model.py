@@ -17,17 +17,28 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""drag_model module."""
 from scipy.interpolate import interp1d
 import pandas as pd
 import os
 
 def read_csv(filename = ""):
+	"""Documentation for the function.
+:param filename: Path to the relevant file.
+:type filename: str
+:return: Return value.
+:rtype: Any"""
 	path = os.path.dirname(os.path.abspath(__file__))+'/Drag/'+filename
 	g_cd = pd.read_csv(path)
 	f = interp1d(g_cd.iloc[:,0], g_cd.iloc[:,1], kind = 'linear', fill_value = 'extrapolate')
 	return f
 
 def drag_galileo(Mach):
+	"""Documentation for the function.
+:param Mach: Value for mach.
+:type Mach: Any
+:return: Return value.
+:rtype: Any"""
 	path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 	g_cd = pd.read_csv(path+'/Model/Drag/Galileo_CD.csv')

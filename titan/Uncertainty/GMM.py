@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+"""GMM module."""
 import numpy as np
 from copy import copy
 from scipy.stats import multivariate_normal
@@ -29,7 +30,6 @@ class recursive_gaussan_mixture():
     """
     def __init__(self, mean : np.ndarray, cov : np.ndarray, weight = 1.0, is_leaf = True, library_size = 3, tree_size = 1, rng = np.random.RandomState(dt.now().microsecond), sigma_parameters = [1e-3,2,0]):
         """Create a new GMM node, by default this creates a single node GMM, equivalent to a standard normal distribution but equipped with the split_leaf() method
-
         :param mean: Vector describing the mean of the distribution
         :type mean: np.ndarray
         :param cov: Matrix describing the covariance of the distribution
@@ -46,7 +46,7 @@ class recursive_gaussan_mixture():
         :type rng: np.random.RandomState, optional
         :param sigma_parameters: Sigma point generator parameters (Alpha, Beta, Kappa), defaults to [1e-3,2,0]
         :type sigma_parameters: list, optional
-        """
+"""
         ## Statistical Parameters of Gaussian
         self.mean = np.array(mean)
         self.cov = cov
@@ -90,13 +90,11 @@ class recursive_gaussan_mixture():
 
     def get_mixture_parameters(self,rootcov : np.ndarray):
         """Computes new mixture parameters that would result from splitting the gaussian along
-        the principal axis of its covariance hyper-ellipsoid
-
         :param rootcov: Covariance of the root node to be split
         :type rootcov: np.ndarray
-        :return: Weights, Means, Covariance
-        :rtype: np.ndarray, np.ndarray, np.ndarray
-        """
+:return: Weights, Means, Covariance
+:rtype: np.ndarray, np.ndarray, np.ndarray
+"""
 
         self.eigenvalues, self.eigenvectors = np.linalg.eigh(rootcov)
         split_axis = len(self.eigenvalues)-1
@@ -111,28 +109,25 @@ class recursive_gaussan_mixture():
     
     def get_shannon_entropy_change(self) -> float:
         """Computes the Shannon Entropy of the distribution, appends it to the list of entropies and returns the delta from the previous entropy
-
-        :return: dH, the change in Shannon Entropy
-        :rtype: float
-        """
+:return: dH, the change in Shannon Entropy
+:rtype: float
+"""
         self.shannon_entropy.append(0.5 * self.dim * np.log(2 * np.pi) + 0.5 * np.log(np.linalg.det(self.cov)) + self.dim/2)
         dH = self.shannon_entropy[-1] - self.shannon_entropy[-2] if len(self.shannon_entropy)>1 else None
         return dH
     
     def update_distribution(self):
-        """Recomputes the base Gaussian of the node and does an empirical covariance calculation
-        """
+        """Recomputes the base Gaussian of the node and does an empirical covariance calculation"""
         self.distribution = multivariate_normal(self.mean,self.cov, allow_singular = True)
         self.empirical_cov = self.run_empirical_cov()
 
     def rvs(self,n=1) -> np.ndarray:
-        """Sample the GMM recursively to get an array of n samples 
-
+        """Sample the GMM recursively to get an array of n samples
         :param n: Number of samples, defaults to 1
         :type n: int, optional
-        :return: Resultant sample array
-        :rtype: np.ndarray
-        """
+:return: Resultant sample array
+:rtype: np.ndarray
+"""
         if self.is_leaf: 
             result = self.distribution.rvs(n)
         else:
@@ -150,12 +145,11 @@ class recursive_gaussan_mixture():
 
     def get_leaf_by_index(self,index:int):
         """Retrieve a node from the tree by its index in the leaf list
-
         :param index: Index of target leaf
         :type index: int
-        :return: Leaf
-        :rtype: recursive_gaussian_mixture
-        """
+:return: Leaf
+:rtype: recursive_gaussian_mixture
+"""
         if index < len(self.leaf_list): return self.leaf_list[index]
         i_leaf = 0
         while i_leaf <= index:
@@ -168,10 +162,9 @@ class recursive_gaussan_mixture():
 
     def build_leaf_list(self, recursive = False):
         """Construct a list of leaf nodes of this tree
-
         :param recursive: Recurse down the tree? Defaults to False
         :type recursive: bool, optional
-        """
+"""
         self.n_leaf_nodes = 0
         if self.is_leaf: 
             self.leaf_list = [self]
@@ -186,8 +179,7 @@ class recursive_gaussan_mixture():
 
 
     def split_self(self):
-        """Splits this node into a number of children defined by the library size
-        """
+        """Splits this node into a number of children defined by the library size"""
         rootcov = self.run_empirical_cov()
         # This node is no longer a leaf node
         self.is_leaf = False
@@ -208,8 +200,7 @@ class recursive_gaussan_mixture():
                                                            sigma_parameters = self.sig_params))
     
     def split_leaf(self):
-        """Selects a leaf of this tree according to the principle of maximal uncertainty and splits it
-        """
+        """Selects a leaf of this tree according to the principle of maximal uncertainty and splits it"""
         max_uncertainty = 0.0
         split_candidate = None
         i_candidate = None
@@ -227,10 +218,9 @@ class recursive_gaussan_mixture():
     
     def recalculate_mean(self) -> np.ndarray:
         """Compute the mean of the GMM recursively down the tree
-
-        :return: Mean of this node
-        :rtype: np.ndarray
-        """
+:return: Mean of this node
+:rtype: np.ndarray
+"""
         if self.is_leaf: return self.weight*self.mean
         else:
             mean = np.zeros_like(self.mean)
@@ -239,20 +229,18 @@ class recursive_gaussan_mixture():
     
     def run_empirical_cov(self,fidelity=10000) -> np.ndarray:
         """Computes the empirical covariance of the GMM with a specified fidelity
-
         :param fidelity: Number of samples to use for covariance calculation, defaults to 10000
         :type fidelity: int, optional
-        :return: Empirical covariance
-        :rtype: np.ndarray
-        """
+:return: Empirical covariance
+:rtype: np.ndarray
+"""
         return np.cov(self.rvs(fidelity),rowvar=False)
     
     def generate_points(self) -> np.ndarray:
         """Computes the set of sigma points to propagate all Gaussians of this GMM
-
-        :return: Set of sigma points, of size equal to n_Gaussians * ( 2 * Dimensions + 1 )
-        :rtype: np.ndarray
-        """
+:return: Set of sigma points, of size equal to n_Gaussians * ( 2 * Dimensions + 1 )
+:rtype: np.ndarray
+"""
         if self.is_leaf:
             return self.point_generator.sigma_points(self.mean, self.cov)
         else:
@@ -263,14 +251,13 @@ class recursive_gaussan_mixture():
     
     def transform(self, points : np.ndarray, overwrite=True):
         """Computes an unscented transform for each Gaussian using the passed points array
-
         :param points: Array of points post-propagation
         :type points: np.ndarray
         :param overwrite: Whether to adjust the gaussians using the transform, defaults to True
         :type overwrite: bool, optional
-        :return: Means, Covariances
-        :rtype: np.ndarray, np.ndarray
-        """
+:return: Means, Covariances
+:rtype: np.ndarray, np.ndarray
+"""
         if self.is_leaf:
             mu, cov = unscented_transform(points, self.point_generator.Wm, self.point_generator.Wc)
             if overwrite:

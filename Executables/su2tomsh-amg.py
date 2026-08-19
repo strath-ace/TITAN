@@ -1,8 +1,20 @@
+"""Convert SU2 mesh files into Gmsh MSH format.
+
+This module reads an SU2 mesh file from the command-line argument,
+extracts node and element information, and writes a Gmsh 2.2-format
+mesh file named ``mesh.msh``.
+"""
 import sys
 import re
 import numpy as np
 
 def lookup(string):
+    """Find the first line index that contains the given substring.
+    :param string: Substring to search for in each file line.
+    :type string: str
+    :return: 1-based line index of the first matching line.
+    :rtype: int
+    """
 
     line_num = 0
     for line in Lines:
@@ -11,6 +23,12 @@ def lookup(string):
             return line_num
 
 def extract_numbers_from_line(lst):
+    """Extract numeric values from a whitespace-delimited SU2 line.
+    :param lst: A line of text from an SU2 mesh file.
+    :type lst: str
+    :return: Parsed numeric values from the line.
+    :rtype: list[float]
+    """
     res = []
     x=lst.split()
     for i in x:

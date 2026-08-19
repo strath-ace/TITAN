@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""euler module."""
 from ..Dynamics import dynamics, frames, collision
 from ..Aerothermo import aerothermo
 from ..Forces import forces
@@ -31,16 +32,11 @@ import copy
 
 
 def compute_Euler(titan, options):
-    """
-    Euler integration
-
-    Parameters
-    ----------
-    titan: Assembly_list
-        Object of class Assembly_list
-    options: Options
-        Object of class Options
-    """
+    """Euler integration
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
 
     if options.collision.flag and len(titan.assembly)>1:
         flag_collision, __ = collision.find_ToI_timestep(titan, options, 0)
@@ -78,20 +74,19 @@ def compute_Euler(titan, options):
         update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, titan.post_event_iter)
         
 def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, post_event_iter):
-    """
-    Update position and attitude of the assembly
-
-    Parameters
-    ----------
-    assembly: Assembly
-        Object of class Assembly
-    cartesianDerivatives: DerivativesCartesian
-        Object of class DerivativesCartesian
-    angularDerivatives: DerivativesAngle
-        Object of class DerivativesAngle
-    options: Options
-        Object of class Options
-    """
+    """Update position and attitude of the assembly
+:param assembly: Assembly object to process.
+:type assembly: object
+:param cartesianDerivatives: Value for cartesianderivatives.
+:type cartesianDerivatives: Any
+:param angularDerivatives: Value for angularderivatives.
+:type angularDerivatives: Any
+:param options: Options or configuration object.
+:type options: object
+:param time_step: Value for time step.
+:type time_step: Any
+:param post_event_iter: Value for post event iter.
+:type post_event_iter: Any"""
 
     dt = time_step
     

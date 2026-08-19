@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""assembly module."""
 from ..Geometry import mesh as Mesh
 from ..Geometry import gmsh_api as GMSH
 from ..Geometry.tetra import inertia_tetra, vol_tetra
@@ -27,25 +28,13 @@ import subprocess
 import os
 
 def create_assembly_flag(list_bodies, Flags):
-    """
-    Generates the assembly connectivity matrix
-
-    Creates a flag m*n where m is the number of assemblies and n is the sum of all components used in the simulation.
-    For every component belonging to a Body, the flag is True on that position.
-    The assemblies are created according to the generated matrix
-
-    Parameters
-    ----------
-    list_bodies: array of components
-        array containing the used-defined components
-    Flags: np.array
-        numpy array containing the linkage information of each component
-
-    Returns
-    -------
-    assembly_flag: np.array
-        numpy array containing information on how to generate the assemblies with respect to the components introduced in the simulation
-    """
+    """Generates the assembly connectivity matrix
+:param list_bodies: Value for list bodies.
+:type list_bodies: Any
+:param Flags: Value for flags.
+:type Flags: Any
+:return: Return value.
+:rtype: Any"""
 
     #Generates an empty (boolean set to False) 2D squared matrix with the size of the components list length
     assembly_flag = np.zeros((len(list_bodies),len(list_bodies)), dtype = bool)
@@ -84,6 +73,9 @@ class Assembly_list():
     """
 
     def __init__(self, objects):
+        """Documentation for the function.
+:param objects: Value for objects.
+:type objects: Any"""
 
         #: [array] List of components
         self.objects = np.array(objects)
@@ -113,20 +105,17 @@ class Assembly_list():
         self.n_collisions = 0
 
     def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):            
-        """
-        Creates the assembly list
-
-        Parameters
-        ----------
-        connectivty: array
-            array containing the user-defined connectivity between the different components
-        aoa: float
-            Angle of attack in degrees
-        slip: float
-            Slip angle in degrees
-        roll: float
-            Roll angle in degrees
-        """
+        """Creates the assembly list
+:param connectivity: Value for connectivity.
+:type connectivity: Any
+:param aoa: Value for aoa.
+:type aoa: Any
+:param slip: Value for slip.
+:type slip: Any
+:param roll: Value for roll.
+:type roll: Any
+:param options: Options or configuration object.
+:type options: object"""
 
         self.connectivity = connectivity
         Flags = np.array([], dtype = int)
@@ -168,6 +157,19 @@ class Dynamics():
     """
 
     def __init__ (self, roll = 0, pitch = 0, yaw = 0, vel_roll = 0, vel_pitch = 0, vel_yaw = 0):
+        """Documentation for the function.
+:param roll: Value for roll.
+:type roll: Any
+:param pitch: Value for pitch.
+:type pitch: Any
+:param yaw: Value for yaw.
+:type yaw: Any
+:param vel_roll: Value for vel roll.
+:type vel_roll: Any
+:param vel_pitch: Value for vel pitch.
+:type vel_pitch: Any
+:param vel_yaw: Value for vel yaw.
+:type vel_yaw: Any"""
         
         #: [float] Roll angle in radians
         self.roll = roll
@@ -197,6 +199,11 @@ class Body_force():
     """
 
     def __init__(self, force = np.zeros((3,1)), moment = np.zeros((3,1))):
+        """Documentation for the function.
+:param force: Numeric value for force.
+:type force: float
+:param moment: Numeric value for moment.
+:type moment: float"""
 
         #: [np.array] Force array (3x1)
         self.force = force
@@ -210,6 +217,13 @@ class Wind_force():
         A class to store the force information that the assembly experiences at each iteration in the wind frame
     """
     def __init__(self, lift = 0, drag = 0, crosswind = 0):
+        """Documentation for the function.
+:param lift: Value for lift.
+:type lift: Any
+:param drag: Value for drag.
+:type drag: Any
+:param crosswind: Value for crosswind.
+:type crosswind: Any"""
         #: [float] Lift force
         self.lift = lift
 
@@ -284,7 +298,7 @@ class Freestream():
         self.percent_gas = None
 
         #:[array (float)] percentage of species in the mixture with respect to mass
-        self.percent_mass = None
+        self.mass_fraction = None
 
         #:[array (str)] list of species in the mixture
         self.species_index = None
@@ -305,12 +319,48 @@ class Freestream():
         self.h1_s = 0
 
 class Aerothermo():
+    """Documentation for the function.
+    :param pressure: Numeric value for pressure.
+    :type pressure: float
+    :param mach: Value for mach.
+    :type mach: Any
+    :param gamma: Numeric value for gamma.
+    :type gamma: float
+    :param knudsen: Value for knudsen.
+    :type knudsen: Any
+    :param prandtl: Value for prandtl.
+    :type prandtl: Any
+    :param temperature: Numeric value for temperature.
+    :type temperature: float
+    :param density: Numeric value for density.
+    :type density: float
+    :param velocity: Value for velocity.
+    :type velocity: Any
+    :param R: Value for r.
+    :type R: Any
+    :param mfp: Value for mfp.
+    :type mfp: Any
+    :param omega: Value for omega.
+    :type omega: Any
+    :param diameter: Value for diameter.
+    :type diameter: Any
+    :param mu: Value for mu.
+    :type mu: Any
+    :param cp: Value for cp.
+    :type cp: Any
+    :param cv: Value for cv.
+    :type cv: Any"""
     """ Class Aerothermo
     
         A class to store the surface quantities
     """
 
     def __init__(self,n_points, wall_temperature = 300):
+        """Documentation for the function.
+:param n_points: Integer value for n points.
+:type n_points: int
+:param wall_temperature: Numeric value for wall temperature.
+:type wall_temperature: float"""
 
         self.density = np.zeros((n_points))      
         self.temperature = np.zeros((n_points))
@@ -339,6 +389,11 @@ class Aerothermo():
         self.ce_i = np.zeros((n_points, self.nSpecies))
 
     def append(self, n_points = 0, temperature = 300):
+        """Documentation for the function.
+:param n_points: Integer value for n points.
+:type n_points: int
+:param temperature: Numeric value for temperature.
+:type temperature: float"""
         self.temperature = np.append(self.temperature, np.ones(n_points)*temperature)
         self.pressure = np.append(self.pressure, np.zeros(n_points))
         self.heatflux = np.append(self.heatflux, np.zeros(n_points))
@@ -352,6 +407,9 @@ class Aerothermo():
         self.ce_i = np.append(self.ce_i, np.zeros((n_points, self.nSpecies)))
 
     def delete(self, index):
+        """Documentation for the function.
+:param index: Integer value for index.
+:type index: int"""
         self.temperature = np.delete(self.temperature, index)
         self.pressure = np.delete(self.pressure, index)
         self.heatflux = np.delete(self.heatflux, index)
@@ -372,6 +430,19 @@ class Assembly():
     """
 
     def __init__(self, objects = [], id = 0, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):
+        """Documentation for the function.
+:param objects: Value for objects.
+:type objects: Any
+:param id: Integer value for id.
+:type id: int
+:param aoa: Value for aoa.
+:type aoa: Any
+:param slip: Value for slip.
+:type slip: Any
+:param roll: Value for roll.
+:type roll: Any
+:param options: Options or configuration object.
+:type options: object"""
 
         #: [int] ID of the assembly
         self.id = id
@@ -540,20 +611,19 @@ class Assembly():
 
 
     def generate_inner_domain(self, write = False, output_folder = '', output_filename = '', bc_ids = [], size_override=None, min_size = None):
-        """
-        Generates the 3D structural mesh
-
-        Generates the tetrahedral inner domain using the GMSH software
-
-        Parameters
-        ----------
-        write: bool
-            Flag to output the 3D domain
-        output_folder: str
-            Directory of the output folder when writing the 3D domain
-        output_filename: str
-            Name of the file
-        """
+        """Generates the 3D structural mesh
+:param write: Value for write.
+:type write: Any
+:param output_folder: Value for output folder.
+:type output_folder: Any
+:param output_filename: Value for output filename.
+:type output_filename: str
+:param bc_ids: Value for bc ids.
+:type bc_ids: Any
+:param size_override: Value for size override.
+:type size_override: Any
+:param min_size: Value for min size.
+:type min_size: Any"""
 
 
         print("Generating volumetric volume ... ")
@@ -598,11 +668,7 @@ class Assembly():
         print("Done")
 
     def compute_mass_properties(self):
-        """
-        Computes the inertial properties
-
-        Function to compute the inertial properties using the 3D domain information. 
-        """
+        """Computes the inertial properties"""
 
         coords = self.mesh.vol_coords
         elements = self.mesh.vol_elements
@@ -630,9 +696,7 @@ class Assembly():
             obj.compute_mass_properties(coords, elements[index], density[index])
 
     def rearrange_ids(self):
-        """
-        Rearrange the objects ids and connectivity not to break in the fragmentation section
-        """
+        """Rearrange the objects ids and connectivity not to break in the fragmentation section"""
 
         list_of_ids = [obj.id for obj in self.objects]
         new_ids = np.arange(1, len(list_of_ids)+1)
@@ -659,6 +723,13 @@ class Assembly():
 
 
 def copy_assembly(list_assemblies, options):
+    """Documentation for the function.
+:param list_assemblies: Value for list assemblies.
+:type list_assemblies: Any
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
     from copy import deepcopy
 
     if options.collision.flag:

@@ -8,7 +8,7 @@ TITAN.egg-info/dependency_links.txt
 TITAN.egg-info/entry_points.txt
 TITAN.egg-info/top_level.txt
 titan/__init__.py
-titan/run_TITAN.py
+titan/run.py
 titan/Aerothermo/__init__.py
 titan/Aerothermo/aerothermo.py
 titan/Aerothermo/amg.py

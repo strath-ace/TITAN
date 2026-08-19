@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""planet module."""
 import numpy as np
 
 planet_data = {'earth':{'G': 6.6743E-11,'M': 5.972E24, 'P': 86164, 'w': 7.2921150E-5},
@@ -29,6 +30,13 @@ ellipsoid = {'earth':{"name": "WGS-84 (1984)", "a": 6378137.0, "b": 6356752.3142
 			 'neptune':{"name": "Neptune", "a": 24764000.0, "b": 24341000.0}}
 
 def Legendre(n, x):
+	"""Documentation for the function.
+:param n: Integer value for n.
+:type n: int
+:param x: Numeric value for x.
+:type x: float
+:return: Return value.
+:rtype: Any"""
 	L = 1
 	if n == 1: L = x
 	if n == 2: L = 0.5*(3*x**2-1)
@@ -37,31 +45,63 @@ def Legendre(n, x):
 	return L
 
 class ModelPlanet():
+	"""ModelPlanet."""
 	def __init__(self, name = "Earth"):
+		"""Documentation for the function.
+:param name: Name of the item.
+:type name: str"""
 		self.name = name.lower()
 
 	def mass(self):
+		"""Documentation for the function.
+:return: Return value.
+:rtype: Any"""
 		return planet_data[self.name]['M']
 
 	def constant(self):
+		"""Documentation for the function.
+:return: Return value.
+:rtype: Any"""
 		return planet_data[self.name]['G']
 
 	def period(self):
+		"""Documentation for the function.
+:return: Return value.
+:rtype: Any"""
 		return planet_data[self.name]['P']
 
 	def J2(self):
+		"""Documentation for the function.
+:return: Return value.
+:rtype: Any"""
 		return planet_data[self.name]['J2']
 
 	def J4(self):
+		"""Documentation for the function.
+:return: Return value.
+:rtype: Any"""
 		return planet_data[self.name]['J4']
 
 	def a0(self):
+		"""Documentation for the function.
+:return: Return value.
+:rtype: Any"""
 		return planet_data[self.name]['a0']
 
 	def omega(self):
+		"""Documentation for the function.
+:return: Return value.
+:rtype: Any"""
 		return planet_data[self.name]['w']
 
 	def gravitationalAcceleration(self,r, phi):
+		"""Documentation for the function.
+:param r: Value for r.
+:type r: Any
+:param phi: Numeric value for phi.
+:type phi: float
+:return: Return value.
+:rtype: Any"""
 		
 		gr = -self.mass()*self.constant()/(r**2)
 
@@ -73,4 +113,7 @@ class ModelPlanet():
 		return gr,gt
 
 	def ellipsoid(self):
+		"""Documentation for the function.
+:return: Return value.
+:rtype: Any"""
 		return ellipsoid[self.name]

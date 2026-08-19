@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""atmosphere module."""
 from scipy.interpolate import interp1d
 from ..Freestream import gram
 import numpy as  np
@@ -24,6 +25,11 @@ import pandas as pd
 import os
 
 def convert_numberDensity_to_density(atm,species):
+    """Documentation for the function.
+:param atm: Value for atm.
+:type atm: Any
+:param species: Value for species.
+:type species: Any"""
     Avo = 6.022169e23       #Avogrados number 
 
     mN2 = 28.01340/1E3;               #molar mass of nitrogen molecule, kg/mole
@@ -45,21 +51,11 @@ def convert_numberDensity_to_density(atm,species):
 
 
 def load_atmosphere(name):
-    """
-    This function loads the atmosphere model with respect to the user specification
-
-    Parameters
-    ----------
-    name: str
-        Name of the atmospheric model
-
-    Returns
-    -------
-    f: scipy.interpolate.interp1d
-        Function interpolation of the atmopshere atributes with respect to altitude
-    spacies_index: array
-        Array with the species used in the model
-    """
+    """This function loads the atmosphere model with respect to the user specification
+:param name: Name of the item.
+:type name: str
+:return: Return value.
+:rtype: Any"""
 
     dirname = os.path.dirname(os.path.abspath(__file__))
 
@@ -82,6 +78,17 @@ def load_atmosphere(name):
 
 
 def retrieve_atmosphere_data(name, altitude, assembly, options):
+    """Documentation for the function.
+:param name: Name of the item.
+:type name: str
+:param altitude: Value for altitude.
+:type altitude: Any
+:param assembly: Assembly object to process.
+:type assembly: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
 
     #This function only returns the data for a single altitude
 

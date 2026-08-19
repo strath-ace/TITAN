@@ -17,9 +17,27 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""tetra module."""
 import numpy as np
 
 def inertia_tetra(v0,v1,v2,v3,vol, COG, rho):    
+    """Documentation for the function.
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:param v3: Value for v3.
+:type v3: Any
+:param vol: Value for vol.
+:type vol: Any
+:param COG: Value for cog.
+:type COG: Any
+:param rho: Value for rho.
+:type rho: Any
+:return: Return value.
+:rtype: Any"""
 
     det = 6*vol
     inertia = np.zeros((3,3))
@@ -73,6 +91,17 @@ def inertia_tetra(v0,v1,v2,v3,vol, COG, rho):
     return inertia
 
 def vol_tetra(v0,v1,v2,v3):
+    """Documentation for the function.
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:param v3: Value for v3.
+:type v3: Any
+:return: Return value.
+:rtype: Any"""
 
     a1 = np.linalg.norm(v1-v0, axis = 1)**2
     a2 = np.linalg.norm(v2-v0, axis = 1)**2

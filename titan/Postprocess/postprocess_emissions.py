@@ -18,6 +18,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""postprocess_emissions module."""
 from ..Thermal import thermal
 from ..Output import output
 import numpy as np
@@ -38,6 +39,9 @@ from pathlib import Path
 
 
 def postprocess_emissions(options):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object"""
 
     print('Computing emissions ...')
 
@@ -71,6 +75,11 @@ def postprocess_emissions(options):
         #output.generate_surface_solution_emissions(titan=titan, options=options, folder='Postprocess_emissions', iter_value = iter_value)
 
 def view_direction(titan, options):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
 
     print('\nDefining view direction ...')
 
@@ -135,6 +144,9 @@ def view_direction(titan, options):
 #        meshio.write(vol_mesh_filepath, trimesh, file_format="xdmf")
 
 def element_gas_densities(titan):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object"""
 
     for assembly in titan.assembly:
 
@@ -161,14 +173,13 @@ def element_gas_densities(titan):
             assembly.aerothermo.rhoe_i = np.where( assembly.updated_gas_density[:, np.newaxis] != 0, assembly.aerothermo.ce_i * assembly.updated_gas_density[:, np.newaxis], 0 )
 
 def read_state(options, i=0):
-    """
-    Load state of the TITAN object for the given iteration
-
-    Returns
-    -------
-    titan: Assembly_list
-        Object of class Assembly_list
-    """
+    """Load state of the TITAN object for the given iteration
+:param options: Options or configuration object.
+:type options: object
+:param i: Integer value for i.
+:type i: int
+:return: Return value.
+:rtype: Any"""
     print("\n-------------------------------------------------")
     print("\n\nPost-processing iteration:", i)
 
@@ -179,6 +190,13 @@ def read_state(options, i=0):
     return titan
 
 def emissions(titan, options, iter_value):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param iter_value: Value for iter value.
+:type iter_value: Any"""
 
     wavelengths_OI    = [777.194e-9, 777.417e-9, 777.539e-9]
     wavelengths_AlI   = [394.40058e-9, 396.152e-9]
@@ -255,6 +273,13 @@ def emissions(titan, options, iter_value):
         )
 
 def line_of_sight(titan, options, iteration):
+    """Documentation for the function.
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:param iteration: Value for iteration.
+:type iteration: Any"""
 
     print('Calculating line-of-sight ...')
 
@@ -338,16 +363,13 @@ def line_of_sight(titan, options, iteration):
             obj.LOS = obj_wf.LOS
 
 def precompute_bvh(coord, triangles):
-    """
-    Precomputes a BVH using PyEmbree.
-
-    Parameters:
-        coord (numpy.ndarray): nx3 array of vertices.
-        triangles (numpy.ndarray): kx3 array of triangle indices.
-
-    Returns:
-        Scene: PyEmbree scene containing the BVH.
-    """
+    """Precomputes a BVH using PyEmbree.
+:param coord: Value for coord.
+:type coord: Any
+:param triangles: Value for triangles.
+:type triangles: Any
+:return: Return value.
+:rtype: Any"""
     # Create a triangle mesh
     mesh = TriangleMesh(vertices=coord, indices=triangles)
 
@@ -358,17 +380,15 @@ def precompute_bvh(coord, triangles):
     return scene
 
 def compute_ray_intersection(scene, cog, normal):
-    """
-    Computes the intersection point of a ray with the surface using BVH.
-
-    Parameters:
-        scene (Scene): PyEmbree scene containing the BVH.
-        cog (numpy.ndarray): 1x3 center of gravity of the facet.
-        normal (numpy.ndarray): 1x3 normal vector of the facet.
-
-    Returns:
-        float: Distance to the intersection point, or float('inf') if none.
-    """
+    """Computes the intersection point of a ray with the surface using BVH.
+:param scene: Value for scene.
+:type scene: Any
+:param cog: Value for cog.
+:type cog: Any
+:param normal: Value for normal.
+:type normal: Any
+:return: Return value.
+:rtype: Any"""
     # Normalize the normal vector
     normal_unit = normal / np.linalg.norm(normal)
 
@@ -389,18 +409,17 @@ def compute_ray_intersection(scene, cog, normal):
     return float("inf")  # No intersection
 
 def compute_shock_distance(obj, index, coord, triangles):
-    """
-    Computes shock distances using Trimesh's built-in ray tracing.
-
-    Parameters:
-        obj: Object containing mesh information.
-        index (numpy.ndarray): Indices of the facets to compute distances for.
-        coord (numpy.ndarray): nx3 array of vertices.
-        triangles (numpy.ndarray): kx3 array of triangle indices.
-
-    Returns:
-        numpy.ndarray: Array of distances for each facet.
-    """
+    """Computes shock distances using Trimesh's built-in ray tracing.
+:param obj: Value for obj.
+:type obj: Any
+:param index: Integer value for index.
+:type index: int
+:param coord: Value for coord.
+:type coord: Any
+:param triangles: Value for triangles.
+:type triangles: Any
+:return: Return value.
+:rtype: Any"""
     from trimesh import Trimesh
 
     print("Calculating shock distances using Trimesh...")
@@ -428,35 +447,29 @@ def compute_shock_distance(obj, index, coord, triangles):
 
 
 def compute_billig(M,theta, center, sphere_radius, index_assembly, Lref, index_object, i, freestream, options):
-    """
-    Computation of the shock envelope using the Billing formula
-
-    if the object is inside the shock envelope generated by an upstream body, the framework will use the high-fidelity methodology to compute the aero
-    thermodynamics. Else, it will use low-fidelity methodology
-
-    Parameters
-    ----------
-    M: float
-        Freestream Mach number
-    theta: float
-        Shockwave inclination angle
-    center: np.array()
-        Coordinates of the sphere center
-    sphere_radius: float
-        Radius of the sphere
-    index_assembly: int
-        Index of the assembly producing the shockwave
-    assembly: List_Assembly
-        Object of List_Assembly
-    list_assembly: np.array()
-        Index of the remaining assemblies to check if they are inside or outside the shock envelope
-
-    Returns
-    -------
-    computational_domain_bodies: List
-        List of bodies inside the shock envelope
-    
-    """
+    """Computation of the shock envelope using the Billing formula
+:param M: Value for m.
+:type M: Any
+:param theta: Numeric value for theta.
+:type theta: float
+:param center: Value for center.
+:type center: Any
+:param sphere_radius: Value for sphere radius.
+:type sphere_radius: Any
+:param index_assembly: Value for index assembly.
+:type index_assembly: Any
+:param Lref: Value for lref.
+:type Lref: Any
+:param index_object: Value for index object.
+:type index_object: Any
+:param i: Integer value for i.
+:type i: int
+:param freestream: Value for freestream.
+:type freestream: Any
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
 
     print("Calculating Billig ...")
 

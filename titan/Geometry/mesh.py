@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""mesh module."""
 import meshio
 import numpy as np
 import scipy.special as special
@@ -31,6 +32,11 @@ np.set_printoptions(threshold=sys.maxsize)
 
 
 def read_mesh(filename):
+    """Documentation for the function.
+:param filename: Path to the relevant file.
+:type filename: str
+:return: Return value.
+:rtype: Any"""
 
     mesh = meshio.read(filename)
     facets = mesh.points[mesh.cells_dict['triangle']]
@@ -42,7 +48,11 @@ def read_mesh(filename):
     return v0,v1,v2
 
 class Mesh():
+    """Mesh."""
     def __init__(self, filename = []):
+        """Documentation for the function.
+:param filename: Path to the relevant file.
+:type filename: str"""
 
         if not filename:
             self.v0 = np.array([])
@@ -78,6 +88,13 @@ class Mesh():
 
 
 def append(mesh_assembly, mesh_obj):
+    """Documentation for the function.
+:param mesh_assembly: Value for mesh assembly.
+:type mesh_assembly: Any
+:param mesh_obj: Value for mesh obj.
+:type mesh_obj: Any
+:return: Return value.
+:rtype: Any"""
 
     if  mesh_assembly.v0.size == 0:
         mesh_assembly.v0 = np.copy(mesh_obj.v0)
@@ -99,6 +116,13 @@ def append(mesh_assembly, mesh_obj):
 
 
 def compute_mesh(mesh, compute_radius = True):
+    """Documentation for the function.
+:param mesh: Value for mesh.
+:type mesh: Any
+:param compute_radius: Value for compute radius.
+:type compute_radius: Any
+:return: Return value.
+:rtype: Any"""
     mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
     mesh.facet_COG = compute_facet_COG(mesh.v0, mesh.v1, mesh.v2)
     mesh.COG = compute_geometrical_COG(mesh.facet_COG, mesh.facet_area)
@@ -119,6 +143,11 @@ def compute_mesh(mesh, compute_radius = True):
     return mesh
 
 def update_surface_displacement(mesh, surface_displacement_vector):
+    """Documentation for the function.
+:param mesh: Value for mesh.
+:type mesh: Any
+:param surface_displacement_vector: Value for surface displacement vector.
+:type surface_displacement_vector: Any"""
     mesh.nodes += surface_displacement_vector
     mesh.v0 = mesh.nodes[mesh.facets[:,0]]   
     mesh.v1 = mesh.nodes[mesh.facets[:,1]]    
@@ -133,9 +162,23 @@ def update_surface_displacement(mesh, surface_displacement_vector):
 
 
 def update_volume_displacement(mesh, volume_displacement_vector):
+    """Documentation for the function.
+:param mesh: Value for mesh.
+:type mesh: Any
+:param volume_displacement_vector: Value for volume displacement vector.
+:type volume_displacement_vector: Any"""
     mesh.vol_coords += volume_displacement_vector
 
 def compute_facet_area(v0,v1,v2):
+    """Documentation for the function.
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:return: Return value.
+:rtype: Any"""
     #Compute Area of the Mesh Facets
 
     v1_v0 = v1-v0
@@ -152,18 +195,49 @@ def compute_facet_area(v0,v1,v2):
     return area
 
 def compute_facet_COG(v0,v1,v2):
+    """Documentation for the function.
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:return: Return value.
+:rtype: Any"""
     #Compute the center of mass of each vertex
 
     facet_COG = (v0+v1+v2)/3.0
     return facet_COG
 
 def compute_geometrical_COG(facet_COG, facet_area):
+    """Documentation for the function.
+:param facet_COG: Value for facet cog.
+:type facet_COG: Any
+:param facet_area: Value for facet area.
+:type facet_area: Any
+:return: Return value.
+:rtype: Any"""
     #Compute Geometrical center of the Mesh
 
     COG = np.sum(facet_COG*facet_area[:,None], axis = 0)/np.sum(facet_area)
     return COG
 
 def compute_facet_normal(COG, facet_COG, v0,v1,v2, area):
+    """Documentation for the function.
+:param COG: Value for cog.
+:type COG: Any
+:param facet_COG: Value for facet cog.
+:type facet_COG: Any
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:param area: Value for area.
+:type area: Any
+:return: Return value.
+:rtype: Any"""
     #Compute Facet Normals
 
     facet_normal = np.cross(v1 - v0, v2 - v0)
@@ -174,6 +248,15 @@ def compute_facet_normal(COG, facet_COG, v0,v1,v2, area):
     return facet_normal
 
 def map_facets_connectivity(v0,v1,v2):
+    """Documentation for the function.
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:return: Return value.
+:rtype: Any"""
     #Map the Facets with respect to the Mesh Nodes
 
     nodes = np.hstack((v0,v1,v2))
@@ -187,6 +270,11 @@ def map_facets_connectivity(v0,v1,v2):
     return nodes, facets
 
 def map_edges_connectivity(facets):
+    """Documentation for the function.
+:param facets: Value for facets.
+:type facets: Any
+:return: Return value.
+:rtype: Any"""
     #Map the Edges with respect to the Mesh Nodes
     #Additionally, maps the Facets with respect to the Edges
 
@@ -220,6 +308,21 @@ def map_edges_connectivity(facets):
     return edges, facet_edges
 
 def compute_nodes_normals(num_nodes, facets ,facet_COG, v0,v1,v2):
+    """Documentation for the function.
+:param num_nodes: Integer value for num nodes.
+:type num_nodes: int
+:param facets: Value for facets.
+:type facets: Any
+:param facet_COG: Value for facet cog.
+:type facet_COG: Any
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:return: Return value.
+:rtype: Any"""
     #Compute the normal at the Vertex
 
     nodes_normal = np.zeros((num_nodes,3))
@@ -243,6 +346,11 @@ def compute_nodes_normals(num_nodes, facets ,facet_COG, v0,v1,v2):
     return nodes_normal
 
 def compute_min_max(nodes):
+    """Documentation for the function.
+:param nodes: Value for nodes.
+:type nodes: Any
+:return: Return value.
+:rtype: Any"""
     #Computes the minimum and maximum coordinates of the mesh
     
     try:
@@ -255,6 +363,25 @@ def compute_min_max(nodes):
     return _min, _max
 
 def compute_curvature(_nodes, _facets,_nodes_normal, _facet_normals, _facets_area, _v0, _v1, _v2):
+    """Documentation for the function.
+:param _nodes: Value for  nodes.
+:type _nodes: Any
+:param _facets: Value for  facets.
+:type _facets: Any
+:param _nodes_normal: Value for  nodes normal.
+:type _nodes_normal: Any
+:param _facet_normals: Value for  facet normals.
+:type _facet_normals: Any
+:param _facets_area: Value for  facets area.
+:type _facets_area: Any
+:param _v0: Value for  v0.
+:type _v0: Any
+:param _v1: Value for  v1.
+:type _v1: Any
+:param _v2: Value for  v2.
+:type _v2: Any
+:return: Return value.
+:rtype: Any"""
     import trimesh
     """
     mesh = trimesh.Trimesh(vertices = nodes, faces = facets)    #mesh.show()
@@ -346,6 +473,23 @@ def compute_curvature(_nodes, _facets,_nodes_normal, _facet_normals, _facets_are
     return radiiOnVerts, radiiOnFaces, Avertex, Acorner
 
 def sphVolSmoothing(InnerPointsInd, propOnVerts, avType, Nsmooth, MaxRefRadius, flatEdge, flatWeightFlag):
+    """Documentation for the function.
+:param InnerPointsInd: Value for innerpointsind.
+:type InnerPointsInd: Any
+:param propOnVerts: Value for proponverts.
+:type propOnVerts: Any
+:param avType: Value for avtype.
+:type avType: Any
+:param Nsmooth: Value for nsmooth.
+:type Nsmooth: Any
+:param MaxRefRadius: Value for maxrefradius.
+:type MaxRefRadius: Any
+:param flatEdge: Value for flatedge.
+:type flatEdge: Any
+:param flatWeightFlag: Value for flatweightflag.
+:type flatWeightFlag: Any
+:return: Return value.
+:rtype: Any"""
     
     propOnVerts = propOnVerts[InnerPointsInd]
     MaxRefRadius*= 0.99
@@ -378,6 +522,17 @@ def sphVolSmoothing(InnerPointsInd, propOnVerts, avType, Nsmooth, MaxRefRadius, 
     pass
 
 def searchableRadius(center, nodes, SearchRadius, Nsmooth):
+    """Documentation for the function.
+:param center: Value for center.
+:type center: Any
+:param nodes: Value for nodes.
+:type nodes: Any
+:param SearchRadius: Value for searchradius.
+:type SearchRadius: Any
+:param Nsmooth: Value for nsmooth.
+:type Nsmooth: Any
+:return: Return value.
+:rtype: Any"""
 
     dist = nodes - center
     dist = np.sqrt(dist[:,0]**2 + dist[:,1]**2 + dist[:,2]**2)
@@ -403,6 +558,23 @@ def searchableRadius(center, nodes, SearchRadius, Nsmooth):
     return SearchPosInd
 
 def calculate_vertex_normals(nodes, facets, facet_normals, facets_area, v0,v1,v2):
+    """Documentation for the function.
+:param nodes: Value for nodes.
+:type nodes: Any
+:param facets: Value for facets.
+:type facets: Any
+:param facet_normals: Value for facet normals.
+:type facet_normals: Any
+:param facets_area: Value for facets area.
+:type facets_area: Any
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:return: Return value.
+:rtype: Any"""
     VertexNormals = np.zeros((len(nodes),3))
     up = np.zeros((len(nodes),3))
     vp = np.zeros((len(nodes),3))
@@ -480,6 +652,31 @@ def calculate_vertex_normals(nodes, facets, facet_normals, facets_area, v0,v1,v2
     return VertexNormals,Avertex,Acorner,up,vp, avEdge
 
 def calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facet_normals,v0,v1,v2):
+    """Documentation for the function.
+:param VertexNormals: Value for vertexnormals.
+:type VertexNormals: Any
+:param Avertex: Value for avertex.
+:type Avertex: Any
+:param Acorner: Value for acorner.
+:type Acorner: Any
+:param up: Value for up.
+:type up: Any
+:param vp: Value for vp.
+:type vp: Any
+:param nodes: Value for nodes.
+:type nodes: Any
+:param facets: Value for facets.
+:type facets: Any
+:param facet_normals: Value for facet normals.
+:type facet_normals: Any
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:return: Return value.
+:rtype: Any"""
     
     e0=v2-v1
     e1=v0-v2
@@ -541,6 +738,17 @@ def calculate_curvature(VertexNormals,Avertex,Acorner,up,vp,nodes,facets,facet_n
 
 
 def RotateCoordinateSystem_nd(up,vp,nf, axis = 2):    
+    """Documentation for the function.
+:param up: Value for up.
+:type up: Any
+:param vp: Value for vp.
+:type vp: Any
+:param nf: Value for nf.
+:type nf: Any
+:param axis: Value for axis.
+:type axis: Any
+:return: Return value.
+:rtype: Any"""
     r_new_u=up
     r_new_v=vp
 
@@ -602,6 +810,15 @@ def RotateCoordinateSystem_nd(up,vp,nf, axis = 2):
     return r_new_u,r_new_v
 
 def RotateCoordinateSystem_1d(up,vp,nf):
+    """Documentation for the function.
+:param up: Value for up.
+:type up: Any
+:param vp: Value for vp.
+:type vp: Any
+:param nf: Value for nf.
+:type nf: Any
+:return: Return value.
+:rtype: Any"""
     r_new_u=up;
     r_new_v=vp;
     _np=np.cross(up,vp);
@@ -620,6 +837,25 @@ def RotateCoordinateSystem_1d(up,vp,nf):
     return r_new_u,r_new_v
 
 def ProjectCurvatureTensor(uf,vf,nf,old_ku,old_kuv,old_kv,up,vp):
+    """Documentation for the function.
+:param uf: Value for uf.
+:type uf: Any
+:param vf: Value for vf.
+:type vf: Any
+:param nf: Value for nf.
+:type nf: Any
+:param old_ku: Value for old ku.
+:type old_ku: Any
+:param old_kuv: Value for old kuv.
+:type old_kuv: Any
+:param old_kv: Value for old kv.
+:type old_kv: Any
+:param up: Value for up.
+:type up: Any
+:param vp: Value for vp.
+:type vp: Any
+:return: Return value.
+:rtype: Any"""
     r_new_u,r_new_v=RotateCoordinateSystem_nd(up,vp,nf)
     OldTensor=np.transpose(np.array([[old_ku, old_kuv],[old_kuv, old_kv]]),(2,1,0))
 
@@ -648,6 +884,17 @@ def ProjectCurvatureTensor(uf,vf,nf,old_ku,old_kuv,old_kv,up,vp):
     return new_ku, new_kuv, new_kv
 
 def getPrincipalCurvatures(nodes,VertexSFM,up,vp):
+    """Documentation for the function.
+:param nodes: Value for nodes.
+:type nodes: Any
+:param VertexSFM: Value for vertexsfm.
+:type VertexSFM: Any
+:param up: Value for up.
+:type up: Any
+:param vp: Value for vp.
+:type vp: Any
+:return: Return value.
+:rtype: Any"""
     PrincipalCurvatures=np.empty((len(nodes),2))
     PrincipalDir1=np.empty((len(nodes),3))
     PrincipalDir2=np.empty((len(nodes),3))
@@ -691,17 +938,15 @@ def getPrincipalCurvatures(nodes,VertexSFM,up,vp):
     return PrincipalCurvatures,PrincipalDir1,PrincipalDir2
 
 def exponential_moving_average(signal, points, smoothing=2):
-    """
-    Calculate the N-point exponential moving average of a signal
-
-    Inputs:
-        signal: numpy array -   A sequence of price points in time
-        points:      int    -   The size of the moving average
-        smoothing: float    -   The smoothing factor
-
-    Outputs:
-        ma:     numpy array -   The moving average at each point in the signal
-    """
+    """Calculate the N-point exponential moving average of a signal
+:param signal: Value for signal.
+:type signal: Any
+:param points: Value for points.
+:type points: list[float]
+:param smoothing: Value for smoothing.
+:type smoothing: Any
+:return: Return value.
+:rtype: Any"""
 
     weight = smoothing / (points + 1)
     ema = np.zeros(len(signal))
@@ -713,6 +958,11 @@ def exponential_moving_average(signal, points, smoothing=2):
     return ema
 
 def remove_repeated_facets(assembly_mesh):
+    """Documentation for the function.
+:param assembly_mesh: Value for assembly mesh.
+:type assembly_mesh: Any
+:return: Return value.
+:rtype: Any"""
 
     facet_COG = np.around(assembly_mesh.facet_COG, decimals = 6)
 
@@ -743,6 +993,13 @@ def remove_repeated_facets(assembly_mesh):
     return idx
 
 def create_index_mapping(body_atr, obj_atr):
+    """Documentation for the function.
+:param body_atr: Value for body atr.
+:type body_atr: Any
+:param obj_atr: Value for obj atr.
+:type obj_atr: Any
+:return: Return value.
+:rtype: Any"""
     # Build KDTree for body_atr (larger mesh)
     body_tree = KDTree(body_atr)
     
@@ -755,6 +1012,15 @@ def create_index_mapping(body_atr, obj_atr):
 
 
 def create_index(body_atr, obj_atr, round_value = None):
+    """Documentation for the function.
+:param body_atr: Value for body atr.
+:type body_atr: Any
+:param obj_atr: Value for obj atr.
+:type obj_atr: Any
+:param round_value: Value for round value.
+:type round_value: Any
+:return: Return value.
+:rtype: Any"""
 
     if round_value == None:
         cond_obj = np.char.add(np.char.add(obj_atr[:,0].astype(str),obj_atr[:,1].astype(str)),obj_atr[:,2].astype(str) )
@@ -769,9 +1035,13 @@ def create_index(body_atr, obj_atr, round_value = None):
     return index, mask
 
 def compute_new_volume_v2(original_mesh, new_mesh, new_objects):
-    """
-    Function to split the Tetras among the new assemblies
-    """
+    """Function to split the Tetras among the new assemblies
+:param original_mesh: Value for original mesh.
+:type original_mesh: Any
+:param new_mesh: Value for new mesh.
+:type new_mesh: Any
+:param new_objects: Value for new objects.
+:type new_objects: Any"""
 
     vol_elements = np.array([])
     index = np.array([], dtype = int)
@@ -796,6 +1066,13 @@ def compute_new_volume_v2(original_mesh, new_mesh, new_objects):
     new_mesh.original_vol_coords = deepcopy(original_mesh.original_vol_coords)
 
 def compute_new_volume(assembly, old_nodes):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param old_nodes: Value for old nodes.
+:type old_nodes: Any
+:return: Return value.
+:rtype: Any"""
 
     assembly.mesh.vol_elements = np.array([], dtype = int)
     assembly.mesh.vol_density = np.array([])
@@ -859,10 +1136,13 @@ def compute_new_volume(assembly, old_nodes):
     return index,old_elements,index_old
 
 def vertex_to_facet_voronoi(mesh, vertex_value):
-    """
-    Using Voronoi area for interpolation Using Laplace weights 
-    https://en.wikipedia.org/wiki/Natural_neighbor_interpolation
-    """
+    """Using Voronoi area for interpolation Using Laplace weights
+:param mesh: Value for mesh.
+:type mesh: Any
+:param vertex_value: Value for vertex value.
+:type vertex_value: Any
+:return: Return value.
+:rtype: Any"""
 
     #Avertex - [NvX1] voronoi area at each vertex
     #Acorner - [NfX3] slice of the voronoi area at each face corner
@@ -877,10 +1157,13 @@ def vertex_to_facet_voronoi(mesh, vertex_value):
     return facet_value
 
 def facet_to_vertex_voronoi(mesh, facet_value):
-    """
-    Using Voronoi area for interpolation
-    Gives approximate result with a small error, need to check why
-    """
+    """Using Voronoi area for interpolation
+:param mesh: Value for mesh.
+:type mesh: Any
+:param facet_value: Value for facet value.
+:type facet_value: Any
+:return: Return value.
+:rtype: Any"""
 
     #Avertex - [NvX1] voronoi area at each vertex
     #Acorner - [NfX3] slice of the voronoi area at each face corner
@@ -893,9 +1176,13 @@ def facet_to_vertex_voronoi(mesh, facet_value):
     return node_value/total_value
 
 def vertex_to_facet_linear(mesh, vertex_value):
-    """
-    Using Voronoi area of vertex
-    """
+    """Using Voronoi area of vertex
+:param mesh: Value for mesh.
+:type mesh: Any
+:param vertex_value: Value for vertex value.
+:type vertex_value: Any
+:return: Return value.
+:rtype: Any"""
 
     #Avertex - [NvX1] voronoi area at each vertex
     #Acorner - [NfX3] slice of the voronoi area at each face corner
@@ -910,9 +1197,13 @@ def vertex_to_facet_linear(mesh, vertex_value):
     return facet_value
 
 def facet_to_vertex_linear(mesh, facet_value):
-    """
-    Using Voronoi area of vertex
-    """
+    """Using Voronoi area of vertex
+:param mesh: Value for mesh.
+:type mesh: Any
+:param facet_value: Value for facet value.
+:type facet_value: Any
+:return: Return value.
+:rtype: Any"""
 
     #Avertex - [NvX1] voronoi area at each vertex
     #Acorner - [NfX3] slice of the voronoi area at each face corner
@@ -925,9 +1216,13 @@ def facet_to_vertex_linear(mesh, facet_value):
     return node_value/total_value
 
 def map_surf_to_tetra(vol_coords, vol_elements):
-    """
-    Function to map the surface elements to the respective tetra.
-    """
+    """Function to map the surface elements to the respective tetra.
+:param vol_coords: Value for vol coords.
+:type vol_coords: Any
+:param vol_elements: Value for vol elements.
+:type vol_elements: Any
+:return: Return value.
+:rtype: Any"""
 
     from collections import defaultdict
 
@@ -959,10 +1254,11 @@ def map_surf_to_tetra(vol_coords, vol_elements):
     return map_facet_tetra
 
 def remove_ablated_elements(assembly, delete_array):
-    """
-    Function to remove ablated tetras from the object.
-    Calls add_surface_facets to add the new exposed facets to the surface list
-    """
+    """Function to remove ablated tetras from the object.
+:param assembly: Assembly object to process.
+:type assembly: object
+:param delete_array: Value for delete array.
+:type delete_array: Any"""
     
     mesh = assembly.mesh
     aerothermo = assembly.aerothermo
@@ -1061,15 +1357,13 @@ def remove_ablated_elements(assembly, delete_array):
     #mesh.index_surf_tetra = map_surf_to_tetra(mesh.vol_coords, mesh.vol_elements)
 
 def add_new_surface_facets(assembly, tetras_index):
-    """
-    Function to:
-    - removes surface ablated facets from surf_tetra_mapping
-    - removes surface ablated tetra associated to the ablated surface facet, from surf_tetra_mapping
-    - add the new facets that will be exposed to the flow to the assembly mesh and to the objects mesh, both new surface and isolated facets
-    - removes surface ablated facets from objects mesh
-
-    Returns the index of surface ablated facets, to be used to remove the ablated facets
-    """
+    """Function to
+:param assembly: Assembly object to process.
+:type assembly: object
+:param tetras_index: Value for tetras index.
+:type tetras_index: Any
+:return: Return value.
+:rtype: Any"""
     ##print('add_new_surface_facets')
     mesh = assembly.mesh
 
@@ -1193,9 +1487,11 @@ def add_new_surface_facets(assembly, tetras_index):
     return delete_index
 
 def update_surface_mesh(mesh, curvature = False):
-    """
-    Updates the surface properties
-    """
+    """Updates the surface properties
+:param mesh: Value for mesh.
+:type mesh: Any
+:param curvature: Value for curvature.
+:type curvature: Any"""
 
     mesh.nodes, mesh.facets = map_facets_connectivity(mesh.v0, mesh.v1, mesh.v2)
     mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
@@ -1211,10 +1507,13 @@ def update_surface_mesh(mesh, curvature = False):
         mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
 
 def update_object_mesh_from_tetra(obj, assembly_mesh, curvature = False):
-    """
-    NOT USED AT THE MOMENT
-    Updates the surface properties
-    """
+    """NOT USED AT THE MOMENT
+:param obj: Value for obj.
+:type obj: Any
+:param assembly_mesh: Value for assembly mesh.
+:type assembly_mesh: Any
+:param curvature: Value for curvature.
+:type curvature: Any"""
     
     #Initialize object mesh
     mesh = obj.mesh
@@ -1263,11 +1562,9 @@ def update_object_mesh_from_tetra(obj, assembly_mesh, curvature = False):
         mesh.nodes_radius, mesh.facet_radius, mesh.Avertex, mesh.Acorner = compute_curvature(mesh.nodes, mesh.facets, mesh.nodes_normal, mesh.facet_normal, mesh.facet_area, mesh.v0,mesh.v1,mesh.v2)
 
 def remove_isolated_facets(assembly):
-    """
-    - removes isolated facets from object mesh
-
-    Needs speed improvements
-    """
+    """- removes isolated facets from object mesh
+:param assembly: Assembly object to process.
+:type assembly: object"""
 
     #select NON ablated tetras from volume
     vol_elements= assembly.mesh.vol_elements[assembly.mesh.vol_density != 0]
@@ -1296,12 +1593,17 @@ def remove_isolated_facets(assembly):
         obj.mesh.v2 = np.delete(obj.mesh.v2, delete_index_obj, axis = 0)
 
 def check_tetra_in_surface(surface_facets, surface_nodes, tetra_elements, tetra_nodes):
-    """
-    Check which tetras are inside a watetight surface by performing a raycast operation on all the tetras provided
-
-    This function computes the COG of the tetras, performs the raycast and returns the index of the tetas inside the geometry
-    DEBUG this part: sometimes is not returning the correct amount of tetras, but missing only by <5-10 elementes
-    """
+    """Check which tetras are inside a watetight surface by performing a raycast operation on all the tetras provided
+:param surface_facets: Value for surface facets.
+:type surface_facets: Any
+:param surface_nodes: Value for surface nodes.
+:type surface_nodes: Any
+:param tetra_elements: Value for tetra elements.
+:type tetra_elements: Any
+:param tetra_nodes: Value for tetra nodes.
+:type tetra_nodes: Any
+:return: Return value.
+:rtype: Any"""
 
     #Compute the COG of the tetras:
     tetra_COG = np.sum(tetra_nodes[tetra_elements], axis = 1)/4
@@ -1345,11 +1647,13 @@ def check_tetra_in_surface(surface_facets, surface_nodes, tetra_elements, tetra_
 
 
 def compute_surface_from_tetra(coords, elements):
-    """
-    Function to compute the v0,v1 and v2 given the tetras:
-
-    if two facets are repeated, the are removed, as they are not in the surface
-    """
+    """Function to compute the v0,v1 and v2 given the tetras
+:param coords: Value for coords.
+:type coords: Any
+:param elements: Value for elements.
+:type elements: Any
+:return: Return value.
+:rtype: Any"""
     
     # retrieve mapping of coords for each face
     col_0 = elements[:,0]

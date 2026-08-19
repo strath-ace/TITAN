@@ -1,3 +1,4 @@
+"""byproducts module."""
 import numpy as np
 import mutationpp as mpp
 
@@ -6,18 +7,24 @@ class Byproducts():
     """
 
     def __init__(self, n_faces : int, is_emitting=False, rho = {}, mf = {}, mass = {}, species = [], n_free_species=5, cutoff=1e-6):
-        """
+        """Args
 
-        Args:
-            n_faces (int): Number of facets of the assembly mesh
-            is_emitting (bool, optional): Whether the assembly is currently generating emissions. Defaults to False.
-            rho (dict, optional): Per-facet ablated species densities. Defaults to {}.
-            mf (dict, optional): Per-facet ablated species mass fractions. Defaults to {}.
-            mass (dict, optional): Per-facet ablated species masses. Defaults to {}.
-            species (list, optional): Per-facet ablated species emissions (kg/km). Defaults to [].
-            n_free_species (int, optional): Number of species in freestream mixture. Defaults to 5 (for air_5).
-            cutoff (float, optional): Mass fraction cutoff for reporting byproducts, values below this will be treated as 0. Defaults to 1e-6.
-        """
+:param n_faces:
+:type n_faces:
+:param is_emitting:
+:type is_emitting:
+:param rho:
+:type rho:
+:param mf:
+:type mf:
+:param mass:
+:type mass:
+:param species:
+:type species:
+:param n_free_species:
+:type n_free_species:
+:param cutoff:
+:type cutoff:"""
         #: [bool] Whether the assembly is currently generating emissions
         self.is_emitting = is_emitting
 
@@ -63,9 +70,8 @@ class Byproducts():
     def get_species_list(self,assembly):
         """Retrieves the list all species from assembly components 
 
-        Args:
-            assembly (assembly.Assembly): The parent assembly
-        """
+:param assembly:
+:type assembly:"""
         for component in assembly.objects:
             if component.mixture is not None:
                 mix = mpp.Mixture(mpp.MixtureOptions(component.mixture))
@@ -81,11 +87,12 @@ class Byproducts():
     def mix_excess(self, assembly, options, delta_t=1):
         """Performs an air-in-excess equilibriation of each ablating facet of the assembly to compute emitted byproducts
 
-        Args:
-            assembly (assembly.Assembly): The parent assembly
-            options (configuration.Options): TITAN options 
-            delta_t (int, optional): TITAN time step. Defaults to 1.
-        """
+:param assembly:
+:type assembly:
+:param options:
+:type options:
+:param delta_t:
+:type delta_t:"""
         mx = mpp.Mixture(mpp.MixtureOptions(options.aerothermo.mixture))
         free_species_names = [mx.speciesName(i_spec) for i_spec in range(mx.nSpecies())]
 
@@ -123,11 +130,12 @@ class Byproducts():
     def air_in_excess(self, component, free_mix_species_names : list, excess_mult=2.5):
         """Equilibriates the component mixture with the specified excess ratio
 
-        Args:
-            component (component.Component): Target component
-            free_mix_species_names (list): List of species names in the freestream mixture 
-            excess_mult (float, optional): Multiplier of the stoichiometric ratio. Defaults to 2.5.
-        """
+:param component:
+:type component:
+:param free_mix_species_names:
+:type free_mix_species_names:
+:param excess_mult:
+:type excess_mult:"""
 
         ablated_mix_opts = mpp.MixtureOptions(component.mixture)
         ablated_mix_opts.setStateModel("Equil")
@@ -148,16 +156,19 @@ class Byproducts():
                         species_map : list, freestream_ratio = 1.0) -> str:
         """Generates a comma-separated string of elements and mole fractions to assign as a compostion to a Mutation++ mixture
 
-        Args:
-            ablated_mix (mutationpp.Mixture): Target mixture
-            free_mix_species_names (list): List of species names in the freestream mixture 
-            component_mass_fraction (list): Mass fraction of component species released into the flow
-            species_map (list): Indices of component species in full mixture 
-            freestream_ratio (float): Ratio of freestream mixture to ablated species. Defaults to 1.0.
+:param ablated_mix:
+:type ablated_mix:
+:param free_mix_species_names:
+:type free_mix_species_names:
+:param component_mass_fraction:
+:type component_mass_fraction:
+:param species_map:
+:type species_map:
+:param freestream_ratio:
+:type freestream_ratio:
 
-        Returns:
-            str: Elemental composition string
-        """
+:return:
+:rtype:"""
 
         n_species = ablated_mix.nSpecies()
         mass_fractions = np.zeros(n_species)
@@ -183,13 +194,13 @@ class Byproducts():
 def get_stoichiometric_ratio(mix : mpp.Mixture, oxy_content : float = 1.0) -> float:
     """Returns the maximal stoichiometric ratio of any oxide compound in a Mutation++ mixture
 
-    Args:
-        mix (mpp.Mixture): Target mixture
-        oxy_content (float, optional): Oxygen content of the mixture. Defaults to 1.0.
+:param mix:
+:type mix:
+:param oxy_content:
+:type oxy_content:
 
-    Returns:
-        float: Maximal stoichiometric ratio of the mixture
-    """
+:return:
+:rtype:"""
     list_of_stoichs = []
     matrix = mix.elementMatrix()
     i_Oxygen = mix.elementIndex('O')

@@ -18,6 +18,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
 
+"""pato module."""
 import numpy as np
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
@@ -36,20 +37,25 @@ conda_preamble = ['conda', 'run', '-n', 'pato'] # Better ideally to separate pat
 
 def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf):
 
-    """
-    Compute the aerothermodynamic properties using the CFD software
-
-    Parameters
-    ----------
-    assembly_list: List_Assembly
-        Object of class List_Assembly
-    options: Options
-        Object of class Options
-    """
+    """Compute the aerothermodynamic properties using the CFD software
+:param obj: Value for obj.
+:type obj: Any
+:param start_time: Numeric value for start time.
+:type start_time: float
+:param end_time: Numeric value for end time.
+:type end_time: float
+:param iteration: Value for iteration.
+:type iteration: Any
+:param options: Options or configuration object.
+:type options: object
+:param hf: Value for hf.
+:type hf: Any
+:param Tinf: Value for tinf.
+:type Tinf: Any"""
     start_time = round(start_time,5)
     end_time = round(end_time, 5)
     time_step = round(end_time - start_time,5)
-    if not hasattr(options.pato, 'prev_dt'): options.pato.prev_dt = time_step
+    if not hasattr(options.pato, 'prev_dt'): options.pato.prev_dt = end_time#time_step
     
     print('##### PATO from {} to {} (dt of {})'.format(start_time,
                                                        end_time,
@@ -62,13 +68,23 @@ def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf):
     options.pato.prev_dt = time_step
 
 def setup_PATO_simulation(obj, time, time_step, iteration, options, hf, Tinf):
-    """
-    Sets up the PATO simulation - creates PATO simulation folders and required input files
-
-    Parameters
-    ----------
-	?????????????????????????
-    """
+    """Sets up the PATO simulation - creates PATO simulation folders and required input files
+:param obj: Value for obj.
+:type obj: Any
+:param time: Numeric value for time.
+:type time: float
+:param time_step: Value for time step.
+:type time_step: Any
+:param iteration: Value for iteration.
+:type iteration: Any
+:param options: Options or configuration object.
+:type options: object
+:param hf: Value for hf.
+:type hf: Any
+:param Tinf: Value for tinf.
+:type Tinf: Any
+:return: Return value.
+:rtype: Any"""
 
     write_PATO_BC(options, obj, time, hf, Tinf)
     time_to_postprocess = write_All_run(options, obj, time, time_step, iteration)
@@ -77,6 +93,11 @@ def setup_PATO_simulation(obj, time, time_step, iteration, options, hf, Tinf):
     return time_to_postprocess
 
 def write_material_properties(options, obj):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param obj: Value for obj.
+:type obj: Any"""
 
     #emissivity_coeffs = obj.material.material_emissivity_polynomial()
     emissivity_coeffs = Material.polynomial_fit(obj.material, obj.material_name, 'emissivity', 1)
@@ -158,16 +179,11 @@ def write_material_properties(options, obj):
     f.close()
 
 def write_All_run_init(options, object_id):
-    """
-    Write the Allrun PATO file
-
-    Generates an executable file to run a PATO simulation according to the state of the object and the user-defined parameters.
-
-    Parameters
-    ----------
-    options: Options
-        Object of class Options
-    """
+    """Write the Allrun PATO file
+:param options: Options or configuration object.
+:type options: object
+:param object_id: Integer value for object id.
+:type object_id: int"""
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -196,16 +212,19 @@ def write_All_run_init(options, object_id):
     pass
 
 def write_All_run(options, obj, time, time_step, iteration):
-    """
-    Write the Allrun PATO file
-
-    Generates an executable file to run a PATO simulation according to the state of the object and the user-defined parameters.
-
-    Parameters
-    ----------
-    options: Options
-        Object of class Options
-    """
+    """Write the Allrun PATO file
+:param options: Options or configuration object.
+:type options: object
+:param obj: Value for obj.
+:type obj: Any
+:param time: Numeric value for time.
+:type time: float
+:param time_step: Value for time step.
+:type time_step: Any
+:param iteration: Value for iteration.
+:type iteration: Any
+:return: Return value.
+:rtype: Any"""
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -253,7 +272,7 @@ def write_All_run(options, obj, time, time_step, iteration):
         f.write('$sed_cmd -i "s/numberOfSubdomains \\+[0-9]*;/numberOfSubdomains ""$NPROCESSOR"";/g" system/subMat1/decomposeParDict\n')
         f.write('cp qconv/BC_'+str(start_time) + ' qconv/BC_' + str(end_time) + '\n')
         f.write('mpiexec -np $NPROCESSOR PATOx -parallel \n')
-        f.write('TIME_STEP='+str(end_time)+' \n')
+        f.write('TIME_STEP='+str(time_step)+' \n')
         f.write('MAT_NAME=subMat1 \n')
         for n in range(options.pato.n_cores):
             f.write('cd processor' + str(n) + '/\n')
@@ -298,16 +317,11 @@ def write_All_run(options, obj, time, time_step, iteration):
     return end_time
 
 def write_constant_folder(options, object_id):
-    """
-    Write the constant/ PATO folder
-
-    Generates input files defining the 'constant' folder in PATO
-
-    Parameters
-    ----------
-    options: Options
-        Object of class Options
-    """
+    """Write the constant/ PATO folder
+:param options: Options or configuration object.
+:type options: object
+:param object_id: Integer value for object id.
+:type object_id: int"""
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/constant/regionProperties', 'w') as f:
 
@@ -501,16 +515,11 @@ def write_constant_folder(options, object_id):
     pass
 
 def write_origin_folder(options, obj):
-    """
-    Write the origin.0/ PATO folder
-
-    Generates input files defining the 'origin.0' folder in PATO
-
-    Parameters
-    ----------
-    options: Options
-        Object of class Options
-    """
+    """Write the origin.0/ PATO folder
+:param options: Options or configuration object.
+:type options: object
+:param obj: Value for obj.
+:type obj: Any"""
 
     Ta_bc = options.pato.Ta_bc
 
@@ -985,6 +994,17 @@ def write_origin_folder(options, obj):
     pass
 
 def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
+    """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param obj: Value for obj.
+:type obj: Any
+:param time: Numeric value for time.
+:type time: float
+:param conv_heatflux: Value for conv heatflux.
+:type conv_heatflux: Any
+:param freestream_temperature: Numeric value for freestream temperature.
+:type freestream_temperature: float"""
 
     # write tecplot file with facet_COG coordinates and associated facet quantities
 
@@ -1089,20 +1109,19 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
     pass
 
 def write_system_folder(options, object_id, time, time_step):
-    """
-    Write the system/ PATO folder
-
-    Generates input files defining the 'system' folder in PATO
-
-    Parameters
-    ----------
-    options: Options
-        Object of class Options
-    """
+    """Write the system/ PATO folder
+:param options: Options or configuration object.
+:type options: object
+:param object_id: Integer value for object id.
+:type object_id: int
+:param time: Numeric value for time.
+:type time: float
+:param time_step: Value for time step.
+:type time_step: Any"""
     start_time = time
     end_time = time+time_step
     wrt_interval = time_step
-    pato_time_step = options.pato.time_step#round(time_step*options.pato.time_step,6)
+    pato_time_step = round(time_step/options.pato.time_step,5)#round(time_step*options.pato.time_step,6)
     print('#### PATO STEP {} ####'.format(pato_time_step))
 
     with open(options.output_folder + '/PATO_'+str(object_id)+'/system/controlDict', 'w') as f:
@@ -1470,13 +1489,11 @@ def write_system_folder(options, object_id, time, time_step):
 
 
 def initialize(options, obj):
-    """
-    Calls the PATO executable and run the simulation
-
-    Parameters
-    ----------
-    ?????????????????????????
-    """
+    """Calls the PATO executable and run the simulation
+:param options: Options or configuration object.
+:type options: object
+:param obj: Value for obj.
+:type obj: Any"""
     object_id   = obj.global_ID
 
     write_All_run_init(options,object_id)
@@ -1497,13 +1514,11 @@ def initialize(options, obj):
     #subprocess.run([options.output_folder + 'PATO_'+str(object_id)+'/Allrun_init'], text = True)
 
 def run_PATO(options, object_id):
-    """
-    Calls the PATO executable and run the simulation
-
-    Parameters
-    ----------
-	?????????????????????????
-    """
+    """Calls the PATO executable and run the simulation
+:param options: Options or configuration object.
+:type options: object
+:param object_id: Integer value for object id.
+:type object_id: int"""
     n_proc = options.pato.n_cores
 
     path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1516,13 +1531,13 @@ def run_PATO(options, object_id):
     #subprocess.run([options.output_folder + '/PATO_'+str(object_id)+'/Allrun'], text = True)
 
 def postprocess_PATO_solution(options, obj, time_to_read):
-    """
-    Postprocesses the PATO output
-
-    Parameters
-    ----------
-	?????????????????????????
-    """ 
+    """Postprocesses the PATO output
+:param options: Options or configuration object.
+:type options: object
+:param obj: Value for obj.
+:type obj: Any
+:param time_to_read: Value for time to read.
+:type time_to_read: Any"""
 
     #if options.pato.Ta_bc == 'ablation': postprocess_mass_inertia(obj, options, time_to_read)
 
@@ -1581,6 +1596,13 @@ def postprocess_PATO_solution(options, obj, time_to_read):
         obj.pato.molten[obj.temperature >= obj.material.meltingTemperature] = 1
 
 def postprocess_mass_inertia(obj, options, time_to_read):
+    """Documentation for the function.
+:param obj: Value for obj.
+:type obj: Any
+:param options: Options or configuration object.
+:type options: object
+:param time_to_read: Value for time to read.
+:type time_to_read: Any"""
 
     # Define the file path
     file_path = options.output_folder + "/PATO_" + str(obj.global_ID) + "/processor0/" + str(time_to_read) + "/subMat1/uniform/massFile" 
@@ -1646,6 +1668,13 @@ def postprocess_mass_inertia(obj, options, time_to_read):
         f.truncate()  # Truncate the file to remove any leftover content
 
 def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
+    """Documentation for the function.
+:param facet_COG: Value for facet cog.
+:type facet_COG: Any
+:param vtk_COG: Value for vtk cog.
+:type vtk_COG: Any
+:return: Return value.
+:rtype: Any"""
 
     A = facet_COG
     B = vtk_COG
@@ -1663,6 +1692,15 @@ def mapping_facetCOG_TITAN_PATO(facet_COG, vtk_COG):
     return mapping
 
 def interpolateNearestCOG(facet_COG, input_COG, input_array):
+    """Documentation for the function.
+:param facet_COG: Value for facet cog.
+:type facet_COG: Any
+:param input_COG: Value for input cog.
+:type input_COG: Any
+:param input_array: Value for input array.
+:type input_array: Any
+:return: Return value.
+:rtype: Any"""
 
     value = 0;
   
@@ -1690,6 +1728,15 @@ def interpolateNearestCOG(facet_COG, input_COG, input_array):
     return value    
 
 def retrieve_surface_vtk_data(n_proc, path, time_to_read):
+    """Documentation for the function.
+:param n_proc: Integer value for n proc.
+:type n_proc: int
+:param path: Value for path.
+:type path: str
+:param time_to_read: Value for time to read.
+:type time_to_read: Any
+:return: Return value.
+:rtype: Any"""
 
     #n_proc = 1
 
@@ -1718,6 +1765,15 @@ def retrieve_surface_vtk_data(n_proc, path, time_to_read):
     return vtk_data
 
 def retrieve_volume_vtk_data(n_proc, path, time_to_read):
+    """Documentation for the function.
+:param n_proc: Integer value for n proc.
+:type n_proc: int
+:param path: Value for path.
+:type path: str
+:param time_to_read: Value for time to read.
+:type time_to_read: Any
+:return: Return value.
+:rtype: Any"""
 
     #n_proc = 1
 
@@ -1760,6 +1816,9 @@ def retrieve_volume_vtk_data(n_proc, path, time_to_read):
     return vtk_data
 
 def compute_heat_conduction(assembly):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object"""
 
     print('Computing heat conduction between objects ...')
 
@@ -1775,6 +1834,9 @@ def compute_heat_conduction(assembly):
             compute_heat_conduction_on_surface(obj_A, obj_B)
 
 def identify_object_connections(assembly):
+    """Documentation for the function.
+:param assembly: Assembly object to process.
+:type assembly: object"""
 
     #create array where each entry correspond to an object I with obj.id
     #each element of the entry will contain the object J obj.id connected to object I
@@ -1806,6 +1868,11 @@ def identify_object_connections(assembly):
 
 
 def compute_heat_conduction_on_surface(obj_A, obj_B):
+    """Documentation for the function.
+:param obj_A: Value for obj a.
+:type obj_A: Any
+:param obj_B: Value for obj b.
+:type obj_B: Any"""
 
     #identify adjacent facets
     #obj_A_adjacent = index of adjacent facets in obj A
@@ -1827,6 +1894,13 @@ def compute_heat_conduction_on_surface(obj_A, obj_B):
 
 
 def adjacent_facets(facet_COG_A, facet_COG_B):
+    """Documentation for the function.
+:param facet_COG_A: Value for facet cog a.
+:type facet_COG_A: Any
+:param facet_COG_B: Value for facet cog b.
+:type facet_COG_B: Any
+:return: Return value.
+:rtype: Any"""
 
     COG_A = np.round(facet_COG_A, 5)
     COG_B = np.round(facet_COG_B, 5) 

@@ -1,3 +1,4 @@
+"""global_collisions module."""
 import numpy as np
 from scipy.spatial.transform import Rotation as Rot
 from ..Dynamics.collision import update_and_check, updated_fixed_contacts
@@ -6,11 +7,12 @@ from copy import copy
 from functools import partial
 def construct_inv_mass_matrix(titan, ids):
 	'''
-	Builds and inverts the block diagonal mass matrix of collision participants
-	
+Builds and inverts the block diagonal mass matrix of collision participants
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param ids: List of participating assembly indices
-	'''
+	:type ids: Any
+'''
 	Minv = np.zeros([6*len(ids),6*len(ids)])
 
 	for i_body, assem_id in enumerate(ids):
@@ -24,16 +26,22 @@ def construct_inv_mass_matrix(titan, ids):
 		
 def construct_jacobian(local_position_ECEF, v, ids, e = 1.0, corrections = [0.0, 1e-6], titan=None, collision_data = None):
 	'''
-	Builds the Jacobian and b vectors for restitution and stabilisation
-	
+Builds the Jacobian and b vectors for restitution and stabilisation
 	:param local_position_ECEF: Local frame datum position in ECEF frame
+	:type local_position_ECEF: Any
 	:param v: Global velocity vector
+	:type v: Any
 	:param ids: List of participating assembly indices
+	:type ids: Any
 	:param e: Coefficient of Restitution
+	:type e: Any
 	:param corrections: Correction parameters, [0] is the scale factor and [1] is the slop (allowable intersection)
+	:type corrections: Any
 	:param collision_data: Dict of collision data provided by collisions.update_and_check()
+	:type collision_data: Any
 	:param titan: Object of class AssemblyList
-	'''
+	:type titan: object
+'''
 	if titan is None: raise Exception('Must provide titan object!')
 	if collision_data is None: collision_data = titan.collision_data
 	n_contacts = len(collision_data["contact_point"])
@@ -70,12 +78,14 @@ def construct_jacobian(local_position_ECEF, v, ids, e = 1.0, corrections = [0.0,
 
 def construct_global_velocities(titan, ids, local_velocity_ECEF):
 	'''
-	Builds the array of velocities for collision participants in the local ECEF frame
-	
+Builds the array of velocities for collision participants in the local ECEF frame
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param ids: List of participating assembly indices
+	:type ids: Any
 	:param local_velocity_ECEF: Local frame datum velocity in ECEF frame
-	'''
+	:type local_velocity_ECEF: Any
+'''
 
 	v = np.zeros(6*len(ids))
 	for i_assem, assem_id in enumerate(ids):
@@ -87,15 +97,20 @@ def construct_global_velocities(titan, ids, local_velocity_ECEF):
 
 def PGS_solve(A, b, n_iters = 100, warm_start = None, bounds =[0, np.inf], epsilon = 1e-10):
 	'''
-	Projected (clamped) Gauss-Siedel solver
-	
+Projected (clamped) Gauss-Siedel solver
 	:param A: Matrix
+	:type A: Any
 	:param b: Vector
+	:type b: Any
 	:param n_iters: Number of outer loop iterations to finish after
+	:type n_iters: int
 	:param warm_start: Best guess of solution vector, optional
+	:type warm_start: Any
 	:param bounds: Range to project values to
+	:type bounds: Any
 	:param epsilon: Criterion for early stopping if ‖X_[i] - X_[i-1]‖ < epsilon
-	'''
+	:type epsilon: Any
+'''
 	X = np.zeros_like(b) if warm_start is None else warm_start
 	for i in range(n_iters):
 		X_old = X.copy()
@@ -107,15 +122,20 @@ def PGS_solve(A, b, n_iters = 100, warm_start = None, bounds =[0, np.inf], epsil
 
 def global_collision_physics(titan, options, collision_data=None, correction_only=False, recurse=0, correction_method = 'split'):
 	'''
-	Simultaneous collision resolutiuon using Projected Gauss Siedel to solve the LCP problem
-	
+Simultaneous collision resolutiuon using Projected Gauss Siedel to solve the LCP problem
 	:param titan: Object of class AssemblyList
+	:type titan: object
 	:param options: Object of class Options
+	:type options: object
 	:param collision_data: Dict of collision data provided by collisions.update_and_check()
+	:type collision_data: Any
 	:param correction_only: Flag to only apply corrections instead of doing a full velocity update
+	:type correction_only: Any
 	:param recurse: Number of recursive corrections to apply
+	:type recurse: Any
 	:param correction_method: 'split'/'baumgarte'/'none' apply corrections via Split impulse or Baumgarte Stabilisation
-	'''
+	:type correction_method: Any
+'''
 	mass = []
 
 	for assembly in titan.assembly:
@@ -193,6 +213,23 @@ def global_collision_physics(titan, options, collision_data=None, correction_onl
 												  correction_method=correction_method)
 
 def impulse_update(options, ids, correction_method='split', correction_only=False, titan=None, v_physical = None, v_corrective = None):
+	"""Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param ids: Value for ids.
+:type ids: Any
+:param correction_method: Value for correction method.
+:type correction_method: Any
+:param correction_only: Value for correction only.
+:type correction_only: Any
+:param titan: TITAN simulation object.
+:type titan: object
+:param v_physical: Value for v physical.
+:type v_physical: Any
+:param v_corrective: Value for v corrective.
+:type v_corrective: Any
+:return: Return value.
+:rtype: Any"""
 	for i_body, assem_index in enumerate(ids):
 		body = titan.assembly[assem_index]
 		R_body = Rot.from_quat(body.state_vector[6:10])
@@ -229,15 +266,20 @@ def impulse_update(options, ids, correction_method='split', correction_only=Fals
 
 def sequential_collision_resolution(titan, options, imp_update_func, MInv, J_func, b_shape, n_iters = 100, bounds =[0, np.inf], epsilon = 1e-10, warm_start = None):
 	'''
-	PGS with contact recomputation in-loop
-	
+PGS with contact recomputation in-loop
 	:param A: Matrix
+	:type A: Any
 	:param b: Vector
+	:type b: Any
 	:param n_iters: Number of outer loop iterations to finish after
+	:type n_iters: int
 	:param warm_start: Best guess of solution vector, optional
+	:type warm_start: Any
 	:param bounds: Range to project values to
+	:type bounds: Any
 	:param epsilon: Criterion for early stopping if ‖X_[i] - X_[i-1]‖ < epsilon
-	'''
+	:type epsilon: Any
+'''
 	
 	
 	#impulses_phys = np.zeros_like(v) if warm_start is None else warm_start[0]

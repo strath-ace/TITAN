@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""forces module."""
 import numpy as np
 from ..Dynamics.frames import R_B_W
 from ..Dynamics import frames
@@ -24,16 +25,13 @@ from scipy.spatial.transform import Rotation as Rot
 from ..Geometry.tetra import vol_tetra
 
 def compute_aerodynamic_forces(titan, options):
-    """
-    Computes the aerodynamic forces in the wind frame
-
-    Parameters
-    ----------
-    titan: Assembly_list
-        Object of class Assembly_list
-    options: Options
-        Object of class Options
-    """
+    """Computes the aerodynamic forces in the wind frame
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
 
     if options.vehicle and options.vehicle.Cd:
         for assembly in titan.assembly:
@@ -73,17 +71,11 @@ def compute_aerodynamic_forces(titan, options):
     return force
 
 def compute_aerodynamic_moments(titan, options):
-    """
-    Computes the aerodynamic moments in the wind Body frame
-
-    Parameters
-    ----------
-    titan: Assembly_list
-        Object of class Assembly_list
-    options: Options
-        Object of class Options
-
-    """
+    """Computes the aerodynamic moments in the wind Body frame
+:param titan: TITAN simulation object.
+:type titan: object
+:param options: Options or configuration object.
+:type options: object"""
 
     #Computed on the Body Frame
 
@@ -106,18 +98,13 @@ def compute_aerodynamic_moments(titan, options):
 
 #Compute inertial forces for FEniCS
 def compute_inertial_forces(assembly, options):
-    """
-    Computes the inertial forces in the Body Frame
-
-    This functions computes the inertial forces that will be used for the Structurla dynamics
-
-    Parameters
-    ----------
-    assembly: Assembly
-        Object of class Assembly
-    options: Options
-        Object of class Options
-    """
+    """Computes the inertial forces in the Body Frame
+:param assembly: Assembly object to process.
+:type assembly: object
+:param options: Options or configuration object.
+:type options: object
+:return: Return value.
+:rtype: Any"""
 
     elements = assembly.mesh.vol_elements
     coords = assembly.mesh.vol_coords
@@ -144,4 +131,7 @@ def compute_inertial_forces(assembly, options):
 
 
 def compute_coefficients(todo):
+    """Documentation for the function.
+:param todo: Value for todo.
+:type todo: Any"""
     pass

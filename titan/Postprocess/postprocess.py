@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""postprocess module."""
 import os
 import pandas as pd
 import numpy as np
@@ -25,6 +26,13 @@ from ..Dynamics import frames
 from scipy.spatial.transform import Rotation as Rot
 
 def postprocess(options, postprocess = "wind", filter_name = None):
+	"""Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param postprocess: Value for postprocess.
+:type postprocess: Any
+:param filter_name: Value for filter name.
+:type filter_name: Any"""
 	if not os.path.exists(options.output_folder+'/Dense_surface_solution'):
 		data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
 		data_obj = pd.read_csv(options.output_folder+'/Data/data_assembly.csv', index_col = False)
@@ -42,6 +50,23 @@ def postprocess(options, postprocess = "wind", filter_name = None):
 			generate_visualization(options, data_smooth, np.round(time,6), postprocess,is_dense=True, iter_override=i_time)
 
 def generate_visualization(options, data, iter_value, postprocess = "wind", filter_name = None, data_obj = None, is_dense=False, iter_override=None):
+	"""Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param data: Value for data.
+:type data: Any
+:param iter_value: Value for iter value.
+:type iter_value: Any
+:param postprocess: Value for postprocess.
+:type postprocess: Any
+:param filter_name: Value for filter name.
+:type filter_name: Any
+:param data_obj: Value for data obj.
+:type data_obj: Any
+:param is_dense: Flag for is dense.
+:type is_dense: bool
+:param iter_override: Value for iter override.
+:type iter_override: Any"""
 
 	if not is_dense:
 		index = data['Iter']==iter_value

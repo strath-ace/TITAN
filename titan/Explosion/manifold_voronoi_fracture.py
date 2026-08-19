@@ -1,3 +1,4 @@
+"""manifold_voronoi_fracture module."""
 from scipy.spatial import ConvexHull
 import numpy as np
 import trimesh, manifold3d
@@ -5,6 +6,15 @@ import glob, subprocess, pathlib
 import pandas as pd
 
 def bb_check(bb_candidate, bb_to_query, use_any=True):
+    """Documentation for the function.
+:param bb_candidate: Value for bb candidate.
+:type bb_candidate: Any
+:param bb_to_query: Value for bb to query.
+:type bb_to_query: Any
+:param use_any: Flag for use any.
+:type use_any: bool
+:return: Return value.
+:rtype: Any"""
     if bb_to_query is None:  return True
     bb_candidate = np.array(bb_candidate)
     bb_to_query = np.array(bb_to_query)
@@ -17,6 +27,17 @@ def bb_check(bb_candidate, bb_to_query, use_any=True):
     return np.all(is_in)
 
 def generate_fragment_meshes(stl, voronoi, write_dir, extrude=3e-2, verbose=False):
+    """Documentation for the function.
+:param stl: Value for stl.
+:type stl: Any
+:param voronoi: Value for voronoi.
+:type voronoi: Any
+:param write_dir: Value for write dir.
+:type write_dir: str
+:param extrude: Value for extrude.
+:type extrude: Any
+:param verbose: Flag for verbose.
+:type verbose: bool"""
     base_mesh = trimesh.load_mesh(stl)
     manifold_mesh = manifold3d.Mesh(vert_properties=np.array(base_mesh.vertices),tri_verts=np.array(base_mesh.faces))
     base_manifold = manifold3d.Manifold(manifold_mesh)
@@ -54,6 +75,17 @@ def generate_fragment_meshes(stl, voronoi, write_dir, extrude=3e-2, verbose=Fals
             n_fails += 1
 
 def build_voro_prisms(voronoi, bb = None, extrude=1e-2, use_trimesh=True):
+    """Documentation for the function.
+:param voronoi: Value for voronoi.
+:type voronoi: Any
+:param bb: Value for bb.
+:type bb: Any
+:param extrude: Value for extrude.
+:type extrude: Any
+:param use_trimesh: Flag for use trimesh.
+:type use_trimesh: bool
+:return: Return value.
+:rtype: Any"""
     prisms = [] # Final built tri-prisms to use in boolean
     surf_list = [] # Already existing surfs in str format
     for i_region, region in enumerate(voronoi.regions):
@@ -145,6 +177,17 @@ def build_voro_prisms(voronoi, bb = None, extrude=1e-2, use_trimesh=True):
     return prisms
 
 def orthogonal_planes(bounding_box, rng, n=50, extrude=1e-2):
+    """Documentation for the function.
+:param bounding_box: Value for bounding box.
+:type bounding_box: Any
+:param rng: Value for rng.
+:type rng: Any
+:param n: Integer value for n.
+:type n: int
+:param extrude: Value for extrude.
+:type extrude: Any
+:return: Return value.
+:rtype: Any"""
     prisms = []
     normals = np.eye(3)
     normals[1] *= -1
@@ -183,6 +226,23 @@ def orthogonal_planes(bounding_box, rng, n=50, extrude=1e-2):
     return prisms
 
 def extrude_prism_from_verts(verts, base_extrude_height, normal, vert_normals = None, bias = 0.5, scale=1.0, debug_trimesh=False):
+    """Documentation for the function.
+:param verts: Value for verts.
+:type verts: Any
+:param base_extrude_height: Value for base extrude height.
+:type base_extrude_height: Any
+:param normal: Value for normal.
+:type normal: Any
+:param vert_normals: Value for vert normals.
+:type vert_normals: Any
+:param bias: Value for bias.
+:type bias: Any
+:param scale: Value for scale.
+:type scale: Any
+:param debug_trimesh: Value for debug trimesh.
+:type debug_trimesh: Any
+:return: Return value.
+:rtype: Any"""
     ## Make sure our normals are well-aligned
     aligned_0 = np.dot(normal, vert_normals[0])
     aligned_1 = np.dot(normal, vert_normals[1])
@@ -233,6 +293,21 @@ def extrude_prism_from_verts(verts, base_extrude_height, normal, vert_normals = 
     return v, faces
 
 def mesh_check(folder, density, target_volume=None, threshold=10.0, delete_bad=False, quiet=True):
+    """Documentation for the function.
+:param folder: Value for folder.
+:type folder: Any
+:param density: Numeric value for density.
+:type density: float
+:param target_volume: Value for target volume.
+:type target_volume: Any
+:param threshold: Value for threshold.
+:type threshold: Any
+:param delete_bad: Value for delete bad.
+:type delete_bad: Any
+:param quiet: Flag for quiet.
+:type quiet: bool
+:return: Return value.
+:rtype: Any"""
     all_valid = True
     explosions_dir = pathlib.Path(__file__).parent.resolve()
     for frag in glob.glob("{}/*.stl".format(folder)):

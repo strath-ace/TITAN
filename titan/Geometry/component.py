@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+"""component module."""
 from ..Geometry import mesh as Mesh
 from ..Geometry.tetra import inertia_tetra, vol_tetra
 from ..Material.material import Material
@@ -24,8 +25,10 @@ import numpy as np
 from pathlib import Path
 
 class Component_list():
+    """Component_list."""
     # A class with the purpose of storing the different components in a list
     def __init__(self):
+        """__init__."""
         self.object = []
         self.id = 1
         
@@ -42,6 +45,43 @@ class Component_list():
         self.id += 1
 
 class Component():
+    """Documentation for the function.
+    :param filename: Path to the relevant file.
+    :type filename: str
+    :param file_type: Value for file type.
+    :type file_type: str
+    :param inner_stl: Value for inner stl.
+    :type inner_stl: Any
+    :param id: Integer value for id.
+    :type id: int
+    :param binary: Value for binary.
+    :type binary: Any
+    :param trigger_type: Value for trigger type.
+    :type trigger_type: Any
+    :param trigger_value: Value for trigger value.
+    :type trigger_value: Any
+    :param fenics_bc_id: Integer value for fenics bc id.
+    :type fenics_bc_id: int
+    :param material: Value for material.
+    :type material: Any
+    :param temperature: Numeric value for temperature.
+    :type temperature: float
+    :param options: Options or configuration object.
+    :type options: object
+    :param global_ID: Integer value for global id.
+    :type global_ID: int
+    :param bloom_config: Value for bloom config.
+    :type bloom_config: Any
+    :param alpha: Numeric value for alpha.
+    :type alpha: float
+    :param mixture: Value for mixture.
+    :type mixture: Any
+    :param mass_fractions: Value for mass fractions.
+    :type mass_fractions: Any
+    :param species: Value for species.
+    :type species: Any
+    :param explosive_parameters: Value for explosive parameters.
+    :type explosive_parameters: Any"""
     """ Component class
 
         Class to store the information of a singular component.
@@ -61,6 +101,53 @@ class Component():
         self.type = file_type
     
         #if self.type == "Joint":
+        """Documentation for the function.
+:param filename: Path to the relevant file.
+:type filename: str
+:param file_type: Value for file type.
+:type file_type: str
+:param inner_stl: Value for inner stl.
+:type inner_stl: Any
+:param id: Integer value for id.
+:type id: int
+:param binary: Value for binary.
+:type binary: Any
+:param temperature: Numeric value for temperature.
+:type temperature: float
+:param trigger_type: Value for trigger type.
+:type trigger_type: Any
+:param trigger_value: Value for trigger value.
+:type trigger_value: Any
+:param fenics_bc_id: Integer value for fenics bc id.
+:type fenics_bc_id: int
+:param material: Value for material.
+:type material: Any
+:param v0: Value for v0.
+:type v0: Any
+:param v1: Value for v1.
+:type v1: Any
+:param v2: Value for v2.
+:type v2: Any
+:param parent_id: Integer value for parent id.
+:type parent_id: int
+:param parent_part: Value for parent part.
+:type parent_part: Any
+:param options: Options or configuration object.
+:type options: object
+:param global_ID: Integer value for global id.
+:type global_ID: int
+:param bloom_config: Value for bloom config.
+:type bloom_config: Any
+:param alpha: Numeric value for alpha.
+:type alpha: float
+:param mixture: Value for mixture.
+:type mixture: Any
+:param mass_fractions: Value for mass fractions.
+:type mass_fractions: Any
+:param species: Value for species.
+:type species: Any
+:param explosive_parameters: Value for explosive parameters.
+:type explosive_parameters: Any"""
         if self.type == 'Explosive':
             self.explosive = Explosive(explosive_parameters)
         #: [str] Type of trigger for type joint (Altitude, Temperature, Stress)
@@ -152,19 +239,13 @@ class Component():
 
 
     def compute_mass_properties(self, coords, elements, density):
-        """
-        Compute the inertia properties
-
-        Uses the volumetric grid information, along with the material density to compute the mass,
-        Center of mass and inertia matrix using tetras
-
-        Parameters
-        ----------
-        coords: np.array
-            numpy array containing the XYZ coordinates of the vertex of each tetrahedral element
-        elements: np.array
-            numpy array containing the connectivity information of each tetrahedral element
-        """
+        """Compute the inertia properties
+:param coords: Value for coords.
+:type coords: Any
+:param elements: Value for elements.
+:type elements: Any
+:param density: Numeric value for density.
+:type density: float"""
 
         vol = vol_tetra(coords[elements[:,0]],coords[elements[:,1]],coords[elements[:,2]], coords[elements[:,3]])
         
@@ -186,6 +267,17 @@ class PATO():
     """
 
     def __init__(self, options, len_facets, bloom_config, object_id = 0, temperature = 300):
+        """Documentation for the function.
+:param options: Options or configuration object.
+:type options: object
+:param len_facets: Value for len facets.
+:type len_facets: Any
+:param bloom_config: Value for bloom config.
+:type bloom_config: Any
+:param object_id: Integer value for object id.
+:type object_id: int
+:param temperature: Numeric value for temperature.
+:type temperature: float"""
 
         self.initial_temperature = temperature
         
@@ -227,7 +319,11 @@ class PATO():
         Path(options.output_folder+'/PATO_'+str(object_id)+'/data').mkdir(parents=True, exist_ok=True)        
 
 class bloom():
+    """bloom."""
     def __init__(self, bloom_config):
+        """Documentation for the function.
+:param bloom_config: Value for bloom config.
+:type bloom_config: Any"""
 
         #: [bool] Flag value indicating the use of Bloom to generate the boundary layer mesh
         self.flag = bloom_config[0]
@@ -242,7 +338,11 @@ class bloom():
         self.growth_rate = bloom_config[3]
 
 class Explosive():
+    """Explosive."""
     def __init__(self, explosive_parameters=None):
+        """Documentation for the function.
+:param explosive_parameters: Value for explosive parameters.
+:type explosive_parameters: Any"""
 
 
         defaults = [24, 10.0, 1e6, 1.0, 5e-3]
