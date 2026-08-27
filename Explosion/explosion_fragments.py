@@ -29,7 +29,9 @@ from Geometry import component, assembly, mesh
 from scipy.stats import norm
 from Explosion.generate_seed_distribution import optimal_seeds, SpiralSampler
 from Explosion.manifold_voronoi_fracture import generate_fragment_meshes, mesh_check
+from Explosion.fragment_statistics import plot_result
 from scipy.spatial.transform import Rotation as Rot
+import traceback
 
 def fracture_object(explobject, parent, options, dt = None, base_rng = None):
     '''
@@ -67,13 +69,13 @@ def fracture_object(explobject, parent, options, dt = None, base_rng = None):
                                         35.36336186280215, 
                                         34.24156856002203])
     if options.verbose: print('Sample weights of...\n',spiral_weights)
-
+    base_state = None
     base_state = base_rng.get_state() if base_rng is not None else None
 
     for i_attempt in range(max_attempts):
         # Want a sequence of random states that can be recovered
         if base_state is None:
-            rng = np.random.RandomState(6+i_attempt)
+            rng = np.random.RandomState(4+i_attempt)
         else: 
             rng = np.random.RandomState(None)
             rng.set_state(base_state)
@@ -97,13 +99,13 @@ def fracture_object(explobject, parent, options, dt = None, base_rng = None):
         vor = Voronoi(points)
 
         try:
-            generate_fragment_meshes(explobject.name,vor, expl_dir, extrude=explobject.explosive.crack_width)
+            generate_fragment_meshes(explobject.name,None, expl_dir, extrude=explobject.explosive.crack_width, nucleus = nucleus, rng=rng, n=n_frags)
 
             if mesh_check(expl_dir,explobject.material.density, explobject.volume, 
                           threshold=options.explosion.mesh_err_pct, delete_bad=True, 
                           quiet=(not options.verbose)): break
         except Exception as e: 
-            print(e)
+            [print(tr) for tr in traceback.format_exception(e)]
         if i_attempt<max_attempts-1:
             print('Voronoi {} failed mesh check! Recalculating...'.format(i_attempt))
             if pathlib.Path(expl_dir+'/stats.csv').resolve().exists():
@@ -115,6 +117,9 @@ def fracture_object(explobject, parent, options, dt = None, base_rng = None):
 
     data = pd.read_csv(expl_dir+'/' + 'stats.csv')
     ids = [int(frag_name.split('_')[-1]) for frag_name in data['name'].to_list()]
+    
+    plot_result(data, expl_dir)
+
     explosion_parameters = {'nucleus' : parent.state_vector[:3]+Rot.from_quat(parent.state_vector[6:10]).apply(nucleus-parent.COG),
                             'characteristic_velocity' : explobject.explosive.char_velocity,
                             'energy' : explobject.explosive.energy,
@@ -163,7 +168,7 @@ def build_new_assemblies(fragment_list, titan, options, i_parent, explosion_para
         titan.assembly.append(new_assem.assembly[0])
         titan.id+=1
         titan.assembly[-1].generate_inner_domain(size_override=explosion_parameters['lref'][i_fragment]*1e-2, 
-                                                 min_size=explosion_parameters['lref'][i_fragment]*5e-3)
+                                                 min_size=explosion_parameters['lref'][i_fragment]*1e-3)
         titan.assembly[-1].compute_mass_properties()
 
         titan.assembly[-1].roll  = angle[0]

@@ -3,6 +3,7 @@ import numpy as np
 import trimesh, manifold3d
 import glob, subprocess, pathlib
 import pandas as pd
+from scipy import stats
 
 def bb_check(bb_candidate, bb_to_query, use_any=True):
     if bb_to_query is None:  return True
@@ -16,14 +17,29 @@ def bb_check(bb_candidate, bb_to_query, use_any=True):
                                           bb_candidate[:,dim] > bb_to_query[0,dim]))
     return np.all(is_in)
 
-def generate_fragment_meshes(stl, voronoi, write_dir, extrude=3e-2, verbose=False):
+def generate_fragment_meshes(stl, voronoi, write_dir, extrude=3e-2, verbose=False, nucleus=None, rng=None, n=64):
     base_mesh = trimesh.load_mesh(stl)
     manifold_mesh = manifold3d.Mesh(vert_properties=np.array(base_mesh.vertices),tri_verts=np.array(base_mesh.faces))
     base_manifold = manifold3d.Manifold(manifold_mesh)
     bool_list = [base_manifold]
     if verbose: print('Building prisms')
-    #prisms = build_voro_prisms(voronoi, base_mesh.bounding_box.bounds, extrude=extrude)
-    prisms = orthogonal_planes(base_mesh.bounding_box.bounds,extrude=extrude, rng=np.random.RandomState(69420), n=9)
+    if voronoi is not None:
+        prisms = build_voro_prisms(voronoi, base_mesh.bounding_box.bounds, extrude=extrude)
+    else:
+        if rng is None: rng = np.random.default_rng()
+        if nucleus is None: 
+            distris = [stats.uniform() for _ in range(3)]
+            for d in distris: d.random_state = rng
+        else:
+            focus = (nucleus - base_mesh.bounding_box.bounds[0]) / (base_mesh.bounding_box.bounds[1] - base_mesh.bounding_box.bounds[0])
+            distris = []
+            for axis in range(3):
+                scale = 0.2
+                a, b = (0 - focus[axis]) / scale, (1 - focus[axis]) / scale
+                distris.append(stats.truncnorm(loc=focus[axis], scale=scale, a=a, b=b))
+                distris[-1].random_state=rng
+            print(nucleus, focus, base_mesh.bounding_box.bounds)
+        prisms = orthogonal_planes(base_mesh.bounding_box.bounds, rng, extrude=extrude,  n=n, distris=distris)
     prism_tool = manifold3d.Manifold.batch_boolean(prisms, manifold3d.OpType.Add).to_mesh()
     trimesh.Trimesh(vertices=prism_tool.vert_properties, faces=prism_tool.tri_verts).export('Planes.stl')
     [bool_list.append(prism) for prism in prisms]
@@ -144,13 +160,17 @@ def build_voro_prisms(voronoi, bb = None, extrude=1e-2, use_trimesh=True):
                 surf_list.append(str_full_loop)
     return prisms
 
-def orthogonal_planes(bounding_box, rng, n=50, extrude=1e-2):
+def orthogonal_planes(bounding_box, rng, n=50, extrude=1e-2, distris = None):
+    if distris is None: raise Exception('Must provide 3 distributions!')
     prisms = []
     normals = np.eye(3)
     normals[1] *= -1
+
     for i_plane in range(n):
         axis = rng.choice(3)
-        height = bounding_box[0][axis]+rng.rand()*(bounding_box[1][axis]-bounding_box[0][axis])#
+        print('Selecting from domain {} for axis {} (nucleus at {})'.format(distris[axis].support(),axis, distris[axis].mean()))
+        height = bounding_box[0][axis]+distris[axis].rvs()*(bounding_box[1][axis]-bounding_box[0][axis])#
+        print('Selected point {}'.format(height))
         quad = np.zeros([4,3])
         quad[:,axis] = height*np.ones(4)
         flip = False
@@ -182,6 +202,38 @@ def orthogonal_planes(bounding_box, rng, n=50, extrude=1e-2):
                                                             tri_verts=prism_faces)))
     return prisms
 
+def intersect_aabb_with_plane(aabb, plane_normal, plane_offset):
+
+    aabb_points = np.array([[aabb[0][0], aabb[0][1], aabb[0][2]],
+                            [aabb[0][0], aabb[1][1], aabb[0][2]],
+                            [aabb[0][0], aabb[0][1], aabb[1][2]],
+                            [aabb[0][0], aabb[1][1], aabb[1][2]],
+                            [aabb[1][0], aabb[0][1], aabb[0][2]],
+                            [aabb[1][0], aabb[1][1], aabb[0][2]],
+                            [aabb[1][0], aabb[0][1], aabb[1][2]],
+                            [aabb[1][0], aabb[1][1], aabb[1][2]],
+                            ])
+    
+    ## Traverse the aabb through its edges caputring points that intersect the plane
+    edges = [[0,1],[0,2],[1,3],[2,3],
+             [0,4],[4,6],[2,6],
+             [1,5],[3,7],[5,7],
+             [4,5],[6,7]]
+    intersects = []
+    for edge in edges:
+        min = aabb_points[edges[0]]
+        max = aabb_points[edges[1]]
+
+        min_dist = np.dot(plane_normal,min)+plane_offset
+        max_dist = np.dot(plane_normal,max)+plane_offset
+
+        if np.sign(min_dist)==np.sign(max_dist): 
+            if min_dist==0 and max_dist==0: continue
+            intersects.append(min+min_dist)
+
+        else: pass
+
+    
 def extrude_prism_from_verts(verts, base_extrude_height, normal, vert_normals = None, bias = 0.5, scale=1.0, debug_trimesh=False):
     ## Make sure our normals are well-aligned
     aligned_0 = np.dot(normal, vert_normals[0])
@@ -234,6 +286,7 @@ def extrude_prism_from_verts(verts, base_extrude_height, normal, vert_normals = 
 
 def mesh_check(folder, density, target_volume=None, threshold=10.0, delete_bad=False, quiet=True):
     all_valid = True
+    if density==0: density = 2700
     for frag in glob.glob("{}/*.stl".format(folder)):
         if quiet:
             proc = subprocess.run(['blender','-b','-P','./Explosion/stl_verify_blender.py','--',
