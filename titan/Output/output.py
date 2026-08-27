@@ -488,13 +488,13 @@ def update_surface_solution(assembly,options,solution,overwrite=None):
         solution.cell_data["mDotVapor"][:] = [mDotVapor]
         solution.cell_data["mDotMelt"][:]  = [mDotMelt]
 
-    solution.cell_data["pressure"][:] = [pressure]
-    solution.cell_data["heatflux"][:] = [heatflux]
-    solution.cell_data["temperature"][:] = [temperature]
-    solution.cell_data["shear"][:] = [shear]
-    solution.cell_data["theta"][:] = [theta]
+    solution.cell_data["pressure"][:] = pressure
+    solution.cell_data["heatflux"][:] = heatflux
+    solution.cell_data["temperature"][:] = temperature
+    solution.cell_data["shear"][:] = shear
+    solution.cell_data["theta"][:] = theta
     solution.point_data["displacement"][:] = displacement
-    solution.cell_data["debug_alpha"][:] = [debug_alpha]
+    solution.cell_data["debug_alpha"][:] = debug_alpha
     return solution
 
 def write_surface_solution(options,solution,assembly_id,iter_value,folder='Surface_solution'):

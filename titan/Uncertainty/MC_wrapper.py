@@ -91,7 +91,7 @@ def wrapper(titan, options, i_sample : int, seed : int):
     options.create_output_folders()
     component_list = []
     for _assembly in titan.assembly: 
-        construct_state_vector(_assembly)
+        construct_state_vector(_assembly, options.dynamics.augmented_state)
         [component_list.append(comp.name) for comp in _assembly.objects]
     state_info = titan.uq_mapper.map_from_seed(seed, titan, options)
     write_datafile(options.output_folder, i_sample, state_info)
