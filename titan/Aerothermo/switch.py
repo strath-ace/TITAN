@@ -116,25 +116,25 @@ def compute_aerothermo(titan, options):
     
     for i, assembly in enumerate(assembly_windframe):
 
-        R_B_ECEF = Rot.from_quat(assembly.quaternion)
+        R_ECEF_from_B = Rot.from_quat(assembly.quaternion)
 
         assembly.mesh.nodes -= assembly.COG
-        assembly.mesh.nodes = R_B_ECEF.apply(assembly.mesh.nodes)
+        assembly.mesh.nodes = R_ECEF_from_B.apply(assembly.mesh.nodes)
 
         #Translate to the ECEF position
         assembly.mesh.nodes += np.array(assembly.position-pos)        
 
-        R_ECEF_NED = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude).inv()
-        R_NED_W = frames.R_W_NED(ha = assembly.trajectory.chi, fpa = assembly.trajectory.gamma).inv()
+        R_NED_from_ECEF = frames.R_ECEF_from_NED(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude).inv()
+        R_NED_W = frames.R_NED_from_W(ha = assembly.trajectory.chi, fpa = assembly.trajectory.gamma).inv()
 
 
         #R_ECEF_B = Rot.from_quat(assembly.quaternion).inv()
-        #R_B_NED =   frames.R_B_NED(roll = assembly.roll, pitch = assembly.pitch, yaw = assembly.yaw) 
-        #R_NED_W = frames.R_W_NED(ha = assembly.trajectory.chi, fpa = assembly.trajectory.gamma).inv()
-        R_ECEF_W = R_NED_W*R_ECEF_NED
+        #R_NED_from_B =   frames.R_NED_from_B(roll = assembly.roll, pitch = assembly.pitch, yaw = assembly.yaw) 
+        #R_NED_W = frames.R_NED_from_W(ha = assembly.trajectory.chi, fpa = assembly.trajectory.gamma).inv()
+        R_ECEF_W = R_NED_W*R_NED_from_ECEF
 
 #       mesh[i].points = (R_ECEF_W).apply(mesh[i].points)
-#       R_ECEF_W = R_NED_W*R_ECEF_NED 
+#       R_ECEF_W = R_NED_W*R_NED_from_ECEF 
 
         assembly.mesh.nodes = (R_ECEF_W).apply(assembly.mesh.nodes)
 

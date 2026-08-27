@@ -19,7 +19,7 @@
 #
 """forces module."""
 import numpy as np
-from ..Dynamics.frames import R_B_W
+from ..Dynamics.frames import R_W_from_B
 from ..Dynamics import frames
 from scipy.spatial.transform import Rotation as Rot
 from ..Geometry.tetra import vol_tetra
@@ -56,12 +56,12 @@ def compute_aerodynamic_forces(titan, options):
 
             q = assembly.quaternion
 
-            R_W_NED = frames.R_W_NED(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)
-            R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
-            R_B_W_quat =  (R_NED_ECEF * R_W_NED).inv()*Rot.from_quat(q)
+            R_NED_from_W = frames.R_NED_from_W(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)
+            R_ECEF_from_NED = frames.R_ECEF_from_NED(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+            R_W_from_B_quat =  (R_ECEF_from_NED * R_NED_from_W).inv()*Rot.from_quat(q)
 
             #Applies a rotation matrix to change from Body frame to Wind Frame
-            aerodynamic_forces = R_B_W_quat.apply(force)*[-1,1,-1]#christie: NED body frame?
+            aerodynamic_forces = R_W_from_B_quat.apply(force)*[-1,1,-1]#christie: NED body frame?
 
             assembly.wind_force.drag      = aerodynamic_forces[0]
             assembly.wind_force.crosswind = aerodynamic_forces[1]

@@ -735,18 +735,18 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     
     for i, assembly in enumerate(assembly_windframe):
 
-        R_B_ECEF = Rot.from_quat(assembly.quaternion)
+        R_ECEF_from_B = Rot.from_quat(assembly.quaternion)
 
         assembly.cfd_mesh.nodes -= assembly.COG
-        assembly.cfd_mesh.nodes = R_B_ECEF.apply(assembly.cfd_mesh.nodes)
+        assembly.cfd_mesh.nodes = R_ECEF_from_B.apply(assembly.cfd_mesh.nodes)
 
         #Translate to the ECEF position
         assembly.cfd_mesh.nodes += np.array(assembly.position-pos)        
 
-        R_ECEF_NED = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude).inv()
-        R_NED_W = frames.R_W_NED(ha = assembly.trajectory.chi, fpa = assembly.trajectory.gamma).inv()
+        R_NED_from_ECEF = frames.R_ECEF_from_NED(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude).inv()
+        R_NED_W = frames.R_NED_from_W(ha = assembly.trajectory.chi, fpa = assembly.trajectory.gamma).inv()
 
-        R_ECEF_W = R_NED_W*R_ECEF_NED 
+        R_ECEF_W = R_NED_W*R_NED_from_ECEF 
         assembly.cfd_mesh.nodes = (R_ECEF_W).apply(assembly.cfd_mesh.nodes)
 
         assembly.cfd_mesh.xmin = np.min(assembly.cfd_mesh.nodes , axis = 0)

@@ -70,9 +70,9 @@ def measurement_from_state(options, augmented=False, state_vector=None):
     [latitude, longitude, altitude] = pymap3d.ecef2geodetic(state_vector[0], state_vector[1], state_vector[2],ell=pymap3d.Ellipsoid(semimajor_axis = options.planet.ellipsoid()['a'], semiminor_axis = options.planet.ellipsoid()['b']),deg = False);
 
 
-    R_NED_ECEF = frames.R_NED_ECEF(lat = latitude, lon =longitude)
-    R_B_NED_quat = (R_NED_ECEF).inv()*Rot.from_quat(quaternion)
-    [yaw,pitch,roll] = R_B_NED_quat.as_euler('ZYX')
+    R_ECEF_from_NED = frames.R_ECEF_from_NED(lat = latitude, lon =longitude)
+    R_NED_from_B_quat = (R_ECEF_from_NED).inv()*Rot.from_quat(quaternion)
+    [yaw,pitch,roll] = R_NED_from_B_quat.as_euler('ZYX')
 
     [vEast, vNorth, vUp] = pymap3d.uvw2enu(state_vector[3], state_vector[4], state_vector[5], latitude, longitude, deg=False)
 

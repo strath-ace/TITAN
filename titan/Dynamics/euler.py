@@ -141,13 +141,13 @@ def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives
     gamma = np.arcsin(np.dot(assembly.position, assembly.velocity)/(np.linalg.norm(assembly.position)*np.linalg.norm(assembly.velocity)))
     assembly.trajectory.chi = np.arctan2(vEast,vNorth)
     
-    R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+    R_ECEF_from_NED = frames.R_ECEF_from_NED(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
 
     norm = np.linalg.norm(assembly.quaternion)
 
     #Should it be like this??
-    R_B_NED_quat = (R_NED_ECEF).inv()*Rot.from_quat(assembly.quaternion)
-    [yaw,pitch,roll] = R_B_NED_quat.as_euler('ZYX')
+    R_NED_from_B_quat = (R_ECEF_from_NED).inv()*Rot.from_quat(assembly.quaternion)
+    [yaw,pitch,roll] = R_NED_from_B_quat.as_euler('ZYX')
 
     assembly.yaw = yaw
     assembly.pitch = pitch

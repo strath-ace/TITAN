@@ -170,12 +170,12 @@ def compute_quaternion(assembly):
     assembly.pitch= assembly.trajectory.gamma+assembly.aoa
     assembly.yaw  = assembly.trajectory.chi - assembly.slip #christie: check sign of slip
 
-    R_B_NED =   frames.R_B_NED(roll = assembly.roll, pitch = assembly.pitch, yaw = assembly.yaw) 
-    R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+    R_NED_from_B =   frames.R_NED_from_B(roll = assembly.roll, pitch = assembly.pitch, yaw = assembly.yaw) 
+    R_ECEF_from_NED = frames.R_ECEF_from_NED(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
 
-    R_B_ECEF = (R_NED_ECEF*R_B_NED)
+    R_ECEF_from_B = (R_ECEF_from_NED*R_NED_from_B)
 
-    assembly.quaternion = R_B_ECEF.as_quat()
+    assembly.quaternion = R_ECEF_from_B.as_quat()
 
     assembly.quaternion_prev = assembly.quaternion
 
@@ -235,18 +235,18 @@ def compute_cartesian_derivatives(assembly, options):
 
     [agrav_u,agrav_v,agrav_w] = pymap3d.enu2uvw(0,0, gr,assembly.trajectory.latitude, assembly.trajectory.longitude,deg = False)
 
-    #R_W_NED = frames.R_W_NED(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)
-    #R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
-    #R_W_ECEF = R_W_NED* R_NED_ECEF
+    #R_NED_from_W = frames.R_NED_from_W(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)
+    #R_ECEF_from_NED = frames.R_ECEF_from_NED(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+    #R_W_ECEF = R_NED_from_W* R_ECEF_from_NED
 
     q = assembly.quaternion
 
-    #R_W_NED = frames.R_W_NED(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)
-    R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
-    #R_B_W_quat =  (R_NED_ECEF * R_W_NED).inv()*Rot.from_quat(q)
-    R_B_ECEF = Rot.from_quat(q)
+    #R_NED_from_W = frames.R_NED_from_W(fpa = assembly.trajectory.gamma, ha = assembly.trajectory.chi)
+    R_ECEF_from_NED = frames.R_ECEF_from_NED(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+    #R_W_from_B_quat =  (R_ECEF_from_NED * R_NED_from_W).inv()*Rot.from_quat(q)
+    R_ECEF_from_B = Rot.from_quat(q)
 
-    Faero_I = R_B_ECEF.apply(np.array(assembly.body_force.force))
+    Faero_I = R_ECEF_from_B.apply(np.array(assembly.body_force.force))
 
     Fgrav_I = np.array([agrav_u,agrav_v,agrav_w])*assembly.mass
     # Renamed for clarity

@@ -23,7 +23,7 @@ from scipy.spatial.transform import Rotation as Rot
 from numpy import cos, sin
 
 #REN to ECEF
-def R_NED_ECEF(lat = 0, lon = 0):
+def R_ECEF_from_NED(lat = 0, lon = 0):
     """Documentation for the function.
 :param lat: Value for lat.
 :type lat: Any
@@ -34,15 +34,15 @@ def R_NED_ECEF(lat = 0, lon = 0):
     latitude = lat   #Latitude
     longitude = lon  #Longitude
 
-    R_NED_ECEF = Rot.from_euler('ZY',
+    R_ECEF_from_NED = Rot.from_euler('ZY',
                                 [longitude,-latitude-np.pi/2])  # converts from North East Down to ECEF  
                                                          
 
-    return R_NED_ECEF
+    return R_ECEF_from_NED
 
 #WIND to REN 
 #Wind frame should have the Z direction downwards to the body
-def R_W_NED(fpa = 0, ha = 0):
+def R_NED_from_W(fpa = 0, ha = 0):
     """Documentation for the function.
 :param fpa: Value for fpa.
 :type fpa: Any
@@ -53,12 +53,12 @@ def R_W_NED(fpa = 0, ha = 0):
     gamma = fpa #Flight Path Angle
     chi = ha    #Heading Angle
     
-    R_W_NED = Rot.from_euler('ZY', [chi, gamma])  # converts from wind frame to North East Down
+    R_NED_from_W = Rot.from_euler('ZY', [chi, gamma])  # converts from wind frame to North East Down
 
-    return R_W_NED
+    return R_NED_from_W
 
 #WIND to BODY
-def R_W_B(aoa = 0, slip = 0):
+def R_B_from_W(aoa = 0, slip = 0):
     """Documentation for the function.
 :param aoa: Value for aoa.
 :type aoa: Any
@@ -69,14 +69,14 @@ def R_W_B(aoa = 0, slip = 0):
     a=aoa   #A = Angle of attack = Pitch
     b=slip  #B = Sideslip = Yaw
 
-    R_W_B = Rot.from_matrix(np.array([[cos(a)*cos(b), sin(b)*cos(a), -sin(a)],
+    R_B_from_W = Rot.from_matrix(np.array([[cos(a)*cos(b), sin(b)*cos(a), -sin(a)],
                                     [-sin(b), cos(b), 0],
                                     [cos(b)*sin(a), sin(b)*sin(a), cos(a)]]))#* R_roll
 
-    return R_W_B
+    return R_B_from_W
 
 #BODY to WIND
-def R_B_W(aoa = 0, slip = 0):
+def R_W_from_B(aoa = 0, slip = 0):
     """Documentation for the function.
 :param aoa: Value for aoa.
 :type aoa: Any
@@ -85,14 +85,14 @@ def R_B_W(aoa = 0, slip = 0):
 :return: Return value.
 :rtype: Any"""
 
-    R_B_W = R_W_B(aoa = aoa, slip = slip).inv().as_matrix()
-    R_B_W[np.abs(R_B_W) < 1E-14] = 0
-    R_B_W = Rot.from_matrix(R_B_W)
+    R_W_from_B = R_B_from_W(aoa = aoa, slip = slip).inv().as_matrix()
+    R_W_from_B[np.abs(R_W_from_B) < 1E-14] = 0
+    R_W_from_B = Rot.from_matrix(R_W_from_B)
 
-    return R_B_W
+    return R_W_from_B
 
 #BODY to NED
-def R_B_NED(roll = 0, pitch = 0, yaw = 0):
+def R_NED_from_B(roll = 0, pitch = 0, yaw = 0):
     """Documentation for the function.
 :param roll: Value for roll.
 :type roll: Any
@@ -103,5 +103,5 @@ def R_B_NED(roll = 0, pitch = 0, yaw = 0):
 :return: Return value.
 :rtype: Any"""
 
-    R_B_NED = Rot.from_euler('ZYX', [yaw, pitch, roll])  # converts from Body frame to North East Down
-    return(R_B_NED)
+    R_NED_from_B = Rot.from_euler('ZYX', [yaw, pitch, roll])  # converts from Body frame to North East Down
+    return(R_NED_from_B)

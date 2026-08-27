@@ -93,14 +93,14 @@ def view_direction(titan, options):
 
     for assembly in titan.assembly:
 
-        R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
+        R_ECEF_from_B = Rot.from_quat(assembly.quaternion_prev)
 
         # Transform assembly from body to ECEF frame
-        assembly.mesh.facet_normal = R_B_ECEF.apply(assembly.mesh.facet_normal)
-        assembly.mesh.nodes        = R_B_ECEF.apply(assembly.mesh.nodes)
-        assembly.mesh.v0           = R_B_ECEF.apply(assembly.mesh.v0)
-        assembly.mesh.v1           = R_B_ECEF.apply(assembly.mesh.v1)
-        assembly.mesh.v2           = R_B_ECEF.apply(assembly.mesh.v2)
+        assembly.mesh.facet_normal = R_ECEF_from_B.apply(assembly.mesh.facet_normal)
+        assembly.mesh.nodes        = R_ECEF_from_B.apply(assembly.mesh.nodes)
+        assembly.mesh.v0           = R_ECEF_from_B.apply(assembly.mesh.v0)
+        assembly.mesh.v1           = R_ECEF_from_B.apply(assembly.mesh.v1)
+        assembly.mesh.v2           = R_ECEF_from_B.apply(assembly.mesh.v2)
 
         # Retrieve index of facets seen from viewpoint
         assembly.index_blackbody = Aerothermo.ray_trace(assembly, viewpoint)
@@ -296,16 +296,16 @@ def line_of_sight(titan, options, iteration):
 
         if M > 1.1:
 
-            R_B_ECEF = Rot.from_quat(assembly.quaternion_prev)
+            R_ECEF_from_B = Rot.from_quat(assembly.quaternion_prev)
 
             lat = assembly.trajectory.latitude
             lon = assembly.trajectory.longitude
             chi = assembly.trajectory.chi
             gamma = assembly.trajectory.gamma
 
-            R_ECEF_NED = frames.R_NED_ECEF(lat=lat, lon=lon).inv()
-            R_NED_W = frames.R_W_NED(ha=chi, fpa=gamma).inv()
-            R_ECEF_W = R_NED_W * R_ECEF_NED
+            R_NED_from_ECEF = frames.R_ECEF_from_NED(lat=lat, lon=lon).inv()
+            R_NED_W = frames.R_NED_from_W(ha=chi, fpa=gamma).inv()
+            R_ECEF_W = R_NED_W * R_NED_from_ECEF
 
             
             theta = 0.0001
@@ -317,13 +317,13 @@ def line_of_sight(titan, options, iteration):
 
                 print("\nObject:", obj.name)
 
-                obj.mesh.nodes = R_B_ECEF.apply(obj.mesh.nodes)
+                obj.mesh.nodes = R_ECEF_from_B.apply(obj.mesh.nodes)
                 obj.mesh.nodes = (R_ECEF_W).apply(obj.mesh.nodes)
 
-                obj.mesh.facet_normal = R_B_ECEF.apply(obj.mesh.facet_normal)
+                obj.mesh.facet_normal = R_ECEF_from_B.apply(obj.mesh.facet_normal)
                 obj.mesh.facet_normal = (R_ECEF_W).apply(obj.mesh.facet_normal)
 
-                obj.mesh.facet_COG = R_B_ECEF.apply(obj.mesh.facet_COG)
+                obj.mesh.facet_COG = R_ECEF_from_B.apply(obj.mesh.facet_COG)
                 obj.mesh.facet_COG = (R_ECEF_W).apply(obj.mesh.facet_COG)
 
                 min_coords = np.min(obj.mesh.nodes, axis=0)

@@ -117,9 +117,9 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	#CHANGE LATER
 	#index_mass = np.argmin(altitude)
 
-	#R_NED_W = frames.R_W_NED(fpa = gamma[index_mass], ha = chi[index_mass]).inv()
-	#R_ECEF_NED = frames.R_NED_ECEF(lat = latitude[index_mass], lon = longitude[index_mass]).inv()
-	#R_ECEF_W_0 = R_NED_W*R_ECEF_NED
+	#R_NED_W = frames.R_NED_from_W(fpa = gamma[index_mass], ha = chi[index_mass]).inv()
+	#R_NED_from_ECEF = frames.R_ECEF_from_NED(lat = latitude[index_mass], lon = longitude[index_mass]).inv()
+	#R_ECEF_W_0 = R_NED_W*R_NED_from_ECEF
 
 	#Read mesh information and surface quantities, place them on the ECEF
 	mesh = []
@@ -129,14 +129,14 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		else:
 			mesh.append(meshio.read(options.output_folder+'/Dense_surface_solution/ID_'+str(int(_id))+'/solution_iter_'+str(iter_value).zfill(3)+'.xdmf'))
 		
-		R_B_ECEF = Rot.from_quat(q[i])
+		R_ECEF_from_B = Rot.from_quat(q[i])
 
 		#Apply Displacement due to the use of FEniCS
 		mesh[i].points += mesh[i].point_data['displacement']
 
 		#Translate the assembly to (0,0,0)
 		mesh[i].points -= np.array([body_X[i],body_Y[i],body_Z[i]])
-		mesh[i].points = R_B_ECEF.apply(mesh[i].points)
+		mesh[i].points = R_ECEF_from_B.apply(mesh[i].points)
 
 		#Translate to the ECEF position
 		mesh[i].points += np.array([X[i],Y[i],Z[i]])		
@@ -149,14 +149,14 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		#Rotate ECEF -> wind_frame
 		for i, _id in enumerate(assembly_ID):
 
-			R_ECEF_NED = frames.R_NED_ECEF(lat = latitude[i], lon = longitude[i]).inv()
-			R_NED_W = frames.R_W_NED(ha = chi[i], fpa = gamma[i]).inv()
+			R_NED_from_ECEF = frames.R_ECEF_from_NED(lat = latitude[i], lon = longitude[i]).inv()
+			R_NED_W = frames.R_NED_from_W(ha = chi[i], fpa = gamma[i]).inv()
 
 			#R_ECEF_B = Rot.from_quat(q[i]).inv()
-			#R_B_NED =   frames.R_B_NED(roll = roll[i], pitch = pitch[i], yaw = yaw[i]) 
-			#R_NED_W = frames.R_W_NED(ha = chi[i], fpa = gamma[i]).inv()
+			#R_NED_from_B =   frames.R_NED_from_B(roll = roll[i], pitch = pitch[i], yaw = yaw[i]) 
+			#R_NED_W = frames.R_NED_from_W(ha = chi[i], fpa = gamma[i]).inv()
 			
-			R_ECEF_W = R_NED_W*R_ECEF_NED
+			R_ECEF_W = R_NED_W*R_NED_from_ECEF
 			mesh[i].points = (R_ECEF_W).apply(mesh[i].points)
 	elif postprocess.lower() == "int":
 		#Rotate ECEF -> largest object frame

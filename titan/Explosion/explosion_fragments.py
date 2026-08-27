@@ -189,9 +189,9 @@ Takes a collection of fragments, builds each a new "assembly" and appends it to 
         dx = titan.assembly[-1].COG - parent.COG
         
         #Vector from body frame to ECEF frame
-        R_B_ECEF = Rot.from_quat(parent.quaternion)
-        dx_ECEF = R_B_ECEF.apply(dx)
-        angle_vel_ECEF = R_B_ECEF.apply(angle_vel)
+        R_ECEF_from_B = Rot.from_quat(parent.quaternion)
+        dx_ECEF = R_ECEF_from_B.apply(dx)
+        angle_vel_ECEF = R_ECEF_from_B.apply(angle_vel)
 
         titan.assembly[-1].position = np.copy(parent.position) + dx_ECEF
         dv = calculate_fragment_dv(titan.assembly[-1],i_fragment,explosion_parameters,options)

@@ -50,7 +50,7 @@ def convert_numberDensity_to_density(atm,species):
         if specie == "H" :    atm[specie] *= mH/Avo
 
 
-def load_atmosphere(name):
+def load_atmosphere(name, options):
     """This function loads the atmosphere model with respect to the user specification
 :param name: Name of the item.
 :type name: str
@@ -60,21 +60,23 @@ def load_atmosphere(name):
     dirname = os.path.dirname(os.path.abspath(__file__))
 
     if name.upper() == "NRLMSISE00":
+         species_index = ["N2","O2","O","He","Ar","N","H"]
 #        if options.planet.name != "earth": raise Exception("The model NRLMSISE00 contains Earth atmopshere. Please choose the GRAM model")
+         if not hasattr(options,'atmosphere_interp'):
+            dirname = os.path.dirname(os.path.abspath(__file__))
+            atm = pd.read_csv(dirname+'/Models/NRLMSISE00.csv')
 
-        atm = pd.read_csv(dirname+'/Models/NRLMSISE00.csv')
+            
 
-        species_index = ["N2","O2","O","He","Ar","N","H"]
+            #Convert from 1/cm^3 to 1/m^3      
+            atm[species_index] *= 1E6
 
-        #Convert from 1/cm^3 to 1/m^3      
-        atm[species_index] *= 1E6
+            #Convert from number density (1/m^3) to (kg/(m^3))
+            convert_numberDensity_to_density(atm,species_index)
 
-        #Convert from number density (1/m^3) to (kg/(m^3))
-        convert_numberDensity_to_density(atm,species_index)
-
-        f = interp1d(atm.iloc[:,0], atm, axis = 0, kind = 'cubic')
+            options.atmosphere_interp = interp1d(atm.iloc[:,0], atm, axis = 0, kind = 'cubic')
     
-    return f, species_index
+    return options.atmosphere_interp, species_index
 
 
 def retrieve_atmosphere_data(name, altitude, assembly, options):
@@ -94,23 +96,24 @@ def retrieve_atmosphere_data(name, altitude, assembly, options):
 
     if name.upper() == "NRLMSISE00":
         if options.planet.name != "earth": raise Exception("The model NRLMSISE00 contains Earth atmopshere. Please choose the GRAM model")
-        
-        dirname = os.path.dirname(os.path.abspath(__file__))
-        atm = pd.read_csv(dirname+'/Models/NRLMSISE00.csv')
-
         species_index = ["N2","O2","O","He","Ar","N","H"]
+        if not hasattr(options,'atmosphere_interp'):
+            dirname = os.path.dirname(os.path.abspath(__file__))
+            atm = pd.read_csv(dirname+'/Models/NRLMSISE00.csv')
 
-        #Convert from 1/cm^3 to 1/m^3      
-        atm[species_index] *= 1E6
+            
 
-        #Convert from number density (1/m^3) to (kg/(m^3))
-        convert_numberDensity_to_density(atm,species_index)
+            #Convert from 1/cm^3 to 1/m^3      
+            atm[species_index] *= 1E6
 
-        f = interp1d(atm.iloc[:,0], atm, axis = 0, kind = 'cubic')
+            #Convert from number density (1/m^3) to (kg/(m^3))
+            convert_numberDensity_to_density(atm,species_index)
+
+            options.atmosphere_interp = interp1d(atm.iloc[:,0], atm, axis = 0, kind = 'cubic')
         if altitude>0:
-            data = f(altitude)
+            data = options.atmosphere_interp(altitude)
         else:
-            data = f(0)
+            data = options.atmosphere_interp(0)
 
     elif name.upper() == "GRAM":
         gram.run_single_gram(assembly, options)

@@ -167,9 +167,9 @@ def demise_components(titan, i, joints_id, options):
         dx = titan.assembly[-1].COG - titan.assembly[i].COG
 
         #Vector from body frame to ECEF frame
-        R_B_ECEF = Rot.from_quat(titan.assembly[i].quaternion)
-        dx_ECEF = R_B_ECEF.apply(dx)
-        angle_vel_ECEF = R_B_ECEF.apply(angle_vel)
+        R_ECEF_from_B = Rot.from_quat(titan.assembly[i].quaternion)
+        dx_ECEF = R_ECEF_from_B.apply(dx)
+        angle_vel_ECEF = R_ECEF_from_B.apply(angle_vel)
 
         titan.assembly[-1].position = np.copy(titan.assembly[i].position) + dx_ECEF
         titan.assembly[-1].velocity = np.copy(titan.assembly[i].velocity) + np.cross(angle_vel_ECEF,dx_ECEF)

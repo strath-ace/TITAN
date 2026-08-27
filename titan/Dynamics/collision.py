@@ -58,11 +58,11 @@ Transforms assembly collision meshes into local ECEF frame of largest mass assem
 
 	for assembly in titan.assembly:
 		quaternion = np.append([assembly.quaternion[3]], assembly.quaternion[0:3])
-		R_B_ECEF = trimesh.transformations.quaternion_matrix(quaternion)
+		R_ECEF_from_B = trimesh.transformations.quaternion_matrix(quaternion)
 		Translate_COG = trimesh.transformations.translation_matrix(-assembly.COG)
 		Translate_ECEF = trimesh.transformations.translation_matrix(assembly.position)
 
-		Matrix = Translate_Large_Mass@Translate_ECEF@R_B_ECEF@Translate_COG
+		Matrix = Translate_Large_Mass@Translate_ECEF@R_ECEF_from_B@Translate_COG
 
 		assembly.collision.collision_handler.set_transform("Collision_"+str(assembly.id), Matrix)
 		assembly.collision.original_handler.set_transform("Original_"+str(assembly.id), Matrix)
@@ -98,11 +98,11 @@ Projects assembly collision meshes forward in time (in local ECEF frame)
 		py_quat.integrate([assembly.roll_vel, assembly.pitch_vel,assembly.yaw_vel], dt)
 		quaternion = np.append( py_quat.real, py_quat.vector)
 		
-		R_B_ECEF = trimesh.transformations.quaternion_matrix(quaternion)
+		R_ECEF_from_B = trimesh.transformations.quaternion_matrix(quaternion)
 		Translate_COG = trimesh.transformations.translation_matrix(-assembly.COG)
 		Translate_ECEF = trimesh.transformations.translation_matrix(position)
 
-		Matrix = Translate_Large_Mass@Translate_ECEF@R_B_ECEF@Translate_COG
+		Matrix = Translate_Large_Mass@Translate_ECEF@R_ECEF_from_B@Translate_COG
 
 		assembly.collision.collision_handler.set_transform("Collision_"+str(assembly.id), Matrix)
 	return
@@ -128,11 +128,11 @@ Generates a debug .stl of the collision
 		mesh_aux = deepcopy(np.sum(assembly.collision.collision_mesh))
 
 		quaternion = np.append([assembly.quaternion[3]], assembly.quaternion[0:3])
-		R_B_ECEF = trimesh.transformations.quaternion_matrix(quaternion)
+		R_ECEF_from_B = trimesh.transformations.quaternion_matrix(quaternion)
 		Translate_COG = trimesh.transformations.translation_matrix(-assembly.COG)
 		Translate_ECEF = trimesh.transformations.translation_matrix(assembly.position)
 
-		Matrix = Translate_Large_Mass@Translate_ECEF@R_B_ECEF@Translate_COG
+		Matrix = Translate_Large_Mass@Translate_ECEF@R_ECEF_from_B@Translate_COG
 		mesh_aux = mesh_aux.apply_transform(Matrix)
 	
 		mesh.append(mesh_aux)
@@ -255,11 +255,11 @@ Impulsive single-collision resolution
 		I1 = titan.assembly[i1].inertia 
 		I2 = titan.assembly[i2].inertia
 
-		R_B_ECEF_1 = Rot.from_quat(titan.assembly[i1].quaternion).as_matrix()
-		R_B_ECEF_2 = Rot.from_quat(titan.assembly[i2].quaternion).as_matrix()
+		R_ECEF_from_B_1 = Rot.from_quat(titan.assembly[i1].quaternion).as_matrix()
+		R_ECEF_from_B_2 = Rot.from_quat(titan.assembly[i2].quaternion).as_matrix()
 
-		I1 = R_B_ECEF_1@I1@R_B_ECEF_1.transpose()
-		I2 = R_B_ECEF_2@I2@R_B_ECEF_2.transpose()
+		I1 = R_ECEF_from_B_1@I1@R_ECEF_from_B_1.transpose()
+		I2 = R_ECEF_from_B_2@I2@R_ECEF_from_B_2.transpose()
 
 		I1_inv = np.linalg.inv(I1)
 		I2_inv = np.linalg.inv(I2)
@@ -269,7 +269,7 @@ Impulsive single-collision resolution
 
 		#Check if points are coming closer to each other or moving away
 
-		Vab = v1-v2 + np.cross(R_B_ECEF_1@w1, point-titan.assembly[i1].position) - np.cross(R_B_ECEF_2@w2, point-titan.assembly[i2].position)
+		Vab = v1-v2 + np.cross(R_ECEF_from_B_1@w1, point-titan.assembly[i1].position) - np.cross(R_ECEF_from_B_2@w2, point-titan.assembly[i2].position)
 		Vab_dot_n = np.dot(Vab,normal)
 
 		if Vab_dot_n <=0: 
@@ -377,11 +377,11 @@ def collision_physics_simultaneous(titan, options):
 		Ia_i = titan.assembly[a_i].inertia 
 		Ib_i = titan.assembly[b_i].inertia
 
-		R_B_ECEF_a_i = Rot.from_quat(titan.assembly[a_i].quaternion).as_matrix()
-		R_B_ECEF_b_i = Rot.from_quat(titan.assembly[b_i].quaternion).as_matrix()
+		R_ECEF_from_B_a_i = Rot.from_quat(titan.assembly[a_i].quaternion).as_matrix()
+		R_ECEF_from_B_b_i = Rot.from_quat(titan.assembly[b_i].quaternion).as_matrix()
 
-		Ia_i = R_B_ECEF_a_i@Ia_i@R_B_ECEF_a_i.transpose() 
-		Ib_i = R_B_ECEF_b_i@Ib_i@R_B_ECEF_b_i.transpose()
+		Ia_i = R_ECEF_from_B_a_i@Ia_i@R_ECEF_from_B_a_i.transpose() 
+		Ib_i = R_ECEF_from_B_b_i@Ib_i@R_ECEF_from_B_b_i.transpose()
 
 		Ia_i_inv = np.linalg.inv(Ia_i)
 		Ib_i_inv = np.linalg.inv(Ib_i)
@@ -418,7 +418,7 @@ def collision_physics_simultaneous(titan, options):
 			Aij_2 = sign(-1, b_j, b_i)*np.dot((1/mb_i*n_j + np.cross(Ib_i_inv@(np.cross((r_j - rb_i ),n_j )),(r_i - rb_i))),n_i)
 			A[i,j] = Aij_1 - Aij_2
 
-		Vab = vb_i-va_i + np.cross(R_B_ECEF_b_i@wb_i, r_i-rb_i )-np.cross(R_B_ECEF_a_i@wa_i, r_i-ra_i)
+		Vab = vb_i-va_i + np.cross(R_ECEF_from_B_b_i@wb_i, r_i-rb_i )-np.cross(R_ECEF_from_B_a_i@wa_i, r_i-ra_i)
 		B[i] = np.dot(Vab ,n_i) 
 
 	P = np.linalg.solve(A,B)

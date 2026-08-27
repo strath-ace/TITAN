@@ -401,7 +401,7 @@ def compute_stagnation(free, options):
     elif options.method == "Standard":
         free.mu_s = compute_sutherland(species_index = free.species_index, percent_gas = free.mole_fraction, temperature = free.T1_s)
 
-def interpolate_atmosphere_knudsen(name, lref, altitude):
+def interpolate_atmosphere_knudsen(name, lref, altitude, options):
     """Documentation for the function.
 :param name: Name of the item.
 :type name: str
@@ -415,7 +415,7 @@ def interpolate_atmosphere_knudsen(name, lref, altitude):
     avo = 6.0221408E+23 
 
     #This is only possible for the NRLSMISE00 at the moment
-    f_values, species_index = load_atmosphere(name = name)
+    f_values, species_index = load_atmosphere(name = name, options = options)
 
     data = f_values(altitude)
     

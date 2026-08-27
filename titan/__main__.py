@@ -18,7 +18,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 """__main__ module."""
 import configparser
-from argparse import ArgumentParser, RawTextHelpFormatter
+from argparse import ArgumentParser, RawTextHelpFormatter, BooleanOptionalAction
 from .Configuration import configuration
 from .Output import output, dynamic_plots
 from .Dynamics import dynamics, propagation
@@ -171,7 +171,7 @@ def main(filename = "", postprocess = "", filter_name = None, emissions = ""):
         pp_emissions.postprocess_emissions(options)
     
 if __name__ == "__main__":
-
+    
     output.TITAN_information()
 
     # To run TITAN, it requires the user to specify a configuration 
@@ -192,6 +192,10 @@ if __name__ == "__main__":
                         type=int,
                         help = "run a Monte Carlo campaign of N simulations",
                         metavar="n_samples")
+    parser.add_argument("-r", "--reachable",
+                        dest="reachable",
+                        action=BooleanOptionalAction,
+                        help = "compute the reachable set in state space")
     parser.add_argument("-flt", "--filter",
                         dest="filtername",
                         type=str,
@@ -210,6 +214,10 @@ if __name__ == "__main__":
     postprocess = args.postprocess
     filter_name = args.filtername
     emissions = args.emissions
+
+    if args.reachable:
+        from .Uncertainty import reachable_set_wrapper
+        reachable_set_wrapper.run(filename)
 
     if args.n_samples is not None:
         from .Uncertainty import MC_wrapper

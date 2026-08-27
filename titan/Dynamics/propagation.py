@@ -75,9 +75,9 @@ def propagate(titan, options):
         time_to_impact = collision.find_ToI_timestep(titan, options, time_step)
         time_step = time_to_impact
     
-    surface_solutions = output.create_surface_solution(titan,options)
-    for _assembly, sol in zip(titan.assembly, surface_solutions): 
-        _assembly.prev_surf_data = deepcopy(sol.cell_data)
+    
+    for _assembly in titan.assembly: 
+        _assembly.prev_surf_data = deepcopy(output.create_surface_solution(_assembly, options).cell_data)
 
     # Propagate according to propagator function...
     new_state_vectors, new_derivs = options.dynamics.prop_func(current_state_vectors,
@@ -280,9 +280,9 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
         assembly.trajectory.longitude = longitude
         assembly.trajectory.altitude = altitude
 
-        R_NED_ECEF = frames.R_NED_ECEF(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
-        R_B_NED_quat = (R_NED_ECEF).inv()*Rot.from_quat(assembly.quaternion)
-        [yaw,pitch,roll] = R_B_NED_quat.as_euler('ZYX')
+        R_ECEF_from_NED = frames.R_ECEF_from_NED(lat = assembly.trajectory.latitude, lon = assembly.trajectory.longitude)
+        R_NED_from_B_quat = (R_ECEF_from_NED).inv()*Rot.from_quat(assembly.quaternion)
+        [yaw,pitch,roll] = R_NED_from_B_quat.as_euler('ZYX')
 
         assembly.roll = roll
         assembly.yaw = yaw
@@ -433,7 +433,7 @@ def write_dense_output(titan, options):
     ## Some sanity checks
     times = times[np.where(times>true_time)]
     times = times[np.where(times<true_time+titan.rk_adapt.step_size)]
-    if options.write_dense_solutions: surface_solutions = output.create_surface_solution(titan,options)
+    if options.write_dense_solutions: surface_solutions = [output.create_surface_solution(_assembly,options) for _assembly in titan.assembly]
     if len(times)>0:
         prior_states = copy(unflatten_state_vectors(titan,options,titan.rk_adapt.y))
         interpolant = titan.rk_adapt.dense_output()
@@ -453,10 +453,12 @@ def write_dense_output(titan, options):
             timestep_data, overwrite = timestep_func(time)
             data_array[i_time*n_assem:i_time*n_assem+n_assem,:] = timestep_data
             if len(overwrite)>0 and options.write_dense_solutions: 
-                output.update_surface_solution(titan,options,surface_solutions,overwrite)
-            if options.write_dense_solutions: 
-                output.write_surface_solution(options,surface_solutions,[_assembly.id for _assembly in titan.assembly],
-                                          np.round(time-interpolant.t_min + true_time,6),folder='Dense_surface_solution')
+                [output.update_surface_solution(_assembly,options,surface_solution,_overwrite) for _assembly, surface_solution, _overwrite in zip(titan.assembly, surface_solutions, overwrite)] 
+            if options.write_dense_solutions:
+                for _assembly, solution in zip(titan.assembly,surface_solutions):
+                    output.write_surface_solution(options, solution, _assembly.id, 
+                                                  np.round(time-interpolant.t_min + true_time,6),
+                                                  folder='Dense_surface_solution')
             
         for _assembly, state in zip(titan.assembly,prior_states): update_dynamic_attributes(_assembly, state, options)
 

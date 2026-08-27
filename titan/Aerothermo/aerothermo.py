@@ -716,11 +716,11 @@ def ray_trace(assembly_group : list, n : int, options, output_rays : str = None)
     for i_assem, _assembly in enumerate(assembly_group):
         new_mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
         quaternion = np.append([_assembly.quaternion[3]], _assembly.quaternion[0:3])
-        R_B_ECEF = trimesh.transformations.quaternion_matrix(quaternion)
+        R_ECEF_from_B = trimesh.transformations.quaternion_matrix(quaternion)
         Translate_COG = trimesh.transformations.translation_matrix(-_assembly.COG)
         Translate_ECEF = trimesh.transformations.translation_matrix(_assembly.position)
         #
-        Matrix = main_Translate_CoG@main_Translate_ECEF@Translate_ECEF@R_B_ECEF@Translate_COG
+        Matrix = main_Translate_CoG@main_Translate_ECEF@Translate_ECEF@R_ECEF_from_B@Translate_COG
         new_mesh.apply_transform(Matrix)
         TransMatrix = Trans.from_matrix(Matrix)
         v0[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
@@ -754,9 +754,14 @@ def ray_trace(assembly_group : list, n : int, options, output_rays : str = None)
     match output_rays:
         case 'leading':
             ray_ends   = facet_centroids - 10*flow_dirs
+            ray_starts = facet_centroids
         case 'trailing':
             ray_ends   = facet_centroids + 10*flow_dirs 
-        
+            ray_starts = facet_centroids
+        case 'body':
+            R_B_from_ECEF = Rot.from_quat(base_assembly.quaternion).inv()
+            ray_ends = R_B_from_ECEF.apply(facet_centroids -10*flow_dirs)
+            ray_starts = R_B_from_ECEF.apply(facet_centroids)
 
     if output_rays is not None:
         if not pathlib.Path(options.output_folder+'/Rays').exists():
@@ -764,10 +769,10 @@ def ray_trace(assembly_group : list, n : int, options, output_rays : str = None)
         if not hasattr(options, 'n_debug'): options.n_debug = 0
         else: options.n_debug+=1
         mesh.export(options.output_folder+'/Rays/debug_{}.stl'.format(options.n_debug))
-        write_rays_to_vtk(options.output_folder+'/Rays/debug_rays_{}.vtk'.format(options.n_debug),ray_origins, ray_ends)
+        write_rays_to_vtk(options.output_folder+'/Rays/debug_rays_{}.vtk'.format(options.n_debug),ray_starts, ray_ends)
 
     hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
-    hits.shape = (-1, 4**n)
+    hits = hits.reshape([-1, 4**n])
     hits = np.sum(hits, axis = 1)
     facet_sees_flow[filtered_facet_indices] = hits
 
@@ -1253,7 +1258,7 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     facet_normal = assembly.mesh.facet_normal
 
     #Computes the altitude of which the transition between flow regimes occur
-    alt_cont, alt_free = bridging_altitudes(atm_data, Kn_cont, Kn_free, lref)
+    alt_cont, alt_free = bridging_altitudes(atm_data, Kn_cont, Kn_free, lref, options)
     
     free_cont = copy(free)
     free_free = copy(free)
@@ -1374,7 +1379,7 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     St.shape = (-1)
     return St
 
-def bridging_altitudes(model, Kn_cont,Kn_free, lref):
+def bridging_altitudes(model, Kn_cont,Kn_free, lref, options):
     """Documentation for the function.
 :param model: Value for model.
 :type model: Any
@@ -1388,7 +1393,7 @@ def bridging_altitudes(model, Kn_cont,Kn_free, lref):
 :rtype: Any"""
 
     h_interval = np.linspace(1000,300000,25000)
-    altitude_knudsen = mix_properties.interpolate_atmosphere_knudsen(model, lref, h_interval)
+    altitude_knudsen = mix_properties.interpolate_atmosphere_knudsen(model, lref, h_interval, options)
 
     alt_cont = altitude_knudsen(Kn_cont)
     alt_free = altitude_knudsen(Kn_free)
