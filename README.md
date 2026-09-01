@@ -8,86 +8,59 @@
 
 ## Installation
 
-To install TITAN, it is required to use an Anaconda environment. The required libraries are listed in the requirements.txt file.
+Start by cloning this repository
+
+```console
+git clone https://github.com/strath-ACE/TITAN -b rc_v02_atlas
+cd TITAN
+```
+
+To install TITAN, it is required to use an Anaconda environment. The required libraries are listed in the titan_env.yml file.
 In order to install the required packages, the Anaconda environment can be created using
 
 ```console
-$ conda create --name myenv --file requirements.txt
-```
-If the packages are not found, the user can append a conda channel to retrieve the packages, by running
-
-```console
-$ conda config --add channels conda-forge
-```
-To activate the Conda environment:
-
-```console
-$ conda activate myenv
-```
-
-After activation, the user needs to install other packages that were not possible (as GMSH) using the conda requirements. To do so,
-the user can use the pip manager to install the packages listed in the pip_requirements.txt
-
-```console
-(.venv) $ pip install -r pip_requirements.txt
-```
-
-### List of required libraries:
-- numpy
-- pandas
-- mshio
-- scipy
-- pyglet
-- vtk
-- sympy
-- pymap3d
-- lxml
-- fenics=2019.1.0=py310hff52083_34 (conda only)
-- bs4
-- scikit-build
-- pytest (optional)
-- open3d
-- gmsh=4.10.5 (pip only)
-- trimsh[all] (pip only)
-
-### Compatibility Installation
-
-If you have issues with the standard conda environment creation a less restricted conda environment can be created with
-
-```console
-$ conda env create --name myenv --file titan_compatibility_env.yml
+conda env create --name titan --file titan_env.yml
 ```
 If using an ARM architecture (i.e. Apple silicon) you will likely need to specify an alternate platform, e.g.
 
 ```console
-$ conda env create --name myenv --platform=osx-64 --file titan_compatibility_env.yml
+conda env create --name titan --platform=osx-64 --file titan_env.yml
 ```
-This compatibility environment combines conda and pip packages into a single command, you don't need to run 
-```pip install -r pip_requirements.txt```. Ideally in the future, this will become the default method of installation 
-but currently the compatibility environment is still in development. It has been preliminarily verified on Ubuntu, 
-Fedora, Windows and OSX.
-
 ***NOTE:*** TITAN is developed for **linux** first and foremost, you should **not expect perfect behaviour** on other operating systems. 
 
-### Optional
+TITAN can then be installed as a package in your environment.
 
-#### Mutation++
-The mutation++ package is an optional method to compute the freestream conditions. It can be installed by following the instructions in <https://github.com/mutationpp/Mutationpp>
-Once the mutation++ has been compiled, you can install by:
-
-1. In the github link, go to the thirdpary folder and clone the Pybind repository into your thirdparty folder in mutationpp
-
-2. In the Mutationpp root folder, run
 ```console
-(.venv) $ python setup.py build
-(.venv) $ python setup.py install
+conda activate titan
+pip install .
 ```
 
-#### AMGio
-AMGio is a library that is required to perform mesh adaptation when running high-fidelity simulations. To install the AMGio library, one must clone the following github page to the TITAN/Executables folder: <https://github.com/bmunguia/amgio>. The user can the proceed to the installation using
+### Optional
+Submodule installation is required if you wish to use the extended functionality of TITAN. First clone the git submodules
 
 ```console
-(.venv) $ pip install -e amgio/su2gmf/
+git submodule update --init --recursive
+cd ./Executables
+```
+#### Mutation++
+The mutation++ package is an optional method to compute the freestream conditions. The library can be compiled and installed as follows
+
+```console
+cd ./mutationpp
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make install
+cd ..
+pip install .
+```
+#### AMGio
+AMGio is a library that is required to perform mesh I/O for adaptation when running high-fidelity simulations. The installation can be particular depending on your gcc version. The following has been verified for gcc v14 and v15.
+
+```console
+CFLAGS="-Wno-return-mismatch -Wno-implicit-function-declaration" pip install --config-settings editable_mode=compat -e amgio/su2gmf/
+ln -s ./amgio/su2gmf/su2_to_gmf.py ./su2_to_gmf.py
+ln -s ./amgio/su2gmf/gmf_to_su2.py ./gmf_to_su2.py
 ```
 
 ### GRAM model
@@ -95,15 +68,15 @@ TITAN has the capability to use the NASA-GRAM <https://software.nasa.gov/softwar
 
 Once the GRAM tool is compiled, the user needs to link the binaries, and place them in the Executables folder
 
-### Troubleshooting
-
-If mpirun is not working, the user may require to reinstall openmpi and/or mpi4py using pip, by following the steps:
+### PATO
+TITAN can use PATO for thermal response calculations. In order to do so one must create another conda environment named "pato" (case sensitive), note if the name is different TITAN will not be able to run PATO.
 
 ```console
-(.venv) $ mamba uninstall mpi4py
-(.venv) $ mamba uninstall openmpi
-(.venv) $ pip install openmpi
-(.venv) $ pip install mpi4py
+conda deactivate
+conda config --add channels conda-forge
+conda config --add channels pato.devel
+conda config --set channel_priority strict
+conda create -y --name pato -c conda-forge -c pato.devel pato
 ```
 
 ## Setting up the Configuration file 
@@ -193,15 +166,15 @@ TITAN will read the configuration file using the config parser package. The file
 TITAN is called in the conda environment using 
 
 ```console
-(.venv) $ python TITAN.py -c config.cfg
+(.venv) $ python -m titan -c config.cfg
 ```
 
-The solution is stored in the specifed output folder. The structure in the output folder is as **SPECIFY HERE**
+The solution is stored in the specifed output folder.
 
 After obtaining the solution of the simulation, the data can be postprocessed by introducing a new flag to the instruction, refering to the Postprocess method that can be **WIND** or **ECEF**. The following command does not run a new simulation, but it postprocess the already obtained solutions in the **Output_folder** specified field.
 
 ```console
-(.venv) $ python TITAN.py -c config.cfg -pp WIND
+(.venv) $ python -m titan -c config.cfg -pp WIND
 ```
 
 ## Geometry modelling
@@ -209,32 +182,3 @@ After obtaining the solution of the simulation, the data can be postprocessed by
 The frame convention in the geometry modelling are such that the X axis is the longitudinal axis pointing ahead, Z axis is the vertical axis pointing downwards, and the Y axis is the lateral one, pointing in such a way that the frame is right-handed. 
 
 In case of multiple components, if the components are in contact with each other, the respective meshes need to be identical in the interface (i.e. same node positioning and same facets).
-
-
-# Patch Notes
-
-\[2023-04-17\]
-
-* Change name of variable facets_normal to facet_normal in mesh class
-* Compute facet_normal to be proportional to the facet area
-* Object of class aerothermo creates array based of number of facets instead of number of nodes
-* Aerodynamic computation now takes facets normals as input
-* Output files now have cell_data in addition to point_data
-* Computation of facet radius in addition to nodes radius
-* Aerothermodynamics computation now takes facet normals and facet radius as input
-* Ablation is now working with facets
-* SU2 solution is interpolated to the facets using a linear approach. Reverse function still needs to be written
-* Test-cases have been adapted to accomodate the vertex->facet changes
-
-\[2023-04-18\]
-
-* Introduced a new interpolation, the reverse interpolation needs to be double checked
-* Created function to map the surface facets to the correspondent tetra for thermal computation
-* Created a thermal function to use the tetras mass to compute surface temperature
-* Thermal function loops to check which tetras are ablated
-
-\[2023-04-23\]
-
-* Improved the speed and robustness of the tetra ablation
-* Started commenting the functions
-* Introduction of a new config term "Ablation_mode: (0D, Tetra)"
