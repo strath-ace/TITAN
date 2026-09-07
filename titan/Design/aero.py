@@ -21,18 +21,43 @@
 import numpy as np
 from functools import partial
 from scipy.optimize import dual_annealing, basinhopping, shgo, brute, direct, differential_evolution, minimize
-from scipy.spatial.transform import Rotation, RigidTransform
+from scipy.spatial.transform import Rotation
+from scipy.stats import uniform_direction
 import configparser
 import pathlib
+import torch
+import gpytorch as gpt
 
 from ..Aerothermo.aerothermo import ray_trace, compute_aerodynamics, compute_aerothermodynamics, write_rays_to_vtk
 from ..Configuration.configuration import read_config_file
+from ..Design.surrogates import SphericalMatern, SphericalGP
 from ..Dynamics.propagation import collect_state_vectors, update_dynamic_attributes
+from ..Dynamics.frames import R_W_from_B
 from ..Freestream.mix_properties import compute_freestream, compute_stagnation
 from ..Output.output import create_surface_solution, update_surface_solution, write_surface_solution
 
+def attitude_function_from_mrp(fixed_params : list, mrp : np.ndarray, info):
 
-def attitude_function(assembly, options, debug_visuals : bool, weights : np.ndarray, conditions : dict, integrated : bool, attitude_vector : np.ndarray, info : dict) -> float:
+    quat = Rotation.from_mrp(mrp).as_quat()
+
+    fixed_params.append(quat)
+    fixed_params.append(info)
+    return attitude_function_from_quat(*fixed_params)
+
+def attitude_function_from_aoa_ss(fixed_params : list, aoa_ss : np.ndarray, info):
+
+    quat = R_W_from_B(aoa_ss[0],aoa_ss[1]).as_quat()
+
+    fixed_params.append(quat)
+    fixed_params.append(info)
+    return attitude_function_from_quat(*fixed_params)
+
+def attitude_function_from_unit_vec(fixed_params : list, vec : np.ndarray, info):
+    ss = np.arcsin(vec[2])
+    aoa  = np.arctan2(vec[0], vec[1])
+    return attitude_function_from_aoa_ss(fixed_params, [aoa, ss], info)
+
+def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights : np.ndarray, conditions : dict, output : str, attitude_quat : np.ndarray, info : dict):
     """Attitude objective function, inputs an attitude vector in MRP and returns a scalar output
 
     :param assembly: Target assembly
@@ -45,7 +70,7 @@ def attitude_function(assembly, options, debug_visuals : bool, weights : np.ndar
     :type weights: np.ndarray
     :param conditions: Aerodynamic conditions passed to the obj_func, currently inert 
     :type conditions: dict
-    :param integrated: Whether to integrate the pressure and shear fields over the body
+    :param output: The form of output to return, either facets/integrated/ratio/heat/surrogate
     :type integrated: bool
     :param attitude_vector: Attitude as defined by Modified Rodrigues Parameters
     :type attitude_vector: np.ndarray
@@ -54,20 +79,26 @@ def attitude_function(assembly, options, debug_visuals : bool, weights : np.ndar
     :return: Objective function output
     :rtype: float
     """
-
+    if isinstance(info, list): info = info[0]
     assembly.aerothermo.pressure.fill(assembly.freestream.pressure)
     assembly.aerothermo.shear.fill(0.0)
+    assembly.aerothermo.heatflux.fill(0.)
+    assembly.aerothermo.he       *= 0
+    assembly.aerothermo.hw       *= 0
+    assembly.aerothermo.Te       *= 0
+    assembly.aerothermo.rhoe     *= 0
+    assembly.aerothermo.ue       *= 0
+    assembly.aerothermo.ce_i     *= 0
 
     if debug_visuals: 
         visual_folder = pathlib.Path(options.output_folder+'/Opt_{}/'.format(assembly.id)).resolve()
         if not visual_folder.exists(): visual_folder.mkdir()
-    # #R = Rotation.from_euler('ZYX', attitude_vector)
-    # if np.linalg.norm(attitude_vector)==0.: attitude_vector[-1]+=1
-    # else: attitude_vector/=np.linalg.norm(attitude_vector)
 
-    R_ECEF_from_B = Rotation.from_mrp(attitude_vector)
-    Rig_ECEF_from_B = RigidTransform.from_rotation(R_ECEF_from_B)* RigidTransform.from_translation(-assembly.COG)
-    assembly.state_vector[6:10] = R_ECEF_from_B.as_quat()
+    make_debug =  debug_visuals and info['n_feval'] % 10
+
+
+    assembly.state_vector[6:10] = attitude_quat
+    R_ECEF_from_B = Rotation.from_quat(attitude_quat)
     update_dynamic_attributes(assembly, assembly.state_vector, options, force=True)
     flow_dir = -assembly.velocity/np.linalg.norm(assembly.velocity)
 
@@ -75,15 +106,14 @@ def attitude_function(assembly, options, debug_visuals : bool, weights : np.ndar
     output_rays = 'body' if debug_visuals and info['n_feval'] % 10 == 0 else None
     ray_trace([assembly],options.aerothermo.subdivision_triangle, options, output_rays=output_rays)
     compute_aerodynamics(assembly, assembly.aero_index, flow_dir, options)
-    if debug_visuals and info['n_feval'] % 10 == 0:
+    if output =='heat' or output =='surrogate' or make_debug:
         compute_aerothermodynamics(assembly, assembly.aero_index, flow_dir, options)
+
+    if make_debug:
         solution = update_surface_solution(assembly, options, info['sol'])
         write_surface_solution(options,solution, 'Solutions', int(info['n_feval']/10), folder='Opt_{}'.format(assembly.id))
-    if isinstance(info, list): info = info[0]
     
-
-
-    if not integrated: 
+    if output=='facets': 
         roll_pitch_yaw = R_ECEF_from_B.as_euler('ZYX',degrees=True)
         obj_func = np.sum(weights[0] * assembly.aerothermo.pressure) + np.sum(weights[1] * assembly.aerothermo.shear)
         if info['n_feval'] % 25 == 0:
@@ -93,8 +123,20 @@ def attitude_function(assembly, options, debug_visuals : bool, weights : np.ndar
                                                                                      round(roll_pitch_yaw[2],2), 
                                                                                      round(obj_func,6)))
 
+        info['n_feval'] +=1
         return obj_func
 
+    if output=='heat':
+        roll_pitch_yaw = R_ECEF_from_B.as_euler('ZYX',degrees=True)
+        obj_func = np.sum(weights * assembly.aerothermo.heatflux*assembly.mesh.facet_area)
+        if info['n_feval'] % 25 == 0:
+            print('n={} | Roll {}° | Pitch {}° | Yaw {}° | Obj_func = {}'.format(info['n_feval'], 
+                                                                                    round(roll_pitch_yaw[0],2), 
+                                                                                    round(roll_pitch_yaw[1],2), 
+                                                                                    round(roll_pitch_yaw[2],2), 
+                                                                                    round(obj_func,6)))
+        info['n_feval'] +=1
+        return obj_func
     # Force in the body frame
     force_facets = -assembly.aerothermo.pressure[:,None]*assembly.mesh.facet_normal+assembly.aerothermo.shear*np.linalg.norm(assembly.mesh.facet_normal, axis=1)[:,None]
     force = np.sum(force_facets, axis = 0)
@@ -108,7 +150,7 @@ def attitude_function(assembly, options, debug_visuals : bool, weights : np.ndar
     xwind_hat /= np.linalg.norm(xwind_hat)
     xwind = np.dot(F_ECEF, xwind_hat)
     lift = np.dot(F_ECEF, np.cross(xwind_hat,flow_dir))
-    if debug_visuals and info['n_feval'] % 10 == 0:
+    if make_debug:
         body_basis = np.array([R_ECEF_from_B.inv().apply(flow_dir),
                                R_ECEF_from_B.inv().apply(xwind_hat),
                                R_ECEF_from_B.inv().apply(np.cross(xwind_hat,flow_dir))])
@@ -123,11 +165,17 @@ def attitude_function(assembly, options, debug_visuals : bool, weights : np.ndar
     # Cl = lift / (p_dyn * assembly.Aref)
     # Cs = xwind / (p_dyn * assembly.Aref)
     #obj_func = float((lift ** weights[0]) * (drag ** weights[1]) * (abs(xwind) ** weights[2]))
-    if len(weights)>1:
+    if output=='integrated':
         obj_func = float((abs(lift) * weights[0]) + (drag * weights[1]) + (abs(xwind) * weights[2]))
-    else: 
+    elif output=='ratio': 
         transverse_vector = lift*np.cross(xwind_hat,flow_dir) + xwind * xwind_hat
         obj_func = abs((drag/np.linalg.norm(transverse_vector))**weights[0])
+    elif output=='surrogate':
+        lift_hat = np.cross(xwind_hat,flow_dir)
+        transverse_vector = lift*lift_hat + xwind * xwind_hat
+        transverse_magnitude = np.linalg.norm(transverse_vector)
+        transverse_angle = np.asin(np.linalg.norm(np.cross(lift_hat, transverse_vector/transverse_magnitude)))
+        obj_func = np.array([drag, transverse_magnitude, transverse_angle,  np.sum(assembly.aerothermo.heatflux*assembly.mesh.facet_area)])
     if info['n_feval'] % 25 == 0:
         roll_pitch_yaw = R_ECEF_from_B.as_euler('ZYX',degrees=True)
         print('n={} | Roll {}° | Pitch {}° | Yaw {}° | Lift {}N | Drag {}N | xwind {}N | Obj_func = {}'.format(info['n_feval'], 
@@ -141,6 +189,7 @@ def attitude_function(assembly, options, debug_visuals : bool, weights : np.ndar
 
     info['n_feval'] +=1
     return obj_func
+
 valid_solvers = ['dual_annealing','basinhopping','shgo','brute', 'direct', 'differential_evolution']
 class AeroOptimiser():
     '''Class for managing the the construction and solving of an optimisation problem in terms of aerodynamics'''
@@ -155,7 +204,7 @@ class AeroOptimiser():
         :type options: configuration.Options
         :param problem_kind: Define parameter space to optimise over, currently only attitude is implemented, defaults to 'attitude'
         :type problem_kind: str, optional
-        :param objective: Define output space to optimise, selecting anything other than integrated or transverse means specifying weights for individual facets. 
+        :param objective: Define output space to optimise, selecting anything other than integrated or ratio means specifying weights for individual facets. 
         Integrated means specifying weights for lift drag and crosswind respectively, transverse means specifying a ratio direction (+ve maximise L/D, -ve minimise L/D). Defaults to 'integrated'
         :type objective: str, optional
         :param objective_weights: Weights to use for the objective function. if using integrated these correspond to Lift, Drag and Crosswind respectively, 
@@ -176,8 +225,9 @@ class AeroOptimiser():
         #: The solver to use for optimisation, DiRECT is highly recommended
         self.solver = solver
         self.visualise = visualise
-        if self.objective=='transverse': assert len(objective_weights)==1
-        if self.objective=='integrated': assert len(objective_weights)==3
+        if self.objective=='ratio': assert len(objective_weights)==1
+        elif self.objective=='integrated': assert len(objective_weights)==3
+        else: assert len(objective_weights)==len(assembly.mesh.facet_area)
 
         self.setup_obj_func(conditions, options)
         self.result = None
@@ -193,19 +243,18 @@ class AeroOptimiser():
         :param options: TITAN options
         :type options: configuration.Options
         """
-        integrated = True if self.objective == 'integrated' or self.objective=='transverse' else False
         match self.kind:
             case 'attitude':
                 compute_freestream(options.freestream.model, self.assembly.trajectory.altitude, self.assembly.trajectory.velocity, self.assembly.Lref, self.assembly.freestream, self.assembly, options)
                 compute_stagnation(self.assembly.freestream, options.freestream)
                 conditions['velocity_magnitude'] = np.linalg.norm(self.assembly.trajectory.velocity)
-                self.obj_func = partial(attitude_function, 
-                                        self.assembly, 
+                self.obj_func = partial(attitude_function_from_mrp, 
+                                        [self.assembly, 
                                         options,
                                         self.visualise, 
                                         self.objective_weights, 
                                         conditions, 
-                                        integrated)
+                                        self.objective])
             case 'freestream': raise NotImplementedError
     
     def solve(self):
@@ -256,7 +305,7 @@ class AeroOptimiser():
 
         ray_trace([self.assembly],options.aerothermo.subdivision_triangle, options)#, output_rays='leading')
 
-        if self.objective == 'transverse':
+        if self.objective == 'ratio':
             flow_dir = -self.assembly.velocity/np.linalg.norm(self.assembly.velocity)
             compute_aerodynamics(self.assembly, self.assembly.aero_index, flow_dir, options)
             # Force in the body frame
@@ -285,7 +334,95 @@ class AeroOptimiser():
        
 
         return self.theta_set, self.pf_set, self.index_set
+
+
+
+class AeroSurrogate():
+    """Create a surrogate of the aerodynamics problem"""
+
+    def __init__(self, mode='attitude',sampling_strategy='spherical',rng=None, model_choice='sphericalGP', training_iters=50):
+        self.mode=mode
+        self.strategy=sampling_strategy
+        if rng is None: self.rng = np.random.default_rng()
+        elif isinstance(rng, np.random.Generator): self.rng=rng
+        else: self.rng=np.random.default_rng(rng)
+        self.model_choice = model_choice
+        self.n_train = training_iters
+        
+    def create_ground_truth_func(self, assembly, options):
+        match self.mode:
+            case 'attitude':
+                compute_freestream(options.freestream.model, self.assembly.trajectory.altitude, self.assembly.trajectory.velocity, self.assembly.Lref, self.assembly.freestream, self.assembly, options)
+                compute_stagnation(self.assembly.freestream, options.freestream)
+                obj_func = ['Integrated', ]
+                self.obj_func = partial(attitude_function_from_unit_vec, 
+                                        [assembly, 
+                                        options,
+                                        False, 
+                                        np.array([]), 
+                                        {}, 
+                                        'surrogate'])
+            case 'freestream': raise NotImplementedError
     
+
+    def sample(self, samples=500):
+        if isinstance(samples, np.ndarray): 
+            if self.mode=='attitude': 
+                try:
+                    # Want to check the points lie on the 2-Sphere
+                    assert samples.shape[1]==3
+                    assert np.isclose(np.linalg.norm(samples, axis=1), np.ones([samples.shape[0],1]))
+                except Exception as e:
+                    raise Exception('Given samples do not lie on the 2-sphere! {}'.format(e))
+            results = np.array([self.func(sample) for sample in samples])
+            self.database_y = np.vstack([self.database_y,results]) if self.database_y is not None else self.database_y = results
+            self.database_x = np.vstack([self.database_x,samples]) if self.database_x is not None else self.database_x = samples
+        if isinstance(samples, int):
+            match self.strategy:
+                case 'spherical':
+                    n_dim = 3 if self.mode=='attitude' else 0
+                    sampler = uniform_direction(n_dim)
+                    sampler.random_state = self.rng
+                    points = sampler.rvs(samples)
+                    results = np.array([self.func(point) for point in points])
+                    self.database_y = np.vstack([self.database_y,results]) if self.database_y is not None else self.database_y = results
+                    self.database_x = np.vstack([self.database_x,points]) if self.database_x is not None else self.database_x = points
+                case _: raise NotImplementedError
+
+    
+    def fit(self):
+        if self.database_x is None or self.database_y is None: raise Exception('Must provide data to the surrogate!')
+        match self.model:
+            case 'sphericalGP':
+                self.likelihood = gpt.likelihoods.GaussianLikelihood()
+                self.model = SphericalGP(self.database_x, self.database_y, self.likelihood)
+                self.model.train()
+                self.likelihood.train()
+                optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+                mll = gpt.mlls.ExactMarginalLogLikelihood(self.likelihood, model)
+                for i in range(self.n_train):
+                    # Zero gradients from previous iteration
+                    optimizer.zero_grad()
+                    # Output from model
+                    output = self.model(self.database_x)
+                    # Calc loss and backprop gradients
+                    loss = -mll(output, self.database_y)
+                    loss.backward()
+                    print('Iter %d/%d - Loss: %.3f   lengthscale: %.3f   noise: %.3f' % (
+                        i + 1, training_iter, loss.item(),
+                        self.model.covar_module.base_kernel.lengthscale.item(),
+                        self.model.likelihood.noise.item()
+                    ))
+                    optimizer.step()
+
+    def evaluate(self, x):
+        if not hasattr(self, 'model'): raise Exception('The surrogate must be constructed before calling!')
+        match self.model_choice:
+            case 'sphericalGP':
+                self.model.eval()
+                self.likelihood.eval()
+                realisation = self.model(x).mean
+                return realisation
 # if __name__=='__main__':
 #     configParser = configparser.RawConfigParser()   
 #     configFilePath = '/home/tommy/reachable_sets/sat.cfg'

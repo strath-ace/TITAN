@@ -1470,6 +1470,7 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.aerothermo.mixture = get_config_value(configParser, options.aerothermo.mixture, 'Aerothermo', 'Mixture', 'str')
     options.aerothermo.SoI_rad = get_config_value(configParser, options.aerothermo.SoI_rad, 'Aerothermo', 'SoI_rad', 'float')
     options.aerothermo.knc_heatflux = get_config_value(configParser, options.aerothermo.knc_heatflux, 'Aerothermo', 'Continuum_limit', 'float')
+    options.freestream.density_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'Density_mult', 'float')
     options.aerothermo.CP_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CP_mult', 'float')
     options.aerothermo.CTau_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CTau_mult', 'float')
     options.aerothermo.CH_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CH_mult', 'float')

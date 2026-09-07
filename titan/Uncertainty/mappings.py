@@ -188,7 +188,7 @@ Constructs the ECEF states based upon dynamic attributes for a set of assemblies
     :param assem_ids: List of target assemblies
     :type assem_ids: list
 """
-    from Dynamics.propagation import construct_state_vector
+    from ..Dynamics.propagation import construct_state_vector
     for i_assem in assem_ids: construct_state_vector(titan.assembly[i_assem], options.dynamics.augmented_state)
 
 def dynamic_attributes_callback(titan, options, assem_ids : list):
@@ -201,7 +201,7 @@ Recalculates the dynamic attributes based upon ECEF states
     :param assem_ids: List of target assemblies
     :type assem_ids: list
 """
-    from Dynamics.propagation import update_dynamic_attributes
+    from ..Dynamics.propagation import update_dynamic_attributes
     for i_assem in assem_ids: 
         update_dynamic_attributes(titan.assembly[i_assem],
                                   titan.assembly[i_assem].state_vector,
@@ -244,7 +244,7 @@ Recomputes the quaternion of a of a set of assemblies defined by assem_ids
     :param assem_ids: List of target assemblies
     :type assem_ids: list
 """
-    from Dynamics.dynamics import compute_quaternion
+    from ..Dynamics.dynamics import compute_quaternion
     for i_assem in assem_ids: 
         compute_quaternion(titan.assembly[i_assem])
         titan.assembly[i_assem].state_vector[6:10] = titan.assembly[i_assem].quaternion

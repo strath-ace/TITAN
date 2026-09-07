@@ -116,23 +116,24 @@ class UQMapper(MutableSequence):
             callback_flags = [param in cb for cb in list(ma.callbacks.values())]
             self.append([param, address, assignment, code, callback_flags])
 
-        for i_distri, distri in distributions_dict.items():
-            distri_name = list(distri.keys())[0]
-            if distri_name not in ma.available_distris.keys(): 
-                raise Exception('Could not find distribution {}'.format(distri_name))
-            self.samplers.append(ma.available_distris[distri_name](**distri[distri_name]))
+            for i_distri, distri in distributions_dict.items():
+                distri_name = list(distri.keys())[0]
+                if distri_name not in ma.available_distris.keys(): 
+                    raise Exception('Could not find distribution {}'.format(distri_name))
+                self.samplers.append(ma.available_distris[distri_name](**distri[distri_name]))
 
 
     def map_from_seed(self, seed, titan, options):
         """Documentation for the function.
-:param seed: Value for seed.
-:type seed: Any
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: object
-:return: Return value.
-:rtype: Any"""
+        :param seed: Value for seed.
+        :type seed: Any
+        :param titan: TITAN simulation object.
+        :type titan: object
+        :param options: Options or configuration object.
+        :type options: object
+        :return: Return value.
+        :rtype: Any"""
+
         self.state_info = {}
         self.state_info['seed'] = seed
         titan.rng = np.random.RandomState(seed)
@@ -141,18 +142,39 @@ class UQMapper(MutableSequence):
         self.map_from_vector(sample_out, titan, options)
         return self.state_info
 
+    def map_from_support(self, titan, options, upper=False):
+        """Documentation for the function.
+        :param titan: TITAN simulation object.
+        :type titan: object
+        :param options: Options or configuration object.
+        :type options: object
+        :return: Return value.
+        :rtype: Any"""
+
+        index = -1 if upper else 0
+        support_out = self.get_support_from_samplers()
+        self.map_from_vector([suppo[index] for suppo in support_out], titan, options)
+        return self.state_info
+
     def get_vector_from_seed(self, seed : int) -> list[np.ndarray]:
         """Samples from the set of distributions to create a parameter vector,
         :param seed: Input seed
         :type seed: int
-:return: sample vector
-:rtype: list[np.ndarray]
-"""
+        :return: sample vector
+        :rtype: list[np.ndarray]
+        """
         sample_out = []
         
         for sam in self.samplers:
             sam.random_state = np.random.RandomState(seed)
             sample_out.append(np.atleast_1d(sam.rvs()))
+        return sample_out
+
+    def get_support_from_samplers(self) -> list[np.ndarray]:
+        sample_out = []
+
+        for sam in self.samplers:
+            sample_out.append(np.atleast_1d(sam.support()))
         return sample_out
 
     def map_from_vector(self, vector : np.ndarray, titan, options):
@@ -163,7 +185,7 @@ class UQMapper(MutableSequence):
         :type titan: _type_
         :param options: _description_
         :type options: _type_
-"""
+        """
         assem_ids = [[] for _ in range(len(self.callback_flags))]
 
         for param in self.parameters:

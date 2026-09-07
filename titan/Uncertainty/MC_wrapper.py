@@ -32,7 +32,7 @@ except: from yaml import Loader
 from ..__main__ import loop
 from ..Configuration.configuration import read_config_file
 from ..Uncertainty.utils import UQMapper, report_outputs_from_csv, collate_QoI
-from ..Dynamics.propagation import construct_state_vector
+from ..Dynamics.propagation import collect_state_vectors
 
 def run(filename:str,n_samples:int):
     """Configures the TITAN case before dispatching n_samples as parallel jobs
@@ -90,8 +90,8 @@ def wrapper(titan, options, i_sample : int, seed : int):
     options.clean_up_folders()
     options.create_output_folders()
     component_list = []
+    collect_state_vectors(titan, options)
     for _assembly in titan.assembly: 
-        construct_state_vector(_assembly, options.dynamics.augmented_state)
         [component_list.append(comp.name) for comp in _assembly.objects]
     state_info = titan.uq_mapper.map_from_seed(seed, titan, options)
     write_datafile(options.output_folder, i_sample, state_info)
