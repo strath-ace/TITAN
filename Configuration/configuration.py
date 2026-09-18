@@ -202,7 +202,7 @@ class Aerothermo():
         A class to store the user-defined aerothemo model options
     """
 
-    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 5E-3, knf = 100):
+    def __init__(self, heat_model = 'vd', knc_pressure = 1E-4, knc_heatflux = 1E-3, knf = 100):
 
         #: [str] Name of the heatflux model to be used
         self.heat_model = heat_model
