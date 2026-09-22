@@ -25,11 +25,13 @@ import pandas as pd
 import pathlib
 import copy
 import concurrent.futures
+import traceback
 
-from ..Configuration.configuration import read_config_file
-from ..Dynamics.propagation import collect_state_vectors, update_dynamic_attributes
 
-from ..Uncertainty import reachable_sets as reachable
+from titan.Configuration.configuration import read_config_file
+from titan.Dynamics.propagation import collect_state_vectors, update_dynamic_attributes
+
+from titan.Uncertainty import reachable_sets as reachable
 
 attitude_free_param = True
 N_rk = 3
@@ -47,13 +49,13 @@ def run(filename : str):
         reachable_set_propagate(_assembly, options)
 
 def reachable_set_propagate(assembly, options):
+
     assem_iter = 0
     time = 0
-    num_angles = 16
+    num_angles = 8
 
 
-    config_names = ['max_transverse','max_drag','min_drag', 'max_flux', 'min_flux']
-    num_configs = len(config_names)
+
     ## If we have attitude as a free parameter we can reduce our state to 3DoF
     if attitude_free_param:
         aero_configs = reachable.get_aero_configs(assembly, options)
@@ -62,12 +64,20 @@ def reachable_set_propagate(assembly, options):
     else: 
         state = assembly.state_equation
 
+
+    config_names = aero_configs.keys()
+    num_configs = len(config_names)
+
+
     angles = np.linspace(0., 2*np.pi, num_angles, endpoint = False)
+    
     num_states = num_angles * num_configs
     angles = np.hstack([angles for _ in range(num_configs)])
+    #states = np.full([angles.shape,state.shape[1]],state)
+    #for state in states:
 
     configs = np.hstack([[cfg for _ in range(num_angles)] for cfg in config_names])
-
+    print(configs)
     assert len(angles)==len(configs)==num_states
     configs = [aero_configs[cfg] for cfg in configs]
     #states = [np.array(state, copy=True) for _ in range(num_states)]
@@ -76,10 +86,11 @@ def reachable_set_propagate(assembly, options):
     output_dir = pathlib.Path(options.output_folder+'/reachable_{}/'.format(assembly.id)).resolve()
     if not output_dir.exists(): output_dir.mkdir()
     columns = ['Iter','Time','Assembly_id','Mass','Altitude','Velocity','Flight_path_angle','Heading_angle','Latitude','Longitude',
-                        'ECEF_X','ECEF_Y','ECEF_Z','ECEF_U','ECEF_V','ECEF_W','T','Phi','Config_id','State_id']
+               'ECEF_X','ECEF_Y','ECEF_Z','ECEF_U','ECEF_V','ECEF_W','T','Phi','Config_id','State_id']
     data = np.zeros([1,len(columns)], dtype = np.float64)
 
-    num_workers = num_states
+    num_workers = num_states if num_states<10 else 10
+    print('Calling executor')
     if num_workers>1:
         with concurrent.futures.ProcessPoolExecutor(num_workers) as executor:
             fut = [executor.submit(
@@ -90,20 +101,24 @@ def reachable_set_propagate(assembly, options):
                 'id' : configs[i_state].id,
                 'index' : i_state}
                 ) for i_state in range(num_states)]
-
+            for future in concurrent.futures.as_completed(fut):
+                if future._exception: raise(future._exception)
+                else: data = np.vstack([data, future.result()])
             concurrent.futures.wait(fut)
 
         for future in fut:
             if not future._exception:
                 data = np.vstack([data, future.result()])
+            else: raise Exception(traceback.format_exc(future._exception))
     else:
-        data = np.vstack([data, [propagate_configuration(assembly, options,
-                {'state' : state, 
-                'aero_config' : configs[i_state], 
-                'phi' : angles[i_state], 
-                'id' : configs[i_state].id,
-                'index' : i_state}
-                ) for i_state in range(num_states)]])
+        for i_state in range(num_states):
+            data = np.vstack([data, propagate_configuration(assembly, options,
+                    {'state' : state, 
+                     'aero_config' : configs[i_state], 
+                     'phi' : angles[i_state], 
+                     'id' : configs[i_state].id,
+                     'index' : i_state}
+                    ) ])   
 
 
     output_data = pd.DataFrame(data = data[1:,:], columns = columns)
@@ -122,7 +137,7 @@ def propagate_configuration(assembly, options, configuration : dict) -> np.ndarr
     angle = configuration['phi']
     config_id = configuration['id']
     index = configuration['index']
-
+    #state +=
     while assem_iter<options.iters:
         assembly.state_vector[:6]  = state[:6]
         assembly.state_vector[13:] = state[6:]
@@ -158,6 +173,7 @@ def propagate_configuration(assembly, options, configuration : dict) -> np.ndarr
         data = np.vstack([data,state_data])
         assem_iter+=1
         time += options.dynamics.time_step
+    if hasattr(assembly.aerothermo, 'tangent_vector'): del assembly.aerothermo.tangent_vector
     return data[1:,:]
 
 

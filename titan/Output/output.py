@@ -462,18 +462,18 @@ def update_surface_solution(assembly,options,solution,overwrite=None):
         theta = overwrite['theta'][:]
         debug_alpha = overwrite['debug_alpha'][:]
     else:
-        pressure = assembly.aerothermo.pressure
-        heatflux = assembly.aerothermo.heatflux
-        shear = assembly.aerothermo.shear
+        pressure = [assembly.aerothermo.pressure]
+        heatflux = [assembly.aerothermo.heatflux]
+        shear = [assembly.aerothermo.shear]
         # radius = assembly.mesh.facet_radius
         # ellipse = assembly.inside_shock
-        temperature  = assembly.aerothermo.temperature
+        temperature  = [assembly.aerothermo.temperature]
         # emissive_power = assembly.emissive_power
-        theta = assembly.aerothermo.theta
+        theta = [assembly.aerothermo.theta]
         # he = assembly.aerothermo.he
         # hw = assembly.aerothermo.hw
         # Te = assembly.aerothermo.Te
-        debug_alpha = assembly.aerothermo.debug_alpha
+        debug_alpha = [assembly.aerothermo.debug_alpha]
     displacement = assembly.mesh.surface_displacement
 
     if options.thermal.ablation_mode.lower() == 'pato' and options.pato.Ta_bc == 'ablation':

@@ -23,38 +23,42 @@ from functools import partial
 from scipy.optimize import dual_annealing, basinhopping, shgo, brute, direct, differential_evolution, minimize
 from scipy.spatial.transform import Rotation
 from scipy.stats import uniform_direction
+import concurrent.futures
 import configparser
 import pathlib
 import torch
-import gpytorch as gpt
+from gpytorch.likelihoods import GaussianLikelihood
 
 from ..Aerothermo.aerothermo import ray_trace, compute_aerodynamics, compute_aerothermodynamics, write_rays_to_vtk
 from ..Configuration.configuration import read_config_file
-from ..Design.surrogates import SphericalMatern, SphericalGP
+from ..Design.surrogates import SphericalGP, MultiOutputGP
 from ..Dynamics.propagation import collect_state_vectors, update_dynamic_attributes
 from ..Dynamics.frames import R_W_from_B
 from ..Freestream.mix_properties import compute_freestream, compute_stagnation
 from ..Output.output import create_surface_solution, update_surface_solution, write_surface_solution
 
 def attitude_function_from_mrp(fixed_params : list, mrp : np.ndarray, info):
+    passed_params = []
+    [passed_params.append(param) for param in fixed_params]
 
     quat = Rotation.from_mrp(mrp).as_quat()
 
-    fixed_params.append(quat)
-    fixed_params.append(info)
-    return attitude_function_from_quat(*fixed_params)
+    passed_params.append(quat)
+    passed_params.append(info)
+    return attitude_function_from_quat(*passed_params)
 
 def attitude_function_from_aoa_ss(fixed_params : list, aoa_ss : np.ndarray, info):
-
+    passed_params = []
+    [passed_params.append(param) for param in fixed_params]
     quat = R_W_from_B(aoa_ss[0],aoa_ss[1]).as_quat()
 
-    fixed_params.append(quat)
-    fixed_params.append(info)
-    return attitude_function_from_quat(*fixed_params)
+    passed_params.append(quat)
+    passed_params.append(info)
+    return attitude_function_from_quat(*passed_params)
 
 def attitude_function_from_unit_vec(fixed_params : list, vec : np.ndarray, info):
-    ss = np.arcsin(vec[2])
-    aoa  = np.arctan2(vec[0], vec[1])
+    aoa = np.arcsin(vec[2])
+    ss  = np.arctan2(vec[0], vec[1])
     return attitude_function_from_aoa_ss(fixed_params, [aoa, ss], info)
 
 def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights : np.ndarray, conditions : dict, output : str, attitude_quat : np.ndarray, info : dict):
@@ -106,7 +110,7 @@ def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights
     output_rays = 'body' if debug_visuals and info['n_feval'] % 10 == 0 else None
     ray_trace([assembly],options.aerothermo.subdivision_triangle, options, output_rays=output_rays)
     compute_aerodynamics(assembly, assembly.aero_index, flow_dir, options)
-    if output =='heat' or output =='surrogate' or make_debug:
+    if 'heat' in output or output =='surrogate' or make_debug:
         compute_aerothermodynamics(assembly, assembly.aero_index, flow_dir, options)
 
     if make_debug:
@@ -114,7 +118,7 @@ def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights
         write_surface_solution(options,solution, 'Solutions', int(info['n_feval']/10), folder='Opt_{}'.format(assembly.id))
     
     if output=='facets': 
-        roll_pitch_yaw = R_ECEF_from_B.as_euler('ZYX',degrees=True)
+        roll_pitch_yaw = R_ECEF_from_B.as_euler('ZYX',degrees=True)[:-1:]
         obj_func = np.sum(weights[0] * assembly.aerothermo.pressure) + np.sum(weights[1] * assembly.aerothermo.shear)
         if info['n_feval'] % 25 == 0:
                 print('n={} | Roll {}° | Pitch {}° | Yaw {}° | Obj_func = {}'.format(info['n_feval'], 
@@ -126,9 +130,10 @@ def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights
         info['n_feval'] +=1
         return obj_func
 
-    if output=='heat':
-        roll_pitch_yaw = R_ECEF_from_B.as_euler('ZYX',degrees=True)
-        obj_func = np.sum(weights * assembly.aerothermo.heatflux*assembly.mesh.facet_area)
+    if 'heat' in output:
+        target_obj = assembly.objects[int(output.split('_')[-1])]
+        roll_pitch_yaw = R_ECEF_from_B.as_euler('ZYX',degrees=True)[:-1:]
+        obj_func = np.sum(weights * assembly.aerothermo.heatflux[target_obj.facet_index]*assembly.mesh.facet_area[target_obj.facet_index])
         if info['n_feval'] % 25 == 0:
             print('n={} | Roll {}° | Pitch {}° | Yaw {}° | Obj_func = {}'.format(info['n_feval'], 
                                                                                     round(roll_pitch_yaw[0],2), 
@@ -161,10 +166,10 @@ def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights
     
     
     # p_dyn = 0.5 * assembly.freesteam.density * conditions['velocity_magnitude']**2
-    # Cd = drag / (p_dyn * assembly.Aref)
-    # Cl = lift / (p_dyn * assembly.Aref)
+    # Cd = drag  / (p_dyn * assembly.Aref)
+    # Cl = lift  / (p_dyn * assembly.Aref)
     # Cs = xwind / (p_dyn * assembly.Aref)
-    #obj_func = float((lift ** weights[0]) * (drag ** weights[1]) * (abs(xwind) ** weights[2]))
+    # obj_func = float((lift ** weights[0]) * (drag ** weights[1]) * (abs(xwind) ** weights[2]))
     if output=='integrated':
         obj_func = float((abs(lift) * weights[0]) + (drag * weights[1]) + (abs(xwind) * weights[2]))
     elif output=='ratio': 
@@ -175,9 +180,12 @@ def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights
         transverse_vector = lift*lift_hat + xwind * xwind_hat
         transverse_magnitude = np.linalg.norm(transverse_vector)
         transverse_angle = np.asin(np.linalg.norm(np.cross(lift_hat, transverse_vector/transverse_magnitude)))
-        obj_func = np.array([drag, transverse_magnitude, transverse_angle,  np.sum(assembly.aerothermo.heatflux*assembly.mesh.facet_area)])
+        integrated_heat = assembly.aerothermo.heatflux*assembly.mesh.facet_area
+        heat_flux_on_objs = [np.sum(integrated_heat[component.facet_index]) for component in assembly.objects]
+        obj_func = np.hstack([drag, transverse_magnitude, transverse_angle,  heat_flux_on_objs])
     if info['n_feval'] % 25 == 0:
-        roll_pitch_yaw = R_ECEF_from_B.as_euler('ZYX',degrees=True)
+        roll_pitch_yaw = R_ECEF_from_B.as_euler('ZYX',degrees=True)[::-1]
+        print_func = 'N/A' if output == 'surrogate' else round(obj_func,6)
         print('n={} | Roll {}° | Pitch {}° | Yaw {}° | Lift {}N | Drag {}N | xwind {}N | Obj_func = {}'.format(info['n_feval'], 
                                                                                                               round(roll_pitch_yaw[0],2), 
                                                                                                               round(roll_pitch_yaw[1],2), 
@@ -185,7 +193,7 @@ def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights
                                                                                                               round(lift,4), 
                                                                                                               round(drag,4), 
                                                                                                               round(xwind,4), 
-                                                                                                              round(obj_func,6)))
+                                                                                                              print_func,6))
 
     info['n_feval'] +=1
     return obj_func
@@ -193,7 +201,7 @@ def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights
 valid_solvers = ['dual_annealing','basinhopping','shgo','brute', 'direct', 'differential_evolution']
 class AeroOptimiser():
     '''Class for managing the the construction and solving of an optimisation problem in terms of aerodynamics'''
-    def __init__(self, assembly, conditions : dict, options, problem_kind : str = 'attitude', objective : str = 'integrated', objective_weights : np.ndarray = [1,1,1], solver : str = 'direct', budget : float = 5e2, visualise : bool = False):
+    def __init__(self, assembly, conditions : dict, options, problem_kind : str = 'attitude', objective : str = 'integrated', objective_weights : np.ndarray = [1,1,1], solver : str = 'direct', budget : float = 5e2, visualise : bool = False, surrogate = None):
         """Create an optimiser to solve an aerodynamic problem
 
         :param assembly: Target assembly
@@ -225,16 +233,16 @@ class AeroOptimiser():
         #: The solver to use for optimisation, DiRECT is highly recommended
         self.solver = solver
         self.visualise = visualise
-        if self.objective=='ratio': assert len(objective_weights)==1
-        elif self.objective=='integrated': assert len(objective_weights)==3
-        else: assert len(objective_weights)==len(assembly.mesh.facet_area)
-
+        # if self.objective=='ratio': assert len(objective_weights)==1
+        # elif self.objective=='integrated': assert len(objective_weights)==3
+        # else: assert len(objective_weights)==len(assembly.mesh.facet_area)
+        self.surrogate = surrogate
         self.setup_obj_func(conditions, options)
         self.result = None
         self.n_feval = 0
         # Useful for checking output
         self.solution = create_surface_solution(self.assembly, options)
-    
+        
     def setup_obj_func(self, conditions : dict, options):
         """Initialise the objective function based upon problem description
 
@@ -245,43 +253,45 @@ class AeroOptimiser():
         """
         match self.kind:
             case 'attitude':
-                compute_freestream(options.freestream.model, self.assembly.trajectory.altitude, self.assembly.trajectory.velocity, self.assembly.Lref, self.assembly.freestream, self.assembly, options)
-                compute_stagnation(self.assembly.freestream, options.freestream)
-                conditions['velocity_magnitude'] = np.linalg.norm(self.assembly.trajectory.velocity)
-                self.obj_func = partial(attitude_function_from_mrp, 
-                                        [self.assembly, 
-                                        options,
-                                        self.visualise, 
-                                        self.objective_weights, 
-                                        conditions, 
-                                        self.objective])
+                if self.surrogate is None:
+                    compute_freestream(options.freestream.model, self.assembly.trajectory.altitude, self.assembly.trajectory.velocity, self.assembly.Lref, self.assembly.freestream, self.assembly, options)
+                    compute_stagnation(self.assembly.freestream, options.freestream)
+                    conditions['velocity_magnitude'] = np.linalg.norm(self.assembly.trajectory.velocity)
+                    self.obj_func = partial(attitude_function_from_aoa_ss, 
+                                            [self.assembly, 
+                                            options,
+                                            self.visualise, 
+                                            self.objective_weights, 
+                                            conditions, 
+                                            self.objective])
+                else: self.obj_func = partial(self.surrogate_wrapper, self.objective, self.objective_weights)
             case 'freestream': raise NotImplementedError
     
     def solve(self):
         """Run the optimiser
         """
         if self.kind=='attitude':
-            
             match self.solver:
                 case 'dual_annealing':
-                    self.result = dual_annealing(self.obj_func, [(-1,1),(-1,1),(-1,1)], maxfun=int(self.budget),no_local_search=False, args=[{'n_feval':self.n_feval, 'sol' : self.solution}], minimizer_kwargs={'options' : {'maxiter' : 100}})
+                    self.result = dual_annealing(self.obj_func, [(-np.pi,np.pi),(-0.5*np.pi,0.5*np.pi)], maxfun=int(self.budget),no_local_search=False, args=[{'n_feval':self.n_feval, 'sol' : self.solution}], minimizer_kwargs={'options' : {'maxiter' : 100}})
                 case 'basinhopping':
                     n_hops = int(self.budget/400)
                     print(n_hops)
-                    self.result = basinhopping(self.obj_func, [0,0,1], niter=n_hops, T = np.pi/2, minimizer_kwargs={'options' : {'maxiter' : 100}, 'args' : [{'n_feval':self.n_feval, 'sol' : self.solution}]})
+                    self.result = basinhopping(self.obj_func, [0,0], niter=n_hops, T = np.pi/2, minimizer_kwargs={'options' : {'maxiter' : 100}, 'args' : [{'n_feval':self.n_feval, 'sol' : self.solution}]})
                 case 'shgo':
                     n_points = int(self.budget/100)
-                    self.result = shgo(self.obj_func, [(-1,1),(-1,1),(-1,1)],iters=6, n=n_points, args=[{'n_feval':self.n_feval, 'sol' : self.solution}],minimizer_kwargs={'options' : {'maxiter' : 100}})
+                    self.result = shgo(self.obj_func, [(-np.pi,np.pi),(-0.5*np.pi,0.5*np.pi)],iters=6, n=n_points, args=[{'n_feval':self.n_feval, 'sol' : self.solution}],minimizer_kwargs={'options' : {'maxiter' : 100}})
                 case 'brute':
-                    self.result = brute(self.obj_func, [(-1,1),(-1,1),(-1,1)], Ns = 5, finish=minimize, args=[{'n_feval':self.n_feval, 'sol' : self.solution}])
+                    self.result = brute(self.obj_func, [(-np.pi,np.pi),(-0.5*np.pi,0.5*np.pi)], Ns = 5, finish=minimize, args=[{'n_feval':self.n_feval, 'sol' : self.solution}])
                 case 'direct':
-                    self.result = direct(self.obj_func, [(-1,1),(-1,1),(-1,1)], args=[{'n_feval':self.n_feval, 'sol' : self.solution}],maxfun=int(self.budget))
+                    self.result = direct(self.obj_func, [(-np.pi,np.pi),(-0.5*np.pi,0.5*np.pi)], args=[{'n_feval':self.n_feval, 'sol' : self.solution}],maxfun=int(self.budget))
                 case 'differential_evolution':
                     n_iters = int(self.budget/100)
-                    self.result = differential_evolution(self.obj_func,  [(-1,1),(-1,1),(-1,1)], args=[{'n_feval':self.n_feval, 'sol' : self.solution}], popsize = 20, maxiter=n_iters)
+                    self.result = differential_evolution(self.obj_func,  [(-np.pi,np.pi),(-0.5*np.pi,0.5*np.pi)], args=[{'n_feval':self.n_feval, 'sol' : self.solution}], popsize = 20, maxiter=n_iters)
 
                 case _: raise Exception('Did not recognise optimiser {}, available options are...{}'.format(self.solver, valid_solvers))
             if hasattr(self.result, 'message'): print(self.result.message)
+
 
     def collect_theta_set(self, options) -> tuple[np.ndarray]:
         """Collect set of optimal angles theta for the body, calls the optimiser if no solution yet exists
@@ -295,18 +305,27 @@ class AeroOptimiser():
         if self.result is None: self.solve()
         if self.solver == 'brute': attitude = self.result
         else: attitude = self.result['x']
+        if self.surrogate is not None: 
+            z = np.sin(attitude[0])
+            x = np.cos(attitude[0])*np.cos(attitude[1])
+            y = np.sin(attitude[0])*np.cos(attitude[1])
 
+            errors = self.surrogate.error_at([x,y,z])
+            if np.sum(errors)>10*len(errors): print('Warning! Surrogate error is {}pct across all axes, optimal solution may be invalid!'.format(np.sum(errors)))
+        
         self.assembly.aerothermo.pressure.fill(self.assembly.freestream.pressure)
         self.assembly.aerothermo.shear.fill(0.0)
         
-        R_ECEF_from_B = Rotation.from_mrp(attitude)
+        R_ECEF_from_B = R_W_from_B(*attitude)
         self.assembly.state_vector[6:10] = R_ECEF_from_B.as_quat()
         update_dynamic_attributes(self.assembly, self.assembly.state_vector, options, force=True)
 
         ray_trace([self.assembly],options.aerothermo.subdivision_triangle, options)#, output_rays='leading')
 
+        flow_dir = -self.assembly.velocity/np.linalg.norm(self.assembly.velocity)
+
         if self.objective == 'ratio':
-            flow_dir = -self.assembly.velocity/np.linalg.norm(self.assembly.velocity)
+
             compute_aerodynamics(self.assembly, self.assembly.aero_index, flow_dir, options)
             # Force in the body frame
             force_facets = -self.assembly.aerothermo.pressure[:,None]*self.assembly.mesh.facet_normal+self.assembly.aerothermo.shear*np.linalg.norm(self.assembly.mesh.facet_normal, axis=1)[:,None]
@@ -324,9 +343,23 @@ class AeroOptimiser():
             # flow_dir to get drag magnitude, subtract drag vector to get transverse magnitude
             # Then we can define the transverse locus (do we want a locus?)
 
-            flow_dir_body = R_ECEF_from_B.inv().apply(flow_dir)
-            self.flow_dir_body = flow_dir_body
+        flow_dir_body = R_ECEF_from_B.inv().apply(flow_dir)
+        self.flow_dir_body = flow_dir_body
 
+        facet_normal = self.assembly.mesh.facet_normal
+        p = self.assembly.aero_index
+
+        direction = np.copy(flow_dir)
+        direction[1] += 1e-8 # To prevent "bang-on" zero-norm tangent vectors
+        direction /= np.linalg.norm(direction)
+        direction.shape = (-1)
+        direction=np.tile(direction,(len(facet_normal[p]),1))
+
+
+        tangent_vector = direction - ((direction*facet_normal[p]).sum(axis = 1))[:,None]*facet_normal[p]/(facet_normal[p]*facet_normal[p]).sum(axis=1)[:,None]
+        tangent_vector = tangent_vector/np.sqrt((tangent_vector*tangent_vector).sum(axis=1)[:,None])
+
+        self.tangent_vector = tangent_vector
 
         self.theta_set = self.assembly.aerothermo.theta
         self.pf_set = self.assembly.aerothermo.partial_factor
@@ -335,12 +368,24 @@ class AeroOptimiser():
 
         return self.theta_set, self.pf_set, self.index_set
 
+    def surrogate_wrapper(self, objective, weights : np.ndarray, aoa_ss : np.ndarray, info : dict) -> float:
+        z = np.sin(aoa_ss[0])
+        x = np.cos(aoa_ss[0])*np.sin(aoa_ss[1])
+        y = np.cos(aoa_ss[0])*np.cos(aoa_ss[1])
+        output = self.surrogate([x,y,z])
+        if 'heat' in objective: 
+            i_target_obj = int(objective.split('_')[-1])
+            return output[3+i_target_obj]*weights[0]
+        elif objective=='ratio': return (output[0]**weights[0])*(output[1]**weights[1])
+        else: return np.sum(output*weights)
+
+
 
 
 class AeroSurrogate():
     """Create a surrogate of the aerodynamics problem"""
 
-    def __init__(self, mode='attitude',sampling_strategy='spherical',rng=None, model_choice='sphericalGP', training_iters=50):
+    def __init__(self, mode='attitude',sampling_strategy='spherical',rng=None, model_choice='sphericalGP', training_iters=50, num_workers=1):
         self.mode=mode
         self.strategy=sampling_strategy
         if rng is None: self.rng = np.random.default_rng()
@@ -348,14 +393,21 @@ class AeroSurrogate():
         else: self.rng=np.random.default_rng(rng)
         self.model_choice = model_choice
         self.n_train = training_iters
+        self.n_workers = num_workers
+
+        self.n_feval = 0
+        self.database_x = None
+        self.database_y = None
+        self.model = None
+        self.select_output = None
+        
         
     def create_ground_truth_func(self, assembly, options):
         match self.mode:
             case 'attitude':
-                compute_freestream(options.freestream.model, self.assembly.trajectory.altitude, self.assembly.trajectory.velocity, self.assembly.Lref, self.assembly.freestream, self.assembly, options)
-                compute_stagnation(self.assembly.freestream, options.freestream)
-                obj_func = ['Integrated', ]
-                self.obj_func = partial(attitude_function_from_unit_vec, 
+                compute_freestream(options.freestream.model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
+                compute_stagnation(assembly.freestream, options.freestream)
+                self.func = partial(attitude_function_from_unit_vec, 
                                         [assembly, 
                                         options,
                                         False, 
@@ -374,9 +426,7 @@ class AeroSurrogate():
                     assert np.isclose(np.linalg.norm(samples, axis=1), np.ones([samples.shape[0],1]))
                 except Exception as e:
                     raise Exception('Given samples do not lie on the 2-sphere! {}'.format(e))
-            results = np.array([self.func(sample) for sample in samples])
-            self.database_y = np.vstack([self.database_y,results]) if self.database_y is not None else self.database_y = results
-            self.database_x = np.vstack([self.database_x,samples]) if self.database_x is not None else self.database_x = samples
+                points = samples
         if isinstance(samples, int):
             match self.strategy:
                 case 'spherical':
@@ -384,45 +434,49 @@ class AeroSurrogate():
                     sampler = uniform_direction(n_dim)
                     sampler.random_state = self.rng
                     points = sampler.rvs(samples)
-                    results = np.array([self.func(point) for point in points])
-                    self.database_y = np.vstack([self.database_y,results]) if self.database_y is not None else self.database_y = results
-                    self.database_x = np.vstack([self.database_x,points]) if self.database_x is not None else self.database_x = points
                 case _: raise NotImplementedError
-
+        if self.n_workers>1:
+            with concurrent.futures.ProcessPoolExecutor(self.n_workers) as executor:
+                output_futures = [executor.submit(self.func, point, {'n_feval':i_point}) for i_point, point in enumerate(points)]
+                concurrent.futures.wait(output_futures)
+            results = np.array([fut.result() for fut in output_futures])
+        else:
+            results = np.array([self.func(point, {'n_feval':i_point}) for i_point, point in enumerate(points)])
+        self.database_y = np.vstack([self.database_y,results]) if self.database_y is not None else results
+        self.database_x = np.vstack([self.database_x,points]) if self.database_x is not None else points
     
     def fit(self):
         if self.database_x is None or self.database_y is None: raise Exception('Must provide data to the surrogate!')
-        match self.model:
-            case 'sphericalGP':
-                self.likelihood = gpt.likelihoods.GaussianLikelihood()
-                self.model = SphericalGP(self.database_x, self.database_y, self.likelihood)
-                self.model.train()
-                self.likelihood.train()
-                optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
-                mll = gpt.mlls.ExactMarginalLogLikelihood(self.likelihood, model)
-                for i in range(self.n_train):
-                    # Zero gradients from previous iteration
-                    optimizer.zero_grad()
-                    # Output from model
-                    output = self.model(self.database_x)
-                    # Calc loss and backprop gradients
-                    loss = -mll(output, self.database_y)
-                    loss.backward()
-                    print('Iter %d/%d - Loss: %.3f   lengthscale: %.3f   noise: %.3f' % (
-                        i + 1, training_iter, loss.item(),
-                        self.model.covar_module.base_kernel.lengthscale.item(),
-                        self.model.likelihood.noise.item()
-                    ))
-                    optimizer.step()
-
-    def evaluate(self, x):
-        if not hasattr(self, 'model'): raise Exception('The surrogate must be constructed before calling!')
+        if not isinstance(self.database_x, torch.Tensor): self.database_x = torch.tensor(self.database_x)
+        if not isinstance(self.database_y, torch.Tensor): self.database_y = torch.tensor(self.database_y)
         match self.model_choice:
             case 'sphericalGP':
-                self.model.eval()
-                self.likelihood.eval()
-                realisation = self.model(x).mean
-                return realisation
+                if self.model is None:
+                    self.model = MultiOutputGP(self.database_x, self.database_y, SphericalGP, GaussianLikelihood, training_iters=self.n_train)
+                else: self.model.train(self.database_x, self.database_y)
+
+    def evaluate(self, x):
+        if self.model is None: raise Exception('The surrogate must be constructed before calling!')
+        evaluation = self.model(x)
+        if self.select_output is not None:
+            evaluation = evaluation[self.select_output]
+        return evaluation
+
+    def error_at(self,x):
+        print('Testing surrogate at point {}'.format(x))
+        prediction = self.evaluate(x)
+        truth = self.func(x, {'n_feval' : self.n_feval})
+        self.n_feval +=1
+        errors = []
+        for i_output in range(len(prediction)):
+            error_pct = 100*np.abs(1-(prediction[i_output]/truth[i_output]))
+            print('Axis {}: Truth {} Prediction {} error {}%'.format(i_output,
+                                                                     np.round(truth[i_output],4),
+                                                                     np.round(prediction[i_output],4),
+                                                                     np.round(error_pct,4)))
+            errors.append(error_pct)
+        return errors
+    __call__ = evaluate
 # if __name__=='__main__':
 #     configParser = configparser.RawConfigParser()   
 #     configFilePath = '/home/tommy/reachable_sets/sat.cfg'

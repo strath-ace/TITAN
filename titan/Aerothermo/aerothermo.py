@@ -1172,19 +1172,22 @@ def aerodynamics_module_freemolecular(assembly, p : np.ndarray, flow_direction :
     Shear = tfm[:,None]*(0.5*free.density*free.velocity**2 )
     Shear[np.isnan(Shear)] = 0
 
-    direction = np.copy(flow_direction)
-    direction[1] += 1e-8 # To prevent "bang-on" zero-norm tangent vectors
-    direction /= np.linalg.norm(direction)
-    direction.shape = (-1)
-    direction=np.tile(direction,(len(facet_normal[p]),1))
+    if not hasattr(assembly.aerothermo,'tangent_vector'):
 
-    tangent_vector = direction - ((direction*facet_normal[p]).sum(axis = 1))[:,None]*facet_normal[p]/(facet_normal[p]*facet_normal[p]).sum(axis=1)[:,None]
-    tangent_vector = tangent_vector/np.sqrt((tangent_vector*tangent_vector).sum(axis=1)[:,None])
-    
+        direction = np.copy(flow_direction)
+        direction[1] += 1e-8 # To prevent "bang-on" zero-norm tangent vectors
+        direction /= np.linalg.norm(direction)
+        direction.shape = (-1)
+        direction=np.tile(direction,(len(facet_normal[p]),1))
+
+
+        tangent_vector = direction - ((direction*facet_normal[p]).sum(axis = 1))[:,None]*facet_normal[p]/(facet_normal[p]*facet_normal[p]).sum(axis=1)[:,None]
+        tangent_vector = tangent_vector/np.sqrt((tangent_vector*tangent_vector).sum(axis=1)[:,None])
+    else: tangent_vector = assembly.aerothermo.tangent_vector
     Pressure.shape = (-1)
     Shear.shape = (-1)
 
-    Shear = Shear[:,None]*tangent_vector
+    Shear = Shear[:,None]*np.atleast_2d(tangent_vector)
     return Pressure, Shear
 
 def bridging(free, Kn_cont : float, Kn_free: float) -> float:

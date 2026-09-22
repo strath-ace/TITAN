@@ -35,13 +35,15 @@ base_opt_state_fmf = np.array([6478137.33, 0., 0., 0., 0., 7700., 0., 0., 0., 1.
 
 class AeroAttitude():
     """Data class for holding a pair of aerodynamic attitudes (one for each regime) of an assembly"""
-    def __init__(self, theta_set_fmf : np.ndarray, hit_set_fmf : np.ndarray, pf_set_fmf : np.ndarray, flow_dir_body_fmf : np.ndarray, theta_set_c : np.ndarray, hit_set_c : np.ndarray, pf_set_c : np.ndarray, flow_dir_body_c : np.ndarray):    
+    def __init__(self, theta_set_fmf : np.ndarray, hit_set_fmf : np.ndarray, pf_set_fmf : np.ndarray, flow_dir_body_fmf : np.ndarray, tangents_fmf : np.ndarray, theta_set_c : np.ndarray, hit_set_c : np.ndarray, pf_set_c : np.ndarray, flow_dir_body_c : np.ndarray):
 
         self.theta_set_fmf = theta_set_fmf
         self.hit_set_fmf = hit_set_fmf
-        self.pf_set_fmf = pf_set_fmf
+        self.pf_set_fmf = np.atleast_2d(pf_set_fmf)
         self.flow_dir_body = flow_dir_body_fmf
-        
+        self.tangents_fmf = tangents_fmf
+
+
         self.theta_set_c = theta_set_c
         self.hit_set_c = hit_set_c
         self.pf_set_c = pf_set_c
@@ -49,6 +51,7 @@ class AeroAttitude():
         self.id = 0
 
     def get_forces(self, assembly, options):
+        if not hasattr(assembly.aerothermo, 'tangent_vector'): assembly.aerothermo.tangent_vector = self.tangents_fmf
         assembly.aerothermo.pressure *= 0
         assembly.aerothermo.pressure += assembly.freestream.pressure
         assembly.aerothermo.shear    *= 0
@@ -69,16 +72,16 @@ class AeroAttitude():
                 assembly.aero_index = self.hit_set_c
                 assembly.aerothermo.theta = self.theta_set_c
                 assembly.aerothermo.partial_factor = self.pf_set_c
-                assembly.aerothermo.pressure[self.hit_set_c] += aerodynamics_module_continuum(assembly, self.hit_set_c, None) \
+                assembly.aerothermo.pressure[self.hit_set_c] += aerodynamics_module_continuum(assembly, self.hit_set_c, flow_dir) \
                 * self.pf_set_c[self.hit_set_c] * options.aerothermo.CP_mult
 
             elif (assembly.freestream.knudsen >= Kn_free):
                 assembly.aero_index = self.hit_set_fmf
                 assembly.aerothermo.theta = self.theta_set_fmf
                 assembly.aerothermo.partial_factor = self.pf_set_fmf
-                pressure, shear = aerodynamics_module_freemolecular(assembly, self.hit_set_fmf, None)
-                assembly.aerothermo.pressure[self.hit_set_fmf] += pressure * self.pf_set_fmf[self.hit_set_fmf]  * options.aerothermo.CP_mult
-                assembly.aerothermo.shear[self.hit_set_fmf] += shear * self.pf_set_fmf[self.hit_set_fmf] * options.aerothermo.CTau_mult
+                pressure, shear = aerodynamics_module_freemolecular(assembly, self.hit_set_fmf, flow_dir)
+                assembly.aerothermo.pressure[self.hit_set_fmf] += pressure * self.pf_set_fmf[self.hit_set_fmf,:]  * options.aerothermo.CP_mult
+                assembly.aerothermo.shear[self.hit_set_fmf] += shear * self.pf_set_fmf[self.hit_set_fmf,:] * options.aerothermo.CTau_mult
 
             else: 
                 aerobridge = bridging(assembly.freestream, Kn_cont_pressure, Kn_free )
@@ -106,10 +109,6 @@ class AeroAttitude():
         assembly.aerothermo.rhoe     *= 0
         assembly.aerothermo.ue       *= 0
         assembly.aerothermo.ce_i     *= 0
-
-        assembly.aero_index = self.hit_set
-        assembly.aerothermo.theta = self.theta_set
-        assembly.aerothermo.partial_factor = self.pf_set
 
         Kn_cont_heatflux = options.aerothermo.knc_heatflux       
         Kn_free = options.aerothermo.knf
@@ -205,7 +204,7 @@ class AeroAttitude():
         assembly.aerothermo.partial_factor = self.pf_set_fmf
         Pfree = np.zeros_like(assembly.aerothermo.pressure)
         Sfree = np.zeros_like(assembly.aerothermo.shear)
-        Pfree[self.hit_set_fmf], Sfree[self.hit_set_fmf] = aerodynamics_module_freemolecular(assembly, self.hit_set_fmf, None)
+        Pfree[self.hit_set_fmf], Sfree[self.hit_set_fmf] = aerodynamics_module_freemolecular(assembly, self.hit_set_fmf, -np.linalg.norm(assembly.velocity))
 
         Pressure = Pcont + (Pfree - Pcont)* aerobridge
         Shear = 0 + (Sfree - 0)* aerobridge
@@ -241,8 +240,8 @@ class AeroAttitude():
         #Computes the altitude of which the transition between flow regimes occur
         alt_cont, alt_free = bridging_altitudes("NRLMSISE00", Kn_cont, Kn_free, lref, options)
         
-        free_cont = copy(free)
-        free_free = copy(free)
+        free_cont = copy.copy(free)
+        free_free = copy.copy(free)
 
         #Computes the freestream properties for the transition altitudes
         compute_freestream("NRLMSISE00", alt_cont, free.velocity, lref, free_cont, assembly, options)
@@ -272,9 +271,6 @@ class AeroAttitude():
 
         fBridge2 = PchipInterpolator(Rmodels, Thermal_bridge)
         BridgeReq = fBridge2(rN_bridge)
-        
-        length_normal = np.linalg.norm(facet_normal, ord = 2, axis = 1)
-        p = p*(length_normal[p] != 0)
 
         compute_stagnation(free_cont, options.freestream)
         compute_stagnation(free_free, options.freestream)
@@ -293,7 +289,7 @@ class AeroAttitude():
         assembly.aerothermo.partial_factor = self.pf_set_fmf
         Stfm[self.hit_set_fmf] = aerothermodynamics_module_freemolecular(assembly, self.hit_set_fmf)
 
-        St = Stc + (Stfm - Stc) * BridgeReq[p]
+        St = Stc + (Stfm - Stc) * BridgeReq
 
         St.shape = (-1)
         return St
@@ -301,52 +297,52 @@ class AeroAttitude():
 def get_aero_configs(assembly, options) -> dict[AeroAttitude]:
     aero_configs = {}
     assembly_state = np.array(assembly.state_vector, copy=True)
+
+    ## Continuum case...
     assembly.state_vector[:13] = base_opt_state_c
-    surr = AeroSurrogate()
-    surr.create_ground_truth_func(assembly, options)
-    surr.sample()
-    surr.fit()
-    
-    opt = AeroOptimiser(assembly, {}, options, objective='ratio', objective_weights=[1], visualise=False)
-
-    opt.solve()
-    theta, pf, hits = opt.collect_theta_set(options)
-    aero_configs['max_transverse'] = AeroAttitude(theta_set=theta, hit_set=hits, pf_set=pf, flow_dir_body=opt.flow_dir_body)
-
-    opt.objective='integrated'
-    opt.objective_weights=[0., -1., 0.]
-    opt.setup_obj_func({}, options)
-    opt.solve()
-    theta, pf, hits = opt.collect_theta_set(options)
-    aero_configs['max_drag'] = AeroAttitude(theta_set=theta, hit_set=hits, pf_set=pf, flow_dir_body=opt.flow_dir_body)
-    
-    opt.objective_weights=[0., 1., 0.]
-    opt.setup_obj_func({}, options)
-    opt.solve()
-    theta, pf, hits = opt.collect_theta_set(options)
-    aero_configs['min_drag'] = AeroAttitude(theta_set=theta, hit_set=hits, pf_set=pf, flow_dir_body=opt.flow_dir_body)
-
-    opt.objective_weights=np.ones_like(assembly.mesh.facet_area)
-    opt.objective='heat'
-    opt.setup_obj_func({}, options)
-    opt.solve()
-    theta, pf, hits = opt.collect_theta_set(options)
-    aero_configs['max_flux'] = AeroAttitude(theta_set=theta, hit_set=hits, pf_set=pf, flow_dir_body=opt.flow_dir_body)
-
-    opt.objective_weights=-1*np.ones_like(assembly.mesh.facet_area)
-    opt.setup_obj_func({}, options)
-    opt.solve()
-    theta, pf, hits = opt.collect_theta_set(options)
-    aero_configs['min_flux'] = AeroAttitude(theta_set=theta, hit_set=hits, pf_set=pf, flow_dir_body=opt.flow_dir_body)
-
-    assembly.state_vector = assembly_state
     update_dynamic_attributes(assembly, assembly.state_vector, options, force=True)
 
-    aero_configs['max_transverse'].id = 0
-    aero_configs['max_drag'].id = 1
-    aero_configs['min_drag'].id = 2
-    aero_configs['max_flux'].id = 3
-    aero_configs['min_flux'].id = 4
+    continuum_surr = AeroSurrogate(training_iters=100, num_workers=10)
+    continuum_surr.create_ground_truth_func(assembly, options)
+    continuum_surr.sample(samples=500)
+    continuum_surr.fit()
+
+    assembly.state_vector[:13] = base_opt_state_fmf
+    update_dynamic_attributes(assembly, assembly.state_vector, options, force=True)
+
+    rarefied_surr = AeroSurrogate(training_iters=100, num_workers=10)
+    rarefied_surr.create_ground_truth_func(assembly, options)
+    rarefied_surr.sample(samples=500)
+    rarefied_surr.fit()
+
+    configurations = ['max_transverse','max_drag','min_drag']
+    weights = [[-1.,1.],[1.,0.],[-1.,0.]]
+    for i in range(len(assembly.objects)): 
+        configurations.append('maxheat_'+str(i))
+        weights.append([1])
+        configurations.append('minheat_'+str(i))
+        weights.append([-1])
+    i_cfg = 0
+    
+    for configuration, weight in zip(configurations, weights):
+        objective = configuration[3:] if 'heat' in configuration else 'ratio'
+        continuum_opt = AeroOptimiser(assembly, {}, options, objective=objective, objective_weights=weight, visualise=False, surrogate=continuum_surr)
+        continuum_opt.solve()
+
+        rarefied_opt = AeroOptimiser(assembly, {}, options, objective=objective, objective_weights=weight, visualise=False, surrogate=rarefied_surr)
+        rarefied_opt.solve()
+
+        theta_c, pf_c, hits_c = continuum_opt.collect_theta_set(options)
+        theta_f, pf_f, hits_f = rarefied_opt.collect_theta_set(options)
+        aero_configs[configuration] = AeroAttitude(
+            theta_set_c=theta_c, hit_set_c=hits_c, pf_set_c=pf_c, flow_dir_body_c=continuum_opt.flow_dir_body,
+            theta_set_fmf=theta_f, hit_set_fmf=hits_f, pf_set_fmf=pf_f, flow_dir_body_fmf=rarefied_opt.flow_dir_body, tangents_fmf=rarefied_opt.tangent_vector
+                )
+
+        aero_configs[configuration].id = i_cfg
+        i_cfg+=1
+    assembly.state_vector = assembly_state
+    update_dynamic_attributes(assembly, assembly.state_vector, options, force=True)
 
     return aero_configs
 
