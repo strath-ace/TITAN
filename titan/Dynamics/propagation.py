@@ -906,7 +906,7 @@ def explicit_rk_N(N,state_vectors,state_vectors_prior,derivatives_prior,dt,titan
         k_n.append(d_dt_state_vectors)
     new_state_vectors = state_vectors
 
-    for i_k in range(N): 
+    for i_k in range(RK_N_actual[str(N)]): 
         delta_factors = states_op(titan, options, k_n[i_k], RK_k_factors[str(N)][i_k] * dt, '*')
         new_state_vectors = states_op(titan, options, new_state_vectors, delta_factors, 'sv+')
     for i_assem, _assembly in enumerate(titan.assembly): _assembly.aerothermo = aero_states[i_assem]

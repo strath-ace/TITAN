@@ -53,7 +53,7 @@ def reachable_set_propagate(assembly, options):
     assem_iter = 0
     time = 0
     num_angles = 8
-
+    assembly.mass = 111.0
 
 
     ## If we have attitude as a free parameter we can reduce our state to 3DoF
@@ -70,15 +70,50 @@ def reachable_set_propagate(assembly, options):
 
 
     angles = np.linspace(0., 2*np.pi, num_angles, endpoint = False)
-    
-    num_states = num_angles * num_configs
-    angles = np.hstack([angles for _ in range(num_configs)])
-    #states = np.full([angles.shape,state.shape[1]],state)
-    #for state in states:
+    angles = np.hstack([angles,angles])
 
-    configs = np.hstack([[cfg for _ in range(num_angles)] for cfg in config_names])
+    states = np.full([angles.shape[0],state.shape[0]],state)
+    delta_cross_radial = 0.2
+    delta_along_track = 128.97
+    delta_velocity_magnitude = 126.69*0.5
+    delta_velocity_angle = 0.5*0.23599*np.pi/180
+    for i_state, state in enumerate(states):
+        velocity_magnitude = np.linalg.norm(state[3:6])
+        v_hat = state[3:6]/ velocity_magnitude
+        x_hat = state[:3]/np.linalg.norm(state[:3])
+        transverse_hat = np.cross(x_hat, v_hat)
+        transverse_hat /= np.linalg.norm(transverse_hat)
+        normal_hat = np.cross(v_hat, transverse_hat)
+        normal_hat /= np.linalg.norm(normal_hat)
+
+        delta_pos = np.cos(angles[i_state])*normal_hat + np.sin(angles[i_state])*transverse_hat
+        new_vel = np.cos(delta_velocity_angle)*v_hat
+        new_vel +=  np.sin(delta_velocity_angle)*np.cos(angles[i_state])*normal_hat
+        new_vel += + np.sin(delta_velocity_angle)*np.sin(angles[i_state])*transverse_hat
+        delta_pos *= delta_cross_radial
+        if i_state<=num_angles: 
+            delta_pos += v_hat*delta_along_track
+            velocity_magnitude += delta_velocity_magnitude
+        else:
+            delta_pos -= v_hat * delta_along_track
+            velocity_magnitude -= delta_velocity_magnitude
+        states[i_state,:3] += delta_pos
+
+        states[i_state,3:6] = new_vel*velocity_magnitude
+
+    num_states = 2* num_angles * num_configs
+    angles = np.hstack([angles for _ in range(num_configs)])
+    states = np.vstack([states for _ in range(num_configs)])
+    
+
+
+    configs = np.hstack([[cfg for _ in range(2*num_angles)] for cfg in config_names])
     print(configs)
-    assert len(angles)==len(configs)==num_states
+    print(states)
+    try:
+        assert len(angles)==len(configs)==num_states==len(states)
+    except:
+        raise Exception('Error len angles={} len configs={} num_states ={} len states={}, these should match!'.format(len(angles),len(configs),num_states, len(states)))
     configs = [aero_configs[cfg] for cfg in configs]
     #states = [np.array(state, copy=True) for _ in range(num_states)]
     #valid_states = list(range(num_states))
@@ -90,12 +125,12 @@ def reachable_set_propagate(assembly, options):
     data = np.zeros([1,len(columns)], dtype = np.float64)
 
     num_workers = num_states if num_states<10 else 10
-    print('Calling executor')
+
     if num_workers>1:
         with concurrent.futures.ProcessPoolExecutor(num_workers) as executor:
             fut = [executor.submit(
                 propagate_configuration,assembly, options, 
-                {'state' : state, 
+                {'state' : states[i_state], 
                 'aero_config' : configs[i_state], 
                 'phi' : angles[i_state], 
                 'id' : configs[i_state].id,
