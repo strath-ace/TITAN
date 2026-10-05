@@ -187,7 +187,7 @@ def energy_loop_brent(mix : mpp.Mixture, T_eq : float, P_eq : float, h_ref : flo
     f = partial(energy_loop_obj_func, mix, P_eq, h_ref)
     if verbose: print('Equilibriating energy for h_ref {}'.format(h_ref))
     if verbose: print('{}<T_eq={}<{}  P_eq={}'.format(T_min,T_eq,T_max,P_eq))
-    T_eq = brentq(f, T_min, T_max)
+    T_eq = brentq(f, T_min, T_eq)
     if verbose: print('Got T_eq as {}'.format(T_eq))
     mix.equilibrate(T_eq, P_eq)
     
@@ -786,9 +786,20 @@ def ray_trace(assembly_group : list, n : int, options, output_rays : str = None)
 
         per_assem_see_flow = np.arange(len(_assembly.mesh.facets))[per_assem_see_flow != 0]
 
-        _assembly.aerothermo.proj_area = 0
-        #proj_facet_areas = _assembly.mesh.facet_area[per_assem_index] * np.dot(_assembly.mesh.facet_normal[per_assem_index],flow_direction)
-        #_assembly.aerothermo.proj_area=np.sum(proj_facet_areas)
+
+        if options.aerothermo.recalculate_Aref or _assembly.Aref is None:
+            _assembly.aerothermo.proj_area = 0
+            proj_facet_areas = _assembly.mesh.facet_area[per_assem_see_flow] * np.sin(_assembly.aerothermo.theta[per_assem_see_flow])
+            _assembly.aerothermo.proj_area=np.sum(proj_facet_areas)
+        
+            if _assembly.Aref is None:
+                _assembly.Aref = _assembly.aerothermo.proj_area
+        
+        if options.aerothermo.recalculate_Lref:
+            transform = Trans.from_rotation(R_W_from_B(_assembly.aoa, _assembly.slip))*Trans.from_translation(-_assembly.COG)
+            projected_verts = transform.apply(np.vstack([_assembly.mesh.v0, _assembly.mesh.v1, _assembly.mesh.v2]))
+            _assembly.Lref = np.linalg.norm(np.max(projected_verts[:,1:], axis=0) - np.min(projected_verts[:,1:], axis=0))
+
         _assembly.aero_index = per_assem_see_flow
 
 def shock_angle(M:float, theta_array:np.ndarray, gamma: float) -> np.ndarray:

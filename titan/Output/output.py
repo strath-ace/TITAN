@@ -132,6 +132,16 @@ def write_output_data(titan, options, smooth=False):
         df['Qmax'] = [max(assembly.aerothermo.heatflux)]
         df['Tmax'] = [max(assembly.aerothermo.temperature)]
         df['knudsen'] = [assembly.freestream.knudsen]
+        dyn_pressure = 0.5 * assembly.freestream.density * assembly.trajectory.velocity**2
+        
+        df['C_D'] = assembly.wind_force.drag / (dyn_pressure * assembly.Aref)
+        df['C_L'] = assembly.wind_force.lift / (dyn_pressure * assembly.Aref)
+        df['C_Xwind'] = assembly.wind_force.crosswind / (dyn_pressure * assembly.Aref)
+        if options.aerothermo.recalculate_Aref:
+            df['Aproj'] = assembly.aerothermo.proj_area
+            df['C_D_instant'] = assembly.wind_force.drag / (dyn_pressure * assembly.aerothermo.proj_area)
+            df['C_L_instant'] = assembly.wind_force.lift / (dyn_pressure * assembly.aerothermo.proj_area)
+            df['C_Xwind_instant'] = assembly.wind_force.crosswind / (dyn_pressure * assembly.aerothermo.proj_area)
 
         for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.mass_fraction[0]) :
             df[specie+"_mass_pct"] = [pct]

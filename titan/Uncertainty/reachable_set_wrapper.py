@@ -73,9 +73,9 @@ def reachable_set_propagate(assembly, options):
     angles = np.hstack([angles,angles])
 
     states = np.full([angles.shape[0],state.shape[0]],state)
-    delta_cross_radial = 0.2
-    delta_along_track = 128.97
-    delta_velocity_magnitude = 126.69*0.5
+    delta_cross_radial = 50
+    delta_along_track = 50
+    delta_velocity_magnitude = 120.0*0.5
     delta_velocity_angle = 0.5*0.23599*np.pi/180
     for i_state, state in enumerate(states):
         velocity_magnitude = np.linalg.norm(state[3:6])

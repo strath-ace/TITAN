@@ -560,6 +560,12 @@ class Aerothermo():
         #: [float] Raytrace sphere of influence radius
         self.SoI_rad = SoI_rad
 
+        #: [bool] Whether to recalculate the reference area at each ray tracing step (good for accurate Cd/Cl prediction)
+        self.recalculate_Aref = False
+
+        #: [bool] Whether to recalculate the reference length at each ray tracing step (good for high aspect ratio tumbling)
+        self.recalculate_Lref = False
+
 class Freestream():
     """ Freestream class
 
@@ -1474,7 +1480,8 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.aerothermo.CP_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CP_mult', 'float')
     options.aerothermo.CTau_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CTau_mult', 'float')
     options.aerothermo.CH_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CH_mult', 'float')
-
+    options.aerothermo.recalculate_Aref = get_config_value(configParser, 1.0, 'Aerothermo', 'Update_reference_area', 'boolean')
+    options.aerothermo.recalculate_Lref = get_config_value(configParser, 1.0, 'Aerothermo', 'Update_reference_length', 'boolean')
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
     options.meshing.surf_size = get_config_value(configParser, 100, 'Mesh', 'Surf_size', 'float')

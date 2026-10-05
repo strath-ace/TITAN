@@ -467,7 +467,7 @@ class Assembly():
         self.COG = np.array([0.,0.,0.])
 
         #: [float] Area of reference [meters^2]
-        self.Aref = 1.0
+        self.Aref = None
 
         #: [float] Length of reference [meters]
         self.Lref = 1.0
