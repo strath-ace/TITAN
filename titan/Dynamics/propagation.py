@@ -171,7 +171,7 @@ def state_equation(titan,options,time,state_vectors):
     # Then determine the necessary derivatives to return the state vector(s)
     d_dt_state_vectors = []
     for _assembly in titan.assembly:
-        angularDerivatives = dynamics.compute_angular_derivatives(_assembly)
+        angularDerivatives = dynamics.compute_angular_derivatives(_assembly, options)
         cartesianDerivatives = dynamics.compute_cartesian_derivatives(_assembly, options)
 
         if options.vehicle: # Aim to keep the aoa=0 condition
@@ -187,7 +187,13 @@ def state_equation(titan,options,time,state_vectors):
 
 
         # Use quaternion derivative equation 
-        omega_q = [angularDerivatives.droll,angularDerivatives.dpitch,angularDerivatives.dyaw,0.0]
+        omega_body = np.array([angularDerivatives.droll,angularDerivatives.dpitch,angularDerivatives.dyaw])
+        # Subtract Planetary rotation
+        omega_body -= Rot.from_quat(_assembly.state_vector[6:10]).inv().apply(
+            [0, 0, options.planet.omega()]
+            )
+
+        omega_q = np.hstack([omega_body, 0.])
         d_q  = 0.5 *  quaternion_mult(_assembly.quaternion,omega_q)
 
         d_dt_state_vector = [cartesianDerivatives.dx,

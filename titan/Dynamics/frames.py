@@ -19,8 +19,10 @@
 #
 """frames module."""
 import numpy as np
-from scipy.spatial.transform import Rotation as Rot
+from scipy.spatial.transform import Rotation, RigidTransform
+
 from numpy import cos, sin
+import pymap3d
 
 #REN to ECEF
 def R_ECEF_from_NED(lat = 0, lon = 0):
@@ -34,7 +36,7 @@ def R_ECEF_from_NED(lat = 0, lon = 0):
     latitude = lat   #Latitude
     longitude = lon  #Longitude
 
-    R_ECEF_from_NED = Rot.from_euler('ZY',
+    R_ECEF_from_NED = Rotation.from_euler('ZY',
                                 [longitude,-latitude-np.pi/2])  # converts from North East Down to ECEF  
                                                          
 
@@ -53,7 +55,7 @@ def R_NED_from_W(fpa = 0, ha = 0):
     gamma = fpa #Flight Path Angle
     chi = ha    #Heading Angle
     
-    R_NED_from_W = Rot.from_euler('ZY', [chi, gamma])  # converts from wind frame to North East Down
+    R_NED_from_W = Rotation.from_euler('ZY', [chi, gamma])  # converts from wind frame to North East Down
 
     return R_NED_from_W
 
@@ -69,7 +71,7 @@ def R_B_from_W(aoa = 0, slip = 0):
     a=aoa   #A = Angle of attack = Pitch
     b=slip  #B = Sideslip = Yaw
 
-    R_B_from_W = Rot.from_matrix(np.array([[cos(a)*cos(b), sin(b)*cos(a), -sin(a)],
+    R_B_from_W = Rotation.from_matrix(np.array([[cos(a)*cos(b), sin(b)*cos(a), -sin(a)],
                                     [-sin(b), cos(b), 0],
                                     [cos(b)*sin(a), sin(b)*sin(a), cos(a)]]))#* R_roll
 
@@ -87,7 +89,7 @@ def R_W_from_B(aoa = 0, slip = 0):
 
     R_W_from_B = R_B_from_W(aoa = aoa, slip = slip).inv().as_matrix()
     R_W_from_B[np.abs(R_W_from_B) < 1E-14] = 0
-    R_W_from_B = Rot.from_matrix(R_W_from_B)
+    R_W_from_B = Rotation.from_matrix(R_W_from_B)
 
     return R_W_from_B
 
@@ -103,5 +105,31 @@ def R_NED_from_B(roll = 0, pitch = 0, yaw = 0):
 :return: Return value.
 :rtype: Any"""
 
-    R_NED_from_B = Rot.from_euler('ZYX', [yaw, pitch, roll])  # converts from Body frame to North East Down
+    R_NED_from_B = Rotation.from_euler('zyx', [yaw, pitch, roll])  # converts from Body frame to North East Down
     return(R_NED_from_B)
+
+def R_ECEF_from_ECI(epoch):
+    rotMatrix = np.transpose([pymap3d.eci2ecef(1,0,0,epoch),
+                            pymap3d.eci2ecef(0,1,0,epoch),
+                            pymap3d.eci2ecef(0,0,1,epoch)])
+    return Rotation.from_matrix(rotMatrix)
+
+
+def Rig_iOTA_from_TITAN(assembly, epoch):
+    translate_titan_body_from_mesh = RigidTransform.from_translation(-assembly.COG)
+    rotate_iota_body_from_titan_body = RigidTransform.from_rotation(
+        Rotation.from_euler('x',0, degrees=True)
+        )
+    translate_ECEF_from_body = RigidTransform.from_translation(assembly.position)
+    rotate_ECI_from_ECEF = RigidTransform.from_rotation(R_ECEF_from_ECI(epoch).inv())
+    rotate_iota_ECI_from_titan_ECI = RigidTransform.from_rotation(
+        Rotation.from_euler('y',0, degrees=True)
+        )
+    Rig_iOTA_from_TITAN =   rotate_iota_ECI_from_titan_ECI \
+                          * rotate_ECI_from_ECEF \
+                          * translate_ECEF_from_body \
+                          * rotate_iota_body_from_titan_body \
+                          * translate_ECEF_from_body \
+                          * translate_titan_body_from_mesh
+    
+    return Rig_iOTA_from_TITAN

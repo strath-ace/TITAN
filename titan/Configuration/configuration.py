@@ -26,6 +26,7 @@ from pathlib import Path
 import shutil
 import pickle
 import copy
+import datetime as dt
 from ..Geometry import component as Component
 from ..Geometry import assembly as Assembly
 from ..Dynamics import dynamics, propagation
@@ -174,7 +175,7 @@ class Dynamics():
         #: [ECEF/Geodetic] Frame of specified input state
         self.trajectory_frame = 'geodetic'
 
-        self.trajectory_epoch = '1970/01/01 01:01:01'
+        self.trajectory_epoch = '1970-01-01 00:00:00.00'
 
         self.trajectory_state = np.zeros(6)
         #: [str] Name of the propagator to be used in the dynamics (options - euler, ).
@@ -625,7 +626,11 @@ class Freestream():
         self.percent_gas = 0
 
         #:[ ?? ]
-        self.model = "NRLMSISE00"
+        self.model = "pymsis" #"NRLMSISE00"
+
+        self.pymsis_update_freq = 24*3600  # update frequency for pyMSIS model in seconds
+
+        self.msis_last_update = 0.0 # last update time for pyMSIS model in seconds
 
         #: Selection of freestream calculation method (Mutationpp, default = Standard)
         self.method = "Standard"
@@ -1142,9 +1147,9 @@ def read_trajectory(configParser, frame, planet=None):
             state = np.array([float(value) for value in state])
 
             if frame.lower()=='eci': 
-                import datetime as dt
-                epoch = get_config_value(configParser, '1970/01/01 01:01:01', 'Trajectory', 'Epoch', 'str')
-                epoch = dt.datetime.strptime(epoch,'%Y/%m/%d %H:%M:%S')
+
+                epoch = get_config_value(configParser, '1970-01-01 00:00:00.00', 'Trajectory', 'Epoch', 'str')
+                epoch = dt.datetime.strptime(epoch,'%Y-%m-%d %H:%M:%S.%f')
                 state[:3] = pymap3d.eci2ecef(state[0],state[1],state[2],time=epoch)
                 rotMatrix = np.transpose([pymap3d.eci2ecef(1,0,0,epoch),
                                            pymap3d.eci2ecef(0,1,0,epoch),
@@ -1480,8 +1485,8 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     options.aerothermo.CP_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CP_mult', 'float')
     options.aerothermo.CTau_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CTau_mult', 'float')
     options.aerothermo.CH_mult = get_config_value(configParser, 1.0, 'Aerothermo', 'CH_mult', 'float')
-    options.aerothermo.recalculate_Aref = get_config_value(configParser, 1.0, 'Aerothermo', 'Update_reference_area', 'boolean')
-    options.aerothermo.recalculate_Lref = get_config_value(configParser, 1.0, 'Aerothermo', 'Update_reference_length', 'boolean')
+    options.aerothermo.recalculate_Aref = get_config_value(configParser, False, 'Aerothermo', 'Update_reference_area', 'boolean')
+    options.aerothermo.recalculate_Lref = get_config_value(configParser, False, 'Aerothermo', 'Update_reference_length', 'boolean')
     #Read meshing options
     options.meshing.far_size  = get_config_value(configParser, 0.5, 'Mesh', 'Far_size', 'float')
     options.meshing.surf_size = get_config_value(configParser, 100, 'Mesh', 'Surf_size', 'float')
@@ -1656,5 +1661,11 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
     ###     fenics = TITAN.FENICS()
     ### else:
     ###     fenics = None
+    if not options.dynamics.trajectory_epoch=='1970-01-01 00:00:00.00':
+        titan.epoch = dt.datetime.strptime(options.dynamics.trajectory_epoch, '%Y-%m-%d %H:%M:%S.%f')
+    else: titan.epoch = dt.datetime.now()
+    if options.freestream.model.lower() == "pymsis": 
+        from ..Freestream.atmosphere import create_msis_atmosphere
+        create_msis_atmosphere(titan, options)
 
     return options, titan

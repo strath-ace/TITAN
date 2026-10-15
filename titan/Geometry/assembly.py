@@ -26,6 +26,7 @@ import numpy as np
 from copy import deepcopy
 import subprocess
 import os
+from datetime import datetime as dt
 
 def create_assembly_flag(list_bodies, Flags):
     """Generates the assembly connectivity matrix
@@ -103,6 +104,9 @@ class Assembly_list():
 
         #: [int] Number of collisions that have ocurred
         self.n_collisions = 0
+
+        #: [datetime] Epoch time of the simulation start
+        self.epoch = dt.now()
 
     def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):            
         """Creates the assembly list

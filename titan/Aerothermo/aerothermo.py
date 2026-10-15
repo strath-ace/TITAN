@@ -23,6 +23,7 @@ from ..Freestream import mix_properties
 from ..Dynamics.frames import *
 from scipy import special
 from copy import copy
+from datetime import timedelta
 from ..Aerothermo import su2, switch, sparta
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
@@ -468,11 +469,12 @@ def compute_aerothermo(titan, options):
     
     for assembly in titan.assembly:
         #Compute the freestream properties and stagnation quantities
-        mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, assembly.freestream, assembly, options)
+        mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, 
+                                          assembly.freestream, assembly, options, titan.epoch + timedelta(seconds=titan.time))
         mix_properties.compute_stagnation(assembly.freestream, options.freestream)
 
     if options.fidelity.lower() == 'low':
-        titan.groups = compute_low_fidelity_aerothermo(titan.assembly, options)
+        titan.groups = compute_low_fidelity_aerothermo(titan.assembly, options, titan.epoch + timedelta(seconds=titan.time))
     elif options.fidelity.lower() == 'high':
 
         if  (assembly.freestream.knudsen <= options.aerothermo.knc_pressure):
@@ -519,7 +521,7 @@ def compute_aerodynamics(assembly, index : list, flow_direction : np.ndarray, op
             assembly.aerothermo.shear[index] += shears * assembly.aerothermo.partial_factor[index,None] * options.aerothermo.CTau_mult
 
 
-def compute_aerothermodynamics(assembly, index : list, flow_direction : np.ndarray, options):
+def compute_aerothermodynamics(assembly, index : list, flow_direction : np.ndarray, options, epoch = None):
     """Low-fidelity computation of the aerothermodynamics (heat-flux)
 
     :param assembly: Assembly object to process.
@@ -549,9 +551,10 @@ def compute_aerothermodynamics(assembly, index : list, flow_direction : np.ndarr
 
         else: 
             #atmospheric model for the aerothermodynamics bridging needs to be the NRLSMSISE00
-            atmo_model = "NRLMSISE00"
+            atmo_model = "NRLMSISE00" if not options.freestream.model.upper() == "PYMSIS_ONLINE" else options.freestream.model
             aerobridge = bridging(assembly.freestream, Kn_cont_heatflux, Kn_free )
-            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, Kn_cont_heatflux, Kn_free, options)*StConst
+            assembly.aerothermo.heatflux[index] = aerothermodynamics_module_bridging(assembly, index, flow_direction, atmo_model, 
+                                                                                     Kn_cont_heatflux, Kn_free, options, epoch)*StConst
             assembly.aerothermo.heatflux[index] *= assembly.aerothermo.partial_factor[index] * options.aerothermo.CH_mult 
 
 
@@ -560,7 +563,7 @@ def compute_aerothermodynamics(assembly, index : list, flow_direction : np.ndarr
         assembly.aerothermo.heatflux[index] = aerothermodynamics_module_ice_giants(assembly, index, options)
 
 
-def compute_low_fidelity_aerothermo(assemblies, options) -> list:
+def compute_low_fidelity_aerothermo(assemblies, options, epoch = None) -> list:
     """Low-fidelity aerothermo computation
     
     :param assemblies: List of assembly objects
@@ -595,7 +598,7 @@ def compute_low_fidelity_aerothermo(assemblies, options) -> list:
             pass
 
         index = _assembly.aero_index
-        compute_aerothermodynamics(_assembly, index, flow_direction, options)
+        compute_aerothermodynamics(_assembly, index, flow_direction, options, epoch = epoch)
         compute_aerodynamics(_assembly, index, flow_direction, options)
         #if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture, index)
         #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
@@ -794,7 +797,7 @@ def ray_trace(assembly_group : list, n : int, options, output_rays : str = None)
         
             if _assembly.Aref is None:
                 _assembly.Aref = _assembly.aerothermo.proj_area
-        
+
         if options.aerothermo.recalculate_Lref:
             transform = Trans.from_rotation(R_W_from_B(_assembly.aoa, _assembly.slip))*Trans.from_translation(-_assembly.COG)
             projected_verts = transform.apply(np.vstack([_assembly.mesh.v0, _assembly.mesh.v1, _assembly.mesh.v2]))
@@ -1169,8 +1172,10 @@ def aerodynamics_module_freemolecular(assembly, p : np.ndarray, flow_direction :
     Theta = assembly.aerothermo.theta[p]
 
     SR = np.sqrt(0.5*free.gamma)*free.per_facet_mach[p]
-    SN = 1.0 #TODO 0.93
-    ST = 1.0 #TODO
+    # According to https://doi.org/10.1016/0032-0633(91)90020-B
+    SN = 1#0.93
+    ST = 1#1.11-0.17/np.cos(np.abs(Theta-np.pi/2))
+    ST = np.clip(ST, 0.0, 1.0)
 
     pfm1 = ((2 - SN)/np.sqrt(np.pi)*(SR*np.sin(Theta)) + 0.5*SN*np.sqrt(body_temperature[p]/free.temperature))*np.exp(-(SR*np.sin(Theta))**2.0)
     pfm2 = ((2 - SN)*(SR**2*np.sin(Theta)**2 + 0.5) + 0.5 * SN * np.sqrt(np.pi) * np.sqrt(body_temperature[p]/free.temperature) * (SR*np.sin(Theta)))*(1 + special.erf(SR*np.sin(Theta)))
@@ -1327,7 +1332,7 @@ def create_thermal_bridge():
     f_orion = PchipInterpolator(Orion_breaks, Orion_coeffs)
     interpolators.append(f_orion)
     return interpolators
-def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn_cont, Kn_free, options):
+def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn_cont, Kn_free, options, epoch = None):
     """Heatflux computation for the heat-flux regime
 :param assembly: Assembly object to process.
 :type assembly: object
@@ -1352,14 +1357,15 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     facet_normal = assembly.mesh.facet_normal
 
     #Computes the altitude of which the transition between flow regimes occur
-    alt_cont, alt_free = bridging_altitudes(atm_data, Kn_cont, Kn_free, lref, options)
+    alt_cont, alt_free = bridging_altitudes(atm_data, Kn_cont, Kn_free, lref, options, 
+                                            [assembly.trajectory.latitude,assembly.trajectory.longitude], epoch)
     
     free_cont = copy(free)
     free_free = copy(free)
 
     #Computes the freestream properties for the transition altitudes
-    mix_properties.compute_freestream(atm_data, alt_cont, free.velocity, lref, free_cont, assembly, options)
-    mix_properties.compute_freestream(atm_data, alt_free, free.velocity, lref, free_free, assembly, options)
+    mix_properties.compute_freestream(atm_data, alt_cont, free.velocity, lref, free_cont, assembly, options,epoch)
+    mix_properties.compute_freestream(atm_data, alt_free, free.velocity, lref, free_free, assembly, options, epoch)
     
     #HFcont = aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p, wall_temperature, flow_direction, hf_model)
     #HFfree = aerothermodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, wall_temperature)
@@ -1401,7 +1407,7 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     St.shape = (-1)
     return St
 
-def bridging_altitudes(model, Kn_cont,Kn_free, lref, options):
+def bridging_altitudes(model, Kn_cont,Kn_free, lref, options, latlon = None, epoch = None):
     """Documentation for the function.
 :param model: Value for model.
 :type model: Any
@@ -1413,12 +1419,12 @@ def bridging_altitudes(model, Kn_cont,Kn_free, lref, options):
 :type lref: Any
 :return: Return value.
 :rtype: Any"""
-
-    h_interval = np.linspace(1000,300000,25000)
-    altitude_knudsen = mix_properties.interpolate_atmosphere_knudsen(model, lref, h_interval, options)
-
-    alt_cont = altitude_knudsen(Kn_cont)
-    alt_free = altitude_knudsen(Kn_free)
+    if not hasattr(options, 'kn_interp'):
+        h_interval = np.linspace(1000,300000,25000)
+        altitude_knudsen = mix_properties.interpolate_atmosphere_knudsen(model, lref, h_interval, options, latlon, epoch)
+        options.kn_interp = altitude_knudsen
+    alt_cont = options.kn_interp(Kn_cont)
+    alt_free = options.kn_interp(Kn_free)
 
     return alt_cont, alt_free
 

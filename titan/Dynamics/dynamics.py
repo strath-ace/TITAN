@@ -264,7 +264,7 @@ def compute_cartesian_derivatives(assembly, options):
     return DerivativesCartesian(dx = dx[0], dy = dx[1], dz = dx[2], du = dv[0], dv = dv[1], dw = dv[2])
 
 
-def compute_angular_derivatives(assembly):
+def compute_angular_derivatives(assembly, options):
     """Computation of the angular derivatives in the Body frame
 
 :param assembly:
@@ -276,9 +276,14 @@ def compute_angular_derivatives(assembly):
 
     moment_euler = - np.cross(angle_vel, assembly.inertia@angle_vel)
     moment_body = assembly.body_force.moment
-
+    x_len = np.linalg.norm(assembly.position)
+    x_hat = assembly.position / x_len
+    moment_gravity_gradient = np.cross(x_hat, assembly.inertia@x_hat)
+    moment_gravity_gradient *= (3 * options.planet.mu() / (x_len**3))
+    #moment_gravity_gradient = Rot.from_quat(assembly.quaternion).inv().apply(moment_gravity_gradient)
+    assembly.body_force.gravgrad_moment = moment_gravity_gradient
 #christie: check d(euler) is correct from dM
-    rotational_accel = np.linalg.solve(assembly.inertia, moment_body + moment_euler)
+    rotational_accel = np.linalg.solve(assembly.inertia, moment_body + moment_euler + moment_gravity_gradient)
 
     droll  =  assembly.roll_vel
     dpitch =  assembly.pitch_vel

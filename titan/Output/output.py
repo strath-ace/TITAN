@@ -23,7 +23,9 @@ import numpy as np
 import os
 import meshio
 from pathlib import Path
-
+from scipy.spatial.transform import Rotation
+from ..Dynamics.frames import R_ECEF_from_ECI
+from datetime import timedelta
 def write_output_data(titan, options, smooth=False):
     """Documentation for the function.
 :param titan: TITAN simulation object.
@@ -143,6 +145,27 @@ def write_output_data(titan, options, smooth=False):
             df['C_L_instant'] = assembly.wind_force.lift / (dyn_pressure * assembly.aerothermo.proj_area)
             df['C_Xwind_instant'] = assembly.wind_force.crosswind / (dyn_pressure * assembly.aerothermo.proj_area)
 
+        R_ECI_from_B =  R_ECEF_from_ECI(titan.epoch + timedelta(seconds=titan.time)).inv() * Rotation.from_quat(assembly.quaternion)
+        ECI_quat = R_ECI_from_B.as_quat()
+
+        df['Quat_w_ECI'] = [ECI_quat[3]]
+        df['Quat_x_ECI'] = [ECI_quat[0]]
+        df['Quat_y_ECI'] = [ECI_quat[1]]
+        df['Quat_z_ECI'] = [ECI_quat[2]]
+
+        ECI_Aero_F = R_ECI_from_B.apply(assembly.body_force.force)
+        df['Aero_Fx_ECI'] = [ECI_Aero_F[0]]
+        df['Aero_Fy_ECI'] = [ECI_Aero_F[1]]
+        df['Aero_Fz_ECI'] = [ECI_Aero_F[2]]
+        yaw_ECI, pitch_ECI, roll_ECI = R_ECI_from_B.as_euler('ZYX',degrees=True)
+        df['Roll_ECI'] = [roll_ECI]
+        df['Pitch_ECI'] = [pitch_ECI]
+        df['Yaw_ECI'] = [yaw_ECI]
+
+        df['gravgrad_x'] = [assembly.body_force.gravgrad_moment[0]]
+        df['gravgrad_y'] = [assembly.body_force.gravgrad_moment[1]]
+        df['gravgrad_z'] = [assembly.body_force.gravgrad_moment[2]]
+        
         for specie, pct in zip(assembly.freestream.species_index, assembly.freestream.mass_fraction[0]) :
             df[specie+"_mass_pct"] = [pct]
         if options.thermal.ablation_mode=='byproducts':

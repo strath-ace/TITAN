@@ -117,3 +117,6 @@ class ModelPlanet():
 :return: Return value.
 :rtype: Any"""
 		return ellipsoid[self.name]
+
+	def mu(self):
+		return self.mass()*self.constant()

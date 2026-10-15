@@ -32,3 +32,4 @@ dependencies:
       - python-fcl
       - manifold3d
       - embreex
+      - pymsis

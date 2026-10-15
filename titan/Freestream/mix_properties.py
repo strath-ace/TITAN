@@ -22,7 +22,7 @@ from ..Freestream.atmosphere import load_atmosphere, retrieve_atmosphere_data
 from ..Freestream.mix_mpp import mixture_mpp
 from ..Freestream import gram
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, RegularGridInterpolator
 
 mN2 = 28.01340;               #molar mass of nitrogen molecule, grams/mole
 mO2 = 31.99880;               #molar mass of oxigen molecule, grams/mole
@@ -272,7 +272,7 @@ def compute_sutherland(species_index, percent_gas, temperature):
     return muSu
 
 
-def compute_freestream( model, altitude, velocity, lref, freestream, assembly, options):
+def compute_freestream( model, altitude, velocity, lref, freestream, assembly, options, epoch = None):
     """Compute the freestream properties
 :param model: Value for model.
 :type model: Any
@@ -289,14 +289,14 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
 :param options: Options or configuration object.
 :type options: object"""
 
-    data, species_index = retrieve_atmosphere_data(model, altitude, assembly, options)
+    data, species_index = retrieve_atmosphere_data(model, altitude, assembly, options, epoch)
 
     temperature = data[1]
     density = data[2:]
 
     freestream.species_index = species_index
     freestream.mass_fraction = density/np.sum(density)
-    freestream.mass_fraction.shape = (1,-1)
+    freestream.mass_fraction = freestream.mass_fraction.reshape([1,-1])
 
     freestream.temperature = temperature
     freestream.density = np.sum(density)
@@ -310,7 +310,7 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
         mix = mixture_mpp(species = species_index, temperature = temperature, density = density)
         
         freestream.mole_fraction = mix.X()
-        freestream.mole_fraction.shape = (1,-1)
+        freestream.mole_fraction = freestream.mole_fraction.reshape([1,-1])
         freestream.pressure = mix.P()
         freestream.R = mix.P()/(mix.density()*mix.T())
         freestream.gamma = mix.mixtureFrozenGamma()
@@ -401,7 +401,7 @@ def compute_stagnation(free, options):
     elif options.method == "Standard":
         free.mu_s = compute_sutherland(species_index = free.species_index, percent_gas = free.mole_fraction, temperature = free.T1_s)
 
-def interpolate_atmosphere_knudsen(name, lref, altitude, options):
+def interpolate_atmosphere_knudsen(name, lref, altitude, options, latlon = None, epoch = None):
     """Documentation for the function.
 :param name: Name of the item.
 :type name: str
@@ -415,10 +415,21 @@ def interpolate_atmosphere_knudsen(name, lref, altitude, options):
     avo = 6.0221408E+23 
 
     #This is only possible for the NRLSMISE00 at the moment
-    f_values, species_index = load_atmosphere(name = name, options = options)
+    f_values, species_index = load_atmosphere(name = name, options = options, epoch = epoch)
 
-    data = f_values(altitude)
-    
+    if isinstance(f_values, interp1d):
+        data = f_values(altitude)
+    elif isinstance(f_values, RegularGridInterpolator):
+        if latlon is None:
+            raise Exception("Using pymsis requires latitude and longitude to be specified")
+        lat = np.full_like(altitude, latlon[0])*180/np.pi
+        lon = np.full_like(altitude, latlon[1])*180/np.pi
+        data = np.hstack([np.array([altitude]).T, f_values(np.vstack([lat, lon, altitude/1000]).T)])
+    else: 
+        lat = np.full_like(altitude, latlon[0])*180/np.pi
+        lon = np.full_like(altitude, latlon[1])*180/np.pi
+        epochs = [epoch for _ in altitude]
+        data = np.hstack([np.array([altitude]).T, f_values(epochs, lat, lon, altitude/1000)])
     temperature = data[:,1]
     density = data[:,2:]
     
