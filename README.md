@@ -2,7 +2,7 @@
 
 |   |   |
 | :---: | :--- |
-|<img src="https://github.com/strath-ace/TITAN/blob/main/TITAN-logo.png" width="90" height="100"> | TransatmospherIc flighT simulAtioN <br /> A python code for multi-fidelity and multi-physics simulations of access-to-space and re-entry|
+|<img src="https://github.com/strath-ace/TITAN/blob/rc_v02_atlas/TITAN-logo.png" width="200" height="116"> | TransatmospherIc flighT simulAtioN <br /> A python code for multi-fidelity and multi-physics simulations of access-to-space and re-entry|
 
 # Usage
 
