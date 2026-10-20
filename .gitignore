@@ -1,7 +1,5 @@
-*.pyc
 launch.json
 link*.cfg
-Executables
 TITAN_sol
 *.xml
 settings.json
@@ -9,3 +7,9 @@ debug*
 *.geo_unrolled
 doctrees/
 .buildinfo
+build/
+simulation/
+*.egg-info/
+__pycache__/
+*.pyc
+Executables

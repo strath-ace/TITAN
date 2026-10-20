@@ -724,11 +724,11 @@ def TITAN_information():
         # TITAN tool is still under heavy development #
         ###############################################
 
-        Authors: Fábio Morgado, Julie Graham, Sai Peddakotla, Catarina Garbacz, Marco Fossati and contributors
-        Contact: fabio.pereira-morgado@strath.ac.uk
+        Authors: Fábio Morgado, Julie Graham, Catarina Garbacz, Tommy Williamson, Marco Fossati and contributors
+        Contact: tommy.williamson@strath.ac.uk
         Github:  https://github.com/strath-ace/TITAN
-        Version: 0.1
-        Release date: 2 February 2023
+        Version: 0.2
+        Release date: TBD...
         """)
 
 def options_information(options):
