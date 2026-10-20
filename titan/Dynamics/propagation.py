@@ -143,7 +143,6 @@ def state_equation(titan,options,time,state_vectors):
     if not hasattr(titan,'nfeval'): titan.nfeval = 1
     else: titan.nfeval +=1
     # This state equation will for each assembly compute the rate of change of a state vector (at that state),
-    
     # State vectors can be passed flattened, need to account for this
     #state_vectors = np.array(state_vectors)
     reshape_flat = False

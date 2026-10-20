@@ -135,15 +135,15 @@ def write_output_data(titan, options, smooth=False):
         df['Tmax'] = [max(assembly.aerothermo.temperature)]
         df['knudsen'] = [assembly.freestream.knudsen]
         dyn_pressure = 0.5 * assembly.freestream.density * assembly.trajectory.velocity**2
-        
-        df['C_D'] = assembly.wind_force.drag / (dyn_pressure * assembly.Aref)
-        df['C_L'] = assembly.wind_force.lift / (dyn_pressure * assembly.Aref)
-        df['C_Xwind'] = assembly.wind_force.crosswind / (dyn_pressure * assembly.Aref)
-        if options.aerothermo.recalculate_Aref:
-            df['Aproj'] = assembly.aerothermo.proj_area
-            df['C_D_instant'] = assembly.wind_force.drag / (dyn_pressure * assembly.aerothermo.proj_area)
-            df['C_L_instant'] = assembly.wind_force.lift / (dyn_pressure * assembly.aerothermo.proj_area)
-            df['C_Xwind_instant'] = assembly.wind_force.crosswind / (dyn_pressure * assembly.aerothermo.proj_area)
+        if assembly.Aref is not None:
+            df['C_D'] = assembly.wind_force.drag / (dyn_pressure * assembly.Aref)
+            df['C_L'] = assembly.wind_force.lift / (dyn_pressure * assembly.Aref)
+            df['C_Xwind'] = assembly.wind_force.crosswind / (dyn_pressure * assembly.Aref)
+            if options.aerothermo.recalculate_Aref:
+                df['Aproj'] = assembly.aerothermo.proj_area
+                df['C_D_instant'] = assembly.wind_force.drag / (dyn_pressure * assembly.aerothermo.proj_area)
+                df['C_L_instant'] = assembly.wind_force.lift / (dyn_pressure * assembly.aerothermo.proj_area)
+                df['C_Xwind_instant'] = assembly.wind_force.crosswind / (dyn_pressure * assembly.aerothermo.proj_area)
 
         R_ECI_from_B =  R_ECEF_from_ECI(titan.epoch + timedelta(seconds=titan.time)).inv() * Rotation.from_quat(assembly.quaternion)
         ECI_quat = R_ECI_from_B.as_quat()

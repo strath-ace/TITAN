@@ -1544,11 +1544,13 @@ def read_config_file(configParser, postprocess = "", emissions = ""):
         options.dsmc.Nevery       = get_config_value(configParser, options.dsmc.Nevery, 'SPARTA', 'Nevery', 'int')
         options.dsmc.Nrepeat      = get_config_value(configParser, options.dsmc.Nrepeat, 'SPARTA', 'Nrepeat', 'int')
         options.dsmc.Nadapt       = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Nadapt', 'int')
-        options.dsmc.Ntotal       = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Ntotal', 'int')
-        options.dsmc.write_restart = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Write_Restart', 'boolean')
-        options.dsmc.grid_results  = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Grid_Results', 'boolean')
-        options.dsmc.paraview_conda_path    = get_config_value(configParser, options.dsmc.Nadapt, 'SPARTA', 'Conda_Env_Path', 'str')
-
+        options.dsmc.Ntotal       = get_config_value(configParser, options.dsmc.Ntotal, 'SPARTA', 'Ntotal', 'int')
+        options.dsmc.write_restart = get_config_value(configParser, options.dsmc.write_restart, 'SPARTA', 'Write_Restart', 'boolean')
+        options.dsmc.grid_results  = get_config_value(configParser, options.dsmc.grid_results, 'SPARTA', 'Grid_Results', 'boolean')
+        options.dsmc.paraview_conda_path    = get_config_value(configParser, options.dsmc.paraview_conda_path, 'SPARTA', 'Conda_Env_Path', 'str')
+        assert options.dsmc.Ntotal % options.dsmc.Nevery ==0 and options.dsmc.Ntotal>options.dsmc.Nevery,\
+            'SPARTA Setup error! Ntotal ({}) must be a multiple of Nevery ({})'.format(options.dsmc.Ntotal, options.dsmc.Nevery)
+        assert options.dsmc.Nadapt>90, 'SPARTA Setup error! Nadapt({}) must be greater than 90'.format(options.dsmc.Nadapt)
         #Read SU2 conditions
         options.cfd.solver =      get_config_value(configParser, options.cfd.solver, 'SU2', 'Solver', 'str')
         options.cfd.conv_method = get_config_value(configParser, options.cfd.conv_method, 'SU2', 'Conv_method', 'str')
