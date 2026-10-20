@@ -419,7 +419,7 @@ class DSMC():
 
 
     def __init__(self, mode = 'automatic', cores = 4, acc = 1.0, ppc = 15,  run_adapt = 1, run_unsteady = 1, 
-                    run_sample = 1, stats_freq = 1,  Nrepeat = 1, Nevery = 1, Nadapt = 100, Ntotal = 1):
+                    run_sample = 1, stats_freq = 1,  Nrepeat = 1, Nevery = 1, Nadapt = 100, Ntotal = 10):
 
 
         # [str] Operational mode of SPARTA in TITAN (either manual or automatic) (lets the user perform the SPARTA simulation offline if manual)

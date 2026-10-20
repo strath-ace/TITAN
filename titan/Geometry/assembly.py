@@ -21,7 +21,7 @@
 from ..Geometry import mesh as Mesh
 from ..Geometry import gmsh_api as GMSH
 from ..Geometry.tetra import inertia_tetra, vol_tetra
-from ..Thermal.byproducts import Byproducts
+
 import numpy as np
 from copy import deepcopy
 import subprocess
@@ -550,7 +550,8 @@ class Assembly():
         self.aerothermo = Aerothermo(len(self.mesh.facets))
         self.aerothermo_cfd = Aerothermo(len(self.mesh.nodes))
 
-        if options.thermal.ablation_mode=='byproducts': 
+        if options.thermal.ablation_mode=='byproducts':
+            from ..Thermal.byproducts import Byproducts
             self.byproducts = Byproducts(len(self.mesh.facets), cutoff=options.thermal.mf_cutoff)
             self.byproducts.get_species_list(self)
         #Initialize surface temperature of the assembly
