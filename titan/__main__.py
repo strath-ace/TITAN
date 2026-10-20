@@ -128,7 +128,7 @@ def loop(options = [], titan = []):
         titan.iter += 1
         titan.post_event_iter +=1
         options.current_iter = titan.iter
-        if options.current_iter%options.save_freq == 0 or options.high_fidelity_flag == True:
+        if options.current_iter%options.save_freq == 0:# or options.high_fidelity_flag == True:
             options.save_state(titan, options.current_iter)
 
 

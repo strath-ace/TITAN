@@ -83,7 +83,7 @@ class Problem_Definition():
 :param freestream: Value for freestream.
 :type freestream: Any"""
 
-        path = path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        path = os.path.expandvars('$TITAN_PATH')
 
         species = ' '.join(dsmc.sp_present)
 
@@ -183,7 +183,7 @@ class Settings():
         # `obj_count` tracks a cumulative ID for each object in the simulation.
         obj_count = 1
 
-        path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.expandvars('$TITAN_PATH')
         
         for i, assembly in enumerate(assembly_list):
 
@@ -334,7 +334,7 @@ class Sampling_Simulation():
         self.fix_gridflow = f'fix\t\t grid_fix ave/grid all {dsmc.Nevery} {dsmc.Nrepeat} {dsmc.Ntotal} c_grid_all[*] c_thermal_all[*]'
         
         #: [str] Compute mean free path using number density and temperature from averaged data
-        self.compute_fow = f'compute\t\t mean_free lambda/grid f_grid_fix[2] f_grid_fix[12] N2 kx'
+        self.compute_fow = f'compute nrho_compute grid all species nrho\nfix nrho_avg ave/grid all 10 10 100 c_nrho_compute[*]\nfix temp_avg ave/grid all 10 10 100 c_thermal_all[1]\ncompute\t\t mean_free lambda/grid f_nrho_avg[*] f_temp_avg lambda knx'
         
         if dsmc.grid_results:
             #: [str] Dump all grid-averaged results to file (cell-centered values + mean free path)
@@ -499,7 +499,7 @@ def create_sparta_geo(options, dsmc, assembly_list, output_folder = '', surface_
 :param surface_filename: Value for surface filename.
 :type surface_filename: str"""
 
-    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.expandvars('$TITAN_PATH')
 
     for it, assembly in enumerate(assembly_list):
 
@@ -510,8 +510,8 @@ def create_sparta_geo(options, dsmc, assembly_list, output_folder = '', surface_
         trimesh.write(output_folder + '/DSMC_Grid/' + surface_filename[it] + '.stl', file_format = "stl")
         print(f'[INFO] stl file written to: {output_folder}/DSMC_Grid/{surface_filename[it]}.stl')
 
-        subprocess.run(["python3", path  + "/Executables/stl2surf.py", (f"{path}/{output_folder}/DSMC_Grid/{surface_filename[it]}.stl"), f"{path}/{output_folder}/DSMC_sol/{surface_filename[it]}.data"], cwd = path)
-        print(f'[INFO] data file written to: {path}/{output_folder}/DSMC_sol/{surface_filename[it]}.data')
+        subprocess.run(["python3", path  + "/Executables/stl2surf.py", (f"{output_folder}/DSMC_Grid/{surface_filename[it]}.stl"), f"{output_folder}/DSMC_sol/{surface_filename[it]}.data"], cwd = path)
+        print(f'[INFO] data file written to: {output_folder}/DSMC_sol/{surface_filename[it]}.data')
         
         ## Split facets across assembly objects to define individual object temperatures in sparta config
         # Define nodes and facets of mesh
@@ -733,7 +733,7 @@ def run_SPARTA(options, dsmc, assembly_list, output_folder = '', sparta_config =
 :param sparta_log: Value for sparta log.
 :type sparta_log: Any"""
     
-    path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.expandvars('$TITAN_PATH')
 
     # Define paths input/log files
     input_file = os.path.join(output_folder + '/DSMC_sol/', sparta_config)
@@ -890,7 +890,7 @@ def PostProcess_SPARTA(dsmc, assembly_list, output_folder = '', surface_filename
     assembly_nodes, idx_inv = np.unique(assembly_nodes, axis = 0, return_inverse = True)
 
     
-    path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    path = os.path.expandvars('$TITAN_PATH')
 
     env = {
         "PATH": f"{dsmc.paraview_conda_path}/bin",
@@ -911,11 +911,11 @@ def PostProcess_SPARTA(dsmc, assembly_list, output_folder = '', surface_filename
         args = [
             pvpython,
             f"{path}/Executables/grid2paraview.py",
-            f"{path}/{output_folder}/DSMC_Grid/grid.txt",
+            f"{output_folder}/DSMC_Grid/grid.txt",
             basename,
-            "-r", f"{path}/{output_folder}/DSMC_Grid/results.grid_{grid_filename}.*"]
+            "-r", f"{output_folder}/DSMC_Grid/results.grid_{grid_filename}.*"]
 
-        subprocess.run(args, env=env, cwd = f'{path}/{output_folder}/DSMC_Grid')
+        subprocess.run(args, env=env, cwd = f'{output_folder}/DSMC_Grid')
 
 
     for it, assembly in enumerate(assembly_list):
@@ -926,11 +926,11 @@ def PostProcess_SPARTA(dsmc, assembly_list, output_folder = '', surface_filename
         args = [
             pvpython,
             f"{path}/Executables/surf2paraview.py",
-            f"{path}/{output_folder}/DSMC_sol/compound_{surface_filename[it]}.data",
+            f"{output_folder}/DSMC_sol/compound_{surface_filename[it]}.data",
             basename,
-            "-r", f"{path}/{output_folder}/DSMC_sol/results.surf_{surface_filename[it]}.*"]
+            "-r", f"{output_folder}/DSMC_sol/results.surf_{surface_filename[it]}.*"]
 
-        subprocess.run(args, env=env, cwd = f'{path}/{output_folder}/DSMC_sol')
+        subprocess.run(args, env=env, cwd = f'{output_folder}/DSMC_sol')
 
 
     # Grid post-processing can be heavy and hence, it is skipped inside TITAN loop
@@ -987,8 +987,8 @@ def compute_dsmc_aerothermo(titan, options, cluster_tag = 0):
 
     assembly_list = titan.assembly
 
-    iteration = options.current_iter
-    iteration = 0
+    iteration = titan.nfeval-1
+    #iteration = 0
     dsmc = options.dsmc 
 
 
@@ -1063,7 +1063,7 @@ def compute_dsmc_aerothermo(titan, options, cluster_tag = 0):
         assembly.cfd_mesh.xmax = np.max(assembly.cfd_mesh.nodes, axis=0)
 
 
-    if options.current_iter%options.save_freq == 0:
+    if options.current_iter%options.save_freq == 0 and options.current_iter>0:
         options.save_state(titan, titan.iter)     
 
 
@@ -1086,7 +1086,7 @@ def compute_dsmc_aerothermo(titan, options, cluster_tag = 0):
 
         if dsmc.grid_results: 
 
-            write_postprocess_gridtxt(dsmc, output_folder, grid_filename)
+            write_postprocess_gridtxt(dsmc, options.output_folder, grid_filename)
 
         # if the mode is automatic we proceed with the SPARTA simulation within the TITAN framework
         if options.dsmc.mode == 'automatic':
