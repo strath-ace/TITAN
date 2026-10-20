@@ -1,12 +1,23 @@
-# TITAN
+# TITAN v0.2 "ATLAS"
 
 |   |   |
 | :---: | :--- |
 |<img src="https://github.com/strath-ace/TITAN/blob/rc_v02_atlas/TITAN-logo.png" width="200" height="116"> | TransatmospherIc flighT simulAtioN <br /> A python code for multi-fidelity and multi-physics simulations of access-to-space and re-entry|
 
+**This release candidate is still under development.**
+
+Please contact tommy.williamson@strath.ac.uk with any issues.
 # Usage
 
 ## Installation
+For automated installation run the install script provided.
+
+```console
+wget https://raw.githubusercontent.com/strath-ace/TITAN/rc_v02_atlas/install_titan.sh
+chmod +x install.sh
+./install_titan.sh
+```
+If you experience problems with this script you can follow the manual instructions below.
 
 Start by cloning this repository
 

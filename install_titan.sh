@@ -4,6 +4,21 @@ echo "
 [INSTALL] Warning! This installation file is experimental
 "
 conda --version
+if conda env list | awk '$1 == "titan" { found=1 } END { exit !found }'; then
+    echo "[INSTALL] Conda environment 'titan' already exists. Rename it to continue. Aborting." >&2
+    exit 1
+fi
+
+if conda env list | awk '$1 == "pato" { found=1 } END { exit !found }'; then
+    while true; do
+        read -r -p "[INSTALL] Conda environment 'pato' already exists. Continue anyway? [y/n] " answer
+        case "$answer" in
+            [Yy]|[Yy][Ee][Ss]) break ;;
+            [Nn]|[Nn][Oo]) echo "[INSTALL] Aborting." >&2; exit 1 ;;
+            *) echo "Please answer y or n." >&2 ;;
+        esac
+    done
+fi
 echo "
 [INSTALL] Welcome to TITAN!"
 echo "[INSTALL] Creating TITAN directory
@@ -52,6 +67,7 @@ conda config --add channels pato.devel
 conda config --set channel_priority strict
 conda create -y --name pato -c conda-forge -c pato.devel pato
 echo "[INSTALL] Finished, thanks for installing TITAN!"
+cd ../../
 export TITAN_PATH=$(realpath .)
 echo "To finalise installation please add the following to your .bashrc..."
 echo "export TITAN_PATH="$TITAN_PATH
