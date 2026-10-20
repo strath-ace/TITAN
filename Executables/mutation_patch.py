@@ -1,8 +1,6 @@
 ## This code patches some missing assertions in mpp
 
 import pathlib
-import re
-import sys
 
 scripts_to_patch = ['/thermo/Thermodynamics.h']
 lines_to_patch = [33]

@@ -19,7 +19,6 @@ dependencies:
   - requests
   - pip
   - lxml
-  - open3d
   - astropy
   - scikit-build
   - rtree
@@ -33,3 +32,4 @@ dependencies:
       - manifold3d
       - embreex
       - pymsis
+      - open3d

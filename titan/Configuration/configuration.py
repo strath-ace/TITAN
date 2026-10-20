@@ -1201,7 +1201,7 @@ def read_geometry(configParser, options):
 :rtype: Any"""
 
     #Reads the path to the geometrical files
-    path = get_config_value(configParser, '', 'Assembly', 'Path', 'str')
+    path = os.path.expandvars(get_config_value(configParser, '', 'Assembly', 'Path', 'str'))
     options.assembly_path = path
 
     #Initialization of the object of class Component_list to store the user-defined compoents

@@ -8,7 +8,7 @@ echo "
 [INSTALL] Welcome to TITAN!"
 echo "[INSTALL] Creating TITAN directory
 "
-git clone https://github.com/strath-ACE/TITAN -b develop
+git clone https://github.com/strath-ACE/TITAN -b rc_v02_atlas
 cd TITAN
 echo "
 [INSTALL] Creating TITAN conda environment...
@@ -35,10 +35,11 @@ ln -s ./amgio/su2gmf/gmf_to_su2.py ./gmf_to_su2.py
 echo "
 [INSTALL] Intalling mutation++...
 "
+python mutation_patch.py
 cd ./mutationpp
-mkdir build
+mkdir build install
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../install
 make install
 cd ..
 pip install .
@@ -52,5 +53,5 @@ conda config --set channel_priority strict
 conda create -y --name pato -c conda-forge -c pato.devel pato
 echo "[INSTALL] Finished, thanks for installing TITAN!"
 export TITAN_PATH=$(realpath .)
-echo "To use TITAN.sh as an executable please add the following to your .bashrc..."
+echo "To finalise installation please add the following to your .bashrc..."
 echo "export TITAN_PATH="$TITAN_PATH

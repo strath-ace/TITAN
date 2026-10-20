@@ -50,7 +50,7 @@ def initialise_figs(titan, options, geodetic_pos=True):
         Y = R * np.sin(PHI) * np.sin(THETA)
         Z = R * np.cos(PHI)
         plot = ax2.plot_wireframe(X, Y, Z, rstride=1, linewidth=1.0, color='green', alpha=0.6)
-    ax2.set_title("{} | Spacial Position".format(sim_name))
+    ax2.set_title("{} | Spatial Position".format(sim_name))
 
     ax2.xaxis.set_pane_color([0,0,0])
     ax2.yaxis.set_pane_color([0,0,0])
@@ -60,7 +60,7 @@ def initialise_figs(titan, options, geodetic_pos=True):
 
 
     
-    plot_parameters = {'fig1':fig,'fig2':fig2,'times':times,'aoa':aoas,'ss':sss,'pos':positions,'aoaplot':aoa_plot,'ssplot':ss_plot,'posplot':position_plot,'ax1':ax,'ax2':ax2}
+    plot_parameters = {'fig1':fig,'fig2':fig2,'times':times,'aoa':aoas,'ss':sss,'pos':positions,'aoaplot':aoa_plot,'ssplot':ss_plot,'posplot':position_plot,'ax1':ax,'ax2':ax2, 'switch' : False}
     return plot_parameters
 
 def update_plot(assembly,plot_parameters, time, geodetic_pos=True):
@@ -87,12 +87,22 @@ def update_plot(assembly,plot_parameters, time, geodetic_pos=True):
     aoa_plot = plot_parameters['aoaplot']
     ss_plot = plot_parameters['ssplot']
     position_plot = plot_parameters['posplot']
+    switch = plot_parameters['switch']
 
+    if len(times)==1 and not switch:
+        aoas = []
+        times = []
+        sss = []
+        if geodetic_pos: positions =np.array([assembly.trajectory.longitude*180/np.pi,assembly.trajectory.latitude*180/np.pi,assembly.trajectory.altitude/1000])
+        else: positions = np.array(assembly.position)
+        switch = True
+    else:
+        if geodetic_pos: positions = np.vstack(([assembly.trajectory.longitude*180/np.pi,assembly.trajectory.latitude*180/np.pi,assembly.trajectory.altitude/1000],positions))
+        else: positions = np.vstack((assembly.position,positions))
+    positions = np.atleast_2d(positions)
 
     aoas.append(assembly.aoa*(360/(2*3.14159)))
     sss.append(assembly.slip*(360/(2*3.14159)))
-    if geodetic_pos: positions = np.vstack(([assembly.trajectory.longitude*180/np.pi,assembly.trajectory.latitude*180/np.pi,assembly.trajectory.altitude/1000],positions))
-    else: positions = np.vstack((assembly.position,positions))
 
     times.append(time)
     aoa_plot.set_data(times,aoas)
@@ -110,6 +120,6 @@ def update_plot(assembly,plot_parameters, time, geodetic_pos=True):
     fig2.canvas.draw()
     fig2.canvas.flush_events()
 
-    plot_parameters = {'fig1':fig,'fig2':fig2,'times':times,'aoa':aoas,'ss':sss,'pos':positions,'aoaplot':aoa_plot,'ssplot':ss_plot,'posplot':position_plot,'ax1':ax,'ax2':ax2}
+    plot_parameters = {'fig1':fig,'fig2':fig2,'times':times,'aoa':aoas,'ss':sss,'pos':positions,'aoaplot':aoa_plot,'ssplot':ss_plot,'posplot':position_plot,'ax1':ax,'ax2':ax2, 'switch' : switch}
     return plot_parameters
 
