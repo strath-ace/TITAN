@@ -57,6 +57,7 @@ cd ./Executables
 The mutation++ package is an optional method to compute the freestream conditions. The library can be compiled and installed as follows
 
 ```console
+python mutation_patch.py
 cd ./mutationpp
 mkdir build
 cd build
