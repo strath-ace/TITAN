@@ -26,6 +26,8 @@ from pathlib import Path
 from scipy.spatial.transform import Rotation
 from ..Dynamics.frames import R_ECEF_from_ECI
 from datetime import timedelta
+
+
 def write_output_data(titan, options, smooth=False):
     """Documentation for the function.
 :param titan: TITAN simulation object.
@@ -707,18 +709,22 @@ def generate_volume_solution(titan, options):
 
 def TITAN_information():
     """TITAN_information."""
-    print(f"""                                                                                                                   
-       ________  ______  ________   ______   __    __ 
-      /        |/      |/        | /      \\ /  \\  /  |
-      $$$$$$$$/ $$$$$$/ $$$$$$$$/ /$$$$$$  |$$  \\ $$ |
-         $$ |     $$ |     $$ |   $$ |__$$ |$$$  \\$$ |
-         $$ |     $$ |     $$ |   $$    $$ |$$$$  $$ |
-         $$ |     $$ |     $$ |   $$$$$$$$ |$$ $$ $$ |
-         $$ |    _$$ |_    $$ |   $$ |  $$ |$$ |$$$$ |
-         $$ |   / $$   |   $$ |   $$ |  $$ |$$ | $$$ |
-         $$/    $$$$$$/    $$/    $$/   $$/ $$/   $$/                                                                                                             
-    """)
+    # print(f"""                                                                                                                   
+    #    ________  ______  ________   ______   __    __ 
+    #   /        |/      |/        | /      \\ /  \\  /  |
+    #   $$$$$$$$/ $$$$$$/ $$$$$$$$/ /$$$$$$  |$$  \\ $$ |
+    #      $$ |     $$ |     $$ |   $$ |__$$ |$$$  \\$$ |
+    #      $$ |     $$ |     $$ |   $$    $$ |$$$$  $$ |
+    #      $$ |     $$ |     $$ |   $$$$$$$$ |$$ $$ $$ |
+    #      $$ |    _$$ |_    $$ |   $$ |  $$ |$$ |$$$$ |
+    #      $$ |   / $$   |   $$ |   $$ |  $$ |$$ | $$$ |
+    #      $$/    $$$$$$/    $$/    $$/   $$/ $$/   $$/                                                                                                             
+    # """)
+    asc = '\n\n'
+    with open(os.path.expandvars('$TITAN_PATH/titan/Output/titan_logo_terminal'),'r') as f:
 
+        for line in f: asc+=line
+    print(asc)
     print(f"""
         ###############################################
         # TITAN tool is still under heavy development #
