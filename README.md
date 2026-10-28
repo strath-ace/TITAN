@@ -17,6 +17,14 @@ wget https://raw.githubusercontent.com/strath-ace/TITAN/rc_v02_atlas/install_tit
 chmod +x install_titan.sh
 ./install_titan.sh
 ```
+Or for a more lightweight version of TITAN without Third Party modules.
+
+```console
+wget https://raw.githubusercontent.com/strath-ace/TITAN/rc_v02_atlas/install_titan_lite.sh
+chmod +x install_titan_lite.sh
+./install_titan_lite.sh
+```
+
 If you experience problems with this script you can follow the manual instructions below.
 
 Start by cloning this repository
