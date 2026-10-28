@@ -6,15 +6,18 @@ import glob, subprocess, pathlib
 import pandas as pd
 
 def bb_check(bb_candidate, bb_to_query, use_any=True):
-    """Documentation for the function.
-:param bb_candidate: Value for bb candidate.
+    """Check whether candidate points overlap a query bounding box.
+
+:param bb_candidate: Candidate coordinates with one point per row.
 :type bb_candidate: Any
-:param bb_to_query: Value for bb to query.
+:param bb_to_query: Lower and upper bounds for each coordinate dimension.
 :type bb_to_query: Any
-:param use_any: Flag for use any.
+:param use_any: If true, accept a dimension when any candidate is inside;
+    otherwise require all candidates to be inside each dimension.
 :type use_any: bool
-:return: Return value.
-:rtype: Any"""
+:return: Whether the candidate points satisfy the bounding-box test.
+:rtype: bool
+"""
     if bb_to_query is None:  return True
     bb_candidate = np.array(bb_candidate)
     bb_to_query = np.array(bb_to_query)
@@ -27,17 +30,19 @@ def bb_check(bb_candidate, bb_to_query, use_any=True):
     return np.all(is_in)
 
 def generate_fragment_meshes(stl, voronoi, write_dir, extrude=3e-2, verbose=False):
-    """Documentation for the function.
-:param stl: Value for stl.
+    """Partition a surface mesh into watertight fragment meshes.
+
+:param stl: Path to the source STL mesh.
 :type stl: Any
-:param voronoi: Value for voronoi.
+:param voronoi: Voronoi tessellation defining the fragment partition.
 :type voronoi: Any
-:param write_dir: Value for write dir.
+:param write_dir: Directory where accepted fragment STL files are written.
 :type write_dir: str
-:param extrude: Value for extrude.
+:param extrude: Extrusion distance used when constructing cutting geometry.
 :type extrude: Any
-:param verbose: Flag for verbose.
-:type verbose: bool"""
+:param verbose: Whether to print progress messages.
+:type verbose: bool
+"""
     base_mesh = trimesh.load_mesh(stl)
     manifold_mesh = manifold3d.Mesh(vert_properties=np.array(base_mesh.vertices),tri_verts=np.array(base_mesh.faces))
     base_manifold = manifold3d.Manifold(manifold_mesh)
@@ -75,17 +80,19 @@ def generate_fragment_meshes(stl, voronoi, write_dir, extrude=3e-2, verbose=Fals
             n_fails += 1
 
 def build_voro_prisms(voronoi, bb = None, extrude=1e-2, use_trimesh=True):
-    """Documentation for the function.
-:param voronoi: Value for voronoi.
+    """Construct prism solids for finite Voronoi regions.
+
+:param voronoi: Voronoi tessellation whose bounded regions define solids.
 :type voronoi: Any
-:param bb: Value for bb.
+:param bb: Optional bounding box used to skip regions outside the mesh.
 :type bb: Any
-:param extrude: Value for extrude.
+:param extrude: Distance used to extrude region faces.
 :type extrude: Any
-:param use_trimesh: Flag for use trimesh.
+:param use_trimesh: Whether to build output geometry with trimesh objects.
 :type use_trimesh: bool
-:return: Return value.
-:rtype: Any"""
+:return: Manifold solids corresponding to accepted Voronoi regions.
+:rtype: list
+"""
     prisms = [] # Final built tri-prisms to use in boolean
     surf_list = [] # Already existing surfs in str format
     for i_region, region in enumerate(voronoi.regions):

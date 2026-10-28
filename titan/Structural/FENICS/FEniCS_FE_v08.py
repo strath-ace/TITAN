@@ -226,7 +226,7 @@ def run_fenics(forces, num_surf_points, vol_bc_dict, iteration = 0, verbose = Fa
         :param assembly: Assembly object to process.
         :type assembly: object
         :param options: Options or configuration object.
-        :type options: object
+        :type options: Options
         :return: Return value.
         :rtype: Any"""
         infile.read(mesh_fenics)

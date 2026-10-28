@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = ["sphinx.ext.autodoc"]
-
+#extensions.append("sphinx_breeze_theme")
 templates_path = ['_templates']
 exclude_patterns = []
 
@@ -31,5 +31,15 @@ exclude_patterns = []
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'sphinx_book_theme'
+html_theme = 'breeze'
 html_static_path = ['_static']
+html_css_files = ["custom.css"]
+html_theme_options = {
+    "dark_logo": "titan_icon_dark.png",
+    "light_logo": "titan_icon_light.png",
+
+}
+
+
+#html_logo = 'titan_icon_dark.png'
+

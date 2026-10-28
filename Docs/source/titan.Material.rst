@@ -1,10 +1,12 @@
-titan.Material package
+Materials
 ======================
 
-Submodules
-----------
+.. automodule:: titan.Material
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-titan.Material.material module
+Material module
 ------------------------------
 
 .. automodule:: titan.Material.material
@@ -12,10 +14,4 @@ titan.Material.material module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
 
-.. automodule:: titan.Material
-   :members:
-   :show-inheritance:
-   :undoc-members:

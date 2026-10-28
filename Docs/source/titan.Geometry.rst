@@ -1,49 +1,5 @@
-titan.Geometry package
+Geometry
 ======================
-
-Submodules
-----------
-
-titan.Geometry.assembly module
-------------------------------
-
-.. automodule:: titan.Geometry.assembly
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-titan.Geometry.component module
--------------------------------
-
-.. automodule:: titan.Geometry.component
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-titan.Geometry.gmsh\_api module
--------------------------------
-
-.. automodule:: titan.Geometry.gmsh_api
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-titan.Geometry.mesh module
---------------------------
-
-.. automodule:: titan.Geometry.mesh
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-titan.Geometry.tetra module
----------------------------
-
-.. automodule:: titan.Geometry.tetra
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
 Module contents
 ---------------
 
@@ -51,3 +7,44 @@ Module contents
    :members:
    :show-inheritance:
    :undoc-members:
+
+Assembly
+------------------------------
+
+.. automodule:: titan.Geometry.assembly
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Component
+-------------------------------
+
+.. automodule:: titan.Geometry.component
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+gmsh API
+-------------------------------
+
+.. automodule:: titan.Geometry.gmsh_api
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Mesh
+--------------------------
+
+.. automodule:: titan.Geometry.mesh
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Tetra
+---------------------------
+
+.. automodule:: titan.Geometry.tetra
+   :members:
+   :show-inheritance:
+   :undoc-members:
+

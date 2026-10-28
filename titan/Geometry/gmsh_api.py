@@ -363,7 +363,7 @@ def generate_cfd_domain(assembly, dim, ref_size_surf = 1.0, ref_size_far = 1.0, 
 :param output_grid: Value for output grid.
 :type output_grid: Any
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     print("Generating CFD Mesh")
 
@@ -430,7 +430,7 @@ def outer_surface(gmsh,ref,surf_ref, xmin,xmax, ref_phys_surface, options = None
 :param ref_phys_surface: Value for ref phys surface.
 :type ref_phys_surface: Any
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
     
     front = 1.5
     back = -1

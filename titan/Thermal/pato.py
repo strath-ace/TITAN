@@ -47,7 +47,7 @@ def compute_thermal(obj, start_time, end_time, iteration, options, hf, Tinf):
 :param iteration: Value for iteration.
 :type iteration: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param hf: Value for hf.
 :type hf: Any
 :param Tinf: Value for tinf.
@@ -78,7 +78,7 @@ def setup_PATO_simulation(obj, time, time_step, iteration, options, hf, Tinf):
 :param iteration: Value for iteration.
 :type iteration: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param hf: Value for hf.
 :type hf: Any
 :param Tinf: Value for tinf.
@@ -95,7 +95,7 @@ def setup_PATO_simulation(obj, time, time_step, iteration, options, hf, Tinf):
 def write_material_properties(options, obj):
     """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param obj: Value for obj.
 :type obj: Any"""
 
@@ -181,7 +181,7 @@ def write_material_properties(options, obj):
 def write_All_run_init(options, object_id):
     """Write the Allrun PATO file
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param object_id: Integer value for object id.
 :type object_id: int"""
 
@@ -214,7 +214,7 @@ def write_All_run_init(options, object_id):
 def write_All_run(options, obj, time, time_step, iteration):
     """Write the Allrun PATO file
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param obj: Value for obj.
 :type obj: Any
 :param time: Numeric value for time.
@@ -319,7 +319,7 @@ def write_All_run(options, obj, time, time_step, iteration):
 def write_constant_folder(options, object_id):
     """Write the constant/ PATO folder
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param object_id: Integer value for object id.
 :type object_id: int"""
 
@@ -517,7 +517,7 @@ def write_constant_folder(options, object_id):
 def write_origin_folder(options, obj):
     """Write the origin.0/ PATO folder
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param obj: Value for obj.
 :type obj: Any"""
 
@@ -996,7 +996,7 @@ def write_origin_folder(options, obj):
 def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
     """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param obj: Value for obj.
 :type obj: Any
 :param time: Numeric value for time.
@@ -1111,7 +1111,7 @@ def write_PATO_BC(options, obj, time, conv_heatflux, freestream_temperature):
 def write_system_folder(options, object_id, time, time_step):
     """Write the system/ PATO folder
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param object_id: Integer value for object id.
 :type object_id: int
 :param time: Numeric value for time.
@@ -1491,7 +1491,7 @@ def write_system_folder(options, object_id, time, time_step):
 def initialize(options, obj):
     """Calls the PATO executable and run the simulation
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param obj: Value for obj.
 :type obj: Any"""
     object_id   = obj.global_ID
@@ -1516,7 +1516,7 @@ def initialize(options, obj):
 def run_PATO(options, object_id):
     """Calls the PATO executable and run the simulation
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param object_id: Integer value for object id.
 :type object_id: int"""
     n_proc = options.pato.n_cores
@@ -1533,7 +1533,7 @@ def run_PATO(options, object_id):
 def postprocess_PATO_solution(options, obj, time_to_read):
     """Postprocesses the PATO output
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param obj: Value for obj.
 :type obj: Any
 :param time_to_read: Value for time to read.
@@ -1600,7 +1600,7 @@ def postprocess_mass_inertia(obj, options, time_to_read):
 :param obj: Value for obj.
 :type obj: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param time_to_read: Value for time to read.
 :type time_to_read: Any"""
 

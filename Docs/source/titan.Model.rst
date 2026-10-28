@@ -1,10 +1,13 @@
-titan.Model package
+Model
 ===================
 
-Submodules
-----------
+.. automodule:: titan.Model
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-titan.Model.drag\_model module
+
+Drag model
 ------------------------------
 
 .. automodule:: titan.Model.drag_model
@@ -12,7 +15,7 @@ titan.Model.drag\_model module
    :show-inheritance:
    :undoc-members:
 
-titan.Model.planet module
+Planet
 -------------------------
 
 .. automodule:: titan.Model.planet
@@ -20,18 +23,10 @@ titan.Model.planet module
    :show-inheritance:
    :undoc-members:
 
-titan.Model.vehicle module
+Vehicle
 --------------------------
 
 .. automodule:: titan.Model.vehicle
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-Module contents
----------------
-
-.. automodule:: titan.Model
    :members:
    :show-inheritance:
    :undoc-members:

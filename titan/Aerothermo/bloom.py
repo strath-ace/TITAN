@@ -22,56 +22,67 @@ import subprocess
 import os
 
 class Bloom():
-    """Bloom."""
+    """Store boundary-layer prism-mesh settings for SU2 grid generation."""
     def __init__(self, flag = False, layers = 20, spacing = 0.0006, growth_rate = 1.075):
-        """Documentation for the function.
-:param flag: Flag for flag.
-:type flag: bool
-:param layers: Value for layers.
-:type layers: Any
-:param spacing: Value for spacing.
-:type spacing: Any
-:param growth_rate: Value for growth rate.
-:type growth_rate: Any"""
+        """Initialize boundary-layer mesh controls.
+
+        :param flag: Whether boundary-layer meshing is enabled.
+        :type flag: bool
+        :param layers: Number of prism layers to generate.
+        :type layers: int
+        :param spacing: Initial spacing of the prism layers.
+        :type spacing: float
+        :param growth_rate: Geometric growth ratio between successive layers.
+        :type growth_rate: float
+        """
         self.flag = flag
         self.layers = layers
         self.spacing = spacing
         self.growth_rate = growth_rate
 
     def set_flag(self,value):
-        """Documentation for the function.
-:param value: Numeric value for value.
-:type value: float"""
+        """Enable or disable boundary-layer meshing.
+
+        :param value: Boundary-layer activation flag.
+        :type value: bool
+        """
         self.flag = value
 
     def set_layers(self,value):
-        """Documentation for the function.
-:param value: Numeric value for value.
-:type value: float"""
+        """Set the number of prism layers.
+
+        :param value: Layer count.
+        :type value: int
+        """
         self.layers = value
 
     def set_spacing(self,value):
-        """Documentation for the function.
-:param value: Numeric value for value.
-:type value: float"""
+        """Set the initial prism-layer spacing.
+
+        :param value: Initial layer spacing in the mesh's length units.
+        :type value: float
+        """
         self.spacing = value
 
     def set_growth_rate(self,value):
-        """Documentation for the function.
-:param value: Numeric value for value.
-:type value: float"""
+        """Set the prism-layer geometric growth ratio.
+
+        :param value: Growth ratio applied between adjacent layers.
+        :type value: float
+        """
         self.growth_rate = value
 
 
 def create_bloom_config(num_obj, bloom, options, path):
-    """Documentation for the function.
+    """Write the boundary-layer configuration file consumed by SU2.
+
 :param num_obj: Integer value for num obj.
 :type num_obj: int
-:param bloom: Value for bloom.
+:param bloom: Boundary-layer settings to serialize.
 :type bloom: Any
 :param options: Options or configuration object.
-:type options: object
-:param path: Value for path.
+:type options: Options
+:param path: Output path relative to the simulation output folder.
 :type path: str"""
 
     try: os.remove(options.output_folder + path)
@@ -109,19 +120,21 @@ def create_bloom_config(num_obj, bloom, options, path):
 
 
 def generate_BL_CFD(j, options, num_obj, bloom, input_grid, output_grid):
-    """Documentation for the function.
-:param j: Value for j.
+    """Generate the next CFD grid with boundary-layer refinement.
+
+:param j: Boundary-layer generation pass index.
 :type j: Any
 :param options: Options or configuration object.
-:type options: object
-:param num_obj: Integer value for num obj.
+:type options: Options
+:param num_obj: Number of surface objects in the mesh.
 :type num_obj: int
-:param bloom: Value for bloom.
+:param bloom: Boundary-layer mesh settings.
 :type bloom: Any
-:param input_grid: Value for input grid.
+:param input_grid: Input SU2 grid basename.
 :type input_grid: Any
-:param output_grid: Value for output grid.
-:type output_grid: Any"""
+:param output_grid: Output SU2 grid basename.
+:type output_grid: Any
+"""
     path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     path_folder = '/CFD_Grid/Bloom/'
@@ -134,7 +147,7 @@ def generate_BL_CFD(j, options, num_obj, bloom, input_grid, output_grid):
 def generate_PATO_mesh(options, object_id, bloom):
     """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param object_id: Integer value for object id.
 :type object_id: int
 :param bloom: Value for bloom.

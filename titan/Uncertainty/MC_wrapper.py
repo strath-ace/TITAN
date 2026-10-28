@@ -81,8 +81,8 @@ def wrapper(titan, options, i_sample : int, seed : int):
     :type i_sample: int
     :param seed: Seed number (32 digit int)
     :type seed: int
-:return: Output names, output values
-:rtype: list, list
+    :return: Output names, output values
+    :rtype: list, list
 """
     pid = os.getpid()
     print('Starting run {} seed [{}] PID:{}'.format(i_sample, str(seed).rjust(10,'0'), pid), flush=True)

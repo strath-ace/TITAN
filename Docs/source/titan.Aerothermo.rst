@@ -1,10 +1,10 @@
-titan.Aerothermo package
+Aerothermo
 ========================
-
-Submodules
-----------
-
-titan.Aerothermo.aerothermo module
+.. automodule:: titan.Aerothermo
+   :members:
+   :show-inheritance:
+   :undoc-members:
+Aerothermo module
 ----------------------------------
 
 .. automodule:: titan.Aerothermo.aerothermo
@@ -12,7 +12,7 @@ titan.Aerothermo.aerothermo module
    :show-inheritance:
    :undoc-members:
 
-titan.Aerothermo.amg module
+AMG
 ---------------------------
 
 .. automodule:: titan.Aerothermo.amg
@@ -20,7 +20,7 @@ titan.Aerothermo.amg module
    :show-inheritance:
    :undoc-members:
 
-titan.Aerothermo.bloom module
+Bloom
 -----------------------------
 
 .. automodule:: titan.Aerothermo.bloom
@@ -28,7 +28,23 @@ titan.Aerothermo.bloom module
    :show-inheritance:
    :undoc-members:
 
-titan.Aerothermo.sparta module
+Jump relations
+----------------------------------
+
+.. automodule:: titan.Aerothermo.jump_equations
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Raytracer
+------------------------------
+
+.. automodule:: titan.Aerothermo.raytracer
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+DSMC SPARTA
 ------------------------------
 
 .. automodule:: titan.Aerothermo.sparta
@@ -36,7 +52,7 @@ titan.Aerothermo.sparta module
    :show-inheritance:
    :undoc-members:
 
-titan.Aerothermo.su2 module
+CFD SU2
 ---------------------------
 
 .. automodule:: titan.Aerothermo.su2
@@ -44,7 +60,7 @@ titan.Aerothermo.su2 module
    :show-inheritance:
    :undoc-members:
 
-titan.Aerothermo.switch module
+Fidelity switch
 ------------------------------
 
 .. automodule:: titan.Aerothermo.switch
@@ -52,10 +68,10 @@ titan.Aerothermo.switch module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
+Aerothermodynamic equations
+------------------------------
 
-.. automodule:: titan.Aerothermo
+.. automodule:: titan.Aerothermo.thermo_equations
    :members:
    :show-inheritance:
    :undoc-members:

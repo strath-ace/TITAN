@@ -38,7 +38,11 @@ from ..Thermal import pato
 from ..Geometry import gmsh_api as GMSH
 
 class Collision_options():
-    """Collision_options."""
+    """Store collision detection and response settings.
+
+    The options control collision activation, post-fragmentation stepping,
+    restitution, contact stabilization, and collision-mesh tolerances.
+    """
 
     def __init__(self, post_fragmentation_iters = 0,
                  post_fragmentation_timestep = 0.0,
@@ -58,24 +62,33 @@ class Collision_options():
         self.slop = 1e-6
 
 class Trajectory():
-    """Documentation for the function.
-    :param post_fragmentation_iters: Value for post fragmentation iters.
-    :type post_fragmentation_iters: Any
-    :param post_fragmentation_timestep: Value for post fragmentation timestep.
-    :type post_fragmentation_timestep: Any
-    :param elastic_factor: Value for elastic factor.
-    :type elastic_factor: Any
-    :param max_depth: Value for max depth.
-    :type max_depth: Any
-    :param mesh_factor: Value for mesh factor.
-    :type mesh_factor: Any"""
-    """ Class Trajectory
-    
-        A class to store the user-defined trajectory information
+    """Represent the user-defined trajectory state.
+
+    :ivar altitude: Geodetic altitude in metres.
+    :ivar gamma: Flight-path angle in radians.
+    :ivar chi: Heading angle in radians.
+    :ivar velocity: Velocity magnitude in metres per second.
+    :ivar latitude: Geodetic latitude in radians.
+    :ivar longitude: Geodetic longitude in radians.
     """
 
     def __init__(self, altitude = 0, gamma = 0, chi = 0, velocity = 0, 
               latitude = 0, longitude = 0):
+        """Initialize a trajectory from altitude, angles, and velocity.
+
+        :param altitude: Geodetic altitude in metres.
+        :type altitude: float
+        :param gamma: Flight-path angle in radians.
+        :type gamma: float
+        :param chi: Heading angle in radians.
+        :type chi: float
+        :param velocity: Velocity magnitude in metres per second.
+        :type velocity: float
+        :param latitude: Geodetic latitude in radians.
+        :type latitude: float
+        :param longitude: Geodetic longitude in radians.
+        :type longitude: float
+        """
         
         #: [meters] Altitude value.
         self.altitude = altitude
@@ -96,23 +109,10 @@ class Trajectory():
         self.longitude = longitude
 
 class Meshing():
-    """Documentation for the function.
-    :param altitude: Value for altitude.
-    :type altitude: Any
-    :param gamma: Numeric value for gamma.
-    :type gamma: float
-    :param chi: Value for chi.
-    :type chi: Any
-    :param velocity: Value for velocity.
-    :type velocity: Any
-    :param latitude: Value for latitude.
-    :type latitude: Any
-    :param longitude: Value for longitude.
-    :type longitude: Any"""
-    """Meshing."""
+    """Hold mesh-size settings for surface and far-field regions."""
 
     def __init__(self):
-        """__init__."""
+        """Initialize the default far-field and surface mesh sizes."""
         self.far_size = 0.5
         self.surf_size = 0.5
 
@@ -125,17 +125,19 @@ class Fenics():
     """
 
     def __init__ (self, E = 68e9, FENICS = False, FE_MPI = False, FE_MPI_cores = 12, FE_verbose = False):
-        """Documentation for the function.
-:param E: Value for e.
-:type E: Any
-:param FENICS: Value for fenics.
-:type FENICS: Any
-:param FE_MPI: Value for fe mpi.
-:type FE_MPI: Any
-:param FE_MPI_cores: Value for fe mpi cores.
-:type FE_MPI_cores: Any
-:param FE_verbose: Value for fe verbose.
-:type FE_verbose: Any"""
+        """Configure structural analysis with FEniCS.
+
+        :param E: Young's modulus in pascals.
+        :type E: float
+        :param FENICS: Whether to enable the FEniCS solver.
+        :type FENICS: bool
+        :param FE_MPI: Whether to run the solver with MPI.
+        :type FE_MPI: bool
+        :param FE_MPI_cores: Number of MPI processes to use.
+        :type FE_MPI_cores: int
+        :param FE_verbose: Whether to print solver progress information.
+        :type FE_verbose: bool
+        """
 
         #: [Pa] Young Modulus
         self.E = E
@@ -158,13 +160,15 @@ class Dynamics():
     """
 
     def __init__(self, time_step = 0, time = 0, propagator = 'help'):
-        """Documentation for the function.
-:param time_step: Value for time step.
-:type time_step: Any
-:param time: Numeric value for time.
-:type time: float
-:param propagator: Value for propagator.
-:type propagator: Any"""
+        """Set the simulation time, nominal step, and propagation method.
+
+        :param time_step: Nominal integration step in seconds.
+        :type time_step: float
+        :param time: Initial simulation time in seconds.
+        :type time: float
+        :param propagator: Name of the integration method to configure.
+        :type propagator: str
+        """
 
         #: [seconds] Physical time of the simulation.
         self.time = time
@@ -279,14 +283,14 @@ class Bloom():
     """Bloom."""
     def __init__(self, flag = False, layers = 20, spacing = 0.0006, growth_rate = 1.075):
         """Documentation for the function.
-:param flag: Flag for flag.
-:type flag: bool
-:param layers: Value for layers.
-:type layers: Any
-:param spacing: Value for spacing.
-:type spacing: Any
-:param growth_rate: Value for growth rate.
-:type growth_rate: Any"""
+        :param flag: Flag for flag.
+        :type flag: bool
+        :param layers: Value for layers.
+        :type layers: Any
+        :param spacing: Value for spacing.
+        :type spacing: Any
+        :param growth_rate: Value for growth rate.
+        :type growth_rate: Any"""
 
         #: [bool] Flag value indicating the use of Bloom to generate the boundary layer mesh
         self.flag = flag
@@ -304,16 +308,16 @@ class Amg():
     """Amg."""
     def __init__(self, flag = False, p=4,c = 100000, hgrad = 1.6, sensor = 'Mach'):
         """Documentation for the function.
-:param flag: Flag for flag.
-:type flag: bool
-:param p: Value for p.
-:type p: Any
-:param c: Value for c.
-:type c: Any
-:param hgrad: Value for hgrad.
-:type hgrad: Any
-:param sensor: Value for sensor.
-:type sensor: Any"""
+        :param flag: Flag for flag.
+        :type flag: bool
+        :param p: Value for p.
+        :type p: Any
+        :param c: Value for c.
+        :type c: Any
+        :param hgrad: Value for hgrad.
+        :type hgrad: Any
+        :param sensor: Value for sensor.
+        :type sensor: Any"""
 
         #: [bool] Flag value indicating the use of Bloom to adapt the mesh
         self.flag = flag
@@ -336,12 +340,12 @@ class Thermal():
     """Thermal."""
     def __init__(self, ablation = False, ablation_mode = "0D", post_fragment_tetra_ablation = False):
         """Documentation for the function.
-:param ablation: Value for ablation.
-:type ablation: Any
-:param ablation_mode: Value for ablation mode.
-:type ablation_mode: Any
-:param post_fragment_tetra_ablation: Value for post fragment tetra ablation.
-:type post_fragment_tetra_ablation: Any"""
+        :param ablation: Value for ablation.
+        :type ablation: Any
+        :param ablation_mode: Value for ablation mode.
+        :type ablation_mode: Any
+        :param post_fragment_tetra_ablation: Value for post fragment tetra ablation.
+        :type post_fragment_tetra_ablation: Any"""
 
         #: [boolean] Flag to perform ablation
         self.ablation = False
@@ -365,18 +369,18 @@ class PATO():
     """PATO."""
     def __init__(self, flag = False, time_step = 0.1, n_cores = 6, pato_mode = 'qconv', fstrip = 1, conduction_flag = False):
         """Documentation for the function.
-:param flag: Flag for flag.
-:type flag: bool
-:param time_step: Value for time step.
-:type time_step: Any
-:param n_cores: Integer value for n cores.
-:type n_cores: int
-:param pato_mode: Value for pato mode.
-:type pato_mode: Any
-:param fstrip: Value for fstrip.
-:type fstrip: Any
-:param conduction_flag: Value for conduction flag.
-:type conduction_flag: Any"""
+        :param flag: Flag for flag.
+        :type flag: bool
+        :param time_step: Value for time step.
+        :type time_step: Any
+        :param n_cores: Integer value for n cores.
+        :type n_cores: int
+        :param pato_mode: Value for pato mode.
+        :type pato_mode: Any
+        :param fstrip: Value for fstrip.
+        :type fstrip: Any
+        :param conduction_flag: Value for conduction flag.
+        :type conduction_flag: Any"""
 
 
         #: [boolean] Flag to perform PATO simulation
@@ -420,38 +424,38 @@ class DSMC():
 
     def __init__(self, mode = 'automatic', cores = 4, acc = 1.0, ppc = 15,  run_adapt = 1, run_unsteady = 1, 
                     run_sample = 1, stats_freq = 1,  Nrepeat = 1, Nevery = 1, Nadapt = 100, Ntotal = 10):
-
+        """Documentation for the function.
+        :param mode: Value for mode.
+        :type mode: str
+        :param cores: Value for cores.
+        :type cores: Any
+        :param acc: Value for acc.
+        :type acc: Any
+        :param ppc: Value for ppc.
+        :type ppc: Any
+        :param run_adapt: Value for run adapt.
+        :type run_adapt: Any
+        :param run_unsteady: Value for run unsteady.
+        :type run_unsteady: Any
+        :param run_sample: Value for run sample.
+        :type run_sample: Any
+        :param stats_freq: Value for stats freq.
+        :type stats_freq: Any
+        :param Nrepeat: Value for nrepeat.
+        :type Nrepeat: Any
+        :param Nevery: Value for nevery.
+        :type Nevery: Any
+        :param Nadapt: Value for nadapt.
+        :type Nadapt: Any
+        :param Ntotal: Value for ntotal.
+        :type Ntotal: Any"""
 
         # [str] Operational mode of SPARTA in TITAN (either manual or automatic) (lets the user perform the SPARTA simulation offline if manual)
         # and provide the solution file back to TITAN to proceed with the re-entry simulation
         self.mode = mode
 
         # [int] Number of cores used per simulation:
-        """Documentation for the function.
-:param mode: Value for mode.
-:type mode: str
-:param cores: Value for cores.
-:type cores: Any
-:param acc: Value for acc.
-:type acc: Any
-:param ppc: Value for ppc.
-:type ppc: Any
-:param run_adapt: Value for run adapt.
-:type run_adapt: Any
-:param run_unsteady: Value for run unsteady.
-:type run_unsteady: Any
-:param run_sample: Value for run sample.
-:type run_sample: Any
-:param stats_freq: Value for stats freq.
-:type stats_freq: Any
-:param Nrepeat: Value for nrepeat.
-:type Nrepeat: Any
-:param Nevery: Value for nevery.
-:type Nevery: Any
-:param Nadapt: Value for nadapt.
-:type Nadapt: Any
-:param Ntotal: Value for ntotal.
-:type Ntotal: Any"""
+
         self.cores = cores
 
         # [float] Accommodation coefficient
@@ -726,7 +730,9 @@ class Uncertainty():
         """Documentation for the function.
 :param path: Value for path.
 :type path: str"""
-        self.outputs = [name.strip() for name in self.outputs.split(',')] if not self.outputs=='demise_points' else ['Latitude','Longitude','Altitude']
+        if self.outputs=='demise_points': ['Latitude','Longitude','Altitude']
+        else: self.outputs = [name.strip() for name in self.outputs.split(',')] 
+        
         self.objects = [name.strip() for name in self.objects.split(',')]
         for i_obj, obj in enumerate(self.objects):
             self.stls.append(path+obj)
@@ -1196,7 +1202,7 @@ def read_geometry(configParser, options):
 :param configParser: Value for configparser.
 :type configParser: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
 
@@ -1344,12 +1350,12 @@ def read_geometry(configParser, options):
 
 def read_initial_conditions(titan, options, configParser):
     """Documentation for the function.
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: object
-:param configParser: Value for configparser.
-:type configParser: Any"""
+    :param titan: TITAN simulation object.
+    :type titan: object
+    :param options: Options or configuration object.
+    :type options: Options
+    :param configParser: Value for configparser.
+    :type configParser: Any"""
 
     ids, variable = get_config_value(configParser, (None,np.array([0,0,0])), 'Initial Conditions', 'Angular Velocity', 'custom', 'initial_condition')
     if ids != None:

@@ -29,12 +29,13 @@ from datetime import timedelta
 
 
 def write_output_data(titan, options, smooth=False):
-    """Documentation for the function.
+    """Append simulation state and assembly properties to output data files.
+
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
-:param smooth: Value for smooth.
+:type options: Options
+:param smooth: Whether the output should be marked as smoothed data.
 :type smooth: Any"""
 
     df = pd.DataFrame()
@@ -248,12 +249,13 @@ def write_output_data(titan, options, smooth=False):
             df.to_csv(options.output_folder + '/Data/'+ 'data_assembly.csv', mode='a' ,header=not os.path.exists(options.output_folder + '/Data/data_assembly.csv'), index = False)
 
 def write_to_series(data_array,columns,filename):
-    """Documentation for the function.
-:param data_array: Value for data array.
+    """Append tabular values to a CSV file, writing its header when needed.
+
+:param data_array: Rows of values to serialize.
 :type data_array: Any
-:param columns: Value for columns.
+:param columns: Column names corresponding to the data values.
 :type columns: Any
-:param filename: Path to the relevant file.
+:param filename: Destination CSV path.
 :type filename: str"""
     import pandas as pd
     import os
@@ -262,14 +264,15 @@ def write_to_series(data_array,columns,filename):
     data.to_csv(filename,mode='a',index=False,header=doHeader)
 
 def generate_surface_solution(titan, options, iter_value, folder = 'Surface_solution'):
-    """Documentation for the function.
+    """Write the assemblies' surface fields for a selected iteration.
+
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
-:param iter_value: Value for iter value.
+:type options: Options
+:param iter_value: Iteration represented by the surface solution.
 :type iter_value: Any
-:param folder: Value for folder.
+:param folder: Output subdirectory name.
 :type folder: Any"""
     points = np.array([])
     facets = np.array([])
@@ -367,7 +370,7 @@ def create_surface_solution(assembly, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
     points = np.array([])
@@ -461,7 +464,7 @@ def update_surface_solution(assembly,options,solution,overwrite=None):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param solutions: Value for solutions.
 :type solutions: Any
 :param overwrite: Value for overwrite.
@@ -535,7 +538,7 @@ def update_surface_solution(assembly,options,solution,overwrite=None):
 def write_surface_solution(options,solution,assembly_id,iter_value,folder='Surface_solution'):
     """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param solutions: Value for solutions.
 :type solutions: Any
 :param IDS: Value for ids.
@@ -555,7 +558,7 @@ def generate_surface_solution_emissions(titan, options, iter_value, folder = 'Su
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param iter_value: Value for iter value.
 :type iter_value: Any
 :param folder: Value for folder.
@@ -617,7 +620,7 @@ def generate_surface_solution_object(obj, quantity, options, iter_value, folder 
 :param quantity: Value for quantity.
 :type quantity: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param iter_value: Value for iter value.
 :type iter_value: Any
 :param folder: Value for folder.
@@ -650,7 +653,7 @@ def generate_volume(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
     for assembly in titan.assembly: 
 
         cells = [
@@ -674,7 +677,7 @@ def generate_volume_solution(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
     points = np.array([])
     tetra = np.array([])
     displacement = np.array([])
@@ -740,7 +743,7 @@ def TITAN_information():
 def options_information(options):
     """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
     print(f"""
         ##########################
         # Simulation Information #
@@ -767,7 +770,7 @@ def iteration(titan, options, show_flow_solves = False):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param show_flow_solves: Value for show flow solves.
 :type show_flow_solves: Any"""
     print(f"""  Iteration {titan.iter+1} of {options.iters} """, flush=True)

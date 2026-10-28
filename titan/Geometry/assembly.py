@@ -29,13 +29,15 @@ import os
 from datetime import datetime as dt
 
 def create_assembly_flag(list_bodies, Flags):
-    """Generates the assembly connectivity matrix
-:param list_bodies: Value for list bodies.
-:type list_bodies: Any
-:param Flags: Value for flags.
-:type Flags: Any
-:return: Return value.
-:rtype: Any"""
+    """Build connected-component membership from bodies and joint links.
+
+    :param list_bodies: Components considered when forming assemblies.
+    :type list_bodies: Any
+    :param Flags: Component-index pairs that represent connectivity links.
+    :type Flags: Any
+    :return: Boolean rows indicating component membership for each assembly.
+    :rtype: numpy.ndarray
+    """
 
     #Generates an empty (boolean set to False) 2D squared matrix with the size of the components list length
     assembly_flag = np.zeros((len(list_bodies),len(list_bodies)), dtype = bool)
@@ -74,9 +76,11 @@ class Assembly_list():
     """
 
     def __init__(self, objects):
-        """Documentation for the function.
-:param objects: Value for objects.
-:type objects: Any"""
+        """Initialize a simulation container from component objects.
+
+        :param objects: Components used to form the initial assemblies.
+        :type objects: sequence
+        """
 
         #: [array] List of components
         self.objects = np.array(objects)
@@ -109,17 +113,19 @@ class Assembly_list():
         self.epoch = dt.now()
 
     def create_assembly(self, connectivity, aoa = 0.0, slip = 0.0, roll = 0.0, options = None):            
-        """Creates the assembly list
-:param connectivity: Value for connectivity.
+        """Group connected components into assemblies and initialize their state.
+
+    :param connectivity: Component-link table describing joints and connections.
 :type connectivity: Any
-:param aoa: Value for aoa.
+    :param aoa: Initial angle of attack in radians.
 :type aoa: Any
-:param slip: Value for slip.
+    :param slip: Initial sideslip angle in radians.
 :type slip: Any
-:param roll: Value for roll.
+    :param roll: Initial roll angle in radians.
 :type roll: Any
 :param options: Options or configuration object.
-:type options: object"""
+    :type options: Options
+    """
 
         self.connectivity = connectivity
         Flags = np.array([], dtype = int)
@@ -161,19 +167,21 @@ class Dynamics():
     """
 
     def __init__ (self, roll = 0, pitch = 0, yaw = 0, vel_roll = 0, vel_pitch = 0, vel_yaw = 0):
-        """Documentation for the function.
-:param roll: Value for roll.
+        """Initialize body attitude and angular-velocity components.
+
+    :param roll: Roll angle in radians.
 :type roll: Any
-:param pitch: Value for pitch.
+    :param pitch: Pitch angle in radians.
 :type pitch: Any
-:param yaw: Value for yaw.
+    :param yaw: Yaw angle in radians.
 :type yaw: Any
-:param vel_roll: Value for vel roll.
+    :param vel_roll: Roll angular velocity in radians per second.
 :type vel_roll: Any
-:param vel_pitch: Value for vel pitch.
+    :param vel_pitch: Pitch angular velocity in radians per second.
 :type vel_pitch: Any
-:param vel_yaw: Value for vel yaw.
-:type vel_yaw: Any"""
+    :param vel_yaw: Yaw angular velocity in radians per second.
+    :type vel_yaw: Any
+    """
         
         #: [float] Roll angle in radians
         self.roll = roll
@@ -446,7 +454,7 @@ class Assembly():
 :param roll: Value for roll.
 :type roll: Any
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
         #: [int] ID of the assembly
         self.id = id
@@ -732,7 +740,7 @@ def copy_assembly(list_assemblies, options):
 :param list_assemblies: Value for list assemblies.
 :type list_assemblies: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
     from copy import deepcopy

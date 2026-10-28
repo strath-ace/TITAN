@@ -67,7 +67,7 @@ def attitude_function_from_quat(assembly, options, debug_visuals : bool, weights
     :param assembly: Target assembly
     :type assembly: geometry.Assembly
     :param options: TITAN options
-    :type options: configuration.Options
+    :type options: Options
     :param debug_visuals: enable to generate visualisations of the optimisation process
     :type debug_visuals: bool
     :param weights: Weights applied to facet pressure and shear if integrated is false, otherwise applied to either lift, drag and crosswind or L/D 
@@ -209,7 +209,7 @@ class AeroOptimiser():
         :param conditions: Specified freestream conditions
         :type conditions: dict
         :param options: TITAN options
-        :type options: configuration.Options
+        :type options: Options
         :param problem_kind: Define parameter space to optimise over, currently only attitude is implemented, defaults to 'attitude'
         :type problem_kind: str, optional
         :param objective: Define output space to optimise, selecting anything other than integrated or ratio means specifying weights for individual facets. 
@@ -249,7 +249,7 @@ class AeroOptimiser():
         :param conditions: Dict specifying problem conditions, inert at present
         :type conditions: dict
         :param options: TITAN options
-        :type options: configuration.Options
+        :type options: Options
         """
         match self.kind:
             case 'attitude':
@@ -297,7 +297,7 @@ class AeroOptimiser():
         """Collect set of optimal angles theta for the body, calls the optimiser if no solution yet exists
 
         :param options: TITAN options
-        :type options: configuration.Options
+        :type options: Options
         :return: Set of angles, set of partial factors and set of hit indices for the optimal attitude
         :rtype: tuple[np.ndarray]
         """

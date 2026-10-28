@@ -287,7 +287,7 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
 :param assembly: Assembly object to process.
 :type assembly: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     data, species_index = retrieve_atmosphere_data(model, altitude, assembly, options, epoch)
 
@@ -382,7 +382,7 @@ def compute_stagnation(free, options):
 :param free: Value for free.
 :type free: Any
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     if free.mach >= 1.0:
         free.P1_s = free.pressure *(0.5*(free.gamma+1.0)*free.mach**2.0)**(free.gamma/(free.gamma-1.0)) * ((free.gamma+1.0)/(2.0*free.gamma*free.mach**2.0 - (free.gamma-1.0)))**(1.0/(free.gamma-1.0))

@@ -227,7 +227,7 @@ class AeroAttitude():
         :param Kn_free: Value for kn free.
         :type Kn_free: Any
         :param options: Options or configuration object.
-        :type options: object
+        :type options: Options
         :return: Return value.
         :rtype: Any"""
 
@@ -361,7 +361,7 @@ def rk_N(N,state,dt,assembly,options,aero_config,phi):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
     k_n = []

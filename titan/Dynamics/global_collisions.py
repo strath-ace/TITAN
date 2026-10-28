@@ -126,7 +126,7 @@ Simultaneous collision resolutiuon using Projected Gauss Siedel to solve the LCP
 	:param titan: Object of class AssemblyList
 	:type titan: object
 	:param options: Object of class Options
-	:type options: object
+	:type options: Options
 	:param collision_data: Dict of collision data provided by collisions.update_and_check()
 	:type collision_data: Any
 	:param correction_only: Flag to only apply corrections instead of doing a full velocity update
@@ -215,7 +215,7 @@ Simultaneous collision resolutiuon using Projected Gauss Siedel to solve the LCP
 def impulse_update(options, ids, correction_method='split', correction_only=False, titan=None, v_physical = None, v_corrective = None):
 	"""Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param ids: Value for ids.
 :type ids: Any
 :param correction_method: Value for correction method.

@@ -35,7 +35,7 @@ def run_FENICS(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     #Flag to regenerate subdomain
 #    regen_subdom = False

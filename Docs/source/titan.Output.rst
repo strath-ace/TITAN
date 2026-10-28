@@ -1,10 +1,12 @@
-titan.Output package
+Output
 ====================
 
-Submodules
-----------
+.. automodule:: titan.Output
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-titan.Output.dynamic\_plots module
+Dynamic plots
 ----------------------------------
 
 .. automodule:: titan.Output.dynamic_plots
@@ -12,7 +14,7 @@ titan.Output.dynamic\_plots module
    :show-inheritance:
    :undoc-members:
 
-titan.Output.output module
+Output module
 --------------------------
 
 .. automodule:: titan.Output.output
@@ -20,10 +22,3 @@ titan.Output.output module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
-
-.. automodule:: titan.Output
-   :members:
-   :show-inheritance:
-   :undoc-members:

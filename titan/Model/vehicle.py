@@ -28,9 +28,9 @@ vehicle_data = {"galileo":{'mass': 341, 'Rn': 1.25/(2)*0.352, 'D': 1.25,  'Aref'
 """
 
 class ModelVehicle():
-	"""ModelVehicle."""
+	"""Store vehicle mass, reference geometry, and drag-model settings."""
 	def __init__(self):
-		"""__init__."""
+		"""Initialize vehicle properties with neutral defaults."""
 		self.mass = 0
 		self.noseRadius = 0
 		self.Aref = 0

@@ -44,7 +44,7 @@ def sphere_surface(radius, center, num_assembly, num_object, i, assembly, option
 :param assembly: Assembly object to process.
 :type assembly: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     print("Calculating sphere surface ...")
 
@@ -92,7 +92,7 @@ def compute_aerothermo(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     #The following block is the same as in su2.py
     #The purpose is to pass the mesh from body into wind frame
@@ -263,7 +263,7 @@ def compute_billig(M,theta, center, sphere_radius, index_assembly, assembly, lis
 :param freestream: Value for freestream.
 :type freestream: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
 
@@ -350,7 +350,7 @@ def compute_blast_wave_limit(radius, freestream, options):
 :param freestream: Value for freestream.
 :type freestream: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
 

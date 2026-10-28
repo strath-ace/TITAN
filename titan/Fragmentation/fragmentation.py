@@ -42,7 +42,7 @@ def demise_components(titan, i, joints_id, options):
 :param joints_id: Integer value for joints id.
 :type joints_id: int
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     titan.assembly[i].temp_ids = np.arange(len(titan.assembly[i].objects)) + 1        
 
@@ -220,7 +220,7 @@ def check_breakup_v2(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     #ROUTINE to check if the mesh has split.
 
@@ -442,7 +442,7 @@ def check_breakup(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     #ROUTINE to check if the mesh has split.
     # If True, change the density to 0 and recompute the mass of the singular component.
@@ -520,7 +520,7 @@ def fragmentation(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     #if options.ablation_mode.lower() == "tetra":
     

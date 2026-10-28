@@ -1,26 +1,12 @@
-titan.Thermal package
+Thermal
 =====================
 
-Submodules
-----------
-
-titan.Thermal.byproducts module
--------------------------------
-
-.. automodule:: titan.Thermal.byproducts
+.. automodule:: titan.Thermal
    :members:
    :show-inheritance:
    :undoc-members:
 
-titan.Thermal.pato module
--------------------------
-
-.. automodule:: titan.Thermal.pato
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-titan.Thermal.thermal module
+Thermal module
 ----------------------------
 
 .. automodule:: titan.Thermal.thermal
@@ -28,10 +14,20 @@ titan.Thermal.thermal module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
+Byproducts module
+-------------------------------
 
-.. automodule:: titan.Thermal
+.. automodule:: titan.Thermal.byproducts
    :members:
    :show-inheritance:
    :undoc-members:
+
+PATO Connection
+-------------------------
+
+.. automodule:: titan.Thermal.pato
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+

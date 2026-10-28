@@ -28,7 +28,7 @@ def generate_script(assembly, options):
 :param assembly: Assembly object to process.
 :type assembly: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 	with open(options.output_folder+"/GRAM/gram_config_"+str(assembly.id), 'w') as f:
 
 		f.write(" $INPUT \n")
@@ -130,7 +130,7 @@ def read_gram_species(altitude, options):
 :param altitude: Value for altitude.
 :type altitude: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
 	data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
@@ -160,7 +160,7 @@ def read_gram(assembly, options):
 :param assembly: Assembly object to process.
 :type assembly: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
 	data = pd.read_csv(options.output_folder+"/GRAM/OUTPUT.csv")
@@ -171,7 +171,7 @@ def run_single_gram(assembly, options):
 :param assembly: Assembly object to process.
 :type assembly: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 	generate_script(assembly, options)
 	path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

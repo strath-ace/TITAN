@@ -31,12 +31,16 @@ from pathlib import Path
 
 
 def loop(options = [], titan = []):
-    """Simulation loop for time propagation
-    :param options: Base TITAN options
-    :type options: Options,
-    :param titan: Base TITAN object
+    """Advance the TITAN simulation through its configured iterations.
+
+    Each iteration applies fragmentation checks, dynamics, and enabled
+    physics/output routines to the simulation state.
+
+    :param options: Simulation configuration and runtime options.
+    :type options: Options
+    :param titan: Simulation state containing assemblies and iteration data.
     :type titan: Assembly_list
-"""
+    """
 
     #For collision testing purposes
     if "sphere-sphere.txt" in options.filepath:

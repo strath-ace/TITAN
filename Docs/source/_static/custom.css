@@ -1,0 +1,16 @@
+:root {
+  --bz-color-primary: #cc4e56;
+  --bz-sig-name-color: #f9592d;
+  --bz-sig-param-color: #d9980d;
+  .bz-sidebar-toc a code {
+  color: #f9592d;
+  }
+  .bz-sidebar-toc a:hover code {
+  color: #cc4e56;
+  }
+
+  .bz-sidebar-toc a.current code {
+  color: #cc4e56;
+  }
+
+}

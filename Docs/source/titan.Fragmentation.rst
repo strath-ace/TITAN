@@ -1,10 +1,13 @@
-titan.Fragmentation package
+Fragmentation
 ===========================
 
-Submodules
-----------
+.. automodule:: titan.Fragmentation
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-titan.Fragmentation.fragmentation module
+
+Fragmentation module
 ----------------------------------------
 
 .. automodule:: titan.Fragmentation.fragmentation
@@ -12,10 +15,3 @@ titan.Fragmentation.fragmentation module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
-
-.. automodule:: titan.Fragmentation
-   :members:
-   :show-inheritance:
-   :undoc-members:

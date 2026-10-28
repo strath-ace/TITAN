@@ -1,10 +1,12 @@
-titan.Freestream package
+Freestream package
 ========================
 
-Submodules
-----------
+.. automodule:: titan.Freestream
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-titan.Freestream.atmosphere module
+Atmosphere
 ----------------------------------
 
 .. automodule:: titan.Freestream.atmosphere
@@ -12,7 +14,7 @@ titan.Freestream.atmosphere module
    :show-inheritance:
    :undoc-members:
 
-titan.Freestream.gram module
+NASA-GRAM Connection
 ----------------------------
 
 .. automodule:: titan.Freestream.gram
@@ -20,7 +22,7 @@ titan.Freestream.gram module
    :show-inheritance:
    :undoc-members:
 
-titan.Freestream.mix\_mpp module
+Mixture Mutation++
 --------------------------------
 
 .. automodule:: titan.Freestream.mix_mpp
@@ -28,7 +30,7 @@ titan.Freestream.mix\_mpp module
    :show-inheritance:
    :undoc-members:
 
-titan.Freestream.mix\_properties module
+Mixture properties
 ---------------------------------------
 
 .. automodule:: titan.Freestream.mix_properties
@@ -36,10 +38,3 @@ titan.Freestream.mix\_properties module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
-
-.. automodule:: titan.Freestream
-   :members:
-   :show-inheritance:
-   :undoc-members:

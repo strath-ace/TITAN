@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 TITAN documentation
-===================
+========================================================
 Welcome to `TITAN! <https://github.com/strath-ACE/TITAN>`_
 
 These docs are still a work in progress, we hope you find them useful.
@@ -12,6 +12,6 @@ These docs are still a work in progress, we hope you find them useful.
 
 .. toctree::
    :maxdepth: 2
-   :caption: API Reference:
+   :caption: Contents:
    
    titan

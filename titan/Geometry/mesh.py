@@ -32,11 +32,13 @@ np.set_printoptions(threshold=sys.maxsize)
 
 
 def read_mesh(filename):
-    """Documentation for the function.
+    """Read triangular surface facets from a mesh file.
+
 :param filename: Path to the relevant file.
 :type filename: str
-:return: Return value.
-:rtype: Any"""
+:return: The three vertex-coordinate arrays for each triangle.
+:rtype: tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray]
+"""
 
     mesh = meshio.read(filename)
     facets = mesh.points[mesh.cells_dict['triangle']]
@@ -48,11 +50,13 @@ def read_mesh(filename):
     return v0,v1,v2
 
 class Mesh():
-    """Mesh."""
+    """Store surface and volume mesh geometry and derived properties."""
     def __init__(self, filename = []):
-        """Documentation for the function.
-:param filename: Path to the relevant file.
-:type filename: str"""
+        """Create an empty mesh or load surface triangles from a file.
+
+        :param filename: Mesh file to read; an empty value creates an empty mesh.
+        :type filename: str or os.PathLike
+        """
 
         if not filename:
             self.v0 = np.array([])
@@ -88,13 +92,15 @@ class Mesh():
 
 
 def append(mesh_assembly, mesh_obj):
-    """Documentation for the function.
-:param mesh_assembly: Value for mesh assembly.
+    """Append a component mesh's surface arrays to an assembly mesh.
+
+:param mesh_assembly: Mesh object that receives the component's facets.
 :type mesh_assembly: Any
-:param mesh_obj: Value for mesh obj.
+:param mesh_obj: Component mesh whose surface data is appended.
 :type mesh_obj: Any
-:return: Return value.
-:rtype: Any"""
+:return: The updated assembly mesh.
+:rtype: Mesh
+"""
 
     if  mesh_assembly.v0.size == 0:
         mesh_assembly.v0 = np.copy(mesh_obj.v0)
@@ -116,13 +122,15 @@ def append(mesh_assembly, mesh_obj):
 
 
 def compute_mesh(mesh, compute_radius = True):
-    """Documentation for the function.
-:param mesh: Value for mesh.
+    """Compute geometric properties and connectivity for a surface mesh.
+
+:param mesh: Mesh whose derived geometry fields are populated.
 :type mesh: Any
-:param compute_radius: Value for compute radius.
+:param compute_radius: Whether to estimate node and facet curvature radii.
 :type compute_radius: Any
-:return: Return value.
-:rtype: Any"""
+:return: The mesh with computed areas, normals, centres, and connectivity.
+:rtype: Mesh
+"""
     mesh.facet_area = compute_facet_area(mesh.v0, mesh.v1, mesh.v2)
     mesh.facet_COG = compute_facet_COG(mesh.v0, mesh.v1, mesh.v2)
     mesh.COG = compute_geometrical_COG(mesh.facet_COG, mesh.facet_area)
@@ -143,10 +151,11 @@ def compute_mesh(mesh, compute_radius = True):
     return mesh
 
 def update_surface_displacement(mesh, surface_displacement_vector):
-    """Documentation for the function.
-:param mesh: Value for mesh.
+    """Displace surface nodes and refresh dependent geometric properties.
+
+:param mesh: Surface mesh to update in place.
 :type mesh: Any
-:param surface_displacement_vector: Value for surface displacement vector.
+:param surface_displacement_vector: Per-node displacement vectors.
 :type surface_displacement_vector: Any"""
     mesh.nodes += surface_displacement_vector
     mesh.v0 = mesh.nodes[mesh.facets[:,0]]   
@@ -162,23 +171,26 @@ def update_surface_displacement(mesh, surface_displacement_vector):
 
 
 def update_volume_displacement(mesh, volume_displacement_vector):
-    """Documentation for the function.
-:param mesh: Value for mesh.
+    """Apply a displacement field to the mesh's volume coordinates.
+
+:param mesh: Mesh whose volume coordinates are updated in place.
 :type mesh: Any
-:param volume_displacement_vector: Value for volume displacement vector.
+:param volume_displacement_vector: Per-node volume displacement vectors.
 :type volume_displacement_vector: Any"""
     mesh.vol_coords += volume_displacement_vector
 
 def compute_facet_area(v0,v1,v2):
-    """Documentation for the function.
-:param v0: Value for v0.
+    """Compute triangle areas from their three vertex arrays.
+
+:param v0: Coordinates of the first vertex of each triangle.
 :type v0: Any
-:param v1: Value for v1.
+:param v1: Coordinates of the second vertex of each triangle.
 :type v1: Any
-:param v2: Value for v2.
+:param v2: Coordinates of the third vertex of each triangle.
 :type v2: Any
-:return: Return value.
-:rtype: Any"""
+:return: One area value per triangle.
+:rtype: numpy.ndarray
+"""
     #Compute Area of the Mesh Facets
 
     v1_v0 = v1-v0
@@ -195,28 +207,32 @@ def compute_facet_area(v0,v1,v2):
     return area
 
 def compute_facet_COG(v0,v1,v2):
-    """Documentation for the function.
-:param v0: Value for v0.
+    """Compute the centroid of each triangle.
+
+:param v0: Coordinates of the first vertex of each triangle.
 :type v0: Any
-:param v1: Value for v1.
+:param v1: Coordinates of the second vertex of each triangle.
 :type v1: Any
-:param v2: Value for v2.
+:param v2: Coordinates of the third vertex of each triangle.
 :type v2: Any
-:return: Return value.
-:rtype: Any"""
+:return: Triangle centroids with shape ``(n_facets, 3)``.
+:rtype: numpy.ndarray
+"""
     #Compute the center of mass of each vertex
 
     facet_COG = (v0+v1+v2)/3.0
     return facet_COG
 
 def compute_geometrical_COG(facet_COG, facet_area):
-    """Documentation for the function.
-:param facet_COG: Value for facet cog.
+    """Compute the area-weighted centroid of a triangulated surface.
+
+:param facet_COG: Centroid coordinates for each triangle.
 :type facet_COG: Any
-:param facet_area: Value for facet area.
+:param facet_area: Area of each triangle.
 :type facet_area: Any
-:return: Return value.
-:rtype: Any"""
+:return: Area-weighted geometric centre of the surface.
+:rtype: numpy.ndarray
+"""
     #Compute Geometrical center of the Mesh
 
     COG = np.sum(facet_COG*facet_area[:,None], axis = 0)/np.sum(facet_area)

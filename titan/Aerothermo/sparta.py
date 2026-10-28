@@ -77,7 +77,7 @@ class Problem_Definition():
     def __init__(self, options, dsmc, freestream):
         """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param dsmc: Value for dsmc.
 :type dsmc: Any
 :param freestream: Value for freestream.
@@ -134,7 +134,7 @@ class Geometry_Definition():
     def __init__(self, options, dsmc, assembly_list, output_folder, surface_filename):
         """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param dsmc: Value for dsmc.
 :type dsmc: Any
 :param assembly_list: List of assembly.
@@ -171,7 +171,7 @@ class Settings():
     def __init__(self, options, dsmc, assembly_list, surface_filename):
         """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param dsmc: Value for dsmc.
 :type dsmc: Any
 :param assembly_list: List of assembly.
@@ -238,7 +238,7 @@ class Unsteady_Simulation():
     def __init__(self, options, dsmc, output_folder, surface_filename, grid_filename):
         """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param dsmc: Value for dsmc.
 :type dsmc: Any
 :param output_folder: Value for output folder.
@@ -299,7 +299,7 @@ class Sampling_Simulation():
     def __init__(self, options, dsmc, assembly_list, output_folder, surface_filename):
         """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param dsmc: Value for dsmc.
 :type dsmc: Any
 :param assembly_list: List of assembly.
@@ -389,7 +389,7 @@ class SPARTA_Config():
     def __init__(self, options, dsmc, free, assembly_list, output_folder, sparta_config, surface_filename, grid_filename):
         """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param dsmc: Value for dsmc.
 :type dsmc: Any
 :param free: Value for free.
@@ -428,23 +428,24 @@ class SPARTA_Config():
 
 
 def write_sparta_config(options, dsmc, freestream, assembly_list, output_folder = '', sparta_config = 'in.config', surface_filename = ['assembly_0_cluster_0'], grid_filename = 'grid_cluster_0.txt'):
-    """Documentation for the function.
-:param options: Options or configuration object.
-:type options: object
-:param dsmc: Value for dsmc.
-:type dsmc: Any
-:param freestream: Value for freestream.
-:type freestream: Any
-:param assembly_list: List of assembly.
-:type assembly_list: list
-:param output_folder: Value for output folder.
-:type output_folder: Any
-:param sparta_config: Value for sparta config.
-:type sparta_config: Any
-:param surface_filename: Value for surface filename.
-:type surface_filename: str
-:param grid_filename: Value for grid filename.
-:type grid_filename: str"""
+    """Writes the .in file for sparta simulation
+    
+    :param options: Options or configuration object.
+    :type options: Options
+    :param dsmc: DSMC configuration object.
+    :type dsmc: DSMC
+    :param freestream: Freestream conditions.
+    :type freestream: assembly.Freestream
+    :param assembly_list: List of assembly.
+    :type assembly_list: list[Assembly]
+    :param output_folder: Output folder filepath.
+    :type output_folder: str
+    :param sparta_config: SPARTA config filename.
+    :type sparta_config: str
+    :param surface_filename: Surface mesh filename.
+    :type surface_filename: str
+    :param grid_filename: Volume grid filename.
+    :type grid_filename: str"""
                         
 
     SPARTA_config = SPARTA_Config(options, dsmc, freestream, assembly_list, output_folder, sparta_config, surface_filename, grid_filename)
@@ -485,19 +486,17 @@ def write_sparta_config(options, dsmc, freestream, assembly_list, output_folder 
         f.write('quit \n')
 
 
-def create_sparta_geo(options, dsmc, assembly_list, output_folder = '', surface_filename = ['assembly_0_cluster_0']):
+def create_sparta_geo(dsmc, assembly_list : list, output_folder : str = '', surface_filename : list[str] = ['assembly_0_cluster_0']):
+    """Adds meshes from a list of assemblies to a SPARTA surface geometry
 
-    """Function create_sparta_geo
-:param options: Options or configuration object.
-:type options: object
-:param dsmc: Value for dsmc.
-:type dsmc: Any
-:param assembly_list: List of assembly.
-:type assembly_list: list
-:param output_folder: Value for output folder.
-:type output_folder: Any
-:param surface_filename: Value for surface filename.
-:type surface_filename: str"""
+    :param dsmc: DSMC configuration object.
+    :type dsmc: DSMC
+    :param assembly_list: List of assemblies.
+    :type assembly_list: list[Assembly]
+    :param output_folder: Output folder filepath.
+    :type output_folder: str
+    :param surface_filename: List of surface filenames.
+    :type surface_filename: list[str]"""
 
     path = os.path.expandvars('$TITAN_PATH')
 
@@ -544,29 +543,27 @@ def create_sparta_geo(options, dsmc, assembly_list, output_folder = '', surface_
         dsmc.obj_store.append(store.tolist())
 
 
-def compute_dsmc_properties(dsmc, free, assembly_list):
+def compute_dsmc_properties(dsmc, free, assembly_list : list):
+    """Computes properties for the DSMC simulation based upon freestream conditions
 
-    """Function compute_dsmc_properties
-:param dsmc: Value for dsmc.
-:type dsmc: Any
-:param free: Value for free.
-:type free: Any
-:param assembly_list: List of assembly.
-:type assembly_list: list
-:return: Return value.
-:rtype: Any"""
+    :param dsmc: DSMC configuration object.
+    :type dsmc: DSMC
+    :param free: Freestream object.
+    :type free: assembly.Freestream
+    :param assembly_list: List of assemblies.
+    :type assembly_list: list"""
 
-    def convert_density2numberDensity(mole_fraction,species,density):
+    def convert_density2numberDensity(mole_fraction : np.ndarray,species : list[str],density : float) -> np.ndarray:
+        """Converts a freestream density and mole fractions into number densities
 
-        """Function convert_density2numberDensity
-:param mole_fraction: Value for mole fraction.
-:type mole_fraction: Any
-:param species: Value for species.
-:type species: Any
-:param density: Numeric value for density.
-:type density: float
-:return: Return value.
-:rtype: Any"""
+        :param mole_fraction: Array of molar fractions
+        :type mole_fraction: np.ndarray
+        :param species: List of species matching molar fractions.
+        :type species: list[str]
+        :param density: Freestream density
+        :type density: float
+        :return: Array of number densities.
+        :rtype: np.ndarray"""
 
         Avo = 6.022169e23               #Avogrados number 
         mN2 = 28.01340/1E3;             #molar mass of nitrogen molecule, kg/mole
@@ -613,19 +610,25 @@ def compute_dsmc_properties(dsmc, free, assembly_list):
 
     dsmc.domain = np.array([[xlo, xhi], [ylo, yhi], [zlo, zhi]])
 
-    # === GRID SIZE ===
-    # Minimum grid cell size = 1/3 of mean free path for numerical stability
-    # Gives very refined grids - we won't use for now and instead will focus on grid refinement strategy
-    def safe_grid_size(lo, hi, mfp): return max(1, math.ceil(abs(lo - hi) / (mfp / 3)))
-    """Documentation for the function.
-:param lo: Value for lo.
-:type lo: Any
-:param hi: Value for hi.
-:type hi: Any
-:param mfp: Value for mfp.
-:type mfp: Any
-:return: Return value.
-:rtype: Any"""
+
+    def safe_grid_size(lo : float, hi : float, mfp : float) -> int: 
+        """Generates a "safe" grid based upon mean free path heuristic
+            
+            Minimum grid cell size = 1/3 of mean free path for numerical stability
+            Gives very refined grids - we won't use for now and instead will focus on grid refinement strategy
+
+        :param lo: Domain lower bound in the dimension of interest.
+        :type lo: float
+        :param hi: Domain upper bound in the dimension of interest.
+        :type hi: float
+        :param mfp: Mean free path.
+        :type mfp: float
+        :return: Number of cells along dimension of interest.
+        :rtype: int"""
+        
+        
+        return max(1, math.ceil(abs(lo - hi) / (mfp / 3)))
+
     dsmc.grid = [safe_grid_size(xlo, xhi, free.mfp),
                  safe_grid_size(ylo, yhi, free.mfp),
                  safe_grid_size(zlo, zhi, free.mfp),]
@@ -718,20 +721,17 @@ def compute_dsmc_properties(dsmc, free, assembly_list):
     dsmc.dt = MCT/ 3
 
 
-def run_SPARTA(options, dsmc, assembly_list, output_folder = '', sparta_config = 'in.config', sparta_log = 'sparta_log.log'):
-    """Documentation for the function.
-:param options: Options or configuration object.
-:type options: object
-:param dsmc: Value for dsmc.
-:type dsmc: Any
-:param assembly_list: List of assembly.
-:type assembly_list: list
-:param output_folder: Value for output folder.
-:type output_folder: Any
-:param sparta_config: Value for sparta config.
-:type sparta_config: Any
-:param sparta_log: Value for sparta log.
-:type sparta_log: Any"""
+def run_SPARTA(dsmc, output_folder : str = '', sparta_config : str = 'in.config', sparta_log : str = 'sparta_log.log'):
+    """Dispatches the SPARTA subprocess
+
+    :param dsmc: DSMC configuration object.
+    :type dsmc: DSMC
+    :param output_folder: Output folder filepath.
+    :type output_folder: str
+    :param sparta_config: SPARTA config filename.
+    :type sparta_config: str
+    :param sparta_log: SPARTA log filename.
+    :type sparta_log: str"""
     
     path = os.path.expandvars('$TITAN_PATH')
 
@@ -746,14 +746,15 @@ def run_SPARTA(options, dsmc, assembly_list, output_folder = '', sparta_config =
     subprocess.run(["mpirun", "-np", str(dsmc.cores), path+'/Executables/spa_openmpi', "-in", input_file, "-log", log_file], text=True)
 
 
-def mapping_facet_COG(facet_COG, vtk_COG):
-    """Documentation for the function.
-:param facet_COG: Value for facet cog.
-:type facet_COG: Any
-:param vtk_COG: Value for vtk cog.
-:type vtk_COG: Any
-:return: Return value.
-:rtype: Any"""
+def mapping_facet_COG(facet_COG : np.ndarray, vtk_COG : np.ndarray) -> np.ndarray:
+    """Maps facet centroids to .vtk facet centroids with KD-tree
+
+    :param facet_COG: Array of facet centroids
+    :type facet_COG: np.ndarray
+    :param vtk_COG: Array of .vtk facet centroids
+    :type vtk_COG: np.ndarray
+    :return: Array of mapping indices
+    :rtype: np.ndarray"""
 
     A = facet_COG
     B = vtk_COG
@@ -771,21 +772,17 @@ def mapping_facet_COG(facet_COG, vtk_COG):
     return mapping
 
 
-def read_vtu_from_sparta(filename, assembly_item, assembly_coords, idx_inv,  it):
-
+def read_vtu_from_sparta(filename : str, assembly_item, it : int):
     """Read the VTK file solution
-:param filename: Path to the relevant file.
-:type filename: str
-:param assembly_item: Value for assembly item.
-:type assembly_item: Any
-:param assembly_coords: Value for assembly coords.
-:type assembly_coords: Any
-:param idx_inv: Value for idx inv.
-:type idx_inv: Any
-:param it: Value for it.
-:type it: Any
-:return: Return value.
-:rtype: Any"""
+
+    :param filename: Path to the relevant file.
+    :type filename: str
+    :param assembly_item: Assembly object.
+    :type assembly_item: Assembly
+    :param it: Assembly index.
+    :type it: int
+    :return: Assembly aerothermo object.
+    :rtype: assembly.Aerothermo"""
 
 
     # Initializes the Aerothermo object with empty arrays of the right size
@@ -842,12 +839,13 @@ def read_vtu_from_sparta(filename, assembly_item, assembly_coords, idx_inv,  it)
 
 
 
-def get_env_path(env_name):
-    """Documentation for the function.
-:param env_name: Value for env name.
-:type env_name: Any
-:return: Return value.
-:rtype: Any"""
+def get_env_path(env_name : str) -> str:
+    """Extracts prefix path from conda environment name
+
+    :param env_name: Conda environment name.
+    :type env_name: str
+    :return: Prefix path.
+    :rtype: str"""
     try:
         result = subprocess.run(
             ["conda", "run", "-n", env_name, "python", "-c", "import os; print(os.environ['CONDA_PREFIX'])"],
@@ -862,19 +860,21 @@ def get_env_path(env_name):
         return None
 
 
-def PostProcess_SPARTA(dsmc, assembly_list, output_folder = '', surface_filename = ['assembly_0_cluster_0'], grid_filename = 'grid_cluster_0.txt'):
+def PostProcess_SPARTA(dsmc, assembly_list : list, output_folder : str = '', surface_filename : list = ['assembly_0_cluster_0'], 
+                       grid_filename : str = 'grid_cluster_0.txt'):
 
     """Function to postprocess the SPARTA simulation surface output
-:param dsmc: Value for dsmc.
-:type dsmc: Any
-:param assembly_list: List of assembly.
-:type assembly_list: list
-:param output_folder: Value for output folder.
-:type output_folder: Any
-:param surface_filename: Value for surface filename.
-:type surface_filename: str
-:param grid_filename: Value for grid filename.
-:type grid_filename: str"""
+
+    :param dsmc: DSMC configuration object.
+    :type dsmc: DSMC
+    :param assembly_list: List of assemblies to postprocess.
+    :type assembly_list: list
+    :param output_folder: Output folder path.
+    :type output_folder: str
+    :param surface_filename: Surface filename.
+    :type surface_filename: str
+    :param grid_filename: Grid filename.
+    :type grid_filename: str"""
 
     # Gather all unique surface nodes across assemblies
     assembly_nodes = np.array([])
@@ -943,22 +943,23 @@ def PostProcess_SPARTA(dsmc, assembly_list, output_folder = '', surface_filename
         filename = max(list_of_files, key=os.path.getmtime)
 
         # Read each individual assembly (written to separate files by SPARTA)
-        read_vtu_from_sparta(filename, _assembly, assembly_nodes, idx_inv,  i)
+        read_vtu_from_sparta(filename, _assembly,  i)
 
         # Consider deleting the excess files here and saving only the latest surface result for future reference
 
     print('Post-processing of SPARTA-DSMC simulation is completed!')
 
 
-def write_postprocess_gridtxt(dsmc, output_folder, grid_filename):
+def write_postprocess_gridtxt(dsmc, output_folder : str, grid_filename : str):
 
     """Function to postprocess the SPARTA simulation output
-:param dsmc: Value for dsmc.
-:type dsmc: Any
-:param output_folder: Value for output folder.
-:type output_folder: Any
-:param grid_filename: Value for grid filename.
-:type grid_filename: str"""
+
+    :param dsmc: DSMC configuration object.
+    :type dsmc: DSMC
+    :param output_folder: Output directory.
+    :type output_folder: str
+    :param grid_filename: SPARTA grid file name.
+    :type grid_filename: str"""
 
     # check working directory definition
     with open(f"{output_folder}/DSMC_Grid/grid.txt", 'w') as f:
@@ -975,15 +976,16 @@ def write_postprocess_gridtxt(dsmc, output_folder, grid_filename):
     f.close()
 
 
-def compute_dsmc_aerothermo(titan, options, cluster_tag = 0):
+def compute_dsmc_aerothermo(titan, options, cluster_tag : int = 0):
 
     """Function to set-up, execute and postprocess SPARTA DSMC simulation
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: object
-:param cluster_tag: Value for cluster tag.
-:type cluster_tag: Any"""
+
+    :param titan: TITAN simulation object.
+    :type titan: Assembly_list
+    :param options: Options or configuration object.
+    :type options: Options
+    :param cluster_tag: Tag of the assembly cluster.
+    :type cluster_tag: int"""
 
     assembly_list = titan.assembly
 
@@ -1075,7 +1077,7 @@ def compute_dsmc_aerothermo(titan, options, cluster_tag = 0):
 
         # --- Generate input files ---
         # Create sparta geometry for each assembly in the simulation:
-        create_sparta_geo(options, dsmc, assembly_list, output_folder = options.output_folder, surface_filename = surface_filelist)
+        create_sparta_geo(dsmc, assembly_list, output_folder = options.output_folder, surface_filename = surface_filelist)
 
         # Calculate DSMC properties needed based off of altitude of lowest object:
         compute_dsmc_properties(dsmc, free, assembly_list)
@@ -1094,7 +1096,7 @@ def compute_dsmc_aerothermo(titan, options, cluster_tag = 0):
             # --- Run SPARTA ---
 
             # Run SPARTA simulation:
-            run_SPARTA(options, dsmc, assembly_list, output_folder = options.output_folder, sparta_config = config_filename, sparta_log = log_filename)
+            run_SPARTA(dsmc, output_folder = options.output_folder, sparta_config = config_filename, sparta_log = log_filename)
 
         # Otherwise we save the TITAN state here for the previous iteration (when we re-enter the simulation it will run initial trajectory again)
         else:

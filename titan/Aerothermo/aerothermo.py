@@ -25,437 +25,14 @@ from scipy import special
 from copy import copy
 from datetime import timedelta
 from ..Aerothermo import su2, switch, sparta
+from ..Aerothermo import thermo_equations as eqs
+from ..Aerothermo import raytracer as ray
 from scipy.interpolate import interp1d, PchipInterpolator
 from scipy.spatial.transform import Rotation as Rot
 from scipy.spatial.transform import RigidTransform as Trans
 from scipy.spatial import KDTree
-from scipy.optimize import brentq, fsolve
-from functools import partial
 
-import trimesh, pathlib
-try:
-    from trimesh.ray.ray_pyembree import RayMeshIntersector
-except:
-    print('PyEmbree/Embreex library not set up')
-    from trimesh.ray.ray_triangle import RayMeshIntersector
 
-try:
-    import mutationpp as mpp
-except:
-    print("Mutationpp library not set up")
-
-def mixture_mpp(mixture = "air5") -> mpp.Mixture:
-    """Retrieve the mixture object of the Mutation++ library
-
-    :param mixture: String specifying the mixture.
-    :type mixture: str
-    :return: Mixture object.
-    :rtype: mpp.Mixture
-
-    """
-
-
-    opts = mpp.MixtureOptions(mixture)
-    opts.setThermodynamicDatabase("RRHO")
-    opts.setStateModel("ChemNonEq1T")
-    opts.setViscosityAlgorithm("Gupta-Yos")
-
-    mix = mpp.Mixture(opts)
-    
-    return mix
-
-### Stagnation Equations
-def stagnation_P(P:float, gamma:float, M:float)->float:
-    """Compute stagnation pressure
-
-    :param P: Free-stream pressure
-    :type P: float
-    :param gamma: Ratio of specific heats.
-    :type gamma: float
-    :param M: Mach number.
-    :type M: float
-    :return: Stagnation pressure.
-    :rtype: float"""
-    P_0 = P * (1 + ((gamma - 1.0)/2.0)*(M**2))**(gamma / (gamma - 1))
-    return P_0
-
-def stagnation_T(T:float, gamma:float, M:float)->float:
-    """Compute stagnation temperature
-
-    :param T: Temperature.
-    :type T: float
-    :param gamma: Ratio of specific heats.
-    :type gamma: float
-    :param M: Mach number.
-    :type M: float
-    :return: Stagnation temperature.
-    :rtype: float"""
-    T_0 = T * (1 + ((gamma - 1.0)/2.0)*(M**2))
-    return T_0
-
-### Normal Shock Equations
-def normal_shock_P(P:float, gamma:float, M:float) -> float:
-    """Compute isentropic normal shock pressure
-
-    :param P: Pre-shock pressure.
-    :type P: float
-    :param gamma: Ratio of specific heats.
-    :type gamma: float
-    :param M: Mach number.
-    :type M: float
-    :return: Post-shock pressure.
-    :rtype: float"""
-    P_post = P*((2.0 * gamma * (M**2)) - (gamma - 1.0)) / (gamma + 1.0)
-
-    return P_post
-
-def normal_shock_T(T:float, gamma:float, M:float) -> float:
-    """Compute isentropic normal shock temperature
-
-    :param T: Temperature.
-    :type T: float
-    :param gamma: Ratio of specific heats.
-    :type gamma: float
-    :param M: Mach number.
-    :type M: float
-    :return: Post-shock temperature.
-    :rtype: float"""
-    T_post = T*(((2.0 * gamma * (M**2.0)) - (gamma - 1.0)) * (((gamma - 1.0) * (M**2.0)) + 2.0)) / (((gamma + 1.0)**2.0) * (M**2.0))
-    return T_post
-    
-
-def normal_shock_M(gamma: float, M:float) -> float:
-    """Compute isentropic normal shock Mach
-
-    :param gamma: Ratio of specific heats.
-    :type gamma: float
-    :param M: Mach number.
-    :type M: float
-    :return: Post-shock Mach number.
-    :rtype: float"""
-    M_post = np.sqrt((((gamma - 1.0) * (M**2.0)) + 2.0) / ((2.0 * gamma * (M**2.0)) - (gamma - 1.0)))
-    return M_post
-    
-
-def normal_shock_rho(rho:float, gamma:float, M:float)->float:
-    """Compute isentropic normal shock density
-
-    :param rho: Pre-shock density.
-    :type rho: float
-    :param gamma: Ratio of specific heats.
-    :type gamma: float
-    :param M: Mach number.
-    :type M: float
-    :return: Post-shock density.
-    :rtype: float"""
-    rho_post = rho*(((gamma + 1.0) * (M**2.0)) / (((gamma - 1.0) * (M**2.0)) + 2.0))
-    return rho_post
-
-def energy_loop_obj_func(mix: mpp.Mixture, P_eq: float, h_ref: float, T_eq: float) -> float:
-    """Objective function for the energy loop to ensure conservation of 
-    total enthalpy at target equilibrium conditions
-
-    :param mix: Freestream mixture.
-    :type mix: Mutationpp.Mixture
-    :param P_eq: Equilibrium pressure.
-    :type P_eq: float
-    :param h_ref: Reference enthalpy.
-    :type h_ref: float
-    :param T_eq: Equilibrium temperature.
-    :type T_eq: float
-    :return: Enthalpy discrepancy.
-    :rtype: float"""
-    mix.equilibrate(T_eq, P_eq)
-    h_eq = mix.mixtureHMass()
-    return h_eq-h_ref
-
-def energy_loop_brent(mix : mpp.Mixture, T_eq : float, P_eq : float, h_ref : float, T_min = 10.0, T_max = 1e5, verbose=False) -> mpp.Mixture:
-    """Root-finding loop to ensure conservation of total enthalpy at target equilibrium conditions.
-    (Uses the Brent method)
-
-    :param mix: Freestream mixture.
-    :type mix: Mutationpp.Mixture
-    :param T_eq: Initial guess for equilibrium temperature.
-    :type T_eq: float
-    :param P_eq: Initial guess for equilibrium pressure.
-    :type P_eq: float
-    :param h_ref: Reference enthalpy.
-    :type h_ref: float
-    :param T_max: Temperature upper limit.
-    :type T_max: float
-    :return: Equilibrium mixture.
-    :rtype: Mutationpp.Mixture"""
-    f = partial(energy_loop_obj_func, mix, P_eq, h_ref)
-    if verbose: print('Equilibriating energy for h_ref {}'.format(h_ref))
-    if verbose: print('{}<T_eq={}<{}  P_eq={}'.format(T_min,T_eq,T_max,P_eq))
-    T_eq = brentq(f, T_min, T_eq)
-    if verbose: print('Got T_eq as {}'.format(T_eq))
-    mix.equilibrate(T_eq, P_eq)
-    
-    return mix
-
-class stagnation_line_per_facet():
-    """
-    Class to store the flow conditions at freestream, stagnation, BLE and wall for every facet
-    """
-
-    def __init__(self, Tfree : float, Pfree : float, Mfree : np.ndarray, Twall : np.ndarray, mixname = None):
-        """Solve stations of the stagnation line (Free, Post-Shock, BLE, Wall) 
-        from freestream and wall conditions
-
-        :param Tfree: Freestream temperature.
-        :type Tfree: float
-        :param Pfree: Freestream pressure.
-        :type Pfree: float
-        :param Mfree: Vector of Freestream Mach numbers.
-        :type Mfree: np.ndarray
-        :param Twall: Vector of Wall temperatures.
-        :type Twall: np.ndarray
-        :param mixname: Name of the mixture.
-        :type mixname: str"""
-        if mixname == None: 
-            print('No mix given to stagnation_line()! Defaulting to air5...')
-            self.mix = mixture_mpp("air5")
-        else: self.mix = mixture_mpp(mixname)
-
-        self.Tfree = Tfree
-        self.Pfree = Pfree
-        self.Mfree = Mfree
-        self.Twall = Twall
-        self.n_facets = len(self.Mfree)
-        #Equilibrate the mix with the freesteam conditions:
-        self.mix.equilibrate(self.Tfree, self.Pfree)        
-        self.gammafree = self.mix.mixtureFrozenGamma()
-        self.ufree = self.Mfree*self.mix.frozenSoundSpeed()
-        self.mufree = self.mix.viscosity()
-        self.rhofree = self.mix.density()
-        self.c_i_free = self.mix.Y()
-        self.oxygen_mf = self.mix.convert_y_to_ye(self.c_i_free)[self.mix.elementIndex('O')]
-        #molecular weight
-        self.MW_free = self.mix.mixtureMw()
-        
-        self.T0_free = stagnation_T(self.Tfree, self.gammafree, self.Mfree)
-        self.P0_free = stagnation_P(self.Pfree, self.gammafree, self.Mfree)
-        #Total enthalpy at freestream
-        self.H0_free = self.mix.mixtureHMass() + (self.Mfree*self.mix.frozenSoundSpeed())**2/2.0
-
-        #Post-shock conditions:
-        self.T_post = normal_shock_T(self.Tfree, self.gammafree, self.Mfree)
-        self.P_post = normal_shock_P(self.Pfree, self.gammafree, self.Mfree)
-        self.rho_post = normal_shock_rho(self.rhofree, self.gammafree, self.Mfree)
-        self.M_post = normal_shock_M(self.gammafree, self.Mfree)
-        self.u_post = self.M_post*np.sqrt((self.gammafree*self.P_post)/self.rho_post)
-
-        self.T0_post = stagnation_T(self.T_post, self.gammafree, self.M_post)
-        self.P0_post = stagnation_P(self.P_post, self.gammafree, self.M_post)
-        self.rho0_post = self.rho_post*(1+(self.gammafree - 1) / 2.0 * self.M_post**2)**(1/(self.gammafree - 1))
-
-        #Boundary layer edge conditions
-        #Assuming mixture at equilibrium
-        self.Te = self.T0_post
-        self.Pe = self.P0_post
-
-
-        self.rhoe = np.zeros(self.n_facets)
-        self.mue = np.zeros(self.n_facets)
-        self.He = np.zeros(self.n_facets)
-        self.ce_i = np.zeros([self.n_facets,self.mix.nSpecies()])
-        self.xe_i = np.zeros([self.n_facets,self.mix.nSpecies()])
-        self.MWe = np.zeros(self.n_facets)
-        self.mu_orig_e = np.zeros(self.n_facets)            
-        self.Hd = np.zeros(self.n_facets)
-        self.Pwall = np.zeros(self.n_facets)
-        self.rhow = np.zeros(len(self.Twall))
-        self.muw = np.zeros(len(self.Twall))
-        self.Hw = np.zeros(len(self.Twall))
-
-        # Assume facets adjacent in the list have similar temperature
-
-        best_guess_T = self.Te[0]
-        for i_facet in range(self.n_facets):
-            conditions_dict = ble_conditions(self.mix, best_guess_T, self.Pe[i_facet], self.H0_free[i_facet], self.Twall[i_facet])
-            best_guess_T = conditions_dict['Te']
-            self.assign_facet_conditions(i_facet, conditions_dict)
-
-        #Adimensional numbers
-        #At the moment these values are hardcoded according to several literature sources
-        self.Pr = 0.71
-        self.Le = 1.0
-
-    def assign_facet_conditions(self, i_facet : int, conditions_dict : dict):
-        """Assigns flow conditions to the respective indices in flow property arrays.
-
-        :param i_facet: Index of the facet.
-        :type i_facet: int
-        :param conditions_dict: Dictionary of conditions.
-        :type conditions_dict: dict"""
-        self.Te[i_facet] = conditions_dict['Te']
-        self.Pe[i_facet] = conditions_dict['Pe']
-        self.rhoe[i_facet] = conditions_dict['rhoe']
-        self.mue[i_facet] = conditions_dict['mue']
-        self.He[i_facet] = conditions_dict['He']
-        self.ce_i[i_facet, :] = conditions_dict['ce_i']
-        self.xe_i[i_facet, :] = conditions_dict['xe_i']
-        self.MWe[i_facet] = conditions_dict['MWe']
-        self.mu_orig_e[i_facet] = conditions_dict['mu_orig_e']
-        self.Hd[i_facet] = conditions_dict['Hd']
-        self.Pwall[i_facet] = conditions_dict['Pwall']
-        self.rhow[i_facet] = conditions_dict['rhow']
-        self.muw[i_facet] = conditions_dict['muw']
-        self.Hw[i_facet] = conditions_dict['Hw']
-
-def ble_conditions(mix : mpp.Mixture, best_guess_T : float, Pe : float, H0_free : float, Twall : float) -> dict:
-    """Compute equilibrium conditions at boundary layer edge based upon post-shock stagnation enthalpy
-
-    :param mix: Mutationpp mixture object.
-    :type mix: mpp.Mixture
-    :param best_guess_T: Value for best guess temperature.
-    :type best_guess_T: float
-    :param Pe: Initial pressure.
-    :type Pe: float
-    :param H0_free: Post-shock stagnation enthalpy.
-    :type H0_free: float
-    :param Twall: Wall temperature.
-    :type Twall: float
-    :return: Flow conditions dictionary.
-    :rtype: dict"""
-    #mix = mixture_mpp(mixname)
-    mix = energy_loop_brent(mix, best_guess_T, Pe, H0_free)
-
-    best_guess_T = mix.T()
-
-    Te = mix.T()
-    Pe = mix.P()
-    rhoe = mix.density()
-    mue = mix.viscosity()
-    He = mix.mixtureHMass()
-
-    #N O NO N2 O2 according to air_5 from Mutationpp
-    ce_i = np.zeros(mix.nSpecies())
-    xe_i = np.zeros(mix.nSpecies())
-    ce_i[:] = mix.Y()
-    xe_i[:] = mix.X()
-    MWe = mix.mixtureMw()
-
-    mix.setState(mix.densities(), Te, 1)
-    mu_orig_e = mix.viscosity()
-
-    #N - 33867025.2 J/Kg heat of formation
-    #O - 15432544.8 J/Kg Heat of formation
-
-    #Heat of dissociation                 
-    Hd = 33867025.2*ce_i[0] + 15432544.8 *ce_i[1]
-
-    #Wall conditions
-    #Assuming mixture at equilibrium
-    Pwall = Pe
-    mix.equilibrate(Twall, Pwall)
-    rhow =mix.density()
-    muw = mix.viscosity()
-    Hw = mix.mixtureHMass()
-
-    return {'Te' : Te, 'Pe': Pe, 'rhoe' : rhoe, 'mue' : mue, 'He' : He, 'ce_i' : ce_i, 'xe_i' : xe_i, 'MWe' : MWe, 'mu_orig_e' : mu_orig_e, 'Hd' : Hd, 'Pwall' : Pwall, 'rhow' : rhow, 'muw' : muw, 'Hw' : Hw}
-
-# Some minor code duplication, preserved here for robustness
-class stagnation_line():
-    """
-    Class to store the flow conditions at freestream, stagnation, BLE and wall, global for the whole assembly
-    """
-
-    def __init__(self, Tfree : float, Pfree : float, Mfree : float, Twall : float, mix : mpp.Mixture = None):
-        """Solve stations of the stagnation line (Free, Post-Shock, BLE, Wall) from freestream and wall conditions
-        :param Tfree: Freestream temperature.
-        :type Tfree: float
-        :param Pfree: Freestream pressure.
-        :type Pfree: float
-        :param Mfree: Freestream Mach number.
-        :type Mfree: float
-        :param Twall: Wall temperature.
-        :type Twall: float
-        :param mix: Mixture object.
-        :type mix: mutationpp.Mixture"""
-        if mix == None: 
-            print('No mix given to stagnation_line()! Defaulting to air5...')
-            self.mix = mixture_mpp("air5")
-        else: self.mix = mix
-
-        self.Tfree = Tfree
-        self.Pfree = Pfree
-        self.Mfree = Mfree
-        self.Twall = Twall
-        #Equilibrate the mix with the freesteam conditions:
-
-        self.mix.equilibrate(self.Tfree, self.Pfree)        
-        self.gammafree = self.mix.mixtureFrozenGamma()
-        self.ufree = self.Mfree*self.mix.frozenSoundSpeed()
-        self.mufree = self.mix.viscosity()
-        self.rhofree = self.mix.density()
-        self.c_i_free = self.mix.Y()
-        self.oxygen_mf = self.mix.convert_y_to_ye(self.c_i_free)[self.mix.elementIndex('O')]
-        #molecular weight
-        self.MW_free = self.mix.mixtureMw()
-        
-        self.T0_free = stagnation_T(self.Tfree, self.gammafree, self.Mfree)
-        self.P0_free = stagnation_P(self.Pfree, self.gammafree, self.Mfree)
-        #Total enthalpy at freestream
-        self.H0_free = self.mix.mixtureHMass() + (self.Mfree*self.mix.frozenSoundSpeed())**2/2.0
-
-        #Post-shock conditions:
-        self.T_post = normal_shock_T(self.Tfree, self.gammafree, self.Mfree)
-        self.P_post = normal_shock_P(self.Pfree, self.gammafree, self.Mfree)
-        self.rho_post = normal_shock_rho(self.rhofree, self.gammafree, self.Mfree)
-        self.M_post = normal_shock_M(self.gammafree, self.Mfree)
-        self.u_post = self.M_post*np.sqrt((self.gammafree*self.P_post)/self.rho_post)
-
-        self.T0_post = stagnation_T(self.T_post, self.gammafree, self.M_post)
-        self.P0_post = stagnation_P(self.P_post, self.gammafree, self.M_post)
-        self.rho0_post = self.rho_post*(1+(self.gammafree - 1) / 2.0 * self.M_post**2)**(1/(self.gammafree - 1))
-
-        #Boundary layer edge conditions
-        #Assuming mixture at equilibrium
-        self.Te = 0.25*(self.Tfree+self.T0_post) # Heuristic guess at output T
-        self.Pe = self.P0_post
-
-        #Energy loop (Need to match the Total enthalpy)
-        self.mix = energy_loop_brent(self.mix, self.Te, self.Pe, self.H0_free, self.Tfree, self.T0_post, True)
-
-        self.Te = self.mix.T()
-        self.Pe = self.mix.P()
-        self.rhoe = self.mix.density()
-        self.mue = self.mix.viscosity()
-        self.He = self.mix.mixtureHMass()
-
-        #N O NO N2 O2 according to air_5 from Mutationpp
-        self.ce_i = self.mix.Y()
-        self.xe_i = self.mix.X()
-        self.MWe = self.mix.mixtureMw()
-
-        self.mix.setState(self.mix.densities(), self.Te, 1)
-        self.mu_orig_e = self.mix.viscosity()
-
-        #N - 33867025.2 J/Kg heat of formation
-        #O - 15432544.8 J/Kg Heat of formation
-
-        #Heat of dissociation                 
-        self.Hd = 33867025.2*self.ce_i[0] + 15432544.8 *self.ce_i[1]
-
-        #Wall conditions
-        #Assuming mixture at equilibrium
-        self.Pwall = self.Pe
-        self.rhow = np.zeros(len(Twall))
-        self.muw = np.zeros(len(Twall))
-        self.Hw = np.zeros(len(Twall))
-
-        for index, T in enumerate(Twall):
-            self.mix.equilibrate(T, self.Pwall)
-            self.rhow[index] = self.mix.density()
-            self.muw[index] = self.mix.viscosity()
-            self.Hw[index] = self.mix.mixtureHMass()
-
-        #Adimensional numbers
-        #At the moment these values are hardcoded according to several literature sources
-        self.Pr = 0.71
-        self.Le = 1.0
 
 def compute_aerothermo(titan, options):
     """Fidelity selection for aerothermo computation
@@ -576,7 +153,7 @@ def compute_low_fidelity_aerothermo(assemblies, options, epoch = None) -> list:
 
     #Number of subdivisions
     n = options.aerothermo.subdivision_triangle
-    flow_directions, groups, group_map = SoI_assembly_groups(assemblies, options.aerothermo.SoI_rad)
+    flow_directions, groups, group_map = sphere_of_influence_assembly_groups(assemblies, options.aerothermo.SoI_rad)
     
     for it, _assembly in enumerate(assemblies):
         _assembly.aerothermo.heatflux *= 0
@@ -593,7 +170,7 @@ def compute_low_fidelity_aerothermo(assemblies, options, epoch = None) -> list:
         _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
         flow_direction = flow_directions[group_map[it]]
         if not hasattr(_assembly, 'aero_index'):
-            ray_trace(groups[group_map[it]],n, options)
+            ray.trace(groups[group_map[it]],n, options)
         else: 
             pass
 
@@ -605,257 +182,19 @@ def compute_low_fidelity_aerothermo(assemblies, options, epoch = None) -> list:
     return groups
 
 
-def edge_subdivision(v0 : np.ndarray,v1 : np.ndarray,v2 : np.ndarray, n : int) -> np.ndarray:
-    """Each subdivision level divides the triangle into 4 parts with equal areas
-
-    :param v0: Array of first vertex positions.
-    :type v0: np.ndarray
-    :param v1: Array of second vertex positions.
-    :type v1: np.ndarray
-    :param v2: Array of third vertex positions.
-    :type v2: np.ndarray
-    :param n: Number of subdivision levels.
-    :type n: int
-    :return: Array of centroid positions.
-    :rtype: np.ndarray"""
-
-    def COG_subdivision(v0,v1,v2, COG, start, n, i = 1):
-        """Recursively subdivides a triangle based upon centroid
-
-        :param v0: Array of first vertex positions.
-        :type v0: np.ndarray
-        :param v1: Array of second vertex positions.
-        :type v1: np.ndarray
-        :param v2: Array of third vertex positions.
-        :type v2: np.ndarray
-        :param COG: Array of centroid positions.
-        :type COG: np.ndarray
-        :param start: Starting index for the current subdivision.
-        :type start: int
-        :param n: Number of subdivision levels.
-        :type n: int
-        :param i: Current subdivision level.
-        :type i: int
-        :return: Resultant subdivision level.
-        :rtype: int"""
-    
-        v0v1 = (v0 + v1) / 2.0
-        v0v2 = (v0 + v2) / 2.0
-        v1v2 = (v1 + v2) / 2.0
-    
-        if i == n:
-    
-            COG[start+0::4**n,:] = (v0v1 + v0v2 + v0)/3.0
-            COG[start+1::4**n,:] = (v0v1 + v1v2 + v1)/3.0
-            COG[start+2::4**n,:] = (v0v2 + v1v2 + v2)/3.0
-            COG[start+3::4**n,:] = (v0v1 + v0v2 + v1v2)/3.0
-    
-            return start + 4
-    
-        else:
-            start = COG_subdivision(v0v1,v0v2, v0, COG, start, n, i+1)
-            start = COG_subdivision(v0v1,v1, v1v2, COG, start, n, i+1)
-            start = COG_subdivision(v0v2,v1v2, v2, COG, start, n, i+1)
-            start = COG_subdivision(v0v1,v1v2, v0v2, COG, start, n, i+1)
-
-
-    if n == 0:
-        COG = (v0+v1+v2)/3.0
-
-    else:
-        COG = np.zeros((len(v0)*4**n,3))
-        COG_subdivision(v0,v1,v2,COG, 0, n)
-
-    return COG
-
-def ray_trace(assembly_group : list, n : int, options, output_rays : str = None):
-    """Calls the ray-tracing engine to assign the aero_index parameter across an assembly ensemble
-
-    :param assembly_group: List of assembly objects.
-    :type assembly_group: list
-    :param n: Number of subdivision levels.
-    :type n: int
-    :param options: Options object.
-    :type options: object
-    :param output_rays: Whether to output debug ray geometry, either "leading" or "trailing".
-    :type output_rays: str, optional"""
-
-    # Prefilter our raytracing by flow-facing facets
-    theta = [0]
-    v0 = [[0,0,0]]
-    v1 = [[0,0,0]]
-    v2 = [[0,0,0]]
-    pointers = [0]
-    flow_dirs = [[0,0,0]]
-    for i_assem, _assembly in enumerate(assembly_group):
-        assem_body_flow_vec = -Rot.from_quat(_assembly.quaternion).inv().apply(_assembly.velocity)
-        assem_body_flow_vec /= np.linalg.norm(assem_body_flow_vec)
-        facet_normals = _assembly.mesh.facet_normal
-        length_normals = np.linalg.norm(facet_normals, axis = 1, ord = 2)
-        _assembly.aerothermo.theta = np.pi/2 - np.arccos(np.clip(np.sum(- assem_body_flow_vec * facet_normals/length_normals[:,None] , axis = 1), -1.0, 1.0))
-        _assembly.freestream.per_facet_mach = np.full_like(length_normals,_assembly.freestream.mach)
-        theta = np.hstack([theta,_assembly.aerothermo.theta])
-        v0 = np.vstack([v0, _assembly.mesh.v0])
-        v1 = np.vstack([v1,_assembly.mesh.v1])
-        v2 = np.vstack([v2, _assembly.mesh.v2])
-        pointers.append(pointers[-1]+len(length_normals))
-        flow_dirs = np.vstack([flow_dirs,[_assembly.velocity for _ in range(len(length_normals))]])
-    
-    theta     = theta[1:]
-    v0        = v0[1:,:]
-    v1        = v1[1:,:]
-    v2        = v2[1:,:]
-    flow_dirs = flow_dirs[1:,:]
-    filtered_facet_indices = np.where(theta>0)[0]
-    
-    flow_dirs = flow_dirs[filtered_facet_indices,:]
-
-    base_assembly = assembly_group[0]
-    meshlist = []
-
-    main_Translate_ECEF = trimesh.transformations.translation_matrix(-_assembly.position)
-    main_Translate_CoG  = trimesh.transformations.translation_matrix(Rot.from_quat(base_assembly.quaternion).apply(_assembly.COG))
-    flow_dirs  = -flow_dirs
-    flow_len   = np.linalg.norm(flow_dirs, axis = 1)
-    flow_dirs /= flow_len[:,np.newaxis]
-
-    for i_assem, _assembly in enumerate(assembly_group):
-        new_mesh = trimesh.Trimesh(vertices=_assembly.mesh.nodes, faces=_assembly.mesh.facets)
-        quaternion = np.append([_assembly.quaternion[3]], _assembly.quaternion[0:3])
-        R_ECEF_from_B = trimesh.transformations.quaternion_matrix(quaternion)
-        Translate_COG = trimesh.transformations.translation_matrix(-_assembly.COG)
-        Translate_ECEF = trimesh.transformations.translation_matrix(_assembly.position)
-        #
-        Matrix = main_Translate_CoG@main_Translate_ECEF@Translate_ECEF@R_ECEF_from_B@Translate_COG
-        new_mesh.apply_transform(Matrix)
-        TransMatrix = Trans.from_matrix(Matrix)
-        v0[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
-            v0[pointers[i_assem]:pointers[i_assem+1],:]
-            )
-        v1[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
-            v1[pointers[i_assem]:pointers[i_assem+1],:]
-            )
-        v2[pointers[i_assem]:pointers[i_assem+1],:] = TransMatrix.apply(
-            v2[pointers[i_assem]:pointers[i_assem+1],:]
-            )
-        meshlist.append(new_mesh)
-
-    
-    mesh = trimesh.util.concatenate(meshlist)
-
-    ray = RayMeshIntersector(mesh)
-
-    facet_centroids = edge_subdivision(v0[filtered_facet_indices], 
-                                       v1[filtered_facet_indices], 
-                                       v2[filtered_facet_indices], n)
-    for _ in range(n):
-        flow_dirs = np.repeat(flow_dirs,4, axis=0)
-
-    ray_origins = facet_centroids - 1e-4*flow_dirs
-    ray_directions = -flow_dirs
-
-    ray_directions.shape = (-1,3)
-    facet_sees_flow =  np.zeros_like(theta, dtype=np.int16)
-
-    match output_rays:
-        case 'leading':
-            ray_ends   = facet_centroids - 10*flow_dirs
-            ray_starts = facet_centroids
-        case 'trailing':
-            ray_ends   = facet_centroids + 10*flow_dirs 
-            ray_starts = facet_centroids
-        case 'body':
-            R_B_from_ECEF = Rot.from_quat(base_assembly.quaternion).inv()
-            ray_ends = R_B_from_ECEF.apply(facet_centroids -10*flow_dirs)
-            ray_starts = R_B_from_ECEF.apply(facet_centroids)
-
-    if output_rays is not None:
-        if not pathlib.Path(options.output_folder+'/Rays').exists():
-            pathlib.Path(options.output_folder+'/Rays').mkdir(parents=True)
-        if not hasattr(options, 'n_debug'): options.n_debug = 0
-        else: options.n_debug+=1
-        mesh.export(options.output_folder+'/Rays/debug_{}.stl'.format(options.n_debug))
-        write_rays_to_vtk(options.output_folder+'/Rays/debug_rays_{}.vtk'.format(options.n_debug),ray_starts, ray_ends)
-
-    hits  = ~ray.intersects_any(ray_origins = ray_origins, ray_directions = ray_directions)
-    hits = hits.reshape([-1, 4**n])
-    hits = np.sum(hits, axis = 1)
-    facet_sees_flow[filtered_facet_indices] = hits
-
-    for i_assembly, _assembly in enumerate(assembly_group):
-
-        per_assem_see_flow = facet_sees_flow[pointers[i_assembly]:pointers[i_assembly+1]]
-        _assembly.aerothermo.partial_factor = per_assem_see_flow/(4**n)
-
-        per_assem_see_flow = np.arange(len(_assembly.mesh.facets))[per_assem_see_flow != 0]
-
-
-        if options.aerothermo.recalculate_Aref or _assembly.Aref is None:
-            _assembly.aerothermo.proj_area = 0
-            proj_facet_areas = _assembly.mesh.facet_area[per_assem_see_flow] * np.sin(_assembly.aerothermo.theta[per_assem_see_flow])
-            _assembly.aerothermo.proj_area=np.sum(proj_facet_areas)
-        
-            if _assembly.Aref is None:
-                _assembly.Aref = _assembly.aerothermo.proj_area
-
-        if options.aerothermo.recalculate_Lref:
-            transform = Trans.from_rotation(R_W_from_B(_assembly.aoa, _assembly.slip))*Trans.from_translation(-_assembly.COG)
-            projected_verts = transform.apply(np.vstack([_assembly.mesh.v0, _assembly.mesh.v1, _assembly.mesh.v2]))
-            _assembly.Lref = np.linalg.norm(np.max(projected_verts[:,1:], axis=0) - np.min(projected_verts[:,1:], axis=0))
-
-        _assembly.aero_index = per_assem_see_flow
-
-def shock_angle(M:float, theta_array:np.ndarray, gamma: float) -> np.ndarray:
-    """Calculates the shock wave angle beta for an oblique shock for an array of flow turn angles.
-
-    :param M: Mach number.
-    :type M: float
-    :param theta_array: Array of facet incidence angles in radians.
-    :type theta_array: np.ndarray
-    :param gamma: Ratio of specific heats.
-    :type gamma: float
-    :return: Array of shock wave angles in radians.
-    :rtype: np.ndarray"""
-
-    # Define the equation for the shock wave angle beta
-    def equation(beta : np.ndarray, theta: np.ndarray) -> np.ndarray:
-        """Documentation for the function.
-        :param beta: Array of shock wave angles in radians.
-        :type beta: np.ndarray
-        :param theta: Array of facet incidence angles in radians.
-        :type theta: np.ndarray
-        :return: Return value.
-        :rtype: np.ndarray"""
-        return np.tan(theta) - 2 * (1 / np.tan(beta)) * ((M**2 * np.sin(beta)**2 - 1) / 
-                                                         (M**2 * (gamma + np.cos(2 * beta)) + 2))
-
-    # Array to store the resulting beta angles
-    beta_deg_array = []
-
-    # Loop over each theta and solve for beta
-    for theta in theta_array:
-        # Initial guess for beta (in radians), typically starts just above theta
-        beta_initial_guess = theta + np.radians(5)  # A guess slightly larger than theta
-
-        # Solve the equation for beta
-        beta_solution = fsolve(equation, beta_initial_guess, args=(theta))[0]
-        
-        # Convert beta to degrees and append to the result list
-        beta_deg_array.append(beta_solution)
-
-    return np.array(beta_deg_array)
 
 
 def aerodynamics_module_continuum(assembly, p : np.ndarray, flow_direction : np.ndarray) -> np.ndarray:
     """Pressure computation for continuum regime
+
     :param assembly: Assembly object to process.
-    :type assembly: object
-    :param p: Value for p.
-    :type p: Any
+    :type assembly: Assembly
+    :param p: Array of hit indices
+    :type p: np.ndarray
     :param flow_direction: Value for flow direction.
-    :type flow_direction: str
-    :return: Return value.
-    :rtype: Any"""
+    :type flow_direction: np.ndarray
+    :return: Pressure.
+    :rtype: np.ndarray"""
     facet_normal = assembly.mesh.facet_normal
     free = assembly.freestream
 
@@ -885,14 +224,15 @@ def aerodynamics_module_continuum(assembly, p : np.ndarray, flow_direction : np.
 
 def aerothermodynamics_module_ice_giants(assembly, p : np.ndarray, options) -> np.ndarray:
     """Low-fidelity computation of the aerothermodynamics in the Ice giants planet
-:param assembly: Assembly object to process.
-:type assembly: object
-:param p: Value for p.
-:type p: Any
-:param options: Options or configuration object.
-:type options: object
-:return: Return value.
-:rtype: Any"""
+
+    :param assembly: Assembly object to process.
+    :type assembly: Assembly
+    :param p: Array of hit indices.
+    :type p: np.ndarray
+    :param options: Options or configuration object.
+    :type options: Options
+    :return: Return value.
+    :rtype: Any"""
 
     length_normal = np.linalg.norm(assembly.mesh.facet_normal, axis = 1, ord = 2)
     p = p*(length_normal[p] != 0)
@@ -918,87 +258,20 @@ def aerothermodynamics_module_ice_giants(assembly, p : np.ndarray, options) -> n
 
 def aerothermodynamics_module_continuum(assembly, p : np.ndarray, options) -> np.ndarray:
     """Heatflux computation for continuum regime
-:param assembly: Assembly object to process.
-:type assembly: object
-:param p: Value for p.
-:type p: Any
-:param options: Options or configuration object.
-:type options: object
-:return: Return value.
-:rtype: Any"""
+
+    :param assembly: Assembly object to process.
+    :type assembly: Assembly
+    :param p: Array of hit indices
+    :type p: np.ndarray
+    :param options: Options or configuration object.
+    :type options: Options
+    :return: Array of Stanton numbers 
+    :rtype: np.ndarray"""
 
     facet_normal = assembly.mesh.facet_normal
     facet_radius = assembly.mesh.facet_radius
     free = assembly.freestream
     body_temperature = assembly.aerothermo.temperature
-
-
-    def FR(flow, vel_grad):
-        """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param vel_grad: Value for vel grad.
-:type vel_grad: Any
-:return: Return value.
-:rtype: Any"""
-        q = 0.94*(flow.rhow*flow.muw)**0.1*(flow.rhoe*flow.mue)**0.4*(flow.He - flow.Hw)*np.sqrt(vel_grad)
-        return q
-
-    def FR_non_cat(flow, vel_grad):
-        """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param vel_grad: Value for vel grad.
-:type vel_grad: Any
-:return: Return value.
-:rtype: Any"""
-        q = 0.94*(flow.rhow*flow.muw)**0.1*(flow.rhoe*flow.mue)**0.4*(flow.He - flow.Hw)*np.sqrt(vel_grad)*(1-flow.Hd/flow.He)
-        return q
-
-    def VD(flow, vel_grad):
-        """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param vel_grad: Value for vel grad.
-:type vel_grad: Any
-:return: Return value.
-:rtype: Any"""
-        q = 0.94*(flow.rhoe*flow.mue)**0.5*(flow.He - flow.Hw)*np.sqrt(vel_grad)
-        return q
-
-    def SCARAB(flow, radius):
-        """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param radius: Numeric value for radius.
-:type radius: float
-:return: Return value.
-:rtype: Any"""
-
-        ## In TITAN is 2*radius because fostrad assumes SCARAB uses diameter ?
-        # In addition, Scarab uses that viscosity at stagnation point is given by the power law
-        # And chemistry is not accounted for in this scarab formulation 
-
-        # The equation
-        #    Re = flow.rhofree * flow.ufree/flow.mue * (2* radius)
-        # is replaced by
-        Re = flow.rhofree * flow.ufree/(flow.mufree*(flow.T0_post/flow.Tfree)**0.75)
-        Re0 = Re * (2* radius)
-        St = 2.1/np.sqrt(Re0)
-        q = St * 0.5*flow.rhofree*flow.ufree**3
-        return q
-
-    def SG(flow, radius):
-        """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param radius: Numeric value for radius.
-:type radius: float
-:return: Return value.
-:rtype: Any"""
-        #K retrieved from Sutton graves paper
-        q =  0.1117*np.sqrt(flow.Pe/radius)*(1/np.sqrt(101325))*(flow.He - flow.Hw)
-        return q
 
     hf_model = options.aerothermo.heat_model
 
@@ -1036,50 +309,52 @@ def aerothermodynamics_module_continuum(assembly, p : np.ndarray, options) -> np
 
     if free.mach < 1: hf_model = 'vd'
 
-    if hf_model == 'sc': #Scarab formulation and Lees distribution
-        # (OLD Fostrad equation)
-        Re0norm = free.density * free.velocity / (free.mu *(T0s/free.temperature)**free.omega)
-        Re0 = 2.0*facet_radius[p]*Re0norm
-        Stc = 2.1/np.sqrt(Re0)
-    
-    if hf_model == 'vd': #Van Driest
-        # (Old Fostrad equation)
-        #This Van Driest formula is considering non-reacting flow, thus not accounting for changes in the mixture for the BLE
-        Stc = 0.763*(Pr**(-0.6))*(rhos*mu_T0s)**0.5*np.sqrt(dudx[p])*(h0s-free.cp*body_temperature[p])/StConst 
+    match hf_model:
 
-    if hf_model == 'fr': #Fay Riddell
-        mix = mixture_mpp(options.aerothermo.mixture)
-        flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
-        vel_grad = velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
-        q = general_eq(flow_ble, vel_grad, 'fr')
-        Stc = q/StConst
+        case 'sc': #Scarab formulation and Lees distribution
+            # (OLD Fostrad equation)
+            Re0norm = free.density * free.velocity / (free.mu *(T0s/free.temperature)**free.omega)
+            Re0 = 2.0*facet_radius[p]*Re0norm
+            Stc = 2.1/np.sqrt(Re0)
 
-    if hf_model == 'fr_noncat': #Fay Riddell
-        mix = mixture_mpp(options.aerothermo.mixture)
-        flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
-        vel_grad = velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
-        q = general_eq(flow_ble, vel_grad, 'fr_noncat')        
-        Stc = q/StConst
+        case 'vd': #Van Driest
+            # (Old Fostrad equation)
+            #This Van Driest formula is considering non-reacting flow, thus not accounting for changes in the mixture for the BLE
+            Stc = 0.763*(Pr**(-0.6))*(rhos*mu_T0s)**0.5*np.sqrt(dudx[p])*(h0s-free.cp*body_temperature[p])/StConst 
 
-    if hf_model == 'fr_parcat': #Fay Riddell
-        do_pfm = False
-        if do_pfm:
-            Mfree = free.mach * np.sin(Theta)
-            Mfree[Mfree<1] = 1
-            flow_ble = stagnation_line_per_facet(Tfree = free.temperature, Pfree = free.pressure, Mfree = Mfree, Twall = body_temperature[p], mixname = options.aerothermo.mixture)
-        else: 
-            mix = mixture_mpp(options.aerothermo.mixture)
-            flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
-        vel_grad = velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
-        q = general_eq(flow_ble, vel_grad, 'fr_parcat', cat_rate)       
-        Stc = q/StConst
+        case 'fr': #Fay Riddell
+            mix = eqs.mixture_mpp(options.aerothermo.mixture)
+            flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+            vel_grad = eqs.velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
+            q = eqs.general_eq(flow_ble, vel_grad, 'fr')
+            Stc = q/StConst
 
-    if hf_model == 'sg': #Sutton_graves
-        mix = mixture_mpp(options.aerothermo.mixture)
-        flow_ble = stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
-        vel_grad = velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
-        q = general_eq(flow_ble, vel_grad, 'sg')
-        Stc = q/StConst
+        case 'fr_noncat': #Fay Riddell
+            mix = eqs.mixture_mpp(options.aerothermo.mixture)
+            flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+            vel_grad = eqs.velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
+            q = eqs.general_eq(flow_ble, vel_grad, 'fr_noncat')        
+            Stc = q/StConst
+
+        case 'fr_parcat': #Fay Riddell
+            do_pfm = False
+            if do_pfm:
+                Mfree = free.mach * np.sin(Theta)
+                Mfree[Mfree<1] = 1
+                flow_ble = eqs.stagnation_line_per_facet(Tfree = free.temperature, Pfree = free.pressure, Mfree = Mfree, Twall = body_temperature[p], mixname = options.aerothermo.mixture)
+            else: 
+                mix = eqs.mixture_mpp(options.aerothermo.mixture)
+                flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+            vel_grad = eqs.velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
+            q = eqs.general_eq(flow_ble, vel_grad, 'fr_parcat', cat_rate)       
+            Stc = q/StConst
+
+        case 'sg': #Sutton_graves
+            mix = eqs.mixture_mpp(options.aerothermo.mixture)
+            flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+            vel_grad = eqs.velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
+            q = eqs.general_eq(flow_ble, vel_grad, 'sg')
+            Stc = q/StConst
 
     K = 0.1
     Stc = Stc*(K + (1-K)* np.sin(Theta)) #Lees laminar heat transfer distribution 
@@ -1116,12 +391,13 @@ def aerothermodynamics_module_continuum(assembly, p : np.ndarray, options) -> np
 
 def aerothermodynamics_module_freemolecular(assembly, p : np.ndarray) -> np.ndarray:
     """Heatflux computation for free-molecular regime
-:param assembly: Assembly object to process.
-:type assembly: object
-:param p: Value for p.
-:type p: Any
-:return: Return value.
-:rtype: Any"""
+
+    :param assembly: Assembly object to process.
+    :type assembly: Assembly
+    :param p: Array of hit indices
+    :type p: np.ndarray
+    :return: Array of Stanton numbers
+    :rtype: np.ndarray"""
 
     facet_normal = assembly.mesh.facet_normal
     free = assembly.freestream
@@ -1152,14 +428,15 @@ def aerothermodynamics_module_freemolecular(assembly, p : np.ndarray) -> np.ndar
 
 def aerodynamics_module_freemolecular(assembly, p : np.ndarray, flow_direction : np.ndarray):
     """Pressure computation for Free-molecular regime
-:param assembly: Assembly object to process.
-:type assembly: object
-:param p: Value for p.
-:type p: Any
-:param flow_direction: Value for flow direction.
-:type flow_direction: str
-:return: Return value.
-:rtype: Any"""
+
+    :param assembly: Assembly object to process.
+    :type assembly: Assembly
+    :param p: Array of hit indices
+    :type p: np.ndarray
+    :param flow_direction: Unit vector in flow direction
+    :type flow_direction: np.ndarray
+    :return: Array of pressures, array of shears.
+    :rtype: tuple[np.ndarray]"""
 
     facet_normal = assembly.mesh.facet_normal
     free = assembly.freestream
@@ -1173,9 +450,9 @@ def aerodynamics_module_freemolecular(assembly, p : np.ndarray, flow_direction :
 
     SR = np.sqrt(0.5*free.gamma)*free.per_facet_mach[p]
     # According to https://doi.org/10.1016/0032-0633(91)90020-B
-    SN = 1#0.93
-    ST = 1#1.11-0.17/np.cos(np.abs(Theta-np.pi/2))
-    ST = np.clip(ST, 0.0, 1.0)
+    SN = 1.11-0.17/np.cos(np.abs(Theta-np.pi/2))
+    ST = 0.93
+    SN = np.clip(ST, 0.0, 1.0)
 
     pfm1 = ((2 - SN)/np.sqrt(np.pi)*(SR*np.sin(Theta)) + 0.5*SN*np.sqrt(body_temperature[p]/free.temperature))*np.exp(-(SR*np.sin(Theta))**2.0)
     pfm2 = ((2 - SN)*(SR**2*np.sin(Theta)**2 + 0.5) + 0.5 * SN * np.sqrt(np.pi) * np.sqrt(body_temperature[p]/free.temperature) * (SR*np.sin(Theta)))*(1 + special.erf(SR*np.sin(Theta)))
@@ -1208,14 +485,14 @@ def aerodynamics_module_freemolecular(assembly, p : np.ndarray, flow_direction :
 
 def bridging(free, Kn_cont : float, Kn_free: float) -> float:
     """Computation of the bridging factor for the aeordynamic computation
-:param free: Value for free.
-:type free: Any
-:param Kn_cont: Value for kn cont.
-:type Kn_cont: Any
-:param Kn_free: Value for kn free.
-:type Kn_free: Any
-:return: Return value.
-:rtype: Any"""
+    :param free: Freestream conditions
+    :type free: Freestream
+    :param Kn_cont: Continuum knudsen.
+    :type Kn_cont: float
+    :param Kn_free: Free molecular knudsen number.
+    :type Kn_free: float
+    :return: Bridging factor t ∈ [0,1].
+    :rtype: float"""
 
     CF_ratiolow  = 0.1508
     CF_ratiohigh = 1e-6
@@ -1230,16 +507,17 @@ def bridging(free, Kn_cont : float, Kn_free: float) -> float:
 
 def aerodynamics_module_bridging(assembly, p : np.ndarray, aerobridge : float, flow_direction : np.ndarray):
     """Pressure computation for Transitional regime
-:param assembly: Assembly object to process.
-:type assembly: object
-:param p: Value for p.
-:type p: Any
-:param aerobridge: Value for aerobridge.
-:type aerobridge: Any
-:param flow_direction: Value for flow direction.
-:type flow_direction: str
-:return: Return value.
-:rtype: Any"""
+
+    :param assembly: Assembly object to process.
+    :type assembly: Assembly
+    :param p: Array of hit indices.
+    :type p: np.ndarray
+    :param aerobridge: Bridging factor t ∈ [0,1].
+    :type aerobridge: float
+    :param flow_direction: Unit vector in flow direction.
+    :type flow_direction: np.ndarray
+    :return: Pressure array, shear array.
+    :rtype: tuple[np.ndarray]"""
 
     facet_normal = assembly.mesh.facet_normal
     free = assembly.freestream
@@ -1256,7 +534,14 @@ def aerodynamics_module_bridging(assembly, p : np.ndarray, aerobridge : float, f
     return Pressure, Shear
 
 def create_thermal_bridge():
-    #Interpolates the data according to experimental values and local radius to obtain a more accurate bridging factor
+    """Interpolates the data according to experimental values and local radius to obtain a more accurate bridging factor.
+    
+    Based upon the Mars Micro, Pathfinder and Orion CEV capsules along with an averaged nose radius
+
+    :return: list of interpolators for the 4 cases
+    :rtype: list[scipy.interpolation.PchipInterpolator]
+    """
+    #
     interpolators = []
     Rmodels = np.array([0.0875,   #Mars Micro
                         0.664,    #Pathfinder
@@ -1332,24 +617,25 @@ def create_thermal_bridge():
     f_orion = PchipInterpolator(Orion_breaks, Orion_coeffs)
     interpolators.append(f_orion)
     return interpolators
-def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn_cont, Kn_free, options, epoch = None):
-    """Heatflux computation for the heat-flux regime
-:param assembly: Assembly object to process.
-:type assembly: object
-:param p: Value for p.
-:type p: Any
-:param flow_direction: Value for flow direction.
-:type flow_direction: str
-:param atm_data: Value for atm data.
-:type atm_data: Any
-:param Kn_cont: Value for kn cont.
-:type Kn_cont: Any
-:param Kn_free: Value for kn free.
-:type Kn_free: Any
-:param options: Options or configuration object.
-:type options: object
-:return: Return value.
-:rtype: Any"""
+def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_model, Kn_cont, Kn_free, options, epoch = None):
+    """Heatflux computation for the transitional regime
+
+    :param assembly: Assembly object to process.
+    :type assembly: Assembly
+    :param p: Array of hit indices
+    :type p: np.ndarray
+    :param flow_direction: Unit vector in flow direction.
+    :type flow_direction: np.ndarray
+    :param atm_model: Atmospheric model.
+    :type atm_data: str
+    :param Kn_cont: Continuum Knudsen number.
+    :type Kn_cont: float
+    :param Kn_free: Free molecular Knudsen number.
+    :type Kn_free: float
+    :param options: Options or configuration object.
+    :type options: Options
+    :return: Array of Stanton numbers.
+    :rtype: np.ndarray"""
 
     lref = assembly.Lref
     free = assembly.freestream
@@ -1357,15 +643,15 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     facet_normal = assembly.mesh.facet_normal
 
     #Computes the altitude of which the transition between flow regimes occur
-    alt_cont, alt_free = bridging_altitudes(atm_data, Kn_cont, Kn_free, lref, options, 
+    alt_cont, alt_free = bridging_altitudes(atm_model, Kn_cont, Kn_free, lref, options, 
                                             [assembly.trajectory.latitude,assembly.trajectory.longitude], epoch)
     
     free_cont = copy(free)
     free_free = copy(free)
 
     #Computes the freestream properties for the transition altitudes
-    mix_properties.compute_freestream(atm_data, alt_cont, free.velocity, lref, free_cont, assembly, options,epoch)
-    mix_properties.compute_freestream(atm_data, alt_free, free.velocity, lref, free_free, assembly, options, epoch)
+    mix_properties.compute_freestream(atm_model, alt_cont, free.velocity, lref, free_cont, assembly, options,epoch)
+    mix_properties.compute_freestream(atm_model, alt_free, free.velocity, lref, free_free, assembly, options, epoch)
     
     #HFcont = aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p, wall_temperature, flow_direction, hf_model)
     #HFfree = aerothermodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, wall_temperature)
@@ -1407,18 +693,25 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_data, Kn
     St.shape = (-1)
     return St
 
-def bridging_altitudes(model, Kn_cont,Kn_free, lref, options, latlon = None, epoch = None):
-    """Documentation for the function.
-:param model: Value for model.
-:type model: Any
-:param Kn_cont: Value for kn cont.
-:type Kn_cont: Any
-:param Kn_free: Value for kn free.
-:type Kn_free: Any
-:param lref: Value for lref.
-:type lref: Any
-:return: Return value.
-:rtype: Any"""
+def bridging_altitudes(model : str, Kn_cont : float, Kn_free : float, lref : float, options, latlon = None, epoch = None):
+    """Bridging function for returning equivalent altitudes for continuum and free molecular flow
+
+    :param model: Atmospheric model.
+    :type model: str
+    :param Kn_cont: Continuum Knudsen Number.
+    :type Kn_cont: float
+    :param Kn_free: Free molecular Knudsen Number.
+    :type Kn_free: float
+    :param lref: Reference length (m).
+    :type lref: float
+    :param options: Options object
+    :type options: Options
+    :param latlon: Latitude and longitude
+    :type latlon: tuple, optional
+    :param epoch: Atmospheric reference time
+    :type epoch: datetime.datetime, optional 
+    :return: Continuum and Free-Molecular Altitudes (m).
+    :rtype: tuple[float]"""
     if not hasattr(options, 'kn_interp'):
         h_interval = np.linspace(1000,300000,25000)
         altitude_knudsen = mix_properties.interpolate_atmosphere_knudsen(model, lref, h_interval, options, latlon, epoch)
@@ -1428,158 +721,19 @@ def bridging_altitudes(model, Kn_cont,Kn_free, lref, options, latlon = None, epo
 
     return alt_cont, alt_free
 
-### Standoff Distance:
-def compute_delta(flow, method_delta):
-    """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param method_delta: Value for method delta.
-:type method_delta: Any
-:return: Return value.
-:rtype: Any"""
-    if method_delta.lower() == 'billig':
-        return 0.143*np.exp(3.24/flow.Mfree**2)
-    
-    if method_delta.lower() == 'lobb':
-        return 0.82*flow.rhofree/flow.rho_post
 
-    if method_delta.lower() == 'serbin':
-        M = flow.Mfree
-        g = flow.gammafree
-        return 2.0 / (3.0 * ((((g+1.0)**2*M**2)/(4*g*M**2-2*(g-1.0)))**(1/(g-1))*((g+1)*M**2)/(2+(g-1)*M**2)-1)) 
-    
-    if method_delta.lower() == 'probstein':
-        ratio = flow.rhofree/flow.rho_post
-        return ratio/(1-ratio+np.sqrt(8.0/3.0*ratio))
-    
-    if method_delta.lower() == "freeman":
-        return flow.rhofree/flow.rho_post
-
-
-### Velocity Gradient:
-def velocity_gradient(method, radius, flow, method_delta = 'billig'):
-    """Documentation for the function.
-:param method: Value for method.
-:type method: Any
-:param radius: Numeric value for radius.
-:type radius: float
-:param flow: Value for flow.
-:type flow: Any
-:param method_delta: Value for method delta.
-:type method_delta: Any
-:return: Return value.
-:rtype: Any"""
-    if method.lower() == "fr":
-        return 1/radius*(np.sqrt(2*(flow.Pe - flow.Pfree)/flow.rhoe))
-
-    if method.lower() == "linnell":
-        k = flow.rhofree/flow.rho_post
-        return flow.ufree/radius*np.sqrt(flow.rho_post/flow.rhoe*k*(2-k))
-
-    if method.lower() == "newton":
-        return flow.ufree/radius
-
-    if method.lower() == "stokes":
-        delta = compute_delta(flow, method_delta)
-        return 3.0/2.0*flow.u_post/radius*(((1+delta)**3)/((1+delta)**3-1))
-
-    if method.lower() == "olivier":
-        delta = compute_delta(flow, method_delta)
-        return flow.ufree/radius*(1+delta)/delta*(flow.Pe-flow.P_post)/(flow.rhofree*flow.ufree**2)*(flow.rho_post/flow.rho0_post)# or low.rhoe?? Do I need to equilibrate right after shock?
-
-### Heatflux_equations:
-def general_eq(flow, vel_grad, method = "FR", cat_rate = 0):
-    """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param vel_grad: Value for vel grad.
-:type vel_grad: Any
-:param method: Value for method.
-:type method: Any
-:param cat_rate: Value for cat rate.
-:type cat_rate: Any
-:return: Return value.
-:rtype: Any"""
-    q = flow.muw/flow.Pr* \
-        detady(flow, vel_grad, method) * \
-        dhdeta(flow, method) * (flow.He - flow.Hw) *\
-        LAF(flow, method, cat_rate, vel_grad)
-    
-    return q
-
-#Distance used in heat equations:
-def detady(flow, vel_grad, method):
-    """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param vel_grad: Value for vel grad.
-:type vel_grad: Any
-:param method: Value for method.
-:type method: Any
-:return: Return value.
-:rtype: Any"""
-    return np.sqrt(2)*flow.rhow*np.sqrt(vel_grad)/(flow.rhoe*flow.mue)**0.5
-
-#Approximation dh/dη
-def dhdeta(flow, method):
-    """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param method: Value for method.
-:type method: Any
-:return: Return value.
-:rtype: Any"""
-    if method.lower() == 'fr' or method.lower() == 'fr_noncat' or method.lower() == 'fr_parcat':
-        return 0.54*(flow.rhoe*flow.mue/flow.rhow/flow.muw)**0.9*flow.Pr**0.4
-    if method.lower() == 'vd':
-        return 0.54*(flow.rhoe*flow.mue/flow.rhow/flow.muw)**1.0*flow.Pr**0.4
-    if method.lower() == 'sg':
-        return 0.58*(flow.MW_free/flow.MWe)**(1.0/8.0)*(flow.rhoe*flow.mue/flow.rhow/flow.muw)*flow.Pr**0.4*np.sqrt(flow.mu_orig_e/flow.mue)
-
-
-def coeff_goulard(flow, vel_grad, rate):
-    """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param vel_grad: Value for vel grad.
-:type vel_grad: Any
-:param rate: Value for rate.
-:type rate: Any
-:return: Return value.
-:rtype: Any"""
-    #TODO. Not sure what would be the Sc number here, leaving to be approximatly one
-    Sc = 1.0
-    coeff =  1.0 / (1 + (0.47 * Sc **(-2/3.0) * (2*vel_grad*flow.mue * flow.rhoe) ** 0.5) / (flow.rhow * rate / (2*np.pi * 28.96 / (8.314)/ flow.Twall)) )
-
-    return coeff
-
-#Lewis augmentation factor:
-def LAF(flow, method, cat_rate = 0, vel_grad = 0):
-    """Documentation for the function.
-:param flow: Value for flow.
-:type flow: Any
-:param method: Value for method.
-:type method: Any
-:param cat_rate: Value for cat rate.
-:type cat_rate: Any
-:param vel_grad: Value for vel grad.
-:type vel_grad: Any
-:return: Return value.
-:rtype: Any"""
-    if method == 'fr_noncat': return (1 - flow.Hd/flow.He)
-    if method == 'fr_parcat': return (1+(flow.Le*coeff_goulard(flow, vel_grad, cat_rate) -1)*flow.Hd/flow.He)
-    return 1
-
-def compute_per_facet_flow_dir(assembly,flow_direction, do_pfm=False):
+def compute_per_facet_flow_dir(assembly,flow_direction : np.ndarray, do_pfm=False) -> np.ndarray:
     """Recalculates flow direction on a per-facet basis, returns array of flow directions and array of local Machs
-:param assembly: Assembly object to process.
-:type assembly: object
-:param flow_direction: Value for flow direction.
-:type flow_direction: str
-:param do_pfm: Value for do pfm.
-:type do_pfm: Any
-:return: Return value.
-:rtype: Any"""
+    
+    :param assembly: Assembly object to process.
+    :type assembly: Assembly
+    :param flow_direction: Unit vector pointing in flow direction.
+    :type flow_direction: str
+    :param do_pfm: Flag to calculate .
+    :type do_pfm: Any
+    :return: Array of Mach numbers
+    :rtype: np.ndarray
+    """
 
     free = assembly.freestream
     velocity_resultant = free.mach*free.sound*np.tile(flow_direction,[len(assembly.mesh.facet_area),1])
@@ -1595,14 +749,16 @@ def compute_per_facet_flow_dir(assembly,flow_direction, do_pfm=False):
     return velocity_resultant, mach_resultant
 
 
-def SoI_assembly_groups(assembly_list : list, sphere_radius : float):
+def sphere_of_influence_assembly_groups(assembly_list : list, sphere_radius : float):
     """Takes a list of assemblies and returns list of assembly groups by sphere of influence as well as mean flow direction and mapping dict
-:param assembly_list: List of assembly.
-:type assembly_list: list
-:param sphere_radius: Value for sphere radius.
-:type sphere_radius: Any
-:return: Return value.
-:rtype: Any"""
+
+    :param assembly_list: List of assembly.
+    :type assembly_list: list
+    :param sphere_radius: Value for sphere radius.
+    :type sphere_radius: Float
+    :return: List of mean flow dirs, list of assembly groups,  mapping dictionary.
+    :rtype: tuple"""
+
     # Firstly convert assembly positions into kd-tree and build base groupings
     positions = np.array([_assembly.position for _assembly in assembly_list])
     tree = KDTree(positions)
@@ -1653,45 +809,4 @@ def SoI_assembly_groups(assembly_list : list, sphere_radius : float):
 
     return mean_flow_dirs, assembly_groups, group_mapping
 
-def write_rays_to_vtk(filename : str, origins : np.ndarray, ends : np.ndarray):
-    """Write ray segments to a legacy VTK PolyData file.
-:param filename: Path to the relevant file.
-:type filename: str
-:param origins: Value for origins.
-:type origins: Any
-:param ends: Value for ends.
-:type ends: Any"""
-    origins = np.asarray(origins)
-    ends = np.asarray(ends)
 
-    assert origins.shape == ends.shape
-    N = origins.shape[0]
-
-    # Create point list (each ray = 2 points)
-    points = np.vstack([origins, ends])
-    
-    # Connectivity: each ray is a 2-point polyline
-    # VTK polyline format:  "2 i j"
-    lines = []
-    for i in range(N):
-        start = i
-        end = i + N
-        lines.append(f"2 {start} {end}")
-
-    with open(filename, "w") as f:
-        f.write("# vtk DataFile Version 3.0\n")
-        f.write("Rays\n")
-        f.write("ASCII\n")
-        f.write("DATASET POLYDATA\n")
-
-        # Write points
-        f.write(f"POINTS {2*N} float\n")
-        for p in points:
-            f.write(f"{p[0]} {p[1]} {p[2]}\n")
-
-        # Write lines
-        f.write(f"LINES {N} {3*N}\n")
-        for line in lines:
-            f.write(line + "\n")
-
-    print(f"[write_rays_to_vtk] Wrote {N} rays to {filename}")

@@ -35,7 +35,7 @@ class UQMapper(MutableSequence):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
         self.parameters = []
         self.samplers = []
         self.parse_uq_yaml(titan, options.uncertainty.yaml)
@@ -130,7 +130,7 @@ class UQMapper(MutableSequence):
         :param titan: TITAN simulation object.
         :type titan: object
         :param options: Options or configuration object.
-        :type options: object
+        :type options: Options
         :return: Return value.
         :rtype: Any"""
 
@@ -147,7 +147,7 @@ class UQMapper(MutableSequence):
         :param titan: TITAN simulation object.
         :type titan: object
         :param options: Options or configuration object.
-        :type options: object
+        :type options: Options
         :return: Return value.
         :rtype: Any"""
 
@@ -229,7 +229,7 @@ class UQMapObject():
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
         if isinstance(self.assign_obj, str):
             address_steps = self.assign_obj.split(',')
             return_obj = titan if 'titan' in address_steps[0].lower() else options
@@ -248,7 +248,7 @@ class UQMapObject():
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
         self.resolve_object(titan,options)
         if len(self.assign_location)>1: 
             new_value = getattr(self.assign_obj,self.assign_location[0])

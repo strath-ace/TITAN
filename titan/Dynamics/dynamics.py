@@ -27,22 +27,23 @@ from scipy.spatial.transform import Rotation as Rot
 import pyquaternion
 
 class DerivativesPointMass():
-    """DerivativesPointMass."""
+    """Store derivatives of the point-mass trajectory state."""
     def __init__(self, dh = 0, dv = 0, dchi = 0, dgamma = 0, dlat = 0, dlon = 0):
-        """__init__.
+        """Initialize altitude, speed, heading, flight-path, and position rates.
 
-:param dh:
-:type dh:
-:param dv:
-:type dv:
-:param dchi:
-:type dchi:
-:param dgamma:
-:type dgamma:
-:param dlat:
-:type dlat:
-:param dlon:
-:type dlon:"""
+        :param dh: Altitude rate in metres per second.
+        :type dh: float
+        :param dv: Speed rate in metres per second squared.
+        :type dv: float
+        :param dchi: Heading-angle rate in radians per second.
+        :type dchi: float
+        :param dgamma: Flight-path-angle rate in radians per second.
+        :type dgamma: float
+        :param dlat: Latitude rate in radians per second.
+        :type dlat: float
+        :param dlon: Longitude rate in radians per second.
+        :type dlon: float
+    """
         self.dh = dh
         self.dv = dv
         self.dchi = dchi
@@ -56,20 +57,21 @@ class DerivativesCartesian():
         A class to store the derivatives information of position and velocity in the cartesian (ECEF) frame
     """
     def __init__(self, dx = 0, dy = 0, dz = 0, du = 0, dv = 0, dw = 0):
-        """__init__.
+        """Initialize Cartesian position and velocity derivatives.
 
-:param dx:
-:type dx:
-:param dy:
-:type dy:
-:param dz:
-:type dz:
-:param du:
-:type du:
-:param dv:
-:type dv:
-:param dw:
-:type dw:"""
+        :param dx: X-position rate in metres per second.
+        :type dx: float
+        :param dy: Y-position rate in metres per second.
+        :type dy: float
+        :param dz: Z-position rate in metres per second.
+        :type dz: float
+        :param du: X-velocity rate in metres per second squared.
+        :type du: float
+        :param dv: Y-velocity rate in metres per second squared.
+        :type dv: float
+        :param dw: Z-velocity rate in metres per second squared.
+        :type dw: float
+    """
 
         #: [float] Derivative of the X-position
         self.dx = dx
@@ -109,7 +111,8 @@ class DerivativesAngle():
 :param ddpitch:
 :type ddpitch:
 :param ddyaw:
-:type ddyaw:"""
+:type ddyaw:
+"""
 
         #: [float] Derivative of the roll angle
         self.droll   = droll

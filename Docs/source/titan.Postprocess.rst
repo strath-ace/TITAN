@@ -1,10 +1,12 @@
-titan.Postprocess package
+Postprocess
 =========================
 
-Submodules
-----------
+.. automodule:: titan.Postprocess
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-titan.Postprocess.postprocess module
+Postprocess module
 ------------------------------------
 
 .. automodule:: titan.Postprocess.postprocess
@@ -12,7 +14,7 @@ titan.Postprocess.postprocess module
    :show-inheritance:
    :undoc-members:
 
-titan.Postprocess.postprocess\_emissions module
+Postprocess emissions
 -----------------------------------------------
 
 .. automodule:: titan.Postprocess.postprocess_emissions
@@ -20,10 +22,6 @@ titan.Postprocess.postprocess\_emissions module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
 
-.. automodule:: titan.Postprocess
-   :members:
-   :show-inheritance:
-   :undoc-members:
+
+

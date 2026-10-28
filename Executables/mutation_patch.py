@@ -13,7 +13,7 @@ if __name__=='__main__':
             lines = f.readlines()
 
             for i, scriptline in enumerate(lines):
-                if i==i_line-1: lines[i] = '#include <cassert>'
+                if i==i_line-1: lines[i] = '#include <cassert>\n'
 
         with open(str(mpp_src)+script, 'w', encoding='utf-8') as f:
             f.writelines(lines)

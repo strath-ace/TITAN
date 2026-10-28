@@ -37,8 +37,8 @@ Python transcription of  MODHOC/Problems/OCD/Cartesian_6dof_OCD_eq2/Cartesian_6d
     :type params: Any
     :param const: Value for const.
     :type const: Any
-:return: Return value.
-:rtype: Any
+    :return: Return value.
+    :rtype: Any
 '''
 
 

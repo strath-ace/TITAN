@@ -22,62 +22,74 @@ import os
 import subprocess
 
 class Amg():
-    """Amg."""
+    """Store parameters for adaptive mesh generation with FEFLO/AMG."""
     def __init__(self, p=4,c = 100000, hgrad = 1.6, sensor = 'Mach'):
-        """Documentation for the function.
-:param p: Value for p.
-:type p: Any
-:param c: Value for c.
-:type c: Any
-:param hgrad: Value for hgrad.
-:type hgrad: Any
-:param sensor: Value for sensor.
-:type sensor: Any"""
+        """Initialize adaptation controls.
+
+        :param p: Adaptation parameter passed to the mesher.
+        :type p: int
+        :param c: Complexity target passed to the mesher.
+        :type c: int
+        :param hgrad: Maximum mesh-size gradation.
+        :type hgrad: float
+        :param sensor: Flow variable used to construct the adaptation sensor.
+        :type sensor: str
+        """
         self.p = p
         self.c = c
         self.hgrad = hgrad
         self.sensor = sensor
 
     def set_p(self,value):
-        """Documentation for the function.
-:param value: Numeric value for value.
-:type value: float"""
+        """Set the adaptation parameter.
+
+        :param value: New adaptation parameter.
+        :type value: int
+        """
         self.p = value
 
     def set_complex(self,value):
-        """Documentation for the function.
-:param value: Numeric value for value.
-:type value: float"""
+        """Set the target mesh complexity.
+
+        :param value: New complexity target.
+        :type value: int
+        """
         self.c = value
 
     def set_sensor(self,value):
-        """Documentation for the function.
-:param value: Numeric value for value.
-:type value: float"""
+        """Select the flow variable used for adaptation.
+
+        :param value: Sensor name, such as ``'Mach'``.
+        :type value: str
+        """
         self.sensor = value
 
     def set_hgrad(self,value):
-        """Documentation for the function.
-:param value: Numeric value for value.
-:type value: float"""
+        """Set the maximum mesh-size growth rate between neighbouring cells.
+
+        :param value: Mesh gradation limit.
+        :type value: float
+        """
         self.hgrad = value
 
 def adapt_mesh(amg, iteration, options,j, num_obj,input_grid, output_grid):
-    """Documentation for the function.
-:param amg: Value for amg.
+    """Run one adaptive-mesh pass and update the SU2 grid and restart data.
+
+:param amg: Adaptation parameters passed to the mesh generator.
 :type amg: Any
-:param iteration: Value for iteration.
+:param iteration: Current simulation iteration used to select the restart solution.
 :type iteration: Any
 :param options: Options or configuration object.
-:type options: object
-:param j: Value for j.
+:type options: Options
+:param j: Adaptation-pass index.
 :type j: Any
-:param num_obj: Integer value for num obj.
+:param num_obj: Number of objects whose surfaces are included in adaptation.
 :type num_obj: int
-:param input_grid: Value for input grid.
+:param input_grid: Input SU2 grid basename.
 :type input_grid: Any
-:param output_grid: Value for output grid.
-:type output_grid: Any"""
+:param output_grid: Output SU2 grid basename.
+:type output_grid: Any
+"""
 
     p = amg.p
     c = amg.c

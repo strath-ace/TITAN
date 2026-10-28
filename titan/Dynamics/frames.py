@@ -26,13 +26,15 @@ import pymap3d
 
 #REN to ECEF
 def R_ECEF_from_NED(lat = 0, lon = 0):
-    """Documentation for the function.
-:param lat: Value for lat.
-:type lat: Any
-:param lon: Value for lon.
-:type lon: Any
-:return: Return value.
-:rtype: Any"""
+    """Construct the rotation from local NED coordinates to ECEF.
+
+    :param lat: Geodetic latitude in radians.
+    :type lat: Any
+    :param lon: Longitude in radians.
+    :type lon: Any
+    :return: Rotation mapping NED-frame vectors into ECEF.
+    :rtype: scipy.spatial.transform.Rotation
+"""
     latitude = lat   #Latitude
     longitude = lon  #Longitude
 
@@ -45,13 +47,15 @@ def R_ECEF_from_NED(lat = 0, lon = 0):
 #WIND to REN 
 #Wind frame should have the Z direction downwards to the body
 def R_NED_from_W(fpa = 0, ha = 0):
-    """Documentation for the function.
-:param fpa: Value for fpa.
-:type fpa: Any
-:param ha: Value for ha.
-:type ha: Any
-:return: Return value.
-:rtype: Any"""
+    """Construct the rotation from the wind frame to local NED.
+
+    :param fpa: Flight-path angle in radians.
+    :type fpa: Any
+    :param ha: Heading angle in radians.
+    :type ha: Any
+    :return: Rotation mapping wind-frame vectors into NED.
+    :rtype: scipy.spatial.transform.Rotation
+"""
     gamma = fpa #Flight Path Angle
     chi = ha    #Heading Angle
     
@@ -61,13 +65,15 @@ def R_NED_from_W(fpa = 0, ha = 0):
 
 #WIND to BODY
 def R_B_from_W(aoa = 0, slip = 0):
-    """Documentation for the function.
-:param aoa: Value for aoa.
-:type aoa: Any
-:param slip: Value for slip.
-:type slip: Any
-:return: Return value.
-:rtype: Any"""
+    """Construct the rotation from wind axes to body axes.
+
+    :param aoa: Angle of attack in radians.
+    :type aoa: Any
+    :param slip: Sideslip angle in radians.
+    :type slip: Any
+    :return: Rotation mapping wind-frame vectors into body axes.
+    :rtype: scipy.spatial.transform.Rotation
+"""
     a=aoa   #A = Angle of attack = Pitch
     b=slip  #B = Sideslip = Yaw
 
@@ -79,13 +85,15 @@ def R_B_from_W(aoa = 0, slip = 0):
 
 #BODY to WIND
 def R_W_from_B(aoa = 0, slip = 0):
-    """Documentation for the function.
-:param aoa: Value for aoa.
-:type aoa: Any
-:param slip: Value for slip.
-:type slip: Any
-:return: Return value.
-:rtype: Any"""
+    """Construct the inverse body-to-wind rotation.
+
+    :param aoa: Angle of attack in radians.
+    :type aoa: Any
+    :param slip: Sideslip angle in radians.
+    :type slip: Any
+    :return: Rotation mapping body-frame vectors into wind axes.
+    :rtype: scipy.spatial.transform.Rotation
+"""
 
     R_W_from_B = R_B_from_W(aoa = aoa, slip = slip).inv().as_matrix()
     R_W_from_B[np.abs(R_W_from_B) < 1E-14] = 0
@@ -95,20 +103,29 @@ def R_W_from_B(aoa = 0, slip = 0):
 
 #BODY to NED
 def R_NED_from_B(roll = 0, pitch = 0, yaw = 0):
-    """Documentation for the function.
-:param roll: Value for roll.
-:type roll: Any
-:param pitch: Value for pitch.
-:type pitch: Any
-:param yaw: Value for yaw.
-:type yaw: Any
-:return: Return value.
-:rtype: Any"""
+    """Construct the rotation from body axes to local NED.
+
+    :param roll: Roll angle in radians.
+    :type roll: Any
+    :param pitch: Pitch angle in radians.
+    :type pitch: Any
+    :param yaw: Yaw angle in radians.
+    :type yaw: Any
+    :return: Rotation mapping body-frame vectors into NED.
+    :rtype: scipy.spatial.transform.Rotation
+"""
 
     R_NED_from_B = Rotation.from_euler('zyx', [yaw, pitch, roll])  # converts from Body frame to North East Down
     return(R_NED_from_B)
 
 def R_ECEF_from_ECI(epoch):
+    """Construct the Earth-centred inertial to Earth-fixed rotation.
+
+    :param epoch: Time at which the inertial-to-fixed transformation is evaluated.
+    :type epoch: datetime.datetime
+    :return: Rotation mapping ECI-frame vectors into ECEF.
+    :rtype: scipy.spatial.transform.Rotation
+"""
     rotMatrix = np.transpose([pymap3d.eci2ecef(1,0,0,epoch),
                             pymap3d.eci2ecef(0,1,0,epoch),
                             pymap3d.eci2ecef(0,0,1,epoch)])

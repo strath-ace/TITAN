@@ -1,21 +1,15 @@
-titan.Configuration package
+Configuration
 ===========================
 
-Submodules
-----------
-
-titan.Configuration.configuration module
-----------------------------------------
-
-.. automodule:: titan.Configuration.configuration
+.. automodule:: titan.Configuration
    :members:
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
+Configuration module
+----------------------------------------
 
-.. automodule:: titan.Configuration
+.. automodule:: titan.Configuration.configuration
    :members:
    :show-inheritance:
    :undoc-members:

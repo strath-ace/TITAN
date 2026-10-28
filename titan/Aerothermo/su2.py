@@ -332,7 +332,7 @@ class SU2_Config():
 :param su2: Value for su2.
 :type su2: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param cluster_tag: Value for cluster tag.
 :type cluster_tag: Any
 :param input_grid: Value for input grid.
@@ -379,7 +379,7 @@ def write_SU2_config(freestream, assembly, restart, it, iteration, su2, options,
 :param su2: Value for su2.
 :type su2: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param cluster_tag: Value for cluster tag.
 :type cluster_tag: Any
 :param input_grid: Value for input grid.
@@ -467,7 +467,7 @@ def read_vtk_from_su2_v2(filename, assembly_coords, idx_inv,  options, freestrea
 :param idx_inv: Value for idx inv.
 :type idx_inv: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param freestream: Value for freestream.
 :type freestream: Any
 :return: Return value.
@@ -564,7 +564,7 @@ def run_SU2(n, options):
 :param n: Integer value for n.
 :type n: int
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     options.high_fidelity_flag = True
     path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -578,7 +578,7 @@ def generate_BL(assembly, options, it, cluster_tag, iteration):
 :param assembly: Assembly object to process.
 :type assembly: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param it: Value for it.
 :type it: Any
 :param cluster_tag: Value for cluster tag.
@@ -593,28 +593,30 @@ def generate_BL(assembly, options, it, cluster_tag, iteration):
     
 def adapt_mesh(assembly, options, it, cluster_tag, iteration):
     """Anisotropically adapts the mesh
-:param assembly: Assembly object to process.
-:type assembly: object
-:param options: Options or configuration object.
-:type options: object
-:param it: Value for it.
-:type it: Any
-:param cluster_tag: Value for cluster tag.
-:type cluster_tag: Any
-:param iteration: Value for iteration.
-:type iteration: Any"""
+
+    :param assembly: Assembly object to process.
+    :type assembly: Assembly
+    :param options: Options or configuration object.
+    :type options: Options
+    :param it: Adaptation iteration
+    :type it: int
+    :param cluster_tag: Cluster tag.
+    :type cluster_tag: int
+    :param iteration: Iteration number.
+    :type iteration: int"""
 
     if options.amg.flag:
         amg.adapt_mesh(options.amg, iteration, options, j = it, num_obj = len(assembly),  input_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it)+'_cluster_'+str(cluster_tag), output_grid = 'Domain_iter_'+str(iteration)+ '_adapt_' +str(it+1)+'_cluster_'+str(cluster_tag)) #Output without .su2
 
 def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     """Compute the aerothermodynamic properties using the CFD software
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: object
-:param cluster_tag: Value for cluster tag.
-:type cluster_tag: Any"""
+
+    :param titan: TITAN simulation object.
+    :type titan: AssemblyList
+    :param options: Options or configuration object.
+    :type options: Options
+    :param cluster_tag: Cluster tag.
+    :type cluster_tag: int"""
     
     #TODO:
     # ---> size ref should also be in the options config file
@@ -767,18 +769,19 @@ def compute_cfd_aerothermo(titan, options, cluster_tag = 0):
     run_SU2(n, options)
     #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
     if options.amg.flag:
-        run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)
+        run_AMG(options, assembly_list, cluster_tag, iteration, free, su2, n)
 
     post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free)
 
 def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
-    """Compute the aerothermodynamic properties using the CFD software
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: object
-:param cluster_tag: Value for cluster tag.
-:type cluster_tag: Any"""
+    """Restarts an existing CFD simulation
+
+    :param titan: TITAN simulation object.
+    :type titan: AssemblyList
+    :param options: Options or configuration object.
+    :type options: Options
+    :param cluster_tag: Cluster tag.
+    :type cluster_tag: int"""
     
     #TODO:
     # ---> size ref should also be in the options config file
@@ -819,7 +822,7 @@ def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
 
     #Anisotropically adapts the mesh and runs SU2 until reaches the maximum numbe of adaptive iterations
     if options.amg.flag:
-        run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n)
+        run_AMG(options, assembly_list, cluster_tag, iteration, free, su2, n)
 
     post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free)
 
@@ -827,24 +830,23 @@ def restart_cfd_aerothermo(titan, options, cluster_tag = 0):
     options.cfd.cfd_restart = False
 
 
-def run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n):
-    """Documentation for the function.
-:param options: Options or configuration object.
-:type options: object
-:param assembly_list: List of assembly.
-:type assembly_list: list
-:param it: Value for it.
-:type it: Any
-:param cluster_tag: Value for cluster tag.
-:type cluster_tag: Any
-:param iteration: Value for iteration.
-:type iteration: Any
-:param free: Value for free.
-:type free: Any
-:param su2: Value for su2.
-:type su2: Any
-:param n: Integer value for n.
-:type n: int"""
+def run_AMG(options, assembly_list, cluster_tag, iteration, free, su2, n):
+    """Run in-loop mesh adaptation if available.
+
+    :param options: Options or configuration object.
+    :type options: Options
+    :param assembly_list: List of assembly.
+    :type assembly_list: list[Assembly]
+    :param cluster_tag: Cluster tag.
+    :type cluster_tag: int
+    :param iteration: Iteration number.
+    :type iteration: int
+    :param free: Freestream conditions.
+    :type free: assembly.Freestream
+    :param su2: SU2 Configuration.
+    :type su2: CFD
+    :param n: Integer value for n.
+    :type n: int"""
 
     for it in range(options.cfd.adapt_iter):
         restart = True
@@ -856,7 +858,7 @@ def run_AMG(options, assembly_list, it, cluster_tag, iteration, free, su2, n):
 def post_process_CFD_solution(options, assembly_list, iteration, adapt_iter, cluster_tag, free):
     """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param assembly_list: List of assembly.
 :type assembly_list: list
 :param iteration: Value for iteration.

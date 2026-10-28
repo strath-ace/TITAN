@@ -1,10 +1,13 @@
-titan.Structural package
+Structural
 ========================
 
-Submodules
-----------
+.. automodule:: titan.Structural
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-titan.Structural.structural module
+
+Structural module
 ----------------------------------
 
 .. automodule:: titan.Structural.structural
@@ -12,10 +15,4 @@ titan.Structural.structural module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
 
-.. automodule:: titan.Structural
-   :members:
-   :show-inheritance:
-   :undoc-members:

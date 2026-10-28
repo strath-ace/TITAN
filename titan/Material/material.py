@@ -57,7 +57,7 @@ class Material():
 :param name: Name of the item.
 :type name: str
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
         #database_material.xml
 
         with open(os.path.expandvars('$TITAN_PATH/titan/Material/'+options.material_file), 'r') as f:

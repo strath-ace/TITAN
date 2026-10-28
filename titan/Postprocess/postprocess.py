@@ -26,13 +26,14 @@ from ..Dynamics import frames
 from scipy.spatial.transform import Rotation as Rot
 
 def postprocess(options, postprocess = "wind", filter_name = None):
-	"""Documentation for the function.
+	"""Generate visualizations from saved simulation output.
+
 :param options: Options or configuration object.
-:type options: object
-:param postprocess: Value for postprocess.
-:type postprocess: Any
-:param filter_name: Value for filter name.
-:type filter_name: Any"""
+:type options: Options
+:param postprocess: Visualization field or mode to render.
+:type postprocess: str
+:param filter_name: Optional component-name filter.
+:type filter_name: str or None"""
 	if not os.path.exists(options.output_folder+'/Dense_surface_solution'):
 		data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
 		data_obj = pd.read_csv(options.output_folder+'/Data/data_assembly.csv', index_col = False)
@@ -50,23 +51,24 @@ def postprocess(options, postprocess = "wind", filter_name = None):
 			generate_visualization(options, data_smooth, np.round(time,6), postprocess,is_dense=True, iter_override=i_time)
 
 def generate_visualization(options, data, iter_value, postprocess = "wind", filter_name = None, data_obj = None, is_dense=False, iter_override=None):
-	"""Documentation for the function.
+	"""Create visualization output for one saved iteration or dense-output time.
+
 :param options: Options or configuration object.
-:type options: object
-:param data: Value for data.
+:type options: Options
+:param data: Simulation state table loaded from output CSV.
 :type data: Any
-:param iter_value: Value for iter value.
+:param iter_value: Iteration number or dense-output time to visualize.
 :type iter_value: Any
-:param postprocess: Value for postprocess.
-:type postprocess: Any
-:param filter_name: Value for filter name.
-:type filter_name: Any
-:param data_obj: Value for data obj.
+:param postprocess: Visualization field or mode to render.
+:type postprocess: str
+:param filter_name: Optional component-name filter.
+:type filter_name: str or None
+:param data_obj: Optional component-level state table used for filtering.
 :type data_obj: Any
-:param is_dense: Flag for is dense.
+:param is_dense: Whether ``data`` contains dense-output samples.
 :type is_dense: bool
-:param iter_override: Value for iter override.
-:type iter_override: Any"""
+:param iter_override: Optional index override for dense-output records.
+:type iter_override: int or None"""
 
 	if not is_dense:
 		index = data['Iter']==iter_value

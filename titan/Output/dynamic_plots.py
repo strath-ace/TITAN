@@ -7,7 +7,7 @@ def initialise_figs(titan, options, geodetic_pos=True):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param geodetic_pos: Value for geodetic pos.
 :type geodetic_pos: Any
 :return: Return value.

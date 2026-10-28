@@ -38,7 +38,7 @@ def compute_thermal(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
     thermal_delta_t = titan.time - options.thermal.prev_thermal_time
     if thermal_delta_t>=options.thermal.time_fidelity or options.dynamics.augmented_state: 
         if options.thermal.ablation_mode == "tetra":
@@ -58,7 +58,7 @@ def compute_thermal_0D(titan, options, dt=None):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param dt: Numeric value for dt.
 :type dt: float"""
 
@@ -128,7 +128,7 @@ def compute_thermal_tetra(titan, options, dt):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param dt: Numeric value for dt.
 :type dt: float"""
   
@@ -278,7 +278,7 @@ def compute_thermal_PATO(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     for assembly in titan.assembly: 
 
@@ -344,7 +344,7 @@ def compute_thermal_byproducts(titan, options, dt):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param dt: Numeric value for dt.
 :type dt: float"""
     Tref = 273
@@ -418,7 +418,7 @@ def compute_black_body_emissions(titan, options, q = []):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param q: Value for q.
 :type q: Any"""
 

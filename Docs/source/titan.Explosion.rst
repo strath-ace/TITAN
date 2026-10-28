@@ -1,10 +1,11 @@
-titan.Explosion package
+Explosion
 =======================
+.. automodule:: titan.Explosion
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-Submodules
-----------
-
-titan.Explosion.explosion\_fragments module
+Explosion Fragments
 -------------------------------------------
 
 .. automodule:: titan.Explosion.explosion_fragments
@@ -12,7 +13,7 @@ titan.Explosion.explosion\_fragments module
    :show-inheritance:
    :undoc-members:
 
-titan.Explosion.generate\_seed\_distribution module
+Generate Seed Distribution
 ---------------------------------------------------
 
 .. automodule:: titan.Explosion.generate_seed_distribution
@@ -20,7 +21,7 @@ titan.Explosion.generate\_seed\_distribution module
    :show-inheritance:
    :undoc-members:
 
-titan.Explosion.manifold\_voronoi\_fracture module
+Manifold Voronoi Fracture
 --------------------------------------------------
 
 .. automodule:: titan.Explosion.manifold_voronoi_fracture
@@ -28,7 +29,7 @@ titan.Explosion.manifold\_voronoi\_fracture module
    :show-inheritance:
    :undoc-members:
 
-titan.Explosion.split\_stl module
+Split .stl
 ---------------------------------
 
 .. automodule:: titan.Explosion.split_stl
@@ -36,7 +37,7 @@ titan.Explosion.split\_stl module
    :show-inheritance:
    :undoc-members:
 
-titan.Explosion.stl\_verify\_blender module
+.stl Verify blender
 -------------------------------------------
 
 .. automodule:: titan.Explosion.stl_verify_blender
@@ -44,10 +45,6 @@ titan.Explosion.stl\_verify\_blender module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
 
-.. automodule:: titan.Explosion
-   :members:
-   :show-inheritance:
-   :undoc-members:
+
+

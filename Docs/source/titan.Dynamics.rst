@@ -1,10 +1,11 @@
-titan.Dynamics package
+Dynamics
 ======================
+.. automodule:: titan.Dynamics
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-Submodules
-----------
-
-titan.Dynamics.collision module
+Collision
 -------------------------------
 
 .. automodule:: titan.Dynamics.collision
@@ -12,7 +13,7 @@ titan.Dynamics.collision module
    :show-inheritance:
    :undoc-members:
 
-titan.Dynamics.dynamics module
+Dynamics module
 ------------------------------
 
 .. automodule:: titan.Dynamics.dynamics
@@ -20,7 +21,7 @@ titan.Dynamics.dynamics module
    :show-inheritance:
    :undoc-members:
 
-titan.Dynamics.dynamics\_6dof module
+Dynamics\_6dof [DEPRECATED]
 ------------------------------------
 
 .. automodule:: titan.Dynamics.dynamics_6dof
@@ -28,7 +29,7 @@ titan.Dynamics.dynamics\_6dof module
    :show-inheritance:
    :undoc-members:
 
-titan.Dynamics.euler module
+Euler module [DEPRECATED]
 ---------------------------
 
 .. automodule:: titan.Dynamics.euler
@@ -36,7 +37,7 @@ titan.Dynamics.euler module
    :show-inheritance:
    :undoc-members:
 
-titan.Dynamics.frames module
+Frames
 ----------------------------
 
 .. automodule:: titan.Dynamics.frames
@@ -44,7 +45,7 @@ titan.Dynamics.frames module
    :show-inheritance:
    :undoc-members:
 
-titan.Dynamics.global\_collisions module
+Global Collisions
 ----------------------------------------
 
 .. automodule:: titan.Dynamics.global_collisions
@@ -52,7 +53,7 @@ titan.Dynamics.global\_collisions module
    :show-inheritance:
    :undoc-members:
 
-titan.Dynamics.propagation module
+Propagation
 ---------------------------------
 
 .. automodule:: titan.Dynamics.propagation
@@ -60,18 +61,10 @@ titan.Dynamics.propagation module
    :show-inheritance:
    :undoc-members:
 
-titan.Dynamics.quaternion\_operations module
+Quaternion Operations
 --------------------------------------------
 
 .. automodule:: titan.Dynamics.quaternion_operations
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-Module contents
----------------
-
-.. automodule:: titan.Dynamics
    :members:
    :show-inheritance:
    :undoc-members:

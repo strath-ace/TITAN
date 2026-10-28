@@ -1,14 +1,26 @@
+Docs
+------------------------
+.. automodule:: titan
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
+Main Functions
+-----------------------
+
+.. automodule:: titan.__main__
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 API Reference
-=============
-
-Modelling Disciplines and Methods
------------
-
+------------------------
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
    titan.Aerothermo
    titan.Configuration
+   titan.Design
    titan.Dynamics
    titan.Explosion
    titan.Forces
@@ -23,18 +35,7 @@ Modelling Disciplines and Methods
    titan.Thermal
    titan.Uncertainty
 
-Running TITAN
------------------------
 
-.. automodule:: titan.run_TITAN
-   :members:
-   :show-inheritance:
-   :undoc-members:
 
-Info
----------------
 
-.. automodule:: titan
-   :members:
-   :show-inheritance:
-   :undoc-members:
+

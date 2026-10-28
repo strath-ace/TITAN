@@ -40,11 +40,13 @@ mHe = 4.0026020/1E3;              #molar mass of helium molecule,   kg/mole
 mH= 1.007940/1E3;                 #molar mass of Hydrogen molecule, kg/mole
 
 def convert_numberDensity_to_density(atm,species):
-    """Documentation for the function.
-:param atm: Value for atm.
+    """Convert species number densities in an atmosphere table to mass densities.
+
+:param atm: Atmospheric data frame modified in place.
 :type atm: Any
-:param species: Value for species.
-:type species: Any"""
+:param species: Species names whose number densities are converted.
+:type species: list[str]
+"""
 
     for specie in species:
         if specie == "N2":    atm[specie] *= mN2/Avo
@@ -57,11 +59,17 @@ def convert_numberDensity_to_density(atm,species):
 
 
 def load_atmosphere(name, options, epoch=None):
-    """This function loads the atmosphere model with respect to the user specification
-:param name: Name of the item.
+    """Load or select the configured atmospheric model.
+
+:param name: Atmospheric model name (for example, ``'PYMSIS'`` or ``'GRAM'``).
 :type name: str
-:return: Return value.
-:rtype: Any"""
+:param options: Simulation options used to cache model interpolation data.
+:type options: Options
+:param epoch: Optional epoch for time-dependent atmospheric models.
+:type epoch: datetime.datetime or None
+:return: Atmospheric data provider and its species ordering.
+:rtype: tuple[callable, list[str]]
+"""
 
     dirname = os.path.dirname(os.path.abspath(__file__))
 
@@ -88,17 +96,21 @@ def load_atmosphere(name, options, epoch=None):
 
 
 def retrieve_atmosphere_data(name, altitude, assembly, options, epoch = None):
-    """Documentation for the function.
-:param name: Name of the item.
+    """Retrieve atmospheric properties at one assembly altitude.
+
+:param name: Atmospheric model name.
 :type name: str
-:param altitude: Value for altitude.
+:param altitude: Geodetic altitude in metres.
 :type altitude: Any
 :param assembly: Assembly object to process.
 :type assembly: object
 :param options: Options or configuration object.
-:type options: object
-:return: Return value.
-:rtype: Any"""
+:type options: Options
+:param epoch: Optional epoch for time-dependent model evaluation.
+:type epoch: datetime.datetime or None
+:return: Atmospheric state and species information for the requested altitude.
+:rtype: Any
+"""
 
     #This function only returns the data for a single altitude
 
@@ -106,7 +118,7 @@ def retrieve_atmosphere_data(name, altitude, assembly, options, epoch = None):
         if options.planet.name != "earth": raise Exception("The model NRLMSISE00 contains Earth atmopshere. Please choose the GRAM model")
         species_index = ["N2","O2","O","He","Ar","N","H"]
         if not hasattr(options,'atmosphere_interp'):
-            dirname = os.path.dirname(os.path.abspath(__file__))
+            dirname = os.path.expandvars('$TITAN_PATH/titan/Freestream')
             atm = pd.read_csv(dirname+'/Models/NRLMSISE00.csv')
 
             

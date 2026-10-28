@@ -85,16 +85,18 @@ __all__ = [
 
 
 def main(filename="", postprocess="", filter_name=None, emissions=""):
-    """TITAN main function entry point
-:param filename: Path to the relevant file.
+    """Run the TITAN command-line workflow through the package API.
+
+:param filename: Configuration file used to initialize the simulation.
 :type filename: str
-:param postprocess: Value for postprocess.
-:type postprocess: Any
-:param filter_name: Value for filter name.
-:type filter_name: Any
-:param emissions: Value for emissions.
-:type emissions: Any
-:return: Return value.
-:rtype: Any"""
+:param postprocess: Optional post-processing mode to run after simulation.
+:type postprocess: str
+:param filter_name: Optional component-name filter for post-processing.
+:type filter_name: str or None
+:param emissions: Optional emissions-processing mode.
+:type emissions: str
+:return: Result returned by the command-line entry point.
+:rtype: Any
+"""
     from .__main__ import main as run_main
     return run_main(filename, postprocess, filter_name, emissions)

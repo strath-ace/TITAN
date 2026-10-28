@@ -31,7 +31,7 @@ def measurement_func(measurements, options, augmented_state=False, x=None):
 :param measurements: Value for measurements.
 :type measurements: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param augmented_state: Value for augmented state.
 :type augmented_state: Any
 :param x: Numeric value for x.
@@ -52,7 +52,7 @@ def measurement_func(measurements, options, augmented_state=False, x=None):
 def measurement_from_state(options, augmented=False, state_vector=None):
     """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param augmented: Value for augmented.
 :type augmented: Any
 :param state_vector: Value for state vector.

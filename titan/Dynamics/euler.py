@@ -33,10 +33,12 @@ import copy
 
 def compute_Euler(titan, options):
     """Euler integration
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: object"""
+
+    :param titan: TITAN simulation object.
+    :type titan: object
+    :param options: Options or configuration object.
+    :type options: Options
+"""
 
     if options.collision.flag and len(titan.assembly)>1:
         flag_collision, __ = collision.find_ToI_timestep(titan, options, 0)
@@ -75,18 +77,20 @@ def compute_Euler(titan, options):
         
 def update_position_cartesian(assembly, cartesianDerivatives, angularDerivatives, options, time_step, post_event_iter):
     """Update position and attitude of the assembly
-:param assembly: Assembly object to process.
-:type assembly: object
-:param cartesianDerivatives: Value for cartesianderivatives.
-:type cartesianDerivatives: Any
-:param angularDerivatives: Value for angularderivatives.
-:type angularDerivatives: Any
-:param options: Options or configuration object.
-:type options: object
-:param time_step: Value for time step.
-:type time_step: Any
-:param post_event_iter: Value for post event iter.
-:type post_event_iter: Any"""
+
+    :param assembly: Assembly object to process.
+    :type assembly: object
+    :param cartesianDerivatives: Value for cartesianderivatives.
+    :type cartesianDerivatives: Any
+    :param angularDerivatives: Value for angularderivatives.
+    :type angularDerivatives: Any
+    :param options: Options or configuration object.
+    :type options: Options
+    :param time_step: Value for time step.
+    :type time_step: Any
+    :param post_event_iter: Value for post event iter.
+    :type post_event_iter: Any
+"""
 
     dt = time_step
     

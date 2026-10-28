@@ -25,10 +25,9 @@ import numpy as np
 from pathlib import Path
 
 class Component_list():
-    """Component_list."""
-    # A class with the purpose of storing the different components in a list
+    """Maintain components and assign their local identifiers."""
     def __init__(self):
-        """__init__."""
+        """Initialize an empty component collection."""
         self.object = []
         self.id = 1
         
@@ -36,6 +35,46 @@ class Component_list():
                          trigger_value = 0,fenics_bc_id = -1, material = 'Unittest', temperature = 300, options = None, 
                          global_ID = 0, bloom_config = [False, 0, 0, 0], alpha = 1.0, mixture=None,
                          mass_fractions=None, species=None, explosive_parameters=None):
+        """Create a component and append it to this collection.
+
+        :param filename: Mesh or geometry filename for the component.
+        :type filename: str
+        :param file_type: Component category, such as a primitive or joint.
+        :type file_type: str
+        :param inner_stl: Optional filename for an inner surface mesh.
+        :type inner_stl: str
+        :param id: Identifier argument retained for API compatibility; the
+            collection assigns its own sequential identifier.
+        :type id: int
+        :param binary: Whether mesh input should be read as binary.
+        :type binary: bool
+        :param trigger_type: Failure or fragmentation trigger mode.
+        :type trigger_type: str
+        :param trigger_value: Threshold associated with the trigger mode.
+        :type trigger_value: float
+        :param fenics_bc_id: Boundary-condition identifier for FEniCS.
+        :type fenics_bc_id: int
+        :param material: Material name used to initialize the component.
+        :type material: str
+        :param temperature: Initial component temperature in kelvin.
+        :type temperature: float
+        :param options: Simulation configuration.
+        :type options: Options
+        :param global_ID: Global identifier associated with the source object.
+        :type global_ID: int
+        :param bloom_config: Boundary-layer mesh configuration values.
+        :type bloom_config: list
+        :param alpha: Component-specific scaling parameter.
+        :type alpha: float
+        :param mixture: Optional gas-mixture name for ablation products.
+        :type mixture: str or None
+        :param mass_fractions: Initial species mass fractions.
+        :type mass_fractions: list or None
+        :param species: Species names associated with the mixture.
+        :type species: list or None
+        :param explosive_parameters: Optional explosive-fragmentation settings.
+        :type explosive_parameters: dict or None
+        """
 
         self.object.append(Component(filename, file_type, inner_stl = inner_stl, id = self.id, 
                            binary = binary, temperature = temperature, trigger_type = trigger_type,
@@ -45,52 +84,61 @@ class Component_list():
         self.id += 1
 
 class Component():
-    """Documentation for the function.
-    :param filename: Path to the relevant file.
-    :type filename: str
-    :param file_type: Value for file type.
-    :type file_type: str
-    :param inner_stl: Value for inner stl.
-    :type inner_stl: Any
-    :param id: Integer value for id.
-    :type id: int
-    :param binary: Value for binary.
-    :type binary: Any
-    :param trigger_type: Value for trigger type.
-    :type trigger_type: Any
-    :param trigger_value: Value for trigger value.
-    :type trigger_value: Any
-    :param fenics_bc_id: Integer value for fenics bc id.
-    :type fenics_bc_id: int
-    :param material: Value for material.
-    :type material: Any
-    :param temperature: Numeric value for temperature.
-    :type temperature: float
-    :param options: Options or configuration object.
-    :type options: object
-    :param global_ID: Integer value for global id.
-    :type global_ID: int
-    :param bloom_config: Value for bloom config.
-    :type bloom_config: Any
-    :param alpha: Numeric value for alpha.
-    :type alpha: float
-    :param mixture: Value for mixture.
-    :type mixture: Any
-    :param mass_fractions: Value for mass fractions.
-    :type mass_fractions: Any
-    :param species: Value for species.
-    :type species: Any
-    :param explosive_parameters: Value for explosive parameters.
-    :type explosive_parameters: Any"""
-    """ Component class
-
-        Class to store the information of a singular component.
-    """
+    """Represent one geometric component and its physical properties."""
     
     def __init__(self,filename, file_type, inner_stl = '', id = 0, binary = True, temperature = 300,
                  trigger_type = 'Indestructible', trigger_value = 0, fenics_bc_id = -1, material = 'Unittest',
                  v0 = [], v1 = [], v2 = [], parent_id = None, parent_part = None, options = None, global_ID = 0, 
                  bloom_config = [False, 0, 0, 0], alpha = 1.0, mixture=None, mass_fractions=None, species=None, explosive_parameters=None):
+        """Load geometry and initialize component metadata and material state.
+
+        :param filename: Mesh or geometry filename for the component.
+        :type filename: str
+        :param file_type: Component category, such as a primitive or joint.
+        :type file_type: str
+        :param inner_stl: Optional filename for an inner surface mesh.
+        :type inner_stl: str
+        :param id: Component identifier.
+        :type id: int
+        :param binary: Whether mesh input is binary.
+        :type binary: bool
+        :param temperature: Initial component temperature in kelvin.
+        :type temperature: float
+        :param trigger_type: Failure or fragmentation trigger mode.
+        :type trigger_type: str
+        :param trigger_value: Threshold associated with the trigger mode.
+        :type trigger_value: float
+        :param fenics_bc_id: Structural boundary-condition identifier.
+        :type fenics_bc_id: int
+        :param material: Name of the material assigned to the component.
+        :type material: str
+        :param v0: Optional first-vertex coordinates for supplied triangles.
+        :type v0: numpy.ndarray
+        :param v1: Optional second-vertex coordinates for supplied triangles.
+        :type v1: numpy.ndarray
+        :param v2: Optional third-vertex coordinates for supplied triangles.
+        :type v2: numpy.ndarray
+        :param parent_id: Identifier of the parent component, if fragmented.
+        :type parent_id: int or None
+        :param parent_part: Parent component label, if available.
+        :type parent_part: str or None
+        :param options: Simulation configuration.
+        :type options: Options
+        :param global_ID: Identifier of the source object.
+        :type global_ID: int
+        :param bloom_config: Boundary-layer mesh configuration values.
+        :type bloom_config: list
+        :param alpha: Component-specific scaling parameter.
+        :type alpha: float
+        :param mixture: Optional gas-mixture name for ablation products.
+        :type mixture: str or None
+        :param mass_fractions: Initial species mass fractions.
+        :type mass_fractions: list or None
+        :param species: Species names associated with the mixture.
+        :type species: list or None
+        :param explosive_parameters: Optional explosive-fragmentation settings.
+        :type explosive_parameters: dict or None
+        """
 
         print("Generating Body: ", filename)
         
@@ -101,53 +149,6 @@ class Component():
         self.type = file_type
     
         #if self.type == "Joint":
-        """Documentation for the function.
-:param filename: Path to the relevant file.
-:type filename: str
-:param file_type: Value for file type.
-:type file_type: str
-:param inner_stl: Value for inner stl.
-:type inner_stl: Any
-:param id: Integer value for id.
-:type id: int
-:param binary: Value for binary.
-:type binary: Any
-:param temperature: Numeric value for temperature.
-:type temperature: float
-:param trigger_type: Value for trigger type.
-:type trigger_type: Any
-:param trigger_value: Value for trigger value.
-:type trigger_value: Any
-:param fenics_bc_id: Integer value for fenics bc id.
-:type fenics_bc_id: int
-:param material: Value for material.
-:type material: Any
-:param v0: Value for v0.
-:type v0: Any
-:param v1: Value for v1.
-:type v1: Any
-:param v2: Value for v2.
-:type v2: Any
-:param parent_id: Integer value for parent id.
-:type parent_id: int
-:param parent_part: Value for parent part.
-:type parent_part: Any
-:param options: Options or configuration object.
-:type options: object
-:param global_ID: Integer value for global id.
-:type global_ID: int
-:param bloom_config: Value for bloom config.
-:type bloom_config: Any
-:param alpha: Numeric value for alpha.
-:type alpha: float
-:param mixture: Value for mixture.
-:type mixture: Any
-:param mass_fractions: Value for mass fractions.
-:type mass_fractions: Any
-:param species: Value for species.
-:type species: Any
-:param explosive_parameters: Value for explosive parameters.
-:type explosive_parameters: Any"""
         if self.type == 'Explosive':
             self.explosive = Explosive(explosive_parameters)
         #: [str] Type of trigger for type joint (Altitude, Temperature, Stress)
@@ -269,7 +270,7 @@ class PATO():
     def __init__(self, options, len_facets, bloom_config, object_id = 0, temperature = 300):
         """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param len_facets: Value for len facets.
 :type len_facets: Any
 :param bloom_config: Value for bloom config.

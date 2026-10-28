@@ -29,7 +29,7 @@ def compute_aerodynamic_forces(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
 
@@ -75,7 +75,7 @@ def compute_aerodynamic_moments(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     #Computed on the Body Frame
 
@@ -102,7 +102,7 @@ def compute_inertial_forces(assembly, options):
 :param assembly: Assembly object to process.
 :type assembly: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
 

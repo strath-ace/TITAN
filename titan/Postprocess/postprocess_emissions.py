@@ -41,7 +41,7 @@ from pathlib import Path
 def postprocess_emissions(options):
     """Documentation for the function.
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     print('Computing emissions ...')
 
@@ -79,7 +79,7 @@ def view_direction(titan, options):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object"""
+:type options: Options"""
 
     print('\nDefining view direction ...')
 
@@ -175,7 +175,7 @@ def element_gas_densities(titan):
 def read_state(options, i=0):
     """Load state of the TITAN object for the given iteration
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param i: Integer value for i.
 :type i: int
 :return: Return value.
@@ -194,7 +194,7 @@ def emissions(titan, options, iter_value):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param iter_value: Value for iter value.
 :type iter_value: Any"""
 
@@ -277,7 +277,7 @@ def line_of_sight(titan, options, iteration):
 :param titan: TITAN simulation object.
 :type titan: object
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :param iteration: Value for iteration.
 :type iteration: Any"""
 
@@ -467,7 +467,7 @@ def compute_billig(M,theta, center, sphere_radius, index_assembly, Lref, index_o
 :param freestream: Value for freestream.
 :type freestream: Any
 :param options: Options or configuration object.
-:type options: object
+:type options: Options
 :return: Return value.
 :rtype: Any"""
 

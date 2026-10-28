@@ -1,10 +1,12 @@
-titan.Uncertainty package
+Uncertainty
 =========================
 
-Submodules
-----------
+.. automodule:: titan.Uncertainty
+   :members:
+   :show-inheritance:
+   :undoc-members:
 
-titan.Uncertainty.GMM module
+Guassian Mixture Model (GMM)
 ----------------------------
 
 .. automodule:: titan.Uncertainty.GMM
@@ -12,7 +14,7 @@ titan.Uncertainty.GMM module
    :show-inheritance:
    :undoc-members:
 
-titan.Uncertainty.MC\_wrapper module
+Monte Carlo Wrapper
 ------------------------------------
 
 .. automodule:: titan.Uncertainty.MC_wrapper
@@ -20,7 +22,7 @@ titan.Uncertainty.MC\_wrapper module
    :show-inheritance:
    :undoc-members:
 
-titan.Uncertainty.filtering module
+Filtering
 ----------------------------------
 
 .. automodule:: titan.Uncertainty.filtering
@@ -28,7 +30,7 @@ titan.Uncertainty.filtering module
    :show-inheritance:
    :undoc-members:
 
-titan.Uncertainty.mappings module
+Uncertainty Mappings
 ---------------------------------
 
 .. automodule:: titan.Uncertainty.mappings
@@ -36,7 +38,7 @@ titan.Uncertainty.mappings module
    :show-inheritance:
    :undoc-members:
 
-titan.Uncertainty.measurement module
+Measurement
 ------------------------------------
 
 .. automodule:: titan.Uncertainty.measurement
@@ -44,7 +46,7 @@ titan.Uncertainty.measurement module
    :show-inheritance:
    :undoc-members:
 
-titan.Uncertainty.utils module
+Uncertainty Utilities
 ------------------------------
 
 .. automodule:: titan.Uncertainty.utils
@@ -52,10 +54,3 @@ titan.Uncertainty.utils module
    :show-inheritance:
    :undoc-members:
 
-Module contents
----------------
-
-.. automodule:: titan.Uncertainty
-   :members:
-   :show-inheritance:
-   :undoc-members:

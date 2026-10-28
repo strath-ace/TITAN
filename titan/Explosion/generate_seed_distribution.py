@@ -28,19 +28,21 @@ from matplotlib import pyplot as plt
 from functools import partial
 
 class SpiralSampler():
-    """SpiralSampler."""
+    """Generate random points along a parameterized three-dimensional spiral."""
     def __init__(self, a=1.0,b=1.0,k=1.0,m=1.0, rng=None):
-        """Documentation for the function.
-:param a: Value for a.
+        """Configure the radial growth and angular rates of the spiral.
+
+:param a: Radial scale factor.
 :type a: Any
-:param b: Value for b.
+:param b: Exponential radial growth rate.
 :type b: Any
-:param k: Value for k.
+:param k: Rate of change of the first angular coordinate.
 :type k: Any
-:param m: Value for m.
+:param m: Rate of change of the second angular coordinate.
 :type m: Any
-:param rng: Value for rng.
-:type rng: Any"""
+:param rng: Random-number generator; a time-seeded generator is used if omitted.
+:type rng: numpy.random.RandomState or None
+"""
         self.a=a
         self.b=b
         self.k=k
@@ -50,13 +52,16 @@ class SpiralSampler():
         self.parameter = uniform()
         self.parameter.random_state = self.rng
     def rvs(self, n_samples, kind='xyz'):
-        """Documentation for the function.
+        """Sample points from the configured spiral.
+
 :param n_samples: Integer value for n samples.
 :type n_samples: int
-:param kind: Value for kind.
+:param kind: Output representation; ``'polar'`` returns spiral parameters,
+    while other values return Cartesian coordinates.
 :type kind: Any
-:return: Return value.
-:rtype: Any"""
+:return: Sampled coordinates or spiral parameters.
+:rtype: numpy.ndarray
+"""
         theta = self.parameter.rvs(n_samples)
         r = self.a * np.exp( self.b * theta)
         phi = self.k * theta
@@ -69,15 +74,18 @@ class SpiralSampler():
             return np.array([x,y,z]).T
 
 def generate_seed_points(obj_half_len=2, parameters = [0, 0, 0], law = [6, -1.6]):
-    """Documentation for the function.
-:param obj_half_len: Value for obj half len.
+    """Generate seed locations on concentric spherical shells.
+
+:param obj_half_len: Characteristic half-length that sets the outer scale.
 :type obj_half_len: Any
-:param parameters: Value for parameters.
+:param parameters: Three values controlling the point count, shell count,
+    and innermost shell scale.
 :type parameters: Any
-:param law: Value for law.
+:param law: Coefficient and exponent defining the radial point-count law.
 :type law: Any
-:return: Return value.
-:rtype: Any"""
+:return: Generated three-dimensional seed coordinates.
+:rtype: numpy.ndarray
+"""
     n_points, n_shells, min_len = parameters
     shells = np.logspace(min_len,np.log(obj_half_len),int(n_shells))
     points = np.zeros([1,3])
@@ -113,13 +121,15 @@ def generate_seed_points(obj_half_len=2, parameters = [0, 0, 0], law = [6, -1.6]
 
     
 def get_seed_points(expl_dir, obj_len=2, law = [6, -1.6]):
-    """Documentation for the function.
-:param expl_dir: Value for expl dir.
+    """Optimize and save a seed-point distribution for an object.
+
+:param expl_dir: Directory in which to write the generated ``points.csv`` file.
 :type expl_dir: str
-:param obj_len: Value for obj len.
+:param obj_len: Characteristic object length used to scale the distribution.
 :type obj_len: Any
-:param law: Value for law.
-:type law: Any"""
+:param law: Coefficient and exponent of the target spacing law.
+:type law: Any
+"""
     seed_func = partial(generate_seed_points, obj_len, law[1], False)
     opt = minimize(seed_func,[64,20,-3],bounds=[[32,128],[3,32],[-5,-1]],tol=1e-2)
     print(opt.message)
@@ -127,12 +137,13 @@ def get_seed_points(expl_dir, obj_len=2, law = [6, -1.6]):
     points = generate_seed_points(obj_len, law[1], give_points=True, parameters=opt.x)
     np.savetxt(expl_dir+'/points.csv',points,delimiter=',')
 def plot_result(points, desired_law, regress_law):
-    """Documentation for the function.
-:param points: Value for points.
+    """Plot seed locations and compare their spacing law with a target fit.
+
+:param points: Three-dimensional sample coordinates.
 :type points: list[float]
-:param desired_law: Value for desired law.
+:param desired_law: Coefficient and exponent of the target spacing law.
 :type desired_law: Any
-:param regress_law: Value for regress law.
+:param regress_law: Regression result used to plot the fitted spacing law.
 :type regress_law: Any"""
     k = min(points.shape[0], 16) #int(np.min([100,np.floor(0.9*points.shape[0])]))
     dists = get_dists(points, k=max([k,2]))
@@ -161,15 +172,17 @@ def plot_result(points, desired_law, regress_law):
 
 
 def trigonometric_2sphere_sampling(rad, n_points, rng=None):
-    """Documentation for the function.
-:param rad: Value for rad.
+    """Sample points uniformly on the surface of a sphere.
+
+:param rad: Sphere radius.
 :type rad: Any
 :param n_points: Integer value for n points.
 :type n_points: int
-:param rng: Value for rng.
+:param rng: Random-number generator, or ``None`` to create one.
 :type rng: Any
-:return: Return value.
-:rtype: Any"""
+:return: Cartesian coordinates with shape ``(n_points, 3)``.
+:rtype: numpy.ndarray
+"""
     if rng is None: rng = np.random.RandomState(dt.now().microsecond)
     z = uniform(loc=-1,scale=2).rvs(size=n_points,random_state=rng)
     t = uniform(loc=0,scale=2*np.pi).rvs(size=n_points,random_state=rng)
@@ -182,17 +195,19 @@ def trigonometric_2sphere_sampling(rad, n_points, rng=None):
 
 
 def get_law_from_points(ref_law = [6,-1.6], return_law=False, weights=[0.1,1,0.1],X=None):
-    """Documentation for the function.
-:param ref_law: Value for ref law.
+    """Evaluate how closely point spacing matches a target power law.
+
+:param ref_law: Target coefficient and exponent for the spacing law.
 :type ref_law: Any
-:param return_law: Value for return law.
+:param return_law: If true, return fitted law parameters instead of an error.
 :type return_law: Any
-:param weights: Value for weights.
+:param weights: Weights for coefficient, exponent, and fit-quality errors.
 :type weights: Any
-:param X: Numeric value for x.
+:param X: Point coordinates to evaluate.
 :type X: float
-:return: Return value.
-:rtype: Any"""
+:return: Weighted fit error, or fitted coefficient, exponent, and :math:`R^2`.
+:rtype: float or list[float]
+"""
     X = X.reshape([-1,3])
     k = min(X.shape[0],16)#int(np.min([100,np.floor(0.9*X.shape[0])]))
     dists = get_dists(X,k=max([k,2]))
@@ -207,11 +222,13 @@ def get_law_from_points(ref_law = [6,-1.6], return_law=False, weights=[0.1,1,0.1
     return np.linalg.norm(delta)
 
 def law_linregress(dists):
-    """Documentation for the function.
-:param dists: Value for dists.
+    """Fit a power law to the complementary distribution of neighbour distances.
+
+:param dists: Distances used to estimate the spacing distribution.
 :type dists: Any
-:return: Return value.
-:rtype: Any"""
+:return: Linear regression result in log-log coordinates.
+:rtype: scipy.stats.LinregressResult
+"""
     cum = []
     bins = np.logspace(np.log10(np.min(dists)),np.log10(np.max(dists)),250, endpoint=False)
     for q_dist in bins: cum.append(len(np.where(dists>q_dist)[0]))
@@ -219,13 +236,15 @@ def law_linregress(dists):
     return law
 
 def get_dists(X, k=2):
-    """Documentation for the function.
-:param X: Numeric value for x.
+    """Query each point's nearest-neighbour distances.
+
+:param X: Point coordinates with one point per row.
 :type X: float
-:param k: Value for k.
+:param k: Number of nearest neighbours to query, including the point itself.
 :type k: Any
-:return: Return value.
-:rtype: Any"""
+:return: Distances returned by the spatial-tree query.
+:rtype: numpy.ndarray
+"""
     tree = KDTree(X)
     dists, _ = tree.query(X,k=k)
     dists = np.mean(dists[:,1:],axis=1)

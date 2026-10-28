@@ -6,22 +6,22 @@ from scipy.spatial.transform import Rotation as Rot
 import pyquaternion
 
 class Collision():
-	"""Collision."""
+	"""Hold collision meshes and trimesh collision-manager handles for an assembly."""
 	def __init__(self):
-		"""__init__."""
+		"""Initialize collision data and manager references as empty."""
 		self.collision_mesh = None
 		self.original_mesh = None
 		self.collision_handler = None
 		self.original_handler =  None
 
 def generate_collision_handler(titan, options):
-	'''
-Creates trimesh collision handlers (managers) for assemblies in the list
-	:param titan: Object of class AssemblyList
-	:type titan: object
-	:param options: Object of class Options
-	:type options: object
-'''
+	"""Create trimesh collision managers and register each assembly mesh.
+
+	:param titan: Simulation container whose assemblies provide collision meshes.
+	:type titan: Assembly_list
+	:param options: Simulation options (reserved for API consistency).
+	:type options: Options
+	"""
 	for assembly in titan.assembly:
 		assembly.collision.collision_handler = trimesh.collision.CollisionManager()
 		assembly.collision.original_handler = trimesh.collision.CollisionManager()
@@ -29,25 +29,25 @@ Creates trimesh collision handlers (managers) for assemblies in the list
 		assembly.collision.original_handler.add_object("Original_"+str(assembly.id), np.sum(assembly.collision.original_mesh))
 
 def delete_collision_handler(titan, options):
-	'''
-Deletes trimesh collision handlers (managers) from assemblies in the list
-	:param titan: Object of class AssemblyList
-	:type titan: object
-	:param options: Object of class Options
-	:type options: object
-'''
+	"""Release collision-manager references held by each assembly.
+
+	:param titan: Simulation container whose assembly managers are cleared.
+	:type titan: Assembly_list
+	:param options: Simulation options (reserved for API consistency).
+	:type options: Options
+	"""
 	for assembly in titan.assembly:
 		assembly.collision.collision_handler = None
 		assembly.collision.original_handler = None
 
 def update_collision_mesh(titan, options):
-	'''
-Transforms assembly collision meshes into local ECEF frame of largest mass assembly
-	:param titan: Object of class AssemblyList
-	:type titan: object
-	:param options: Object of class Options
-	:type options: object
-'''
+	"""Place registered collision meshes in the frame of the largest assembly.
+
+	:param titan: Simulation container holding assemblies and collision managers.
+	:type titan: Assembly_list
+	:param options: Simulation options (reserved for API consistency).
+	:type options: Options
+	"""
 	mass = []
 
 	for assembly in titan.assembly:
@@ -70,15 +70,18 @@ Transforms assembly collision meshes into local ECEF frame of largest mass assem
 	pass
 
 def update_collision_mesh_time(titan, options, dt):
-	'''
-Projects assembly collision meshes forward in time (in local ECEF frame)
-	:param titan: Object of class AssemblyList
-	:type titan: object
-	:param options: Object of class Options
-	:type options: object
-	:param dt: Distance in time to project forward
+	"""Project assembly collision transforms forward by a time interval.
+
+	Positions and attitudes are advanced using the current translational and
+	angular velocities before updating each registered collision mesh.
+
+	:param titan: Simulation container holding assemblies and collision managers.
+	:type titan: Assembly_list
+	:param options: Simulation options (reserved for API consistency).
+	:type options: Options
+	:param dt: Projection interval in seconds.
 	:type dt: float
-'''
+	"""
 	mass = []
 	mesh_collision = []
 
@@ -108,13 +111,13 @@ Projects assembly collision meshes forward in time (in local ECEF frame)
 	return
 
 def generate_surface(titan, options):
-	'''
-Generates a debug .stl of the collision
-	:param titan: Object of class AssemblyList
-	:type titan: object
-	:param options: Object of class Options
-	:type options: object
-'''
+	"""Export collision geometry for visual inspection.
+
+	:param titan: Simulation container whose collision geometry is exported.
+	:type titan: Assembly_list
+	:param options: Simulation options used to locate output files.
+	:type options: Options
+	"""
 	mesh = []
 	mass = []
 
@@ -147,7 +150,7 @@ Construct a collision mesh for each assembly
 	:param titan: Object of class AssemblyList
 	:type titan: object
 	:param options: Object of class Options
-	:type options: object
+	:type options: Options
 '''
 	assembly.collision = Collision()
 
@@ -198,7 +201,7 @@ Select a time step such that no "Time-Of-Impact" points are skipped
 	:param titan: Object of class AssemblyList
 	:type titan: object
 	:param options: Object of class Options
-	:type options: object
+	:type options: Options
 	:param input_time_step: Maximal considered time step
 	:type input_time_step: Any
 '''
@@ -220,7 +223,7 @@ Impulsive single-collision resolution
 	:param titan: Object of class AssemblyList
 	:type titan: object
 	:param options: Object of class Options
-	:type options: object
+	:type options: Options
 '''
 	#Restituition coeff and friction
 	#u = 0.072
@@ -332,7 +335,7 @@ def collision_physics_simultaneous(titan, options):
 	:param titan: TITAN simulation object.
 	:type titan: object
 	:param options: Options or configuration object.
-	:type options: object
+	:type options: Options
 	:return: Return value.
 	:rtype: Any"""
 	#Can be improved for speed
@@ -470,7 +473,7 @@ Find Time-Of-Impact through binary search of next time step
 	:param titan: Object of class AssemblyList
 	:type titan: object
 	:param options: Object of class Options
-	:type options: object
+	:type options: Options
 	:param input_dt: Maximal step distance
 	:type input_dt: Any
 	:param n_sanity: Number of sanity checks to make along the time step
@@ -550,7 +553,7 @@ Update collision mesh and check for collisions
 	:param titan: Object of class AssemblyList
 	:type titan: object
 	:param options: Object of class Options
-	:type options: object
+	:type options: Options
 	:param dt: Time step to project forward to
 	:type dt: float
 '''
@@ -609,13 +612,14 @@ def updated_fixed_contacts(titan, options, dt, collision_data):
 	:param titan: TITAN simulation object.
 	:type titan: object
 	:param options: Options or configuration object.
-	:type options: object
+	:type options: Options
 	:param dt: Numeric value for dt.
 	:type dt: float
 	:param collision_data: Value for collision data.
 	:type collision_data: Any
 	:return: Return value.
-	:rtype: Any"""
+	:rtype: Any
+	"""
 	update_collision_mesh_time(titan, options, dt)
 	for i_col in range(len(collision_data['contact_point'])):
 		iA, iB = collision_data["assembly"][i_col]
@@ -639,7 +643,7 @@ Maximal allowable distance error converted to a maximal time step
 	:param titan: Object of class AssemblyList
 	:type titan: object
 	:param options: Object of class Options
-	:type options: object
+	:type options: Options
 	:param distance_resolution: Maximal allowable distance error
 	:type distance_resolution: Any
 '''
@@ -666,7 +670,8 @@ def select_contacts(contact_data, depths, collision_data, assem_indices):
 :param assem_indices: Value for assem indices.
 :type assem_indices: Any
 :return: Return value.
-:rtype: Any"""
+:rtype: Any
+"""
 	def col_append(index):
 		"""Documentation for the function.
 		:param index: Integer value for index.
