@@ -14,7 +14,7 @@ For automated installation run the install script provided.
 
 ```console
 wget https://raw.githubusercontent.com/strath-ace/TITAN/rc_v02_atlas/install_titan.sh
-chmod +x install.sh
+chmod +x install_titan.sh
 ./install_titan.sh
 ```
 If you experience problems with this script you can follow the manual instructions below.
@@ -57,6 +57,7 @@ cd ./Executables
 The mutation++ package is an optional method to compute the freestream conditions. The library can be compiled and installed as follows
 
 ```console
+python mutation_patch.py
 cd ./mutationpp
 mkdir build
 cd build
