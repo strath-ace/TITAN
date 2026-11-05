@@ -4,14 +4,16 @@ import numpy as np
 
 def initialise_figs(titan, options, geodetic_pos=True):
     """Documentation for the function.
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: Options
-:param geodetic_pos: Value for geodetic pos.
-:type geodetic_pos: Any
-:return: Return value.
-:rtype: Any"""
+
+    :param titan: TITAN simulation object.
+    :type titan: object
+    :param options: Options or configuration object.
+    :type options: Options
+    :param geodetic_pos: Value for geodetic pos.
+    :type geodetic_pos: Any
+    :return: Return value.
+    :rtype: Any"""
+
     plt.ion()
     # for some reason np.pi breaks unless np is re-imported here, frankly no clue
     import numpy as np
@@ -63,18 +65,19 @@ def initialise_figs(titan, options, geodetic_pos=True):
     plot_parameters = {'fig1':fig,'fig2':fig2,'times':times,'aoa':aoas,'ss':sss,'pos':positions,'aoaplot':aoa_plot,'ssplot':ss_plot,'posplot':position_plot,'ax1':ax,'ax2':ax2, 'switch' : False}
     return plot_parameters
 
-def update_plot(assembly,plot_parameters, time, geodetic_pos=True):
+def update_plot_parameters(assembly,plot_parameters, time, geodetic_pos=True):
     """Documentation for the function.
-:param assembly: Assembly object to process.
-:type assembly: object
-:param plot_parameters: Value for plot parameters.
-:type plot_parameters: Any
-:param time: Numeric value for time.
-:type time: float
-:param geodetic_pos: Value for geodetic pos.
-:type geodetic_pos: Any
-:return: Return value.
-:rtype: Any"""
+
+    :param assembly: Assembly object to process.
+    :type assembly: object
+    :param plot_parameters: Value for plot parameters.
+    :type plot_parameters: Any
+    :param time: Numeric value for time.
+    :type time: float
+    :param geodetic_pos: Value for geodetic pos.
+    :type geodetic_pos: Any
+    :return: Return value.
+    :rtype: Any"""
 
     fig = plot_parameters['fig1']
     fig2 = plot_parameters['fig2']
@@ -105,6 +108,26 @@ def update_plot(assembly,plot_parameters, time, geodetic_pos=True):
     sss.append(assembly.slip*(360/(2*3.14159)))
 
     times.append(time)
+
+
+    plot_parameters = {'fig1':fig,'fig2':fig2,'times':times,'aoa':aoas,'ss':sss,'pos':positions,'aoaplot':aoa_plot,'ssplot':ss_plot,'posplot':position_plot,'ax1':ax,'ax2':ax2, 'switch' : switch}
+    return plot_parameters
+
+def update_plot(plot_parameters):
+    fig = plot_parameters['fig1']
+    fig2 = plot_parameters['fig2']
+    ax = plot_parameters['ax1']
+    ax2 = plot_parameters['ax2']
+    times = plot_parameters['times']
+    aoas = plot_parameters['aoa']
+    sss = plot_parameters['ss']
+    positions = plot_parameters['pos']
+    aoa_plot = plot_parameters['aoaplot']
+    ss_plot = plot_parameters['ssplot']
+    position_plot = plot_parameters['posplot']
+    switch = plot_parameters['switch']
+
+
     aoa_plot.set_data(times,aoas)
     ss_plot.set_data(times,sss)
     position_plot.set_data_3d(positions[:,0],positions[:,1],positions[:,2])
@@ -122,4 +145,4 @@ def update_plot(assembly,plot_parameters, time, geodetic_pos=True):
 
     plot_parameters = {'fig1':fig,'fig2':fig2,'times':times,'aoa':aoas,'ss':sss,'pos':positions,'aoaplot':aoa_plot,'ssplot':ss_plot,'posplot':position_plot,'ax1':ax,'ax2':ax2, 'switch' : switch}
     return plot_parameters
-
+    

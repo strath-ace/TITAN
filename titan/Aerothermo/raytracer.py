@@ -152,7 +152,7 @@ def trace(assembly_group : list, n : int, options, output_rays : str = None):
 
         if options.aerothermo.recalculate_Aref or _assembly.Aref is None:
             _assembly.aerothermo.proj_area = 0
-            proj_facet_areas = _assembly.mesh.facet_area[per_assem_see_flow] * np.sin(_assembly.aerothermo.theta[per_assem_see_flow])
+            proj_facet_areas = _assembly.aerothermo.partial_factor*_assembly.mesh.facet_area * np.sin(_assembly.aerothermo.theta)
             _assembly.aerothermo.proj_area=np.sum(proj_facet_areas)
         
             if _assembly.Aref is None:

@@ -324,14 +324,14 @@ def aerothermodynamics_module_continuum(assembly, p : np.ndarray, options) -> np
 
         case 'fr': #Fay Riddell
             mix = eqs.mixture_mpp(options.aerothermo.mixture)
-            flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+            flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix, verbose = options.verbose)
             vel_grad = eqs.velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
             q = eqs.general_eq(flow_ble, vel_grad, 'fr')
             Stc = q/StConst
 
         case 'fr_noncat': #Fay Riddell
             mix = eqs.mixture_mpp(options.aerothermo.mixture)
-            flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+            flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix, verbose = options.verbose)
             vel_grad = eqs.velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
             q = eqs.general_eq(flow_ble, vel_grad, 'fr_noncat')        
             Stc = q/StConst
@@ -344,14 +344,14 @@ def aerothermodynamics_module_continuum(assembly, p : np.ndarray, options) -> np
                 flow_ble = eqs.stagnation_line_per_facet(Tfree = free.temperature, Pfree = free.pressure, Mfree = Mfree, Twall = body_temperature[p], mixname = options.aerothermo.mixture)
             else: 
                 mix = eqs.mixture_mpp(options.aerothermo.mixture)
-                flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+                flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix, verbose = options.verbose)
             vel_grad = eqs.velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
             q = eqs.general_eq(flow_ble, vel_grad, 'fr_parcat', cat_rate)       
             Stc = q/StConst
 
         case 'sg': #Sutton_graves
             mix = eqs.mixture_mpp(options.aerothermo.mixture)
-            flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix)
+            flow_ble = eqs.stagnation_line(Tfree = free.temperature, Pfree = free.pressure, Mfree = free.mach, Twall = body_temperature[p], mix = mix, verbose = options.verbose)
             vel_grad = eqs.velocity_gradient(options.aerothermo.vel_grad, facet_radius[p], flow_ble, options.aerothermo.standoff)
             q = eqs.general_eq(flow_ble, vel_grad, 'sg')
             Stc = q/StConst

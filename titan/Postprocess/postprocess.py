@@ -83,33 +83,24 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 		index = (data['Iter']==iter_value)*(data['Assembly_ID']==assembly_obj[0])
 		assembly_ID = data[index]['Assembly_ID'].to_numpy()
 	if options.verbose: print(data[index])
-	latitude    = data[index]['Latitude'].to_numpy()/180*np.pi
-	altitude    = data[index]['Altitude'].to_numpy()
-	longitude   = data[index]['Longitude'].to_numpy()/180*np.pi
-	chi         = data[index]['HeadingAngle'].to_numpy()/180*np.pi
-	gamma       = data[index]['FlightPathAngle'].to_numpy()/180*np.pi
-	aoa         = data[index]['AngleAttack'].to_numpy()/180*np.pi
-	slip        = data[index]['AngleSideslip'].to_numpy()/180*np.pi
-	mass        = data[index]['Mass'].to_numpy()
+	data_dict = data[index].to_dict(orient='list')
 
-	roll         = data[index]['Roll'].to_numpy()/180*np.pi
-	pitch        = data[index]['Pitch'].to_numpy()/180*np.pi
-	yaw        = data[index]['Yaw'].to_numpy()/180*np.pi
+	mass        = np.array(data_dict['Mass'])
 
 	#Quaternions Body to ECEF
-	qw = data[index]['Quat_w'].to_numpy()
-	qx = data[index]['Quat_x'].to_numpy()
-	qy = data[index]['Quat_y'].to_numpy()
-	qz = data[index]['Quat_z'].to_numpy()
+	qw = np.array(data_dict['Quat_w'])
+	qx = np.array(data_dict['Quat_x'])
+	qy = np.array(data_dict['Quat_y'])
+	qz = np.array(data_dict['Quat_z'])
 
 	#Position ECEF
-	X = data[index]['ECEF_X'].to_numpy()
-	Y = data[index]['ECEF_Y'].to_numpy()
-	Z = data[index]['ECEF_Z'].to_numpy()
+	X = np.array(data_dict['ECEF_X'])
+	Y = np.array(data_dict['ECEF_Y'])
+	Z = np.array(data_dict['ECEF_Z'])
 
-	body_X = data[index]['BODY_COM_X'].to_numpy()
-	body_Y = data[index]['BODY_COM_Y'].to_numpy()
-	body_Z = data[index]['BODY_COM_Z'].to_numpy()
+	body_X = np.array(data_dict['BODY_COM_X'])
+	body_Y = np.array(data_dict['BODY_COM_Y'])
+	body_Z = np.array(data_dict['BODY_COM_Z'])
 
 	q = np.array([qx,qy,qz,qw]).transpose()
 
@@ -147,7 +138,11 @@ def generate_visualization(options, data, iter_value, postprocess = "wind", filt
 	for i, _id in enumerate(assembly_ID):
 		mesh[i].points -= np.array([X[index_mass],Y[index_mass],Z[index_mass]])
 	
-	if postprocess.lower() == "wind": 
+	if postprocess.lower() == "wind":
+		latitude    = np.array(data_dict['Latitude'])/180*np.pi
+		longitude   = np.array(data_dict['Longitude'])/180*np.pi
+		chi         = np.array(data_dict['HeadingAngle'])/180*np.pi
+		gamma       = np.array(data_dict['FlightPathAngle'])/180*np.pi
 		#Rotate ECEF -> wind_frame
 		for i, _id in enumerate(assembly_ID):
 

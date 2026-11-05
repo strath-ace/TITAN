@@ -36,11 +36,12 @@ from ..Dynamics.propagation import collect_state_vectors
 
 def run(filename:str,n_samples:int):
     """Configures the TITAN case before dispatching n_samples as parallel jobs
+
     :param filename: Config file path
     :type filename: str
     :param n_samples: Number of Monte Carlo samples to run
     :type n_samples: int
-"""
+    """
     n_samples = int(n_samples)
     configParser = configparser.RawConfigParser()   
     configFilePath = filename.lstrip()

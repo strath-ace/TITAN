@@ -59,12 +59,16 @@ def loop(options = [], titan = []):
     if options.vehicle:
         titan.assembly[0].mass = options.vehicle.mass   
 
-    if options.dynamic_plots: plot = dynamic_plots.initialise_figs(titan, options)
+    if options.dynamic_plots: 
+        from datetime import datetime as dt
+        now = dt.now()
+        plot = dynamic_plots.initialise_figs(titan, options)
     if options.postproc_in_loop is not None: 
         import numpy as np
         import pandas as pd
         import os
-        pp_existing = np.array([])
+        pp_existing = 0
+        pp_assem_existing = 0
         i_time=0
 
     # Run main TITAN loop
@@ -108,25 +112,34 @@ def loop(options = [], titan = []):
         output.iteration(titan = titan, options = options, show_flow_solves=options.verbose)
         
         if options.dynamic_plots:
-            for _assembly in titan.assembly: plot = dynamic_plots.update_plot(_assembly, plot, titan.time)
+            for _assembly in titan.assembly: plot = dynamic_plots.update_plot_parameters(_assembly, plot, titan.time)
+            if (dt.now()-now).seconds>2.5:
+                plot = dynamic_plots.update_plot(plot)
+                now = dt.now()
 
         if options.postproc_in_loop is not None:
             if not os.path.exists(options.output_folder+'/Dense_surface_solution') and os.path.exists(options.output_folder+'/Data/data.csv'):
-                data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
-                data_obj = pd.read_csv(options.output_folder+'/Data/data_assembly.csv', index_col = False)
-                iter_interval = np.unique(data['Iter'].to_numpy())
-                iters_to_run = iter_interval[~np.isin(iter_interval,pp_existing)]
+                if pp_existing>0:
+                    data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False, skiprows=range(1,pp_existing))
+                else: data = pd.read_csv(options.output_folder+'/Data/data.csv', index_col = False)
+                if pp_assem_existing>0:
+                    data_obj = pd.read_csv(options.output_folder+'/Data/data_assembly.csv', index_col = False, skiprows=range(1,pp_assem_existing))
+                else: data_obj = pd.read_csv(options.output_folder+'/Data/data_assembly.csv', index_col = False)
+                iters = data['Iter'].to_numpy()
+                iters_to_run =  np.unique(iters)
                 for iter_value in range(min(iters_to_run), max(iters_to_run)+1, options.output_freq):
                     pp.generate_visualization(options, data, iter_value, options.postproc_in_loop, None, data_obj)
-                pp_existing = np.hstack((pp_existing,iters_to_run))
+                pp_existing += len(data.index)
+                pp_assem_existing += len(data_obj.index)
             elif os.path.exists(options.output_folder+'/Data/data_smooth.csv'):
-                data_smooth = pd.read_csv(options.output_folder+'/Data/data_smooth.csv')
-                times = np.unique(data_smooth['Time'].to_numpy())
-                times_to_run = times[~np.isin(times, pp_existing)]
+                if pp_existing>0:
+                    data_smooth = pd.read_csv(options.output_folder+'/Data/data_smooth.csv', skiprows=range(1, pp_existing))
+                else: data_smooth = pd.read_csv(options.output_folder+'/Data/data_smooth.csv', skiprows=range(1, pp_existing))
+                times_to_run = np.unique(data_smooth['Time'].to_numpy())
                 for time in times_to_run:
                     pp.generate_visualization(options, data_smooth, np.round(time,6), options.postproc_in_loop,is_dense=True, iter_override=i_time)
                     i_time+=1
-                pp_existing = np.hstack((pp_existing,times_to_run))
+                pp_existing += len(data_smooth.index)
 
 
         titan.iter += 1
@@ -200,6 +213,10 @@ if __name__ == "__main__":
                         dest="reachable",
                         action=BooleanOptionalAction,
                         help = "compute the reachable set in state space")
+    parser.add_argument("-D", "--DoE",
+                        dest="design",
+                        action=BooleanOptionalAction,
+                        help = "run an experimental design")
     parser.add_argument("-flt", "--filter",
                         dest="filtername",
                         type=str,
@@ -222,7 +239,11 @@ if __name__ == "__main__":
     if args.reachable:
         from .Uncertainty import reachable_set_wrapper
         reachable_set_wrapper.run(filename)
-
+        exit()
+    if args.design:
+        from .Design import dispatcher
+        dispatcher.run(filename)
+        exit()
     if args.n_samples is not None:
         from .Uncertainty import MC_wrapper
         MC_wrapper.run(filename,args.n_samples)

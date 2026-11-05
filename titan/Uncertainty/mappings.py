@@ -178,6 +178,24 @@ def library_check(name : str):
     except: 
         raise Exception('Could not find parameter {} in list, please check the UQ handbook'.format(name))
 
+def cartesian_callback(titan, options, assem_ids:list):
+    """
+    Constructs the position and velocity states based upon geodetic attributes for a set of assemblies defined by assem_ids
+    :param titan: Base TITAN object
+    :type titan: Assembly_list
+    :param options: Base TITAN options
+    :type options: Options
+    :param assem_ids: List of target assemblies
+    :type assem_ids: list
+"""
+    from ..Dynamics.dynamics import compute_cartesian
+    from ..Dynamics.propagation import update_dynamic_attributes
+    for i_assem in assem_ids: 
+        compute_cartesian(titan.assembly[i_assem], options)
+        #update_dynamic_attributes(titan.assembly[i_assem], titan.assembly[i_assem].state_vector, options, force=True)
+        
+
+
 def state_vector_callback(titan, options, assem_ids:list):
     """
 Constructs the ECEF states based upon dynamic attributes for a set of assemblies defined by assem_ids
@@ -189,7 +207,10 @@ Constructs the ECEF states based upon dynamic attributes for a set of assemblies
     :type assem_ids: list
 """
     from ..Dynamics.propagation import construct_state_vector
-    for i_assem in assem_ids: construct_state_vector(titan.assembly[i_assem], options.dynamics.augmented_state)
+    for i_assem in assem_ids: 
+        print(titan.assembly[i_assem].state_vector)
+        construct_state_vector(titan.assembly[i_assem], options.dynamics.augmented_state)
+        print(titan.assembly[i_assem].state_vector)
 
 def dynamic_attributes_callback(titan, options, assem_ids : list):
     """
@@ -328,7 +349,7 @@ Copies the lower in inertia tensor triangle assigned by UQ mapping to
         titan.assembly[i_assem].inertia[2,1] = titan.assembly[i_assem].inertia[1,2]
 
 #: Parameter mappings to functions that need to be called after UQ mapping has been completed
-callbacks = {state_vector_callback       : ['altitude','latitude','longitude','gamma','chi','velocity'],
+callbacks = {cartesian_callback       : ['altitude','latitude','longitude','gamma','chi','velocity'],
              ECI_position_callback       : ['ECI_x','ECI_y','ECI_z','ECI_u','ECI_v','ECI_w','ECI_epoch_UNIX'],
              RIC_callback                : ['RIC_x','RIC_y','RIC_z','RIC_u','RIC_v','RIC_w'],
              TVN_callback                : ['TVN_x','TVN_y','TVN_z','TVN_u','TVN_v','TVN_w'],

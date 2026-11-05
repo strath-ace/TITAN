@@ -142,18 +142,28 @@ class UQMapper(MutableSequence):
         self.map_from_vector(sample_out, titan, options)
         return self.state_info
 
-    def map_from_support(self, titan, options, upper=False):
-        """Documentation for the function.
+    def map_domain(self, titan, options, domain_vector : list):
+        """Maps from a vector in the domain [-1,1]^N to the dimensional domain.
+        For correct functionality the distributions must have a well defined support
+
         :param titan: TITAN simulation object.
-        :type titan: object
+        :type titan: AssemblyList
         :param options: Options or configuration object.
         :type options: Options
-        :return: Return value.
-        :rtype: Any"""
+        :return: Info on the current simulation state
+        :rtype: Dict"""
 
-        index = -1 if upper else 0
+        self.state_info = {}
+        self.state_info['seed'] = str(domain_vector).strip('[]')
         support_out = self.get_support_from_samplers()
-        self.map_from_vector([suppo[index] for suppo in support_out], titan, options)
+        dimensional_vector = []
+        for domain_vec, bounds in zip(domain_vector,support_out):
+            centre = 0.5*(bounds[1]+bounds[0])
+            halfwidth = bounds[1] - centre
+
+            dimensional_vector.append([centre + domain_vec*halfwidth])
+
+        self.map_from_vector(dimensional_vector, titan, options)
         return self.state_info
 
     def get_vector_from_seed(self, seed : int) -> list[np.ndarray]:
@@ -189,6 +199,7 @@ class UQMapper(MutableSequence):
         assem_ids = [[] for _ in range(len(self.callback_flags))]
 
         for param in self.parameters:
+
             param.assign(vector[param.code[1]][param.code[2]], titan, options)
             self.state_info[param.name] = vector[param.code[1]][param.code[2]]
 
@@ -207,16 +218,16 @@ class UQMapObject():
     """UQMapObject."""
     def __init__(self, param_name, param_object, param_assign_loc, code, callback = None):
         """Documentation for the function.
-:param param_name: Value for param name.
-:type param_name: Any
-:param param_object: Value for param object.
-:type param_object: Any
-:param param_assign_loc: Value for param assign loc.
-:type param_assign_loc: Any
-:param code: Value for code.
-:type code: Any
-:param callback: Value for callback.
-:type callback: Any"""
+        :param param_name: Value for param name.
+        :type param_name: Any
+        :param param_object: Value for param object.
+        :type param_object: Any
+        :param param_assign_loc: Value for param assign loc.
+        :type param_assign_loc: Any
+        :param code: Value for code.
+        :type code: Any
+        :param callback: Value for callback.
+        :type callback: Any"""
         self.name = param_name
         self.assign_obj = param_object
         self.assign_location = param_assign_loc
@@ -243,12 +254,13 @@ class UQMapObject():
     
     def assign(self, value, titan, options):
         """Documentation for the function.
-:param value: Numeric value for value.
-:type value: float
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: Options"""
+
+        :param value: Numeric value for value.
+        :type value: float
+        :param titan: TITAN simulation object.
+        :type titan: object
+        :param options: Options or configuration object.
+        :type options: Options"""
         self.resolve_object(titan,options)
         if len(self.assign_location)>1: 
             new_value = getattr(self.assign_obj,self.assign_location[0])
@@ -258,16 +270,17 @@ class UQMapObject():
 
 def report_outputs_from_csv(output_folder, output_dict, all_components, write=True):
     """Documentation for the function.
-:param output_folder: Value for output folder.
-:type output_folder: Any
-:param output_dict: Dictionary of output.
-:type output_dict: dict
-:param all_components: Value for all components.
-:type all_components: Any
-:param write: Value for write.
-:type write: Any
-:return: Return value.
-:rtype: Any"""
+
+    :param output_folder: Value for output folder.
+    :type output_folder: Any
+    :param output_dict: Dictionary of output.
+    :type output_dict: dict
+    :param all_components: Value for all components.
+    :type all_components: Any
+    :param write: Value for write.
+    :type write: Any
+    :return: Return value.
+    :rtype: Any"""
     data = pd.read_csv(output_folder+'/Data/data.csv')
     assembly_data = pd.read_csv(output_folder+'/Data/data_assembly.csv')
     geo_path = all_components[0].rsplit('/', maxsplit=1)[0]+'/'

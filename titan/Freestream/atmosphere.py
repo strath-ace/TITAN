@@ -160,9 +160,9 @@ def create_msis_atmosphere(titan, options, altitudes = None, latitudes = None, l
     :param options: _description_
     :type options: _type_
     """
-    if altitudes is None: altitudes  = np.arange(0,999,2.0)
-    if latitudes is None: latitudes  = np.arange(-90,90,10.0)
-    if longitudes is None: longitudes = np.arange(-180,180,10.)
+    if altitudes is None: altitudes  = np.arange(0,999,1.0)
+    if latitudes is None: latitudes  = np.arange(-90,90,5.)
+    if longitudes is None: longitudes = np.arange(-180,180,5.)
     print('Building MSIS atmosphere grid, this may take some time...')
     msis_atmosphere = pymsis.calculate(titan.epoch+timedelta(seconds=titan.time),latitudes,longitudes,altitudes)
 

@@ -188,7 +188,7 @@ def state_equation(titan,options,time,state_vectors):
 
 
         # Use quaternion derivative equation 
-        omega_body = np.array([angularDerivatives.droll,angularDerivatives.dpitch,angularDerivatives.dyaw])
+        omega_body = np.array([angularDerivatives.droll,angularDerivatives.dpitch,angularDerivatives.dyaw], dtype=float)
         # Subtract Planetary rotation
         omega_body -= Rot.from_quat(_assembly.state_vector[6:10]).inv().apply(
             [0, 0, options.planet.omega()]

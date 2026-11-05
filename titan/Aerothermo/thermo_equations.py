@@ -86,7 +86,7 @@ def energy_loop_brent(mix : mpp.Mixture, T_eq : float, P_eq : float, h_ref : flo
     f = partial(energy_loop_obj_func, mix, P_eq, h_ref)
     if verbose: print('Equilibriating energy for h_ref {}'.format(h_ref))
     if verbose: print('{}<T_eq={}<{}  P_eq={}'.format(T_min,T_eq,T_max,P_eq))
-    T_eq = brentq(f, T_min, T_eq)
+    T_eq = brentq(f, T_min, T_max)
     if verbose: print('Got T_eq as {}'.format(T_eq))
     mix.equilibrate(T_eq, P_eq)
     
@@ -260,7 +260,7 @@ class stagnation_line():
     Class to store the flow conditions at freestream, stagnation, BLE and wall, global for the whole assembly
     """
 
-    def __init__(self, Tfree : float, Pfree : float, Mfree : float, Twall : float, mix : mpp.Mixture = None):
+    def __init__(self, Tfree : float, Pfree : float, Mfree : float, Twall : float, mix : mpp.Mixture = None, verbose=False):
         """Solve stations of the stagnation line (Free, Post-Shock, BLE, Wall) from freestream and wall conditions
         :param Tfree: Freestream temperature.
         :type Tfree: float
@@ -315,7 +315,7 @@ class stagnation_line():
         self.Pe = self.P0_post
 
         #Energy loop (Need to match the Total enthalpy)
-        self.mix = energy_loop_brent(self.mix, self.Te, self.Pe, self.H0_free, self.Tfree, self.T0_post, True)
+        self.mix = energy_loop_brent(self.mix, self.Te, self.Pe, self.H0_free, self.Tfree, self.T0_post, verbose)
 
         self.Te = self.mix.T()
         self.Pe = self.mix.P()
