@@ -288,9 +288,13 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
 :type assembly: object
 :param options: Options or configuration object.
 :type options: Options"""
+    is_in_atmo = True
 
-    data, species_index = retrieve_atmosphere_data(model, altitude, assembly, options, epoch)
-
+    atmo_data = retrieve_atmosphere_data(model, altitude, assembly, options, epoch)
+    if atmo_data is None: 
+        is_in_atmo = False
+        return is_in_atmo
+    else: data, species_index = atmo_data
     temperature = data[1]
     density = data[2:]
 
@@ -376,7 +380,8 @@ def compute_freestream( model, altitude, velocity, lref, freestream, assembly, o
     
         freestream.mfp = C1/freestream.density
         freestream.knudsen = freestream.mfp/lref
-    
+
+    return is_in_atmo
 def compute_stagnation(free, options):
     """Compute the post-shock stagnation values
 :param free: Value for free.

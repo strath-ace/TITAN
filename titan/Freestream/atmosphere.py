@@ -113,7 +113,7 @@ def retrieve_atmosphere_data(name, altitude, assembly, options, epoch = None):
 """
 
     #This function only returns the data for a single altitude
-
+    if altitude>1000000: return None
     if name.upper() == "NRLMSISE00" or name.upper() == "PYMSIS":
         if options.planet.name != "earth": raise Exception("The model NRLMSISE00 contains Earth atmopshere. Please choose the GRAM model")
         species_index = ["N2","O2","O","He","Ar","N","H"]

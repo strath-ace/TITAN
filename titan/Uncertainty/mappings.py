@@ -231,14 +231,17 @@ Recalculates the dynamic attributes based upon ECEF states
 
 def ECI_position_callback(titan, options, assem_ids : list):
     """
-Recalculates the (ECEF) state vectors based upon ECI states
+    Recalculates the (ECEF) state vectors based upon ECI states
+
+    This function is a "callback" in that it is called after UQ mapping
+
     :param titan: Base TITAN object
     :type titan: Assembly_list
     :param options: Base TITAN options
     :type options: Options
     :param assem_ids: List of target assemblies
     :type assem_ids: list
-"""
+    """
     import pymap3d
     import datetime as dt
     epoch = options.dynamics.trajectory_epoch
@@ -257,14 +260,17 @@ Recalculates the (ECEF) state vectors based upon ECI states
 
 def orientation_callback(titan, options, assem_ids : list):
     """
-Recomputes the quaternion of a of a set of assemblies defined by assem_ids
+    Recomputes the quaternion of a of a set of assemblies defined by assem_ids
+
+    This function is a "callback" in that it is called after UQ mapping
+
     :param titan: Base TITAN object
-    :type titan: Assembly_list
+    :type titan: AssemblyList
     :param options: Base TITAN options
     :type options: Options
     :param assem_ids: List of target assemblies
     :type assem_ids: list
-"""
+    """
     from ..Dynamics.dynamics import compute_quaternion
     for i_assem in assem_ids: 
         compute_quaternion(titan.assembly[i_assem])
@@ -273,31 +279,33 @@ Recomputes the quaternion of a of a set of assemblies defined by assem_ids
 
 def RIC_callback(titan, options, assem_ids : list):
     """
-Adds pre-specified deltas in Radial, In-Track, Cross-Track (RIC/RTN) frame to
+    Adds pre-specified deltas in Radial, In-Track, Cross-Track (RIC/RTN) frame to 
+    the states of a set of assemblies defined by assem_ids
+
+    This function is a "callback" in that it is called after UQ mapping
+
+    The frame is defined as detailed in https://sanaregistry.org/r/orbit_relative_reference_frames/records/9
+
+    Note that for circular orbits RIC and TVN are identical
+
     :param titan: Base TITAN object
-    :type titan: Assembly_list
+    :type titan: AssemblyList
     :param options: Base TITAN options
     :type options: Options
     :param assem_ids: List of target assemblies
     :type assem_ids: list
-"""
-
+    """
+    from ..Dynamics.frames import R_ECEF_from_RIC
     for i_assem in assem_ids:
         state = np.array(titan.assembly[i_assem].state_vector)
         delta_RIC = titan.assembly[i_assem].RIC
-        r_hat = state[0:3] / np.linalg.norm(state[0:3])
-        v_hat = state[3:6] / np.linalg.norm(state[3:6])
-        
-        # For RTN/RIC our T/I vector is not velocity aligned 
-        x_track = np.cross(r_hat, v_hat)
-        in_track = np.cross(x_track, r_hat) # i.e. this is not (necessarily) v_hat
-        radial = r_hat
+        R = R_ECEF_from_RIC(state[0:3],state[3:6])
 
         delta_ECEF = np.zeros(6)
         # Position changes
-        delta_ECEF[0:3] += delta_RIC[0] * radial + delta_RIC[1] * in_track + delta_RIC[2] * x_track
+        delta_ECEF[0:3] += R.apply(delta_RIC[0:3])
         # Velocity Changes
-        delta_ECEF[3:6] += delta_RIC[3] * radial + delta_RIC[4] * in_track + delta_RIC[5] * x_track
+        delta_ECEF[3:6] += R.apply(delta_RIC[3:6])
         state[0:6] += delta_ECEF
         titan.assembly[i_assem].state = state
 
@@ -305,44 +313,50 @@ Adds pre-specified deltas in Radial, In-Track, Cross-Track (RIC/RTN) frame to
 
 def TVN_callback(titan, options, assem_ids : list):
     """
-Adds pre-specified deltas in Transverse, Velocity, Normal (TVN/NTW/PTW) frame to
+    Adds pre-specified deltas in Transverse, Velocity, Normal (TVN/NTW/PTW) frame to
+    the states of a set of assemblies defined by assem_ids
+
+    This function is a "callback" in that it is called after UQ mapping
+
+    The frame is defined as detailed in https://sanaregistry.org/r/orbit_relative_reference_frames/records/6
+
+
     :param titan: Base TITAN object
-    :type titan: Assembly_list
+    :type titan: AssemblyList
     :param options: Base TITAN options
     :type options: Options
     :param assem_ids: List of target assemblies
     :type assem_ids: list
-"""
-
+    """
+    from ..Dynamics.frames import R_ECEF_from_TVN
     for i_assem in assem_ids:
         state = np.array(titan.assembly[i_assem].state_vector)
         delta_RIC = titan.assembly[i_assem].RIC
-        r_hat = state[0:3] / np.linalg.norm(state[0:3])
-        v_hat = state[3:6] / np.linalg.norm(state[3:6])
-        
-        # For TVN/NTW our T/N vector is not position aligned 
-        x_track = np.cross(r_hat, v_hat)
-        in_track = v_hat
-        radial = np.cross(in_track, x_track) # i.e. this is not (necessarily) r_hat
+        R = R_ECEF_from_TVN(state[0:3],state[3:6])
 
         delta_ECEF = np.zeros(6)
         # Position changes
-        delta_ECEF[0:3] += delta_RIC[0] * radial + delta_RIC[1] * in_track + delta_RIC[2] * x_track
+        delta_ECEF[0:3] += R.apply(delta_RIC[0:3])
         # Velocity Changes
-        delta_ECEF[3:6] += delta_RIC[3] * radial + delta_RIC[4] * in_track + delta_RIC[5] * x_track
+        delta_ECEF[3:6] += R.apply(delta_RIC[3:6])
         state[0:6] += delta_ECEF
         titan.assembly[i_assem].state = state
 
+    dynamic_attributes_callback(titan, options, assem_ids)
+
 def symmetrize_inertia_callback(titan, options, assem_ids : list):
     """
-Copies the lower in inertia tensor triangle assigned by UQ mapping to
+    Copies the lower in inertia tensor triangle assigned by UQ mapping to
+    the upper inertia tensor to "symmetrize" the tensor of a set of assemblies 
+    defined by assem_ids
+
     :param titan: Base TITAN object
-    :type titan: Assembly_list
+    :type titan: AssemblyList
     :param options: Base TITAN options
     :type options: Options
     :param assem_ids: List of target assemblies
     :type assem_ids: list
-"""
+    """
     for i_assem in assem_ids:
         titan.assembly[i_assem].inertia[1,0] = titan.assembly[i_assem].inertia[0,1]
         titan.assembly[i_assem].inertia[2,0] = titan.assembly[i_assem].inertia[0,2]

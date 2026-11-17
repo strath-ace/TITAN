@@ -142,6 +142,8 @@ def write_output_data(titan, options, smooth=False):
             data['C_D'] = assembly.wind_force.drag / (dyn_pressure * assembly.Aref)
             data['C_L'] = assembly.wind_force.lift / (dyn_pressure * assembly.Aref)
             data['C_Xwind'] = assembly.wind_force.crosswind / (dyn_pressure * assembly.Aref)
+            data['C_D_A'] = assembly.wind_force.drag / dyn_pressure
+            data['BC'] = assembly.wind_force.drag / (dyn_pressure * assembly.mass)
             if options.aerothermo.recalculate_Aref:
                 data['Aproj'] = assembly.aerothermo.proj_area
                 data['C_D_instant'] = assembly.wind_force.drag / (dyn_pressure * assembly.aerothermo.proj_area)

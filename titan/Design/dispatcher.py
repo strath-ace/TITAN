@@ -22,7 +22,7 @@ from ..__main__ import loop
 from ..Configuration.configuration import read_config_file
 from ..Design.doe import full_factorial
 from ..Dynamics.propagation import collect_state_vectors
-from ..Uncertainty.utils import UQMapper as Mapper, report_outputs_from_csv, collate_QoI
+from ..Uncertainty.sampling import UQMapper as Mapper, report_outputs_from_csv, collate_QoI
 from ..Uncertainty.MC_wrapper import write_datafile, update_datafile, log_error
 import numpy as np
 import configparser
@@ -72,7 +72,7 @@ def run(filename:str, design : callable = full_factorial, design_kwargs : dict =
             wrapper(new_titan, new_options, i_sample, vector)
             del new_titan, new_options
     
-    #collate_QoI(vector_list, base_folder, 0)
+    collate_QoI(vector_list, base_folder, 0, subfolder_name='DoE_')
     exit()
 
 def wrapper(titan, options, i_sample : int, vector : np.ndarray):

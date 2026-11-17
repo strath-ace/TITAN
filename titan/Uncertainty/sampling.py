@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-"""utils module."""
+"""Module for interfacing methods for sampling with the TITAN simulation."""
 import numpy as np
 import yaml
 import pandas as pd
@@ -26,7 +26,7 @@ import pathlib
 try: from yaml import CLoader as Loader
 except: from yaml import Loader
 
-from ..Uncertainty import mappings as ma
+from . import mappings as ma
 class UQMapper(MutableSequence):
     """UQMapper."""
     ## Once approprUQ Mapper
@@ -374,7 +374,7 @@ def get_component_map(assembly_data, component_list):
 
     return last_obj_data.set_index('Obj_name')['Assembly_ID'].to_dict()
 
-def collate_QoI(seedlist, base_folder, campaign_seed = 0):
+def collate_QoI(seedlist, base_folder, campaign_seed = 0, subfolder_name='MC_'):
     """Documentation for the function.
 :param seedlist: List of seedlist.
 :type seedlist: list
@@ -385,7 +385,7 @@ def collate_QoI(seedlist, base_folder, campaign_seed = 0):
     root_df = pd.DataFrame()
     for i_sample, seed in enumerate(seedlist):
         try: 
-            csv_path = base_folder+'/Campaign_{}/MC_{}/QoI.csv'.format(campaign_seed, i_sample)
+            csv_path = base_folder+'/Campaign_{}/{}{}/QoI.csv'.format(campaign_seed, subfolder_name, i_sample)
             df = pd.read_csv(str(pathlib.Path(csv_path).resolve()))
             root_df = pd.concat([root_df,df])
         except Exception as e: print('Error retrieving result {}: {}'.format(i_sample,e))

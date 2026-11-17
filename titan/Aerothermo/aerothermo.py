@@ -43,18 +43,21 @@ def compute_aerothermo(titan, options):
     :type options: Options"""
 
     atmo_model = options.freestream.model
-    
-    for assembly in titan.assembly:
+    assem_list  = []
+    for _assembly in titan.assembly:
         #Compute the freestream properties and stagnation quantities
-        mix_properties.compute_freestream(atmo_model, assembly.trajectory.altitude, assembly.trajectory.velocity, assembly.Lref, 
-                                          assembly.freestream, assembly, options, titan.epoch + timedelta(seconds=titan.time))
-        mix_properties.compute_stagnation(assembly.freestream, options.freestream)
+        in_atmo = mix_properties.compute_freestream(atmo_model, _assembly.trajectory.altitude, _assembly.trajectory.velocity, _assembly.Lref, 
+                                          _assembly.freestream, _assembly, options, titan.epoch + timedelta(seconds=titan.time))
+        p_free = _assembly.freestream.pressure if in_atmo else 0.
+        reset_aero_surfaces(_assembly, p_free)
+        if in_atmo:
+            mix_properties.compute_stagnation(_assembly.freestream, options.freestream)
+            assem_list.append(_assembly)
 
     if options.fidelity.lower() == 'low':
-        titan.groups = compute_low_fidelity_aerothermo(titan.assembly, options, titan.epoch + timedelta(seconds=titan.time))
+        titan.groups = compute_low_fidelity_aerothermo(assem_list, options, titan.epoch + timedelta(seconds=titan.time))
     elif options.fidelity.lower() == 'high':
-
-        if  (assembly.freestream.knudsen <= options.aerothermo.knc_pressure):
+        if  (assem_list[0].freestream.knudsen <= options.aerothermo.knc_pressure):
             if options.cfd.cfd_restart: su2.restart_cfd_aerothermo(titan, options)
             else: su2.compute_cfd_aerothermo(titan, options)
         else:
@@ -156,16 +159,6 @@ def compute_low_fidelity_aerothermo(assemblies, options, epoch = None) -> list:
     flow_directions, groups, group_map = sphere_of_influence_assembly_groups(assemblies, options.aerothermo.SoI_rad)
     
     for it, _assembly in enumerate(assemblies):
-        _assembly.aerothermo.heatflux *= 0
-        _assembly.aerothermo.pressure *= 0
-        _assembly.aerothermo.pressure += _assembly.freestream.pressure
-        _assembly.aerothermo.shear    *= 0
-        _assembly.aerothermo.he       *= 0
-        _assembly.aerothermo.hw       *= 0
-        _assembly.aerothermo.Te       *= 0
-        _assembly.aerothermo.rhoe     *= 0
-        _assembly.aerothermo.ue       *= 0
-        _assembly.aerothermo.ce_i     *= 0
 
         _assembly.quaternion_prev = _assembly.quaternion #to be used in thermal model
         flow_direction = flow_directions[group_map[it]]
@@ -180,8 +173,6 @@ def compute_low_fidelity_aerothermo(assemblies, options, epoch = None) -> list:
         #if options.pato.flag and options.pato.Ta_bc == "ablation": compute_equilibrium_chemistry(_assembly, options.aerothermo.mixture, index)
         #if options.pato: compute_frozen_chemistry(_assembly, options.aerothermo.mixture)
     return groups
-
-
 
 
 def aerodynamics_module_continuum(assembly, p : np.ndarray, flow_direction : np.ndarray) -> np.ndarray:
@@ -650,8 +641,11 @@ def aerothermodynamics_module_bridging(assembly, p, flow_direction, atm_model, K
     free_free = copy(free)
 
     #Computes the freestream properties for the transition altitudes
-    mix_properties.compute_freestream(atm_model, alt_cont, free.velocity, lref, free_cont, assembly, options,epoch)
-    mix_properties.compute_freestream(atm_model, alt_free, free.velocity, lref, free_free, assembly, options, epoch)
+    in_atmo_cont = mix_properties.compute_freestream(atm_model, alt_cont, free.velocity, lref, free_cont, assembly, options,epoch)
+    in_atmo_free = mix_properties.compute_freestream(atm_model, alt_free, free.velocity, lref, free_free, assembly, options, epoch)
+
+    # If either of our freestream models are above 100km something as gone really wrong
+    if (not in_atmo_cont) or (not in_atmo_free): raise Exception('Error in bridging! A model exceeded the atmosphere!')
     
     #HFcont = aerothermodynamics_module_continuum(nodes_normal,nodes_radius, free,p, wall_temperature, flow_direction, hf_model)
     #HFfree = aerothermodynamics_module_freemolecular(nodes_normal,free,p, flow_direction, wall_temperature)
@@ -809,4 +803,21 @@ def sphere_of_influence_assembly_groups(assembly_list : list, sphere_radius : fl
 
     return mean_flow_dirs, assembly_groups, group_mapping
 
+def reset_aero_surfaces(assembly, free_pressure : float = 0.) -> None:
+    """Resets surface properties of an assembly to an uncalculated state
 
+    :param assembly: Assembly of interest
+    :type assembly: Assembly
+    :param free_pressure: Freestream pressure in Pa, defaults to 0.
+    :type free_pressure: float
+    """
+    assembly.aerothermo.heatflux *= 0
+    assembly.aerothermo.pressure *= 0
+    assembly.aerothermo.pressure += free_pressure
+    assembly.aerothermo.shear    *= 0
+    assembly.aerothermo.he       *= 0
+    assembly.aerothermo.hw       *= 0
+    assembly.aerothermo.Te       *= 0
+    assembly.aerothermo.rhoe     *= 0
+    assembly.aerothermo.ue       *= 0
+    assembly.aerothermo.ce_i     *= 0

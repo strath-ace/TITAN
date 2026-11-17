@@ -28,7 +28,7 @@ from ..Aerothermo.aerothermo import aerodynamics_module_continuum, aerodynamics_
 from ..Design.aero import AeroOptimiser, AeroSurrogate
 from ..Dynamics.propagation import update_dynamic_attributes, RK_N_actual, RK_k_factors, RK_tableaus
 from ..Freestream.mix_properties import compute_freestream, compute_stagnation
-from ..Uncertainty.utils import UQMapObject, UQMapper
+from ..Uncertainty.sampling import UQMapObject, UQMapper
 
 base_opt_state_c = np.array([6448137.33, 0., 0., 0., 0., 7400., 0., 0., 0., 1., 0., 0., 0.])
 base_opt_state_fmf = np.array([6478137.33, 0., 0., 0., 0., 7700., 0., 0., 0., 1., 0., 0., 0.])

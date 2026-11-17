@@ -31,7 +31,7 @@ except: from yaml import Loader
 
 from ..__main__ import loop
 from ..Configuration.configuration import read_config_file
-from ..Uncertainty.utils import UQMapper, report_outputs_from_csv, collate_QoI
+from .sampling import UQMapper, report_outputs_from_csv, collate_QoI
 from ..Dynamics.propagation import collect_state_vectors
 
 def run(filename:str,n_samples:int):
