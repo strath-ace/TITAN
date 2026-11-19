@@ -17,7 +17,17 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-"""aerothermo module."""
+"""aerothermo module - TITAN's low fidelity aerothermodynamics models
+
+The low fidelity models applied here fall under the category of raytraced panel codes, 
+raytracing is used to determine if a face (i.e. panel) of the mesh can be seen by the flow.
+For more information refer to the raytracing module.
+
+In the rarefied regime TITAN deploys the Schaaf-Chambre model that determines pressure and shear coefficients.
+
+In the continuum regime TITAN uses Modified Newtonian Theory (MNT) to determine the pressure coefficient (Cp) on a face
+In MNT Cp is solely a function of a maximal stagnation pressure and the squared sine of the angle of incidence of the face. 
+"""
 import numpy as np
 from ..Freestream import mix_properties
 from ..Dynamics.frames import *

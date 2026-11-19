@@ -17,7 +17,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
-"""Equations used in continuum aerothermodynamics calculations"""
+"""Equations used in continuum aerothermodynamics calculations
+
+For more information on heat flux relations, the following paper provides a good comparison between the methods available in TITAN
+S. H. Park, et al, A study on heat flux predictions for re-entry flight analysis, 2021
+https://doi.org/10.1016/j.actaastro.2021.06.025.
+"""
 
 import numpy as np
 from functools import partial
