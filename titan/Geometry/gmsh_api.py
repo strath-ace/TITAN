@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
+# Copyright (c) 2026 TITAN Contributors (cf. AUTHORS.md).
 #
 # This file is part of TITAN 
 # (see https://github.com/strath-ace/TITAN).
@@ -23,8 +23,10 @@ import numpy as np
 
 def mesh_Settings(gmsh):
     """Documentation for the function.
-:param gmsh: Value for gmsh.
-:type gmsh: Any"""
+
+    :param gmsh: Value for gmsh.
+    :type gmsh: Any"""
+
     gmsh.option.setNumber("General.Terminal", 0)
     gmsh.option.setNumber("Mesh.Algorithm3D", 10) # for parallel 3D meshing
     #gmsh.option.setNumber("General.NumThreads", 1);
@@ -34,26 +36,35 @@ def mesh_Settings(gmsh):
     #self.gmsh.option.setNumber("Mesh.Optimize",1)
     #self.gmsh.option.setNumber("Mesh.QualityType",2);
 
-def generate_inner_domain(mesh, assembly = [], write = False, output_folder = '', output_filename = '', bc_ids = [], ref_obj_override=None, min_size=None):
+def generate_inner_domain(mesh, assembly = [], write : bool = False, output_folder : str = '', output_filename : str = '', 
+                          bc_ids : list[int] = [], ref_obj_override : str = None, min_size : float = None):
     """Documentation for the function.
-:param mesh: Value for mesh.
-:type mesh: Any
-:param assembly: Assembly object to process.
-:type assembly: object
-:param write: Value for write.
-:type write: Any
-:param output_folder: Value for output folder.
-:type output_folder: Any
-:param output_filename: Value for output filename.
-:type output_filename: str
-:param bc_ids: Value for bc ids.
-:type bc_ids: Any
-:param ref_obj_override: Value for ref obj override.
-:type ref_obj_override: Any
-:param min_size: Value for min size.
-:type min_size: Any
-:return: Return value.
-:rtype: Any"""
+
+    :param mesh: Mesh object to build a volume mesh for.
+    :type mesh: Mesh
+    :param assembly: Assembly object to process.
+    :type assembly: Assembly
+    :param write: Whether to write the computed mesh to a .vtk, defaults to False.
+    :type write: bool
+    :param output_folder: Path to output folder.
+    :type output_folder: str
+    :param output_filename: Output filename.
+    :type output_filename: str
+    :param bc_ids: Boundary condition ids
+    :type bc_ids: list[int]
+    :param ref_obj_override: Set as either "joint" or "panel" to use a smaller cell size for thin parts, defaults to None
+    :type ref_obj_override: str
+    :param min_size: Passed to gmsh as the minimum size option
+    :type min_size: float
+    :return coords: Array of node coordinates
+    :rtype coords: np.ndarray
+    :return elements: Array of element connectivity 
+    :rtype elements: np.ndarray
+    :return density_elem: Array of density per-element
+    :rtype density_elem: np.ndarray
+    :return tag_elem: Array of gmsh tags per-element
+    :rtype tag_elem: np.ndarray
+    :"""
     gmsh.initialize()
     mesh_Settings(gmsh)
 

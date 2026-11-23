@@ -211,7 +211,7 @@ def state_equation(titan,options,time,state_vectors):
                                    angularDerivatives.ddpitch,
                                    angularDerivatives.ddyaw,]
         if options.dynamics.augmented_state: 
-            for component in _assembly.objects:
+            for component in _assembly.components:
                 d_dt_state_vector.append(component.Tdot)
                 d_dt_state_vector.append(component.mdot)
         d_dt_state_vectors.append(d_dt_state_vector)
@@ -276,7 +276,7 @@ def update_dynamic_attributes(assembly,state_vector,options, force=False, return
                         component.mass = 0
                     assembly.mesh.vol_density[assembly.mesh.vol_tag == component.id] = component.material.density
                     assembly.aerothermo.temperature[component.facet_index] = component.temperature
-                if recompute_mass: assembly.compute_mass_properties()
+            if recompute_mass: assembly.compute_mass_properties()
 
         # Communicate state to other assembly attributes...
         [latitude, longitude, altitude] = pymap3d.ecef2geodetic(assembly.position[0], assembly.position[1], assembly.position[2],
@@ -369,7 +369,7 @@ def construct_state_vector(assembly, augmented = False):
     assembly.state_vector[12]  = assembly.yaw_vel    
 
     if augmented: 
-        for component in assembly.objects:
+        for component in assembly.components:
             assembly.state_vector.append(component.temperature)
             assembly.state_vector.append(component.mass)
 

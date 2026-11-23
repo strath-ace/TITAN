@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
+# Copyright (c) 2026 TITAN Contributors (cf. AUTHORS.md).
 #
 # This file is part of TITAN 
 # (see https://github.com/strath-ace/TITAN).
@@ -34,11 +34,13 @@ import subprocess
 cutoff = 0.0
 
 def compute_thermal(titan, options):
-    """Documentation for the function.
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: Options"""
+    """This top-level thermal call selects one of the thermal submodels (tetra, 0d, pato, byproducts) 
+    and calls it
+
+    :param titan: TITAN AssemblyList.
+    :type titan: AssemblyList
+    :param options: Options or configuration object.
+    :type options: Options"""
     thermal_delta_t = titan.time - options.thermal.prev_thermal_time
     if thermal_delta_t>=options.thermal.time_fidelity or options.dynamics.augmented_state: 
         if options.thermal.ablation_mode == "tetra":
@@ -54,13 +56,15 @@ def compute_thermal(titan, options):
         options.thermal.prev_thermal_time = round(titan.time,5)
 
 def compute_thermal_0D(titan, options, dt=None):
-    """Documentation for the function.
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: Options
-:param dt: Numeric value for dt.
-:type dt: float"""
+    """The lumped mass 0d thermal model assumes a uniform temperature across an object 
+    and that all thermal energy above the melting temperature is converted directly into mass loss
+    
+    :param titan: TITAN AssemblyList.
+    :type titan: AssemblyList
+    :param options: Options or configuration object.
+    :type options: Options
+    :param dt: time step.
+    :type dt: float"""
 
     Tref = 273
     # Unity timestep gives us rates instead of integrated values
@@ -123,16 +127,19 @@ def compute_thermal_0D(titan, options, dt=None):
 
     return
 
-def compute_thermal_tetra(titan, options, dt):
-    """Documentation for the function.
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: Options
-:param dt: Numeric value for dt.
-:type dt: float"""
-  
+def compute_thermal_tetra(titan, options, dt=None):
+    """Computes a discretised 3D ablation model across a tetrahedralisation of object volume. 
+    Note that no conduction occurs between tetra.
 
+    :param titan: TITAN AssemblyList.
+    :type titan: AssemblyList
+    :param options: Options or configuration object.
+    :type options: Options
+    :param dt: time step.
+    :type dt: float"""
+  
+    # Unity timestep gives us rates instead of integrated values
+    if options.dynamics.augmented_state: dt = 1.0 
     for assembly in titan.assembly:
         if assembly.ablation_mode != 'tetra': continue
         Tref = assembly.freestream.temperature
@@ -214,7 +221,7 @@ def compute_thermal_tetra(titan, options, dt):
             #print('new_mass:', new_mass)
 
             assembly.mesh.vol_T[tetra_array] += dT
-
+            
             assembly.mesh.vol_density[tetra_array] *= new_mass/tetra_mass 
 
             ##print('vol_density:', assembly.mesh.vol_density[tetra_array])
@@ -239,7 +246,7 @@ def compute_thermal_tetra(titan, options, dt):
 
             #print('delete_array:', delete_array)        
             
-        print('N tetras assembly:', len(assembly.mesh.vol_elements))
+        print('N active tetras assembly:', np.count_nonzero(assembly.mesh.vol_density))
         if delete_array:
             #print('0 N facets assembly:', len(assembly.mesh.v0))
             #print('N tetras assembly:', len(assembly.mesh.vol_elements))
@@ -274,11 +281,12 @@ def compute_thermal_tetra(titan, options, dt):
     return 
 
 def compute_thermal_PATO(titan, options):
-    """Documentation for the function.
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: Options"""
+    """Interlayer between TITAN and PATO.
+
+    :param titan: TITAN AssemblyList.
+    :type titan: AssemblyList
+    :param options: Options or configuration object.
+    :type options: Options"""
 
     for assembly in titan.assembly: 
 
@@ -340,13 +348,14 @@ def compute_thermal_PATO(titan, options):
     return
 
 def compute_thermal_byproducts(titan, options, dt):
-    """Documentation for the function.
-:param titan: TITAN simulation object.
-:type titan: object
-:param options: Options or configuration object.
-:type options: Options
-:param dt: Numeric value for dt.
-:type dt: float"""
+    """0d thermal with additional calculation to determine emitted byproducts 
+
+    :param titan: TITAN AssemblyList.
+    :type titan: AssemblyList
+    :param options: Options or configuration object.
+    :type options: Options
+    :param dt: time step.
+    :type dt: float"""
     Tref = 273
     # Unity timestep gives us rates instead of integrated values
     if options.dynamics.augmented_state: dt = 1.0 

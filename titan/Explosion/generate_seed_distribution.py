@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023 TITAN Contributors (cf. AUTHORS.md).
+# Copyright (c) 2026 TITAN Contributors (cf. AUTHORS.md).
 #
 # This file is part of TITAN
 # (see https://github.com/strath-ace/TITAN).
@@ -51,17 +51,18 @@ class SpiralSampler():
         else: self.rng = rng
         self.parameter = uniform()
         self.parameter.random_state = self.rng
-    def rvs(self, n_samples, kind='xyz'):
+    def rvs(self, n_samples : int, kind : str='xyz') -> np.ndarray:
         """Sample points from the configured spiral.
 
-:param n_samples: Integer value for n samples.
-:type n_samples: int
-:param kind: Output representation; ``'polar'`` returns spiral parameters,
-    while other values return Cartesian coordinates.
-:type kind: Any
-:return: Sampled coordinates or spiral parameters.
-:rtype: numpy.ndarray
-"""
+        :param n_samples: Integer value for n samples.
+        :type n_samples: int
+        :param kind: Output representation; ``'polar'`` returns spiral parameters,
+        while other values return Cartesian coordinates.
+        :type kind: str
+        :return: Sampled coordinates or spiral parameters.
+        :rtype: numpy.ndarray
+        """
+
         theta = self.parameter.rvs(n_samples)
         r = self.a * np.exp( self.b * theta)
         phi = self.k * theta
@@ -73,19 +74,19 @@ class SpiralSampler():
             z = r * np.sin(phi)
             return np.array([x,y,z]).T
 
-def generate_seed_points(obj_half_len=2, parameters = [0, 0, 0], law = [6, -1.6]):
+def generate_seed_points(obj_half_len : float = 2, parameters : list = [0, 0, 0], law : list[float]= [6, -1.6]):
     """Generate seed locations on concentric spherical shells.
 
-:param obj_half_len: Characteristic half-length that sets the outer scale.
-:type obj_half_len: Any
-:param parameters: Three values controlling the point count, shell count,
-    and innermost shell scale.
-:type parameters: Any
-:param law: Coefficient and exponent defining the radial point-count law.
-:type law: Any
-:return: Generated three-dimensional seed coordinates.
-:rtype: numpy.ndarray
-"""
+        :param obj_half_len: Characteristic half-length that sets the outer scale.
+        :type obj_half_len: float
+        :param parameters: Three values controlling the point count, shell count,
+        and innermost shell scale.
+        :type parameters: list
+        :param law: Coefficient and exponent defining the radial point-count law.
+        :type law: list[float]
+        :return: Generated three-dimensional seed coordinates.
+        :rtype: numpy.ndarray
+    """
     n_points, n_shells, min_len = parameters
     shells = np.logspace(min_len,np.log(obj_half_len),int(n_shells))
     points = np.zeros([1,3])
@@ -123,13 +124,13 @@ def generate_seed_points(obj_half_len=2, parameters = [0, 0, 0], law = [6, -1.6]
 def get_seed_points(expl_dir, obj_len=2, law = [6, -1.6]):
     """Optimize and save a seed-point distribution for an object.
 
-:param expl_dir: Directory in which to write the generated ``points.csv`` file.
-:type expl_dir: str
-:param obj_len: Characteristic object length used to scale the distribution.
-:type obj_len: Any
-:param law: Coefficient and exponent of the target spacing law.
-:type law: Any
-"""
+    :param expl_dir: Directory in which to write the generated ``points.csv`` file.
+    :type expl_dir: str
+    :param obj_len: Characteristic object length used to scale the distribution.
+    :type obj_len: Any
+    :param law: Coefficient and exponent of the target spacing law.
+    :type law: Any
+    """
     seed_func = partial(generate_seed_points, obj_len, law[1], False)
     opt = minimize(seed_func,[64,20,-3],bounds=[[32,128],[3,32],[-5,-1]],tol=1e-2)
     print(opt.message)
@@ -139,12 +140,13 @@ def get_seed_points(expl_dir, obj_len=2, law = [6, -1.6]):
 def plot_result(points, desired_law, regress_law):
     """Plot seed locations and compare their spacing law with a target fit.
 
-:param points: Three-dimensional sample coordinates.
-:type points: list[float]
-:param desired_law: Coefficient and exponent of the target spacing law.
-:type desired_law: Any
-:param regress_law: Regression result used to plot the fitted spacing law.
-:type regress_law: Any"""
+    :param points: Three-dimensional sample coordinates.
+    :type points: list[float]
+    :param desired_law: Coefficient and exponent of the target spacing law.
+    :type desired_law: Any
+    :param regress_law: Regression result used to plot the fitted spacing law.
+    :type regress_law: Any"""
+    
     k = min(points.shape[0], 16) #int(np.min([100,np.floor(0.9*points.shape[0])]))
     dists = get_dists(points, k=max([k,2]))
 

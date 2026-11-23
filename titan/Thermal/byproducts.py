@@ -74,10 +74,10 @@ class Byproducts():
     def get_species_list(self,assembly):
         """Collect mixture species from components and initialize their arrays.
 
-    :param assembly: Assembly whose component mixtures are inspected.
-    :type assembly: Assembly
-    """
-        for component in assembly.objects:
+        :param assembly: Assembly whose component mixtures are inspected.
+        :type assembly: Assembly
+        """
+        for component in assembly.components:
             if component.mixture is not None:
                 mix = mpp.Mixture(mpp.MixtureOptions(component.mixture))
                 for i_spec in range(mix.nSpecies()):
@@ -95,12 +95,12 @@ class Byproducts():
         Species properties and altitude-normalized emissions are accumulated
         on the facets associated with each component.
 
-    :param assembly: Assembly containing the ablating components.
-    :type assembly: Assembly
-    :param options: Simulation settings, including freestream-mixture options.
-    :type options: Options
-    :param delta_t: Elapsed time represented by the ablated mass, in seconds.
-    :type delta_t: float
+        :param assembly: Assembly containing the ablating components.
+        :type assembly: Assembly
+        :param options: Simulation settings, including freestream-mixture options.
+        :type options: Options
+        :param delta_t: Elapsed time represented by the ablated mass, in seconds.
+        :type delta_t: float
     """
         mx = mpp.Mixture(mpp.MixtureOptions(options.aerothermo.mixture))
         free_species_names = [mx.speciesName(i_spec) for i_spec in range(mx.nSpecies())]
@@ -111,7 +111,7 @@ class Byproducts():
             self.mass[speci] = np.zeros_like(self.column_height_mix)
             self.emission[speci] = np.zeros_like(self.column_height_mix)
 
-        for component in assembly.objects:
+        for component in assembly.components:
             if component.mixture is None: continue
             self.air_in_excess(component, free_species_names, options.thermal.excess_mult)
             

@@ -17,9 +17,20 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 #
+
 """Equations used in continuum aerothermodynamics calculations
 
-For more information on heat flux relations, the following paper provides a good comparison between the methods available in TITAN
+Whilst free-molecular aerothermodynamic heating is governed by the Schaaf-Chambre model, in the continuum regime
+MNT can only get us the surface pressure, we use information about the freestream to relate this surface pressure
+to an associated heat flux, this is called a heat flux correlation.
+
+TITAN's Fay-Riddell representation also includes a pseduo-stagnation line equilibrium representation of flow 
+conditions at the boundary layer edge (BLE) which can be used to augment heatflux and ablation calculations. 
+A root-finding algorithm (Brent's) is used to equilibriate the BLE conditions with the post shock enthalpy
+
+For more information on heat flux correlations, the following paper provides a good comparison between the methods 
+available in TITAN
+
 S. H. Park, et al, A study on heat flux predictions for re-entry flight analysis, 2021
 https://doi.org/10.1016/j.actaastro.2021.06.025.
 """
