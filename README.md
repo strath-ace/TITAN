@@ -8,7 +8,7 @@
 
 Please contact tommy.williamson@strath.ac.uk with any issues.
 # Usage
-
+Read the docs online at https://tommywilliamson.github.io/TITAN-Docs/
 ## Installation
 For automated installation run the install script provided.
 
